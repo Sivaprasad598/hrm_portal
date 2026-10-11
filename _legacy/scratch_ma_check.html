@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monthly Attendance Sheet</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f5f5;
+            margin: 20px;
+        }
+
+        .top-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .top-controls select {
+            padding: 6px 10px;
+            border-radius: 4px;
+            border: 1px solid #999;
+        }
+
+        .attendance-container {
+            background: #fff;
+            border: 1px solid #ccc;
+            overflow-x: auto;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        table {
+            border-collapse: collapse;
+            min-width: 1400px;
+            width: 100%;
+            text-align: center;
+        }
+
+        th, td {
+            border: 1px solid #999;
+            padding: 6px 8px;
+            font-size: 13px;
+        }
+
+        .title-row th {
+            background: #ffe600;
+            color: #000;
+            font-size: 18px;
+            font-weight: bold;
+            padding: 10px;
+        }
+
+        .header {
+            background: #d9e8fb;
+            font-weight: bold;
+        }
+
+        .name-col {
+            min-width: 180px;
+            text-align: left;
+            font-weight: bold;
+        }
+
+        .present { background: #e6ffe6; color: green; font-weight: bold; }
+        .absent { background: #ffe6e6; color: red; font-weight: bold; }
+        .weekoff { background: #f2f2f2; color: #666; font-weight: bold; }
+        .halfday { background: #fff3cd; color: #d97706; font-weight: bold; }
+        .leave-cell { background: #fdeaf6; color: #a239b8; font-weight: bold; }
+        .cl-cell { background: #eef0ff; color: #4e73df; font-weight: bold; }
+        .sl-cell { background: #e6fff2; color: #1cc88a; font-weight: bold; }
+        .lop-cell { background: #fdeceb; color: #c00000; font-weight: bold; }
+
+        .total-head { background: #fff2cc; font-weight: bold; }
+        .lop { color: #c00000; font-weight: bold; }
+        .sl { color: #ff9900; font-weight: bold; }
+        .cl { color: #7030a0; font-weight: bold; }
+        .tl { color: #008000; font-weight: bold; }
+        .present-total { color: #1a7f37; font-weight: bold; }
+        .dayoff-total { color: #666; font-weight: bold; }
+        .grand-total { background: #fff2cc; color: #000; font-weight: bold; }
+
+        .no-data { padding: 40px; text-align: center; color: #888; }
+
+        .legend-bar {
+            background: #ffe600;
+            color: #000;
+            font-weight: bold;
+            text-align: center;
+            padding: 8px;
+            font-size: 13px;
+            border-top: 1px solid #ccc;
+        }
+
+        .formula-box {
+            background: #fdf6e3;
+            color: #664d03;
+            text-align: center;
+            padding: 10px;
+            font-size: 13px;
+            font-weight: bold;
+            border-top: 1px solid #eee2c0;
+        }
+    </style>
+</head>
+<body>
+
+<div class="top-controls">
+    <div>
+        <label><b>Department:</b></label>
+        <select id="departmentSelect">
+            <option value="">All Departments</option>
+                            <option value="1" >Gis Department</option>
+                    </select>
+    </div>
+    <div><b>July 2026</b></div>
+</div>
+
+<div class="attendance-container">
+            <table>
+            <tr class="title-row">
+                <th colspan="41">ALL DEPARTMENTS</th>
+            </tr>
+
+            <tr class="header">
+                <th>S.No</th>
+                <th class="name-col">Name of the Employee</th>
+                                    <th>1-Jul<br>Wed</th>
+                                    <th>2-Jul<br>Thu</th>
+                                    <th>3-Jul<br>Fri</th>
+                                    <th>4-Jul<br>Sat</th>
+                                    <th>5-Jul<br>Sun</th>
+                                    <th>6-Jul<br>Mon</th>
+                                    <th>7-Jul<br>Tue</th>
+                                    <th>8-Jul<br>Wed</th>
+                                    <th>9-Jul<br>Thu</th>
+                                    <th>10-Jul<br>Fri</th>
+                                    <th>11-Jul<br>Sat</th>
+                                    <th>12-Jul<br>Sun</th>
+                                    <th>13-Jul<br>Mon</th>
+                                    <th>14-Jul<br>Tue</th>
+                                    <th>15-Jul<br>Wed</th>
+                                    <th>16-Jul<br>Thu</th>
+                                    <th>17-Jul<br>Fri</th>
+                                    <th>18-Jul<br>Sat</th>
+                                    <th>19-Jul<br>Sun</th>
+                                    <th>20-Jul<br>Mon</th>
+                                    <th>21-Jul<br>Tue</th>
+                                    <th>22-Jul<br>Wed</th>
+                                    <th>23-Jul<br>Thu</th>
+                                    <th>24-Jul<br>Fri</th>
+                                    <th>25-Jul<br>Sat</th>
+                                    <th>26-Jul<br>Sun</th>
+                                    <th>27-Jul<br>Mon</th>
+                                    <th>28-Jul<br>Tue</th>
+                                    <th>29-Jul<br>Wed</th>
+                                    <th>30-Jul<br>Thu</th>
+                                    <th>31-Jul<br>Fri</th>
+                                <th class="total-head">CL</th>
+                <th class="total-head">SL</th>
+                <th class="total-head">LOP</th>
+                <th class="total-head">0.5</th>
+                <th class="total-head">TL</th>
+                <th class="total-head">Present</th>
+                <th class="total-head">Day Off</th>
+                <th class="total-head">Total (out of 31)</th>
+            </tr>
+
+                            <tr>
+                    <td>1</td>
+                    <td class="name-col">Duddu Kamesh</td>
+                                            <td class="present">P</td>
+                                            <td class="present">P</td>
+                                            <td class="present">P</td>
+                                            <td class="weekoff">Sat</td>
+                                            <td class="weekoff">Sun</td>
+                                            <td class="present">P</td>
+                                            <td class="present">P</td>
+                                            <td class="present">P</td>
+                                            <td class="present">P</td>
+                                            <td class="present">P</td>
+                                            <td class="weekoff">Sat</td>
+                                            <td class="weekoff">Sun</td>
+                                            <td class="present">P</td>
+                                            <td class="present">P</td>
+                                            <td class="halfday">0.5</td>
+                                            <td class="present">P</td>
+                                            <td class="present">P</td>
+                                            <td class="weekoff">Sat</td>
+                                            <td class="weekoff">Sun</td>
+                                            <td class="absent">A</td>
+                                            <td class="present">P</td>
+                                            <td class="halfday">0.5</td>
+                                            <td class="absent">A</td>
+                                            <td class="halfday">0.5</td>
+                                            <td class="weekoff">Sat</td>
+                                            <td class="weekoff">Sun</td>
+                                            <td class="present">P</td>
+                                            <td class="present">P</td>
+                                            <td class="present">P</td>
+                                            <td class="halfday">0.5</td>
+                                            <td class="present">P</td>
+                                        <td class="cl">0</td>
+                    <td class="sl">0</td>
+                    <td class="lop">0</td>
+                    <td>4</td>
+                    <td class="tl">0</td>
+                    <td class="present-total">17</td>
+                    <td class="dayoff-total">8</td>
+                    <td class="grand-total">27</td>
+                </tr>
+                            <tr>
+                    <td>2</td>
+                    <td class="name-col">Ganapati Shiva</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                        <td class="cl">0</td>
+                    <td class="sl">0</td>
+                    <td class="lop">0</td>
+                    <td>0</td>
+                    <td class="tl">0</td>
+                    <td class="present-total">0</td>
+                    <td class="dayoff-total">0</td>
+                    <td class="grand-total">0</td>
+                </tr>
+                            <tr>
+                    <td>3</td>
+                    <td class="name-col">Marri swapna</td>
+                                            <td class="present">P</td>
+                                            <td class="present">P</td>
+                                            <td class="present">P</td>
+                                            <td class="weekoff">Sat</td>
+                                            <td class="weekoff">Sun</td>
+                                            <td class="cl-cell">CL</td>
+                                            <td class="present">P</td>
+                                            <td class="present">P</td>
+                                            <td class="present">P</td>
+                                            <td class="present">P</td>
+                                            <td class="weekoff">Sat</td>
+                                            <td class="weekoff">Sun</td>
+                                            <td class="present">P</td>
+                                            <td class="present">P</td>
+                                            <td class="present">P</td>
+                                            <td class="present">P</td>
+                                            <td class="present">P</td>
+                                            <td class="weekoff">Sat</td>
+                                            <td class="weekoff">Sun</td>
+                                            <td class="present">P</td>
+                                            <td class="present">P</td>
+                                            <td class="present">P</td>
+                                            <td class="present">P</td>
+                                            <td class="present">P</td>
+                                            <td class="weekoff">Sat</td>
+                                            <td class="weekoff">Sun</td>
+                                            <td class="present">P</td>
+                                            <td class="present">P</td>
+                                            <td class="present">P</td>
+                                            <td class="present">P</td>
+                                            <td class="present">P</td>
+                                        <td class="cl">1</td>
+                    <td class="sl">0</td>
+                    <td class="lop">0</td>
+                    <td>0</td>
+                    <td class="tl">0</td>
+                    <td class="present-total">22</td>
+                    <td class="dayoff-total">8</td>
+                    <td class="grand-total">29</td>
+                </tr>
+                            <tr>
+                    <td>4</td>
+                    <td class="name-col">Murali</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                        <td class="cl">0</td>
+                    <td class="sl">0</td>
+                    <td class="lop">0</td>
+                    <td>0</td>
+                    <td class="tl">0</td>
+                    <td class="present-total">0</td>
+                    <td class="dayoff-total">0</td>
+                    <td class="grand-total">0</td>
+                </tr>
+                            <tr>
+                    <td>5</td>
+                    <td class="name-col">N.Ajay Babu</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                        <td class="cl">0</td>
+                    <td class="sl">0</td>
+                    <td class="lop">0</td>
+                    <td>0</td>
+                    <td class="tl">0</td>
+                    <td class="present-total">0</td>
+                    <td class="dayoff-total">0</td>
+                    <td class="grand-total">0</td>
+                </tr>
+                            <tr>
+                    <td>6</td>
+                    <td class="name-col">prakash</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                        <td class="cl">0</td>
+                    <td class="sl">0</td>
+                    <td class="lop">0</td>
+                    <td>0</td>
+                    <td class="tl">0</td>
+                    <td class="present-total">0</td>
+                    <td class="dayoff-total">0</td>
+                    <td class="grand-total">0</td>
+                </tr>
+                            <tr>
+                    <td>7</td>
+                    <td class="name-col">prudhvi</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                        <td class="cl">0</td>
+                    <td class="sl">0</td>
+                    <td class="lop">0</td>
+                    <td>0</td>
+                    <td class="tl">0</td>
+                    <td class="present-total">0</td>
+                    <td class="dayoff-total">0</td>
+                    <td class="grand-total">0</td>
+                </tr>
+                            <tr>
+                    <td>8</td>
+                    <td class="name-col">T SAI MANOJ</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                        <td class="cl">0</td>
+                    <td class="sl">0</td>
+                    <td class="lop">0</td>
+                    <td>0</td>
+                    <td class="tl">0</td>
+                    <td class="present-total">0</td>
+                    <td class="dayoff-total">0</td>
+                    <td class="grand-total">0</td>
+                </tr>
+                            <tr>
+                    <td>9</td>
+                    <td class="name-col">UMA DEVI</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="weekoff">Sat</td>
+                                            <td class="weekoff">Sun</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                            <td class="absent">A</td>
+                                        <td class="cl">0</td>
+                    <td class="sl">0</td>
+                    <td class="lop">0</td>
+                    <td>0</td>
+                    <td class="tl">0</td>
+                    <td class="present-total">0</td>
+                    <td class="dayoff-total">2</td>
+                    <td class="grand-total">2</td>
+                </tr>
+                    </table>
+
+        <div class="legend-bar">
+            P = Present &nbsp;|&nbsp; A = Absent &nbsp;|&nbsp; CL = Casual Leave &nbsp;|&nbsp; SL = Sick Leave &nbsp;|&nbsp; LOP = Loss of Pay &nbsp;|&nbsp; 0.5 = Half Day &nbsp;|&nbsp; TL = Total Leave
+        </div>
+        <div class="formula-box">
+            TOTAL (out of 31) = Present + (0.5 &times; Half Day) + Day Offs &minus; CL &minus; SL &minus; LOP
+        </div>
+    </div>
+
+<script>
+    document.getElementById('departmentSelect').addEventListener('change', function () {
+        var url = new URL(window.location.href);
+        if (this.value) {
+            url.searchParams.set('department_id', this.value);
+        } else {
+            url.searchParams.delete('department_id');
+        }
+        window.location.href = url.toString();
+    });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Payroll Calculator · All Inputs</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+        }
+        body {
+            background: #f0f4fa;
+            min-height: 100vh;
+            padding: 2rem 1rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .card {
+            max-width: 1100px;
+            width: 100%;
+            background: white;
+            border-radius: 2rem;
+            box-shadow: 0 20px 40px -12px rgba(0,20,40,0.25);
+            padding: 2rem 2rem 2.5rem;
+        }
+        h1 {
+            font-weight: 600;
+            font-size: 1.8rem;
+            color: #0b2b4a;
+            border-bottom: 2px solid #e6edf5;
+            padding-bottom: 1rem;
+            margin-bottom: 1.8rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        h1 small {
+            font-size: 1rem;
+            font-weight: 400;
+            color: #3d5f7a;
+            margin-left: 0.3rem;
+        }
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+        @media (max-width: 860px) {
+            .grid-2 {
+                grid-template-columns: 1fr;
+                gap: 2rem;
+            }
+        }
+        .input-panel {
+            background: #f9fbfd;
+            padding: 1.5rem 1.8rem;
+            border-radius: 1.5rem;
+            border: 1px solid #e9eef3;
+        }
+        .input-panel h3 {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #1d3b57;
+            margin-bottom: 1.2rem;
+        }
+        .section-title {
+            font-weight: 600;
+            color: #1d4a6e;
+            font-size: 0.9rem;
+            margin: 1.2rem 0 0.6rem 0;
+            border-bottom: 1px solid #d5dee8;
+            padding-bottom: 0.3rem;
+        }
+        .input-row-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.8rem;
+        }
+        @media (max-width: 500px) {
+            .input-row-2 {
+                grid-template-columns: 1fr;
+            }
+        }
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+            margin-bottom: 0.6rem;
+        }
+        .input-group label {
+            font-weight: 500;
+            font-size: 0.8rem;
+            color: #2c4a66;
+        }
+        .input-group label .hint {
+            font-weight: 400;
+            color: #6b88a2;
+            font-size: 0.7rem;
+        }
+        .input-group input {
+            padding: 0.5rem 0.8rem;
+            border: 1px solid #d5dee8;
+            border-radius: 0.8rem;
+            font-size: 0.95rem;
+            background: white;
+            transition: 0.15s;
+            width: 100%;
+        }
+        .input-group input:focus {
+            outline: 2px solid #2b6a9e;
+            border-color: transparent;
+        }
+        .action-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.8rem;
+            margin: 1.5rem 0 0.5rem;
+        }
+        .btn {
+            background: #e5edf6;
+            border: none;
+            padding: 0.65rem 1.6rem;
+            border-radius: 2rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: #1d3b57;
+            cursor: pointer;
+            transition: 0.15s;
+            border: 1px solid transparent;
+            flex: 1 0 auto;
+        }
+        .btn-primary {
+            background: #1d4b75;
+            color: white;
+            border-color: #1d4b75;
+        }
+        .btn-primary:hover {
+            background: #123a5c;
+            transform: scale(1.01);
+        }
+        .btn-outline {
+            background: transparent;
+            border: 1px solid #b8ccde;
+        }
+        .btn-outline:hover {
+            background: #e5edf6;
+        }
+        .slip-panel {
+            background: white;
+        }
+        .slip-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 1.2rem;
+            flex-wrap: wrap;
+        }
+        .slip-header h3 {
+            font-weight: 600;
+            color: #1d3b57;
+            font-size: 1.3rem;
+        }
+        .slip-header .badge {
+            background: #ddeeff;
+            padding: 0.3rem 1rem;
+            border-radius: 30px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #00558b;
+        }
+        .salary-slip {
+            background: #fafcff;
+            border-radius: 1.4rem;
+            border: 1px solid #e2eaf2;
+            padding: 1.4rem 1.6rem 1.8rem;
+        }
+        .slip-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.4rem 0;
+            border-bottom: 1px dashed #e2eaf2;
+            font-size: 0.95rem;
+        }
+        .slip-row:last-child {
+            border-bottom: none;
+        }
+        .slip-row .label {
+            color: #3a5c78;
+        }
+        .slip-row .value {
+            font-weight: 600;
+            color: #0a263b;
+        }
+        .slip-row.total {
+            border-top: 2px solid #b8ccde;
+            border-bottom: none;
+            padding-top: 0.8rem;
+            margin-top: 0.3rem;
+            font-size: 1.05rem;
+        }
+        .slip-row.total .value {
+            color: #004e8c;
+            font-size: 1.1rem;
+        }
+        .highlight-net {
+            background: #e1effa;
+            border-radius: 1rem;
+            padding: 0.4rem 1rem;
+            margin-top: 0.8rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .highlight-net .label {
+            font-weight: 600;
+            color: #004e8c;
+        }
+        .highlight-net .value {
+            font-weight: 700;
+            font-size: 1.2rem;
+            color: #003f6b;
+        }
+        .attendance-box {
+            background: #e9f2fa;
+            border-radius: 1rem;
+            padding: 0.3rem 1rem;
+            margin-top: 0.6rem;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .per-day-tag {
+            background: #d5e6f5;
+            padding: 0.1rem 1.2rem;
+            border-radius: 30px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: #004274;
+        }
+        .footnote {
+            font-size: 0.78rem;
+            color: #6b87a0;
+            margin-top: 1.2rem;
+            border-top: 1px solid #e2eaf2;
+            padding-top: 0.9rem;
+            text-align: center;
+        }
+        .error-msg {
+            color: #b33c4a;
+            background: #ffe6e9;
+            padding: 0.3rem 1rem;
+            border-radius: 3rem;
+            font-size: 0.8rem;
+            display: inline-block;
+            margin-top: 0.3rem;
+        }
+        .inline-hint {
+            font-size: 0.7rem;
+            color: #58748c;
+            margin-top: 0.1rem;
+        }
+        .slip-section-title {
+            font-weight: 600;
+            color: #1d3b57;
+            margin-bottom: 0.2rem;
+            font-size: 0.95rem;
+        }
+        .others-highlight {
+            background: #f5f9ff;
+            border-left: 3px solid #2b6a9e;
+            padding-left: 0.5rem;
+            margin: 0.2rem 0;
+        }
+        .separator-line {
+            border-top: 2px solid #d1dfec;
+            margin: 0.3rem 0 0.2rem 0;
+        }
+    </style>
+</head>
+<body>
+<div class="card">
+    <h1>
+        🧾 Payroll · All Input Fields
+        <small>basic % · HRA % · CA slabs · ESI % · PF %</small>
+    </h1>
+    <div class="grid-2">
+        <!-- LEFT: ALL INPUTS -->
+        <div class="input-panel">
+            <h3>📋 Configure each component</h3>
+
+            <div class="input-group">
+                <label>Gross Salary (₹) <span class="hint">(monthly)</span></label>
+                <input type="number" id="grossInput" value="60000" step="100" />
+            </div>
+
+            <div class="section-title">🔹 Basic & HRA</div>
+            <div class="input-row-2">
+                <div class="input-group">
+                    <label>Basic % <span class="hint">(of Gross)</span></label>
+                    <input type="number" id="basicPct" value="30" step="0.5" min="0" max="100" />
+                    <span class="inline-hint">→ Basic = ₹<span id="basicPreview">18000</span></span>
+                </div>
+                <div class="input-group">
+                    <label>HRA % <span class="hint">(of Basic)</span></label>
+                    <input type="number" id="hraPct" value="50" step="0.5" min="0" max="100" />
+                    <span class="inline-hint">→ HRA = ₹<span id="hraPreview">9000</span></span>
+                </div>
+            </div>
+
+            <div class="section-title">🔹 CA (Conveyance Allowance)</div>
+            <div class="input-row-2">
+                <div class="input-group">
+                    <label>CA threshold salary (₹) <span class="hint">(above → high CA)</span></label>
+                    <input type="number" id="caThreshold" value="20000" step="1000" />
+                </div>
+                <div class="input-group">
+                    <label>CA amounts (₹)</label>
+                    <div class="input-row-2" style="gap:0.5rem; margin-top:0.2rem;">
+                        <input type="number" id="caHigh" value="1600" step="100" placeholder="Above threshold" />
+                        <input type="number" id="caLow" value="800" step="100" placeholder="Below threshold" />
+                    </div>
+                    <span class="inline-hint">High: ₹<span id="caHighPreview">1600</span> · Low: ₹<span id="caLowPreview">800</span></span>
+                </div>
+            </div>
+
+            <div class="section-title">🔹 PT & Others</div>
+            <div class="input-row-2">
+                <div class="input-group">
+                    <label>PT (Professional Tax) ₹ <span class="hint">fixed</span></label>
+                    <input type="number" id="ptInput" value="200" step="10" />
+                </div>
+                <div class="input-group">
+                    <label>Others <span class="hint">(auto-calculated)</span></label>
+                    <input type="text" id="othersDisplay" value="₹ 31,400" disabled style="background:#eef3f8; color:#1d3b57; font-weight:600;" />
+                    <span class="inline-hint">Gross − (Basic + HRA + CA)</span>
+                </div>
+            </div>
+
+            <div class="section-title">🔹 ESI (Employee State Insurance)</div>
+            <div class="input-row-2">
+                <div class="input-group">
+                    <label>ESI threshold (Gross below ₹)</label>
+                    <input type="number" id="esiThreshold" value="20000" step="1000" />
+                </div>
+                <div class="input-group">
+                    <label>ESI % <span class="hint">(of Gross)</span></label>
+                    <input type="number" id="esiPct" value="0.4" step="0.1" min="0" max="5" />
+                    <span class="inline-hint">applies if Gross &lt; threshold</span>
+                </div>
+            </div>
+
+            <div class="section-title">🔹 PF (Provident Fund)</div>
+            <div class="input-group">
+                <label>PF % <span class="hint">(of Basic — employee contribution)</span></label>
+                <input type="number" id="pfPct" value="12" step="0.5" min="0" max="20" />
+                <span class="inline-hint">→ PF = ₹<span id="pfPreview">2160</span></span>
+            </div>
+
+            <div class="section-title">📅 Attendance</div>
+            <div class="input-row-2">
+                <div class="input-group">
+                    <label>Working days in month</label>
+                    <input type="number" id="workingDays" value="22" step="1" min="1" max="31" />
+                </div>
+                <div class="input-group">
+                    <label>Days present</label>
+                    <input type="number" id="daysPresent" value="22" step="1" min="0" max="31" />
+                </div>
+            </div>
+
+            <div class="action-buttons">
+                <button class="btn btn-primary" id="calcBtn">⟳ Calculate & generate slip</button>
+                <button class="btn btn-outline" id="resetDefaultBtn">↺ reset to default</button>
+            </div>
+            <div id="errorDisplay" style="margin-top: 0.3rem;"></div>
+        </div>
+
+        <!-- RIGHT: Salary Slip -->
+        <div class="slip-panel">
+            <div class="slip-header">
+                <h3>📄 salary slip</h3>
+                <span class="badge">all inputs · per‑day</span>
+            </div>
+            <div id="slipContainer">
+                <div class="salary-slip" id="salarySlip">
+                    <div style="text-align: center; color: #687e96; padding: 1.2rem 0;">
+                        <span style="font-size: 1.1rem;">📊</span><br />
+                        Adjust inputs &amp; click <strong>“Calculate”</strong>
+                    </div>
+                </div>
+            </div>
+            <div class="footnote">
+                <strong>Per‑day salary</strong> = Net Salary ÷ Working days &nbsp;·&nbsp;
+                <strong>Net payable</strong> = Per‑day × Days present
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function() {
+        const grossInput = document.getElementById('grossInput');
+        const basicPct = document.getElementById('basicPct');
+        const hraPct = document.getElementById('hraPct');
+        const caThreshold = document.getElementById('caThreshold');
+        const caHigh = document.getElementById('caHigh');
+        const caLow = document.getElementById('caLow');
+        const ptInput = document.getElementById('ptInput');
+        const othersDisplay = document.getElementById('othersDisplay');
+        const esiThreshold = document.getElementById('esiThreshold');
+        const esiPct = document.getElementById('esiPct');
+        const pfPct = document.getElementById('pfPct');
+        const workingDays = document.getElementById('workingDays');
+        const daysPresent = document.getElementById('daysPresent');
+        const calcBtn = document.getElementById('calcBtn');
+        const resetBtn = document.getElementById('resetDefaultBtn');
+        const slipContainer = document.getElementById('slipContainer');
+        const errorDisplay = document.getElementById('errorDisplay');
+
+        const basicPreview = document.getElementById('basicPreview');
+        const hraPreview = document.getElementById('hraPreview');
+        const caHighPreview = document.getElementById('caHighPreview');
+        const caLowPreview = document.getElementById('caLowPreview');
+        const pfPreview = document.getElementById('pfPreview');
+
+        const DEFAULTS = {
+            gross: 60000,
+            basicPct: 30,
+            hraPct: 50,
+            caThreshold: 20000,
+            caHigh: 1600,
+            caLow: 800,
+            pt: 200,
+            esiThreshold: 20000,
+            esiPct: 0.4,
+            pfPct: 12,
+            workingDays: 22,
+            daysPresent: 22
+        };
+
+        function fmt(val) { return Math.round(val); }
+
+        function fmtCurrency(val) {
+            return '₹ ' + Number(val).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+        }
+
+        function updatePreviews() {
+            const gross = parseFloat(grossInput.value) || 0;
+            const bp = parseFloat(basicPct.value) || 0;
+            const hp = parseFloat(hraPct.value) || 0;
+            const basic = gross * (bp / 100);
+            const hra = basic * (hp / 100);
+            basicPreview.textContent = fmt(basic);
+            hraPreview.textContent = fmt(hra);
+
+            const ch = parseFloat(caHigh.value) || 0;
+            const cl = parseFloat(caLow.value) || 0;
+            caHighPreview.textContent = fmt(ch);
+            caLowPreview.textContent = fmt(cl);
+
+            const pf = parseFloat(pfPct.value) || 0;
+            pfPreview.textContent = fmt(basic * (pf / 100));
+
+            const threshold = parseFloat(caThreshold.value) || 0;
+            const ca = gross >= threshold ? ch : cl;
+            const others = gross - (basic + hra + ca);
+            othersDisplay.value = fmtCurrency(fmt(others));
+        }
+
+        [grossInput, basicPct, hraPct, caThreshold, caHigh, caLow, pfPct].forEach(el => {
+            el.addEventListener('input', updatePreviews);
+        });
+
+        function calculatePayroll() {
+            const gross = parseFloat(grossInput.value) || 0;
+            const bp = parseFloat(basicPct.value) || 0;
+            const hp = parseFloat(hraPct.value) || 0;
+            const threshold = parseFloat(caThreshold.value) || 0;
+            const caHighVal = parseFloat(caHigh.value) || 0;
+            const caLowVal = parseFloat(caLow.value) || 0;
+            const pt = parseFloat(ptInput.value) || 0;
+            const esiThresh = parseFloat(esiThreshold.value) || 0;
+            const esiPctVal = parseFloat(esiPct.value) || 0;
+            const pfPctVal = parseFloat(pfPct.value) || 0;
+            const workDays = parseInt(workingDays.value) || 22;
+            const presentDays = parseInt(daysPresent.value) || 0;
+
+            const basic = gross * (bp / 100);
+            const hra = basic * (hp / 100);
+            const ca = gross >= threshold ? caHighVal : caLowVal;
+            const others = gross - (basic + hra + ca);
+            const esi = (gross < esiThresh) ? gross * (esiPctVal / 100) : 0;
+            const pf = basic * (pfPctVal / 100);
+            const totalDeductions = pt + esi + pf;
+            const netSalary = gross - totalDeductions;
+            const perDay = workDays > 0 ? netSalary / workDays : 0;
+            const attendanceNet = perDay * presentDays;
+
+            return {
+                gross, basic, hra, ca, others, pt, esi, pf,
+                totalDeductions, netSalary, perDay, attendanceNet,
+                workDays, presentDays, threshold, esiThresh, esiPctVal, pfPctVal,
+                caHighVal, caLowVal, bp, hp
+            };
+        }
+
+        function renderSlip() {
+            const d = calculatePayroll();
+            const f = (v) => Math.round(v);
+
+            let warning = '';
+            if (d.presentDays > d.workDays) {
+                warning = `<span style="color:#b36b2a; background:#ffeedb; padding:0.1rem 1rem; border-radius:2rem; font-size:0.75rem;">⚠️ Days present > working days</span>`;
+            }
+            if (d.presentDays === 0) {
+                warning = `<span style="color:#b33c4a; background:#ffe6e9; padding:0.1rem 1rem; border-radius:2rem; font-size:0.75rem;">⚠️ 0 days present → net pay = 0</span>`;
+            }
+
+            const caLabel = d.gross >= d.threshold ? `CA (≥${fmtCurrency(d.threshold)})` : `CA (<${fmtCurrency(d.threshold)})`;
+
+            return `
+                <div class="salary-slip">
+                    <!-- EARNINGS SECTION -->
+                    <div style="margin-bottom:0.6rem;">
+                        <div class="slip-section-title">📈 Earnings</div>
+                        <div class="slip-row"><span class="label">Basic (${d.bp}% of Gross)</span><span class="value">${fmtCurrency(f(d.basic))}</span></div>
+                        <div class="slip-row"><span class="label">HRA (${d.hp}% of Basic)</span><span class="value">${fmtCurrency(f(d.hra))}</span></div>
+                        <div class="slip-row"><span class="label">${caLabel}</span><span class="value">${fmtCurrency(f(d.ca))}</span></div>
+                        <div class="slip-row total"><span class="label"><strong>Gross Salary</strong></span><span class="value"><strong>${fmtCurrency(f(d.gross))}</strong></span></div>
+                    </div>
+
+                    <!-- DEDUCTIONS SECTION - PT and OTHERS as SEPARATE sections -->
+                    <div style="margin-bottom:0.6rem; background:#f2f7fe; border-radius:1rem; padding:0.2rem 0.6rem;">
+                        <div class="slip-section-title" style="margin-bottom:0.1rem;">🔻 Deductions</div>
+                        
+                        <!-- PF -->
+                        <div class="slip-row"><span class="label">PF (${d.pfPctVal}% of Basic)</span><span class="value">${fmtCurrency(f(d.pf))}</span></div>
+                        
+                        <!-- ESI -->
+                        <div class="slip-row"><span class="label">ESI ${d.gross < d.esiThresh ? `(${d.esiPctVal}% of Gross)` : '(₹0 — Gross ≥ threshold)'}</span><span class="value">${fmtCurrency(f(d.esi))}</span></div>
+                        
+                        <!-- PT - SEPARATE SECTION -->
+                        <div style="background:#e8f0fe; border-radius:0.5rem; padding:0.1rem 0.4rem; margin:0.2rem 0;">
+                            <div class="slip-row" style="border-bottom:1px solid #c5d8ed;"><span class="label"><strong>PT (Professional Tax)</strong></span><span class="value"><strong>${fmtCurrency(f(d.pt))}</strong></span></div>
+                        </div>
+
+                        <!-- OTHERS - SEPARATE SECTION (displayed right below PT) -->
+                        <div style="background:#f0f7ff; border-radius:0.5rem; padding:0.1rem 0.4rem; margin:0.2rem 0; border-left:3px solid #2b6a9e;">
+                            <div class="slip-row" style="border-bottom:1px solid #d5e3f5;"><span class="label"><strong>Others (balancing)</strong></span><span class="value"><strong>${fmtCurrency(f(d.others))}</strong></span></div>
+                        </div>
+
+                        <!-- Total Deductions -->
+                        <div class="slip-row total"><span class="label"><strong>Total Deductions</strong></span><span class="value"><strong>${fmtCurrency(f(d.totalDeductions))}</strong></span></div>
+                    </div>
+
+                    <!-- Net & Per-day -->
+                    <div class="highlight-net">
+                        <span class="label">✅ Net Salary (full month)</span>
+                        <span class="value">${fmtCurrency(f(d.netSalary))}</span>
+                    </div>
+
+                    <div class="attendance-box">
+                        <span>📅 ${d.workDays} working days · ✅ ${d.presentDays} present</span>
+                        <span class="per-day-tag">💵 Per‑day: ${fmtCurrency(f(d.perDay))}</span>
+                        ${warning}
+                    </div>
+
+                    <div style="background:#d4e6f7; border-radius:1rem; padding:0.3rem 1rem; margin-top:0.6rem; display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-weight:600; color:#004e8c;">📆 Net payable (attendance)</span>
+                        <span style="font-weight:700; font-size:1.2rem; color:#003f6b;">${fmtCurrency(f(d.attendanceNet))}</span>
+                    </div>
+
+                    <div style="font-size:0.72rem; color:#55748e; margin-top:0.6rem; background:#f2f7fe; padding:0.2rem 0.8rem; border-radius:1rem; display:flex; justify-content:space-between; flex-wrap:wrap;">
+                        <span>📌 Gross: ${fmtCurrency(f(d.gross))}</span>
+                        <span>🧾 PF: ${fmtCurrency(f(d.pf))}</span>
+                        <span>📊 ESI: ${fmtCurrency(f(d.esi))}</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        function calculateAndRender() {
+            errorDisplay.innerHTML = '';
+            const gross = parseFloat(grossInput.value) || 0;
+            const workDays = parseInt(workingDays.value) || 22;
+            const presentDays = parseInt(daysPresent.value) || 0;
+
+            if (gross <= 0) {
+                errorDisplay.innerHTML = '<span class="error-msg">⚠️ Enter a valid positive Gross salary</span>';
+                return;
+            }
+            if (workDays < 1 || workDays > 31) {
+                errorDisplay.innerHTML = '<span class="error-msg">⚠️ Working days must be 1‑31</span>';
+                return;
+            }
+            if (presentDays < 0 || presentDays > 31) {
+                errorDisplay.innerHTML = '<span class="error-msg">⚠️ Days present must be 0‑31</span>';
+                return;
+            }
+
+            slipContainer.innerHTML = renderSlip();
+        }
+
+        function setDefaults() {
+            grossInput.value = DEFAULTS.gross;
+            basicPct.value = DEFAULTS.basicPct;
+            hraPct.value = DEFAULTS.hraPct;
+            caThreshold.value = DEFAULTS.caThreshold;
+            caHigh.value = DEFAULTS.caHigh;
+            caLow.value = DEFAULTS.caLow;
+            ptInput.value = DEFAULTS.pt;
+            esiThreshold.value = DEFAULTS.esiThreshold;
+            esiPct.value = DEFAULTS.esiPct;
+            pfPct.value = DEFAULTS.pfPct;
+            workingDays.value = DEFAULTS.workingDays;
+            daysPresent.value = DEFAULTS.daysPresent;
+            updatePreviews();
+            calculateAndRender();
+        }
+
+        calcBtn.addEventListener('click', calculateAndRender);
+        resetBtn.addEventListener('click', setDefaults);
+
+        document.querySelectorAll('input').forEach(inp => {
+            inp.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    updatePreviews();
+                    calculateAndRender();
+                }
+            });
+        });
+
+        let timeoutId;
+        document.querySelectorAll('input').forEach(inp => {
+            inp.addEventListener('input', () => {
+                updatePreviews();
+                clearTimeout(timeoutId);
+                timeoutId = setTimeout(() => calculateAndRender(), 250);
+            });
+        });
+
+        setDefaults();
+    })();
+</script>
+</body>
+</html>

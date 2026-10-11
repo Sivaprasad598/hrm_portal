@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(composer --version)",
+      "Bash(/Applications/XAMPP/xamppfiles/bin/php --version)",
+      "Bash(find /Applications/XAMPP -name \"composer\" -o -name \"composer.phar\" 2>/dev/null)",
+      "Read(//Applications/XAMPP/**)"
+    ]
+  }
+}

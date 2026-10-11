@@ -1,0 +1,1577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Employee Resignations</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, Helvetica, sans-serif;
+    background: #f4f7fb;
+    color: #344054;
+    font-size: 13px;
+}
+
+/* =========================
+   PAGE
+========================= */
+
+.page {
+    padding: 22px 28px;
+}
+
+/* =========================
+   HEADER
+========================= */
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.page-title h2 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.page-title p {
+    margin: 5px 0 0;
+    color: #8a94a6;
+    font-size: 12px;
+}
+
+/* =========================
+   SUMMARY CARDS
+========================= */
+
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 14px;
+    margin-bottom: 20px;
+}
+
+.summary-card {
+    background: #fff;
+    border: 1px solid #e1e6ed;
+    border-radius: 8px;
+    padding: 17px;
+    min-height: 105px;
+    cursor: pointer;
+    transition: 0.2s ease;
+    position: relative;
+}
+
+.summary-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,.06);
+}
+
+.summary-card.active {
+    box-shadow: 0 0 0 2px #4f46e5;
+}
+
+.summary-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    color: #8a94a6;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+.summary-number {
+    font-size: 23px;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.summary-icon {
+    position: absolute;
+    right: 14px;
+    top: 14px;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+}
+
+.total {
+    border-top: 3px solid #64748b;
+}
+
+.pending {
+    border-top: 3px solid #f59e0b;
+}
+
+.approved {
+    border-top: 3px solid #22c55e;
+}
+
+.rejected {
+    border-top: 3px solid #ef4444;
+}
+
+.notice {
+    border-top: 3px solid #06b6d4;
+}
+
+.completed {
+    border-top: 3px solid #64748b;
+}
+
+/* =========================
+   FILTER BAR
+========================= */
+
+.filter-card {
+    background: #fff;
+    border: 1px solid #e1e6ed;
+    border-radius: 8px;
+    padding: 14px;
+    margin-bottom: 18px;
+}
+
+.filters {
+    display: grid;
+    grid-template-columns: 140px 160px 160px 1fr;
+    gap: 10px;
+}
+
+select,
+input {
+    height: 38px;
+    border: 1px solid #d8dee8;
+    border-radius: 5px;
+    padding: 0 11px;
+    background: #fff;
+    color: #475467;
+    outline: none;
+    font-size: 12px;
+}
+
+select:focus,
+input:focus {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99,102,241,.08);
+}
+
+.search-box {
+    position: relative;
+}
+
+.search-box input {
+    width: 100%;
+    padding-left: 34px;
+}
+
+.search-icon {
+    position: absolute;
+    left: 12px;
+    top: 11px;
+    color: #98a2b3;
+}
+
+/* =========================
+   TABLE CARD
+========================= */
+
+.table-card {
+    background: #fff;
+    border: 1px solid #e1e6ed;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.table-header {
+    padding: 17px 18px;
+    border-bottom: 1px solid #e7ebf0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.table-header h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #344054;
+}
+
+.table-header span {
+    font-size: 11px;
+    color: #98a2b3;
+}
+
+.table-wrapper {
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+thead th {
+    background: #fafbfc;
+    color: #667085;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    font-weight: 600;
+    padding: 12px 14px;
+    text-align: left;
+    white-space: nowrap;
+    border-bottom: 1px solid #e5e9ef;
+}
+
+tbody td {
+    padding: 13px 14px;
+    border-bottom: 1px solid #eef1f4;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+tbody tr:hover {
+    background: #fafcff;
+}
+
+/* =========================
+   EMPLOYEE
+========================= */
+
+.employee {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.employee-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: #eef2ff;
+    color: #4f46e5;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: 600;
+    font-size: 12px;
+}
+
+.employee-name {
+    font-weight: 600;
+    color: #344054;
+}
+
+.employee-id {
+    font-size: 10px;
+    color: #98a2b3;
+    margin-top: 2px;
+}
+
+/* =========================
+   STATUS
+========================= */
+
+.status {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 9px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.status.pending {
+    background: #fff7df;
+    color: #b77900;
+    border: 0;
+}
+
+.status.approved {
+    background: #e8f7ed;
+    color: #18864b;
+    border: 0;
+}
+
+.status.rejected {
+    background: #fdecec;
+    color: #d93025;
+    border: 0;
+}
+
+.status.notice {
+    background: #e7f8fc;
+    color: #07819c;
+    border: 0;
+}
+
+.status.completed {
+    background: #eef1f4;
+    color: #667085;
+    border: 0;
+}
+
+/* =========================
+   ACTIONS
+========================= */
+
+.actions {
+    display: flex;
+    gap: 5px;
+}
+
+.btn {
+    height: 30px;
+    padding: 0 9px;
+    border-radius: 4px;
+    border: 1px solid #d8dee8;
+    background: #fff;
+    cursor: pointer;
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.btn:hover {
+    background: #f7f8fa;
+}
+
+.btn-view {
+    color: #475467;
+}
+
+.btn-approve {
+    color: #18864b;
+    border-color: #bce5cc;
+}
+
+.btn-reject {
+    color: #d93025;
+    border-color: #f1c4c1;
+}
+
+.btn-reply {
+    color: #4f46e5;
+    border-color: #cfd0ff;
+}
+
+/* =========================
+   MODAL
+========================= */
+
+.modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(15,23,42,.45);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.modal-overlay.show {
+    display: flex;
+}
+
+.modal {
+    width: 850px;
+    max-width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    background: #fff;
+    border-radius: 9px;
+    box-shadow: 0 15px 50px rgba(0,0,0,.18);
+}
+
+.modal-header {
+    padding: 18px 22px;
+    border-bottom: 1px solid #e7ebf0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 16px;
+    color: #1f2937;
+}
+
+.close {
+    width: 30px;
+    height: 30px;
+    border: 0;
+    background: #f4f6f8;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.modal-body {
+    padding: 22px;
+}
+
+/* =========================
+   DETAILS
+========================= */
+
+.detail-section {
+    margin-bottom: 22px;
+}
+
+.detail-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #344054;
+    margin-bottom: 12px;
+}
+
+.detail-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    border: 1px solid #e5e9ef;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.detail-item {
+    padding: 12px;
+    background: #fff;
+    border-right: 1px solid #e5e9ef;
+    border-bottom: 1px solid #e5e9ef;
+}
+
+.detail-label {
+    font-size: 10px;
+    color: #98a2b3;
+    margin-bottom: 5px;
+}
+
+.detail-value {
+    font-size: 12px;
+    font-weight: 600;
+    color: #344054;
+}
+
+/* =========================
+   COMMUNICATION
+========================= */
+
+.communication {
+    border: 1px solid #e5e9ef;
+    border-radius: 7px;
+    padding: 14px;
+    background: #fafbfc;
+}
+
+.message {
+    padding: 12px;
+    background: #fff;
+    border: 1px solid #e7ebf0;
+    border-radius: 6px;
+    margin-bottom: 10px;
+}
+
+.message:last-child {
+    margin-bottom: 0;
+}
+
+.message-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 7px;
+}
+
+.sender {
+    font-weight: 600;
+    font-size: 11px;
+}
+
+.sender.employee {
+    color: #475467;
+}
+
+.sender.admin {
+    color: #4f46e5;
+}
+
+.message-date {
+    font-size: 9px;
+    color: #98a2b3;
+}
+
+.message-text {
+    font-size: 11px;
+    color: #667085;
+    line-height: 1.5;
+}
+
+/* =========================
+   REPLY
+========================= */
+
+.reply-box {
+    margin-top: 14px;
+}
+
+.reply-box label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+textarea {
+    width: 100%;
+    min-height: 85px;
+    resize: vertical;
+    border: 1px solid #d8dee8;
+    border-radius: 5px;
+    padding: 10px;
+    outline: none;
+    font-family: inherit;
+    font-size: 12px;
+}
+
+textarea:focus {
+    border-color: #6366f1;
+}
+
+/* =========================
+   MODAL FOOTER
+========================= */
+
+.modal-footer {
+    padding: 15px 22px;
+    border-top: 1px solid #e7ebf0;
+    display: flex;
+    justify-content: space-between;
+}
+
+.footer-left,
+.footer-right {
+    display: flex;
+    gap: 8px;
+}
+
+.large-btn {
+    height: 37px;
+    padding: 0 16px;
+    border-radius: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid #d8dee8;
+    background: #fff;
+}
+
+.large-btn.approve {
+    background: #16a05d;
+    border-color: #16a05d;
+    color: #fff;
+}
+
+.large-btn.reject {
+    background: #fff;
+    color: #d93025;
+    border-color: #efc4c1;
+}
+
+.large-btn.send {
+    background: #4f46e5;
+    border-color: #4f46e5;
+    color: #fff;
+}
+
+/* =========================
+   RESPONSIVE
+========================= */
+
+@media(max-width:1100px) {
+
+    .summary-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    .filters {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media(max-width:700px) {
+
+    .page {
+        padding: 15px;
+    }
+
+    .summary-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .filters {
+        grid-template-columns: 1fr;
+    }
+
+    .detail-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<div class="page">
+
+    <!-- HEADER -->
+
+    <div class="page-header">
+
+        <div class="page-title">
+            <h2>Employee Resignations</h2>
+            <p>Review, approve, reject and respond to employee resignation requests</p>
+        </div>
+
+    </div>
+
+
+    <!-- SUMMARY -->
+
+    <div class="summary-grid">
+
+        <div class="summary-card total active" onclick="filterStatus('all', this)">
+            <div class="summary-label">Total Resignations</div>
+            <div class="summary-number">12</div>
+            <div class="summary-icon">👥</div>
+        </div>
+
+        <div class="summary-card pending" onclick="filterStatus('Pending', this)">
+            <div class="summary-label">Pending</div>
+            <div class="summary-number">4</div>
+            <div class="summary-icon">◷</div>
+        </div>
+
+        <div class="summary-card approved" onclick="filterStatus('Approved', this)">
+            <div class="summary-label">Approved</div>
+            <div class="summary-number">5</div>
+            <div class="summary-icon">✓</div>
+        </div>
+
+        <div class="summary-card rejected" onclick="filterStatus('Rejected', this)">
+            <div class="summary-label">Rejected</div>
+            <div class="summary-number">1</div>
+            <div class="summary-icon">×</div>
+        </div>
+
+        <div class="summary-card notice" onclick="filterStatus('Notice Period', this)">
+            <div class="summary-label">Notice Period</div>
+            <div class="summary-number">2</div>
+            <div class="summary-icon">↪</div>
+        </div>
+
+        <div class="summary-card completed" onclick="filterStatus('Completed', this)">
+            <div class="summary-label">Off Boarded</div>
+            <div class="summary-number">0</div>
+            <div class="summary-icon">▣</div>
+        </div>
+
+    </div>
+
+
+    <!-- FILTERS -->
+
+    <div class="filter-card">
+
+        <div class="filters">
+
+            <select id="statusFilter" onchange="applyFilters()">
+                <option value="">All Status</option>
+                <option>Pending</option>
+                <option>Approved</option>
+                <option>Rejected</option>
+                <option>Notice Period</option>
+                <option>Completed</option>
+            </select>
+
+            <select id="departmentFilter" onchange="applyFilters()">
+                <option value="">All Departments</option>
+                <option>Sales</option>
+                <option>IT</option>
+                <option>HR</option>
+                <option>Finance</option>
+            </select>
+
+            <select id="designationFilter" onchange="applyFilters()">
+                <option value="">All Designations</option>
+                <option>Sales Executive</option>
+                <option>Software Developer</option>
+                <option>HR Executive</option>
+            </select>
+
+            <div class="search-box">
+                <span class="search-icon">⌕</span>
+                <input
+                    type="text"
+                    id="searchInput"
+                    placeholder="Search employee..."
+                    onkeyup="applyFilters()"
+                >
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- TABLE -->
+
+    <div class="table-card">
+
+        <div class="table-header">
+
+            <h3>Employee Resignation Requests</h3>
+
+            <span id="resultCount">
+                Showing 5 requests
+            </span>
+
+        </div>
+
+        <div class="table-wrapper">
+
+            <table>
+
+                <thead>
+                    <tr>
+                        <th>Employee</th>
+                        <th>Department</th>
+                        <th>Designation</th>
+                        <th>Resignation Date</th>
+                        <th>Last Working Date</th>
+                        <th>Notice Period</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+
+                <tbody id="resignationTable">
+
+                    <tr
+                        data-name="Ravi Kumar"
+                        data-department="Sales"
+                        data-designation="Sales Executive"
+                        data-status="Pending"
+                    >
+                        <td>
+                            <div class="employee">
+
+                                <div class="employee-avatar">
+                                    RK
+                                </div>
+
+                                <div>
+                                    <div class="employee-name">
+                                        Ravi Kumar
+                                    </div>
+
+                                    <div class="employee-id">
+                                        EMP001
+                                    </div>
+                                </div>
+
+                            </div>
+                        </td>
+
+                        <td>Sales</td>
+
+                        <td>Sales Executive</td>
+
+                        <td>01-09-2026</td>
+
+                        <td>01-10-2026</td>
+
+                        <td>30 Days</td>
+
+                        <td>
+                            <span class="status pending">
+                                Pending
+                            </span>
+                        </td>
+
+                        <td>
+                            <div class="actions">
+
+                                <button
+                                    class="btn btn-view"
+                                    onclick="openModal('Ravi Kumar')"
+                                >
+                                    View
+                                </button>
+
+                                <button
+                                    class="btn btn-approve"
+                                    onclick="approveResignation('Ravi Kumar')"
+                                >
+                                    Approve
+                                </button>
+
+                                <button
+                                    class="btn btn-reject"
+                                    onclick="rejectResignation('Ravi Kumar')"
+                                >
+                                    Reject
+                                </button>
+
+                            </div>
+                        </td>
+
+                    </tr>
+
+
+                    <tr
+                        data-name="Suresh Reddy"
+                        data-department="IT"
+                        data-designation="Software Developer"
+                        data-status="Approved"
+                    >
+
+                        <td>
+                            <div class="employee">
+
+                                <div class="employee-avatar">
+                                    SR
+                                </div>
+
+                                <div>
+                                    <div class="employee-name">
+                                        Suresh Reddy
+                                    </div>
+
+                                    <div class="employee-id">
+                                        EMP002
+                                    </div>
+                                </div>
+
+                            </div>
+                        </td>
+
+                        <td>IT</td>
+
+                        <td>Software Developer</td>
+
+                        <td>25-08-2026</td>
+
+                        <td>24-09-2026</td>
+
+                        <td>30 Days</td>
+
+                        <td>
+                            <span class="status approved">
+                                Approved
+                            </span>
+                        </td>
+
+                        <td>
+                            <button
+                                class="btn btn-view"
+                                onclick="openModal('Suresh Reddy')"
+                            >
+                                View
+                            </button>
+                        </td>
+
+                    </tr>
+
+
+                    <tr
+                        data-name="Anil Kumar"
+                        data-department="Finance"
+                        data-designation="Accountant"
+                        data-status="Notice Period"
+                    >
+
+                        <td>
+                            <div class="employee">
+
+                                <div class="employee-avatar">
+                                    AK
+                                </div>
+
+                                <div>
+                                    <div class="employee-name">
+                                        Anil Kumar
+                                    </div>
+
+                                    <div class="employee-id">
+                                        EMP003
+                                    </div>
+                                </div>
+
+                            </div>
+                        </td>
+
+                        <td>Finance</td>
+
+                        <td>Accountant</td>
+
+                        <td>15-08-2026</td>
+
+                        <td>14-09-2026</td>
+
+                        <td>30 Days</td>
+
+                        <td>
+                            <span class="status notice">
+                                Notice Period
+                            </span>
+                        </td>
+
+                        <td>
+                            <button
+                                class="btn btn-view"
+                                onclick="openModal('Anil Kumar')"
+                            >
+                                View
+                            </button>
+                        </td>
+
+                    </tr>
+
+
+                    <tr
+                        data-name="Priya Sharma"
+                        data-department="HR"
+                        data-designation="HR Executive"
+                        data-status="Rejected"
+                    >
+
+                        <td>
+                            <div class="employee">
+
+                                <div class="employee-avatar">
+                                    PS
+                                </div>
+
+                                <div>
+                                    <div class="employee-name">
+                                        Priya Sharma
+                                    </div>
+
+                                    <div class="employee-id">
+                                        EMP004
+                                    </div>
+                                </div>
+
+                            </div>
+                        </td>
+
+                        <td>HR</td>
+
+                        <td>HR Executive</td>
+
+                        <td>10-08-2026</td>
+
+                        <td>09-09-2026</td>
+
+                        <td>30 Days</td>
+
+                        <td>
+                            <span class="status rejected">
+                                Rejected
+                            </span>
+                        </td>
+
+                        <td>
+                            <button
+                                class="btn btn-view"
+                                onclick="openModal('Priya Sharma')"
+                            >
+                                View
+                            </button>
+                        </td>
+
+                    </tr>
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- =========================
+     RESIGNATION MODAL
+========================= -->
+
+<div
+    class="modal-overlay"
+    id="resignationModal"
+>
+
+    <div class="modal">
+
+        <div class="modal-header">
+
+            <h3>
+                Resignation Details
+            </h3>
+
+            <button
+                class="close"
+                onclick="closeModal()"
+            >
+                ×
+            </button>
+
+        </div>
+
+
+        <div class="modal-body">
+
+            <!-- EMPLOYEE INFORMATION -->
+
+            <div class="detail-section">
+
+                <div class="detail-title">
+                    Employee Information
+                </div>
+
+                <div class="detail-grid">
+
+                    <div class="detail-item">
+                        <div class="detail-label">
+                            Employee
+                        </div>
+                        <div
+                            class="detail-value"
+                            id="modalEmployee"
+                        >
+                            Ravi Kumar
+                        </div>
+                    </div>
+
+                    <div class="detail-item">
+                        <div class="detail-label">
+                            Employee ID
+                        </div>
+                        <div class="detail-value">
+                            EMP001
+                        </div>
+                    </div>
+
+                    <div class="detail-item">
+                        <div class="detail-label">
+                            Department
+                        </div>
+                        <div class="detail-value">
+                            Sales
+                        </div>
+                    </div>
+
+                    <div class="detail-item">
+                        <div class="detail-label">
+                            Designation
+                        </div>
+                        <div class="detail-value">
+                            Sales Executive
+                        </div>
+                    </div>
+
+                    <div class="detail-item">
+                        <div class="detail-label">
+                            Date of Joining
+                        </div>
+                        <div class="detail-value">
+                            15-06-2024
+                        </div>
+                    </div>
+
+                    <div class="detail-item">
+                        <div class="detail-label">
+                            Employment Status
+                        </div>
+                        <div class="detail-value">
+                            Confirmed
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- RESIGNATION DETAILS -->
+
+            <div class="detail-section">
+
+                <div class="detail-title">
+                    Resignation Information
+                </div>
+
+                <div class="detail-grid">
+
+                    <div class="detail-item">
+                        <div class="detail-label">
+                            Resignation Date
+                        </div>
+                        <div class="detail-value">
+                            01-09-2026
+                        </div>
+                    </div>
+
+                    <div class="detail-item">
+                        <div class="detail-label">
+                            Notice Period
+                        </div>
+                        <div class="detail-value">
+                            30 Days
+                        </div>
+                    </div>
+
+                    <div class="detail-item">
+                        <div class="detail-label">
+                            Notice Start Date
+                        </div>
+                        <div class="detail-value">
+                            01-09-2026
+                        </div>
+                    </div>
+
+                    <div class="detail-item">
+                        <div class="detail-label">
+                            Proposed Last Working Date
+                        </div>
+                        <div class="detail-value">
+                            01-10-2026
+                        </div>
+                    </div>
+
+                    <div class="detail-item">
+                        <div class="detail-label">
+                            Notice Period Served
+                        </div>
+                        <div class="detail-value">
+                            Yes
+                        </div>
+                    </div>
+
+                    <div class="detail-item">
+                        <div class="detail-label">
+                            Exit Type
+                        </div>
+                        <div class="detail-value">
+                            Resignation
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- REASON -->
+
+            <div class="detail-section">
+
+                <div class="detail-title">
+                    Employee Reason
+                </div>
+
+                <div class="detail-item">
+                    <div class="detail-value">
+                        Better Opportunity
+                    </div>
+
+                    <div style="
+                        margin-top:8px;
+                        font-size:11px;
+                        color:#667085;
+                    ">
+                        I have received a new opportunity
+                        that better aligns with my career goals.
+                    </div>
+                </div>
+
+            </div>
+
+
+            <!-- COMMUNICATION -->
+
+            <div class="detail-section">
+
+                <div class="detail-title">
+                    Resignation Communication
+                </div>
+
+                <div class="communication">
+
+                    <div class="message">
+
+                        <div class="message-header">
+
+                            <span class="sender employee">
+                                Ravi Kumar — Employee
+                            </span>
+
+                            <span class="message-date">
+                                01-09-2026 10:30 AM
+                            </span>
+
+                        </div>
+
+                        <div class="message-text">
+                            I would like to formally submit my
+                            resignation. Please consider this as
+                            my official resignation request.
+                        </div>
+
+                    </div>
+
+
+                    <div class="message">
+
+                        <div class="message-header">
+
+                            <span class="sender admin">
+                                Admin
+                            </span>
+
+                            <span class="message-date">
+                                —
+                            </span>
+
+                        </div>
+
+                        <div class="message-text">
+                            No response yet.
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- ADMIN REPLY -->
+
+                <div class="reply-box">
+
+                    <label>
+                        Reply to Employee
+                    </label>
+
+                    <textarea
+                        id="adminReply"
+                        placeholder="Enter your response to the employee..."
+                    ></textarea>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- FOOTER -->
+
+        <div class="modal-footer">
+
+            <div class="footer-left">
+
+                <button
+                    class="large-btn reject"
+                    onclick="rejectResignation()"
+                >
+                    Reject Resignation
+                </button>
+
+            </div>
+
+            <div class="footer-right">
+
+                <button
+                    class="large-btn send"
+                    onclick="sendReply()"
+                >
+                    Send Reply
+                </button>
+
+                <button
+                    class="large-btn approve"
+                    onclick="approveResignation()"
+                >
+                    Approve Resignation
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<script>
+
+/* =========================
+   OPEN MODAL
+========================= */
+
+function openModal(employeeName) {
+
+    document.getElementById("modalEmployee").textContent =
+        employeeName;
+
+    document
+        .getElementById("resignationModal")
+        .classList.add("show");
+}
+
+
+/* =========================
+   CLOSE MODAL
+========================= */
+
+function closeModal() {
+
+    document
+        .getElementById("resignationModal")
+        .classList.remove("show");
+}
+
+
+/* =========================
+   APPROVE
+========================= */
+
+function approveResignation(employeeName = "") {
+
+    const name =
+        employeeName ||
+        document.getElementById("modalEmployee").textContent;
+
+    if (
+        confirm(
+            "Are you sure you want to approve the resignation of "
+            + name
+            + "?"
+        )
+    ) {
+
+        alert(
+            "Resignation approved for " + name
+        );
+
+        /*
+            Laravel AJAX request goes here.
+
+            Example:
+
+            fetch('/account/employee-resignations/approve', {
+                method: 'POST',
+                body: ...
+            });
+        */
+    }
+}
+
+
+/* =========================
+   REJECT
+========================= */
+
+function rejectResignation(employeeName = "") {
+
+    const name =
+        employeeName ||
+        document.getElementById("modalEmployee").textContent;
+
+    const reason = prompt(
+        "Enter the reason for rejecting this resignation:"
+    );
+
+    if (reason && reason.trim() !== "") {
+
+        alert(
+            "Resignation rejected for " + name
+        );
+
+        /*
+            Save rejection reason
+            through Laravel AJAX here.
+        */
+    }
+}
+
+
+/* =========================
+   SEND REPLY
+========================= */
+
+function sendReply() {
+
+    const reply =
+        document.getElementById("adminReply").value.trim();
+
+    if (!reply) {
+
+        alert(
+            "Please enter a response before sending."
+        );
+
+        return;
+    }
+
+    alert(
+        "Reply sent successfully."
+    );
+
+    document.getElementById("adminReply").value = "";
+
+    /*
+        Save admin reply using Laravel AJAX.
+    */
+}
+
+
+/* =========================
+   SUMMARY CARD FILTER
+========================= */
+
+function filterStatus(status, card) {
+
+    document
+        .querySelectorAll(".summary-card")
+        .forEach(function(item) {
+
+            item.classList.remove("active");
+
+        });
+
+    card.classList.add("active");
+
+    document.getElementById("statusFilter").value =
+        status === "all" ? "" : status;
+
+    applyFilters();
+}
+
+
+/* =========================
+   FILTER TABLE
+========================= */
+
+function applyFilters() {
+
+    const status =
+        document.getElementById("statusFilter").value
+        .toLowerCase();
+
+    const department =
+        document.getElementById("departmentFilter").value
+        .toLowerCase();
+
+    const designation =
+        document.getElementById("designationFilter").value
+        .toLowerCase();
+
+    const search =
+        document.getElementById("searchInput").value
+        .toLowerCase();
+
+    const rows =
+        document.querySelectorAll(
+            "#resignationTable tr"
+        );
+
+    let visible = 0;
+
+    rows.forEach(function(row) {
+
+        const rowStatus =
+            row.dataset.status.toLowerCase();
+
+        const rowDepartment =
+            row.dataset.department.toLowerCase();
+
+        const rowDesignation =
+            row.dataset.designation.toLowerCase();
+
+        const rowName =
+            row.dataset.name.toLowerCase();
+
+        const matchesStatus =
+            !status || rowStatus === status;
+
+        const matchesDepartment =
+            !department ||
+            rowDepartment === department;
+
+        const matchesDesignation =
+            !designation ||
+            rowDesignation === designation;
+
+        const matchesSearch =
+            !search ||
+            rowName.includes(search);
+
+        if (
+            matchesStatus &&
+            matchesDepartment &&
+            matchesDesignation &&
+            matchesSearch
+        ) {
+
+            row.style.display = "";
+            visible++;
+
+        } else {
+
+            row.style.display = "none";
+
+        }
+
+    });
+
+    document.getElementById("resultCount").textContent =
+        "Showing " + visible + " requests";
+}
+
+
+/* =========================
+   CLOSE WHEN CLICK OUTSIDE
+========================= */
+
+document
+    .getElementById("resignationModal")
+    .addEventListener("click", function(e) {
+
+        if (e.target === this) {
+            closeModal();
+        }
+
+    });
+
+</script>
+
+</body>
+</html>

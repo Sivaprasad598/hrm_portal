@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Attendance Dashboard</title>
+
+    <!-- Font Awesome for Icons -->
+    <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+    />
+
+    <style>
+        /* ---------- RESET & BASE ---------- */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: #f0f4f8;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        /* ---------- DASHBOARD WRAPPER ---------- */
+        .dashboard {
+            max-width: 1300px;
+            width: 100%;
+            background: #ffffff;
+            border-radius: 28px;
+            box-shadow: 0 20px 60px rgba(0, 20, 40, 0.12);
+            padding: 32px 36px 42px;
+            transition: all 0.2s;
+        }
+
+        /* ---------- HEADER ---------- */
+        .dashboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px 24px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #eef2f7;
+            padding-bottom: 20px;
+        }
+
+        .dashboard-header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: #0b1a33;
+            letter-spacing: -0.3px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .dashboard-header h1 i {
+            color: #3b82f6;
+            font-size: 30px;
+        }
+
+        .header-date {
+            font-size: 15px;
+            font-weight: 500;
+            color: #4b5a72;
+            background: #f0f4fb;
+            padding: 8px 18px;
+            border-radius: 40px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .header-date i {
+            color: #3b82f6;
+        }
+
+        /* ---------- FILTERS SECTION ---------- */
+        .filters {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-end;
+            gap: 18px 28px;
+            background: #f8faff;
+            padding: 20px 24px 24px;
+            border-radius: 18px;
+            margin-bottom: 34px;
+            border: 1px solid #e9eef4;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            flex: 1 0 140px;
+            min-width: 130px;
+        }
+
+        .filter-group label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #2d4059;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .filter-group label i {
+            color: #3b82f6;
+            font-size: 14px;
+        }
+
+        .filter-group select,
+        .filter-group input[type="date"] {
+            padding: 10px 14px;
+            border: 1.5px solid #dce3ec;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 500;
+            color: #1a2a3f;
+            background: #ffffff;
+            transition: 0.2s;
+            outline: none;
+            cursor: pointer;
+            width: 100%;
+            appearance: auto;
+        }
+
+        .filter-group select:focus,
+        .filter-group input[type="date"]:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+        }
+
+        .filter-group select:hover,
+        .filter-group input[type="date"]:hover {
+            border-color: #8ba7d0;
+        }
+
+        /* ---------- STATS CARDS ---------- */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .stat-card {
+            background: #ffffff;
+            border-radius: 20px;
+            padding: 22px 20px 20px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+            border: 1px solid #e9eef4;
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 32px rgba(0, 20, 40, 0.08);
+        }
+
+        .stat-icon {
+            width: 54px;
+            height: 54px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+
+        .stat-icon.present {
+            background: #e6f7ee;
+            color: #0f973d;
+        }
+        .stat-icon.absent {
+            background: #feeaea;
+            color: #d14343;
+        }
+        .stat-icon.halfday {
+            background: #fff4e5;
+            color: #e68a2e;
+        }
+        .stat-icon.total {
+            background: #e8edfb;
+            color: #2a4c9e;
+        }
+
+        .stat-info {
+            flex: 1;
+        }
+
+        .stat-info .stat-number {
+            font-size: 32px;
+            font-weight: 700;
+            color: #0b1a33;
+            line-height: 1.2;
+        }
+
+        .stat-info .stat-label {
+            font-size: 14px;
+            font-weight: 500;
+            color: #5f738f;
+            letter-spacing: 0.2px;
+            margin-top: 2px;
+        }
+
+        /* ---------- DETAIL SECTION ---------- */
+        .details-section {
+            background: #fafcff;
+            border-radius: 18px;
+            border: 1px solid #e9eef4;
+            overflow: hidden;
+        }
+
+        .details-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px 20px;
+            padding: 16px 24px;
+            background: #f8faff;
+            border-bottom: 1px solid #e9eef4;
+        }
+
+        .details-header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .details-header-left h3 {
+            font-size: 17px;
+            font-weight: 600;
+            color: #0b1a33;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            white-space: nowrap;
+        }
+
+        .details-header-left h3 i {
+            color: #3b82f6;
+        }
+
+        /* ---- SEARCH BAR ---- */
+        .search-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .search-wrapper i {
+            position: absolute;
+            left: 14px;
+            color: #8ba0b9;
+            font-size: 15px;
+            pointer-events: none;
+        }
+
+        .search-wrapper input {
+            padding: 8px 16px 8px 42px;
+            border: 1.5px solid #dce3ec;
+            border-radius: 30px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #1a2a3f;
+            background: #ffffff;
+            outline: none;
+            transition: 0.2s;
+            width: 220px;
+            min-width: 140px;
+        }
+
+        .search-wrapper input::placeholder {
+            color: #9aafc9;
+            font-weight: 400;
+        }
+
+        .search-wrapper input:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12);
+        }
+
+        .search-wrapper input:hover {
+            border-color: #8ba7d0;
+        }
+
+        .details-header-right {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .details-header-right span {
+            font-size: 14px;
+            color: #5f738f;
+            background: #eef4fa;
+            padding: 4px 16px;
+            border-radius: 30px;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        /* ---------- TABLE ---------- */
+        .table-wrap {
+            overflow-x: auto;
+            padding: 0 4px 4px 4px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 15px;
+        }
+
+        table thead {
+            background: #f0f5fd;
+        }
+
+        table thead th {
+            text-align: left;
+            padding: 14px 20px;
+            font-weight: 600;
+            color: #1d3557;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            border-bottom: 2px solid #dce3ec;
+        }
+
+        table tbody td {
+            padding: 14px 20px;
+            color: #1f2e44;
+            border-bottom: 1px solid #eef2f7;
+            font-weight: 500;
+        }
+
+        table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        table tbody tr:hover {
+            background: #f5f9ff;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 14px;
+            border-radius: 30px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .status-badge.present {
+            background: #ddf3e6;
+            color: #0a7a30;
+        }
+        .status-badge.absent {
+            background: #fdd9d9;
+            color: #b33a3a;
+        }
+        .status-badge.halfday {
+            background: #feeacd;
+            color: #b86b1a;
+        }
+
+        .employee-avatar {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            background: #dce3ec;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            color: #1d3557;
+            font-size: 14px;
+            margin-right: 10px;
+            background: #d4e0f0;
+            flex-shrink: 0;
+        }
+
+        .emp-cell {
+            display: flex;
+            align-items: center;
+        }
+
+        /* ---------- RESPONSIVE ---------- */
+        @media (max-width: 850px) {
+            .details-header {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 12px;
+            }
+            .details-header-left {
+                flex-wrap: wrap;
+                gap: 10px;
+            }
+            .search-wrapper input {
+                width: 100%;
+                min-width: 0;
+            }
+            .details-header-right {
+                justify-content: flex-start;
+            }
+        }
+
+        @media (max-width: 700px) {
+            .dashboard {
+                padding: 20px 16px 28px;
+            }
+            .dashboard-header h1 {
+                font-size: 22px;
+            }
+            .filters {
+                padding: 16px;
+                gap: 14px;
+            }
+            .filter-group {
+                flex: 1 0 100%;
+                min-width: 100%;
+            }
+            .stats-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 14px;
+            }
+            .stat-card {
+                padding: 16px;
+            }
+            .stat-info .stat-number {
+                font-size: 26px;
+            }
+            table thead th,
+            table tbody td {
+                padding: 10px 12px;
+                font-size: 13px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            .dashboard-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .details-header-left h3 {
+                font-size: 15px;
+            }
+            .search-wrapper input {
+                font-size: 13px;
+                padding: 7px 12px 7px 36px;
+            }
+        }
+
+        /* ---------- SCROLLBAR ---------- */
+        .table-wrap::-webkit-scrollbar {
+            height: 6px;
+        }
+        .table-wrap::-webkit-scrollbar-track {
+            background: #eef2f7;
+            border-radius: 8px;
+        }
+        .table-wrap::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 8px;
+        }
+        .table-wrap::-webkit-scrollbar-thumb:hover {
+            background: #a0b3cc;
+        }
+
+        /* no-results row */
+        .no-results td {
+            text-align: center;
+            padding: 40px 0 !important;
+            color: #7a8aa3;
+            font-weight: 500;
+        }
+        .no-results i {
+            font-size: 20px;
+            display: block;
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="dashboard">
+
+        <!-- ====== HEADER ====== -->
+        <header class="dashboard-header">
+            <h1>
+                <i class="fas fa-clipboard-check"></i>
+                Attendance Dashboard
+            </h1>
+            <div class="header-date">
+                <i class="fas fa-calendar-alt"></i>
+                <span id="currentDisplayDate">Loading…</span>
+            </div>
+        </header>
+
+        <!-- ====== FILTERS ====== -->
+        <section class="filters">
+
+            <!-- Branch Dropdown -->
+            <div class="filter-group">
+                <label for="branchSelect">
+                    <i class="fas fa-store-alt"></i> Branch
+                </label>
+                <select id="branchSelect">
+                    <option value="all">All Branches</option>
+                    <option value="mumbai">Mumbai</option>
+                    <option value="delhi">Delhi</option>
+                    <option value="bangalore">Bangalore</option>
+                    <option value="hyderabad">Hyderabad</option>
+                    <option value="chennai">Chennai</option>
+                </select>
+            </div>
+
+            <!-- Date Picker -->
+            <div class="filter-group">
+                <label for="datePicker">
+                    <i class="fas fa-calendar-day"></i> Date
+                </label>
+                <input type="date" id="datePicker" />
+            </div>
+
+            <!-- Month Dropdown -->
+            <div class="filter-group">
+                <label for="monthSelect">
+                    <i class="fas fa-calendar-alt"></i> Month
+                </label>
+                <select id="monthSelect">
+                    <option value="0">January</option>
+                    <option value="1">February</option>
+                    <option value="2">March</option>
+                    <option value="3">April</option>
+                    <option value="4">May</option>
+                    <option value="5">June</option>
+                    <option value="6">July</option>
+                    <option value="7">August</option>
+                    <option value="8">September</option>
+                    <option value="9">October</option>
+                    <option value="10">November</option>
+                    <option value="11">December</option>
+                </select>
+            </div>
+
+            <!-- Year Dropdown -->
+            <div class="filter-group">
+                <label for="yearSelect">
+                    <i class="fas fa-calendar-year"></i> Year
+                </label>
+                <select id="yearSelect">
+                    <!-- populated by JS -->
+                </select>
+            </div>
+
+        </section>
+
+        <!-- ====== STATS CARDS ====== -->
+        <section class="stats-grid" id="statsGrid">
+            <div class="stat-card">
+                <div class="stat-icon present"><i class="fas fa-user-check"></i></div>
+                <div class="stat-info">
+                    <div class="stat-number" id="presentCount">0</div>
+                    <div class="stat-label">Present</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon absent"><i class="fas fa-user-times"></i></div>
+                <div class="stat-info">
+                    <div class="stat-number" id="absentCount">0</div>
+                    <div class="stat-label">Absent</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon halfday"><i class="fas fa-user-clock"></i></div>
+                <div class="stat-info">
+                    <div class="stat-number" id="halfdayCount">0</div>
+                    <div class="stat-label">Half Day</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon total"><i class="fas fa-users"></i></div>
+                <div class="stat-info">
+                    <div class="stat-number" id="totalCount">0</div>
+                    <div class="stat-label">Total Employees</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ====== DETAIL SECTION ====== -->
+        <section class="details-section">
+            <div class="details-header">
+
+                <!-- LEFT: heading + search -->
+                <div class="details-header-left">
+                    <h3><i class="fas fa-list-ul"></i> Employee Details</h3>
+
+                    <!-- SEARCH BAR -->
+                    <div class="search-wrapper">
+                        <i class="fas fa-search"></i>
+                        <input
+                        type="text"
+                        id="searchInput"
+                        placeholder="Search employee..."
+                        autocomplete="off"
+                        />
+                    </div>
+                </div>
+
+                <!-- RIGHT: record count -->
+                <div class="details-header-right">
+                    <span id="recordCount">0 records</span>
+                </div>
+
+            </div>
+
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Employee</th>
+                            <th>Branch</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="employeeTableBody">
+                        <!-- rows injected by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </div>
+
+    <script>
+        // ============================================================
+        //  MOCK DATA — simulates employee attendance records
+        // ============================================================
+        const EMPLOYEE_NAMES = [
+            'Aarav Sharma', 'Priya Patel', 'Rohit Singh', 'Sneha Reddy',
+            'Vikram Kumar', 'Ananya Nair', 'Karan Joshi', 'Meera Iyer',
+            'Arjun Menon', 'Divya Rajan', 'Rahul Desai', 'Neha Gupta',
+            'Suresh Babu', 'Kavya Nair', 'Deepak Sharma', 'Pooja Verma',
+            'Manoj Kumar', 'Swati Jain', 'Ravi Shetty', 'Lakshmi Narayan'
+        ];
+
+        const BRANCHES = ['Mumbai', 'Delhi', 'Bangalore', 'Hyderabad', 'Chennai'];
+        const STATUSES = ['Present', 'Absent', 'Half Day'];
+
+        // Generate a random date within the given month/year
+        function getRandomDate(month, year) {
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const day = Math.floor(Math.random() * daysInMonth) + 1;
+            return new Date(year, month, day);
+        }
+
+        // Generate mock attendance data for a specific month/year
+        function generateMockData(month, year) {
+            const data = [];
+            const numEmployees = 20 + Math.floor(Math.random() * 10); // 20–29
+
+            const usedNames = [];
+            for (let i = 0; i < numEmployees; i++) {
+                let name;
+                do {
+                    name = EMPLOYEE_NAMES[Math.floor(Math.random() * EMPLOYEE_NAMES.length)];
+                } while (usedNames.includes(name) && usedNames.length < EMPLOYEE_NAMES.length);
+                if (!usedNames.includes(name)) usedNames.push(name);
+
+                const branch = BRANCHES[Math.floor(Math.random() * BRANCHES.length)];
+                const status = STATUSES[Math.floor(Math.random() * STATUSES.length)];
+                const date = getRandomDate(month, year);
+                const dateStr =
+                    date.getFullYear() + '-' +
+                    String(date.getMonth() + 1).padStart(2, '0') + '-' +
+                    String(date.getDate()).padStart(2, '0');
+
+                data.push({
+                    name,
+                    branch,
+                    status,
+                    date: dateStr,
+                    timestamp: date.getTime()
+                });
+            }
+
+            data.sort((a, b) => b.timestamp - a.timestamp);
+            return data;
+        }
+
+        // ============================================================
+        //  DASHBOARD STATE
+        // ============================================================
+        let allRecords = [];
+        let filteredRecords = [];
+        let searchQuery = '';
+
+        // DOM refs
+        const branchSelect = document.getElementById('branchSelect');
+        const datePicker = document.getElementById('datePicker');
+        const monthSelect = document.getElementById('monthSelect');
+        const yearSelect = document.getElementById('yearSelect');
+        const searchInput = document.getElementById('searchInput');
+        const presentCountEl = document.getElementById('presentCount');
+        const absentCountEl = document.getElementById('absentCount');
+        const halfdayCountEl = document.getElementById('halfdayCount');
+        const totalCountEl = document.getElementById('totalCount');
+        const tableBody = document.getElementById('employeeTableBody');
+        const recordCountEl = document.getElementById('recordCount');
+        const currentDisplayDate = document.getElementById('currentDisplayDate');
+
+        // ============================================================
+        //  INIT — populate year dropdown, set default date
+        // ============================================================
+        function initYearDropdown() {
+            const currentYear = new Date().getFullYear();
+            yearSelect.innerHTML = '';
+            for (let y = currentYear - 5; y <= currentYear + 1; y++) {
+                const opt = document.createElement('option');
+                opt.value = y;
+                opt.textContent = y;
+                if (y === currentYear) opt.selected = true;
+                yearSelect.appendChild(opt);
+            }
+        }
+
+        function setDefaultDate() {
+            const now = new Date();
+            const y = now.getFullYear();
+            const m = now.getMonth();
+            const d = String(now.getDate()).padStart(2, '0');
+            const mm = String(m + 1).padStart(2, '0');
+            datePicker.value = `${y}-${mm}-${d}`;
+            monthSelect.value = m;
+            yearSelect.value = y;
+        }
+
+        // ============================================================
+        //  FILTER LOGIC (including search)
+        // ============================================================
+        function getFilteredRecords() {
+            const branch = branchSelect.value;
+            const dateVal = datePicker.value;
+            const month = parseInt(monthSelect.value, 10);
+            const year = parseInt(yearSelect.value, 10);
+            const query = searchQuery.trim().toLowerCase();
+
+            return allRecords.filter(rec => {
+                // branch filter
+                if (branch !== 'all' && rec.branch.toLowerCase() !== branch.toLowerCase()) return false;
+
+                // date filter
+                if (dateVal) {
+                    if (rec.date !== dateVal) return false;
+                } else {
+                    const d = new Date(rec.date);
+                    if (d.getMonth() !== month || d.getFullYear() !== year) return false;
+                }
+
+                // search filter (name or branch or status)
+                if (query) {
+                    const nameMatch = rec.name.toLowerCase().includes(query);
+                    const branchMatch = rec.branch.toLowerCase().includes(query);
+                    const statusMatch = rec.status.toLowerCase().includes(query);
+                    if (!nameMatch && !branchMatch && !statusMatch) return false;
+                }
+
+                return true;
+            });
+        }
+
+        // ============================================================
+        //  UPDATE DASHBOARD
+        // ============================================================
+        function updateDashboard() {
+            filteredRecords = getFilteredRecords();
+
+            // Stats
+            let present = 0,
+                absent = 0,
+                halfday = 0;
+            filteredRecords.forEach(rec => {
+                if (rec.status === 'Present') present++;
+                else if (rec.status === 'Absent') absent++;
+                else if (rec.status === 'Half Day') halfday++;
+            });
+            const total = filteredRecords.length;
+
+            presentCountEl.textContent = present;
+            absentCountEl.textContent = absent;
+            halfdayCountEl.textContent = halfday;
+            totalCountEl.textContent = total;
+
+            renderTable(filteredRecords);
+            recordCountEl.textContent = `${total} record${total !== 1 ? 's' : ''}`;
+
+            // header date
+            const dateVal = datePicker.value;
+            if (dateVal) {
+                const parts = dateVal.split('-');
+                const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+                currentDisplayDate.textContent = d.toLocaleDateString('en-US', {
+                    weekday: 'short',
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                });
+            } else {
+                const month = parseInt(monthSelect.value, 10);
+                const year = parseInt(yearSelect.value, 10);
+                const d = new Date(year, month);
+                currentDisplayDate.textContent = d.toLocaleDateString('en-US', {
+                    month: 'long',
+                    year: 'numeric'
+                });
+            }
+        }
+
+        // ============================================================
+        //  RENDER TABLE
+        // ============================================================
+        function renderTable(records) {
+            if (records.length === 0) {
+                tableBody.innerHTML = `
+                        <tr class="no-results">
+                            <td colspan="4">
+                                <i class="fas fa-inbox"></i>
+                                No matching employees found
+                            </td>
+                        </tr>
+                    `;
+                return;
+            }
+
+            let html = '';
+            records.forEach(rec => {
+                const initials = rec.name.split(' ').map(n => n[0]).join('').toUpperCase();
+                const statusClass = rec.status.toLowerCase().replace(' ', '');
+                html += `
+                        <tr>
+                            <td>
+                                <div class="emp-cell">
+                                    <span class="employee-avatar">${initials}</span>
+                                    ${rec.name}
+                                </div>
+                            </td>
+                            <td>${rec.branch}</td>
+                            <td><span class="status-badge ${statusClass}">${rec.status}</span></td>
+                            <td>${rec.date}</td>
+                        </tr>
+                    `;
+            });
+            tableBody.innerHTML = html;
+        }
+
+        // ============================================================
+        //  REGENERATE DATA based on selected month/year
+        // ============================================================
+        function regenerateData() {
+            const month = parseInt(monthSelect.value, 10);
+            const year = parseInt(yearSelect.value, 10);
+            allRecords = generateMockData(month, year);
+            searchQuery = ''; // reset search when month/year changes
+            searchInput.value = '';
+            updateDashboard();
+        }
+
+        // ============================================================
+        //  EVENT LISTENERS
+        // ============================================================
+        branchSelect.addEventListener('change', updateDashboard);
+        datePicker.addEventListener('change', updateDashboard);
+
+        monthSelect.addEventListener('change', () => {
+            datePicker.value = '';
+            regenerateData();
+        });
+
+        yearSelect.addEventListener('change', () => {
+            datePicker.value = '';
+            regenerateData();
+        });
+
+        // Search input — update on every keystroke
+        searchInput.addEventListener('input', (e) => {
+            searchQuery = e.target.value;
+            updateDashboard();
+        });
+
+        // When date is cleared, fallback to month/year
+        datePicker.addEventListener('change', function() {
+            if (this.value === '') {
+                updateDashboard();
+            }
+        });
+
+        // ============================================================
+        //  BOOTSTRAP
+        // ============================================================
+        function init() {
+            initYearDropdown();
+            setDefaultDate();
+
+            const month = parseInt(monthSelect.value, 10);
+            const year = parseInt(yearSelect.value, 10);
+            allRecords = generateMockData(month, year);
+            searchQuery = '';
+            searchInput.value = '';
+            updateDashboard();
+
+            const d = new Date(year, month);
+            currentDisplayDate.textContent = d.toLocaleDateString('en-US', {
+                month: 'long',
+                year: 'numeric'
+            });
+        }
+
+        init();
+    </script>
+
+</body>
+</html>

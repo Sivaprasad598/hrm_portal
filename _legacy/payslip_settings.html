@@ -1,0 +1,3324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arowana - Payslip Settings</title>
+
+<style>
+:root{
+    --primary:#F4AC83;
+    --primary-dark:#E59768;
+    --primary-light:#FFF1E8;
+    --dark:#555;
+    --text:#222;
+    --muted:#777;
+    --border:#E3E3E3;
+    --background:#F6F6F6;
+    --success:#2E8B57;
+    --danger:#D9534F;
+}
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+body{
+    font-family:Arial,Helvetica,sans-serif;
+    background:var(--background);
+    color:var(--text);
+}
+
+/* TOP BAR */
+.topbar{
+    height:75px;
+    background:#fff;
+    border-bottom:1px solid var(--border);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:0 35px;
+}
+
+.company-header{
+    display:flex;
+    align-items:center;
+    gap:12px;
+}
+
+.logo-symbol{
+    width:42px;
+    height:42px;
+    border:4px solid var(--primary);
+    color:var(--primary);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:bold;
+    font-size:24px;
+    transform:rotate(45deg);
+}
+
+.logo-symbol span{
+    transform:rotate(-45deg);
+}
+
+.company-name{
+    font-size:19px;
+    color:#666;
+    font-weight:600;
+}
+
+.company-tagline{
+    font-size:8px;
+    color:#aaa;
+    letter-spacing:1px;
+    margin-top:2px;
+}
+
+.user-area{
+    display:flex;
+    align-items:center;
+    gap:12px;
+}
+
+.notification{
+    width:38px;
+    height:38px;
+    border:1px solid var(--border);
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+}
+
+.user-avatar{
+    width:40px;
+    height:40px;
+    background:var(--primary);
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:bold;
+}
+
+/* MAIN */
+.main{
+    width:100%;
+    min-height:calc(100vh - 75px);
+}
+
+.content{
+    padding:30px 40px;
+    max-width:1500px;
+    margin:auto;
+}
+
+/* BREADCRUMB */
+.breadcrumb{
+    display:flex;
+    gap:8px;
+    font-size:12px;
+    color:var(--muted);
+    margin-bottom:20px;
+}
+
+.breadcrumb .current{
+    color:#444;
+    font-weight:600;
+}
+
+/* TABS */
+.settings-tabs{
+    background:#fff;
+    border:1px solid var(--border);
+    border-radius:8px;
+    display:flex;
+    gap:3px;
+    padding:5px;
+    margin-bottom:20px;
+    overflow-x:auto;
+}
+
+.settings-tab{
+    padding:11px 18px;
+    font-size:13px;
+    color:#777;
+    border-radius:6px;
+    white-space:nowrap;
+    cursor:pointer;
+}
+
+.settings-tab:hover{
+    background:#fafafa;
+}
+
+.settings-tab.active{
+    background:var(--primary-light);
+    color:#B8643C;
+    font-weight:600;
+}
+
+/* HEADER */
+.settings-header{
+    background:#fff;
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:22px 25px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:20px;
+}
+
+.settings-header-left{
+    display:flex;
+    align-items:center;
+    gap:15px;
+}
+
+.settings-icon{
+    width:50px;
+    height:50px;
+    background:var(--primary-light);
+    color:#C76F43;
+    border-radius:10px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:23px;
+}
+
+.settings-header h2{
+    font-size:19px;
+    margin-bottom:5px;
+}
+
+.settings-header p{
+    font-size:12px;
+    color:var(--muted);
+}
+
+.header-buttons{
+    display:flex;
+    gap:10px;
+}
+
+/* BUTTONS */
+.btn{
+    border:none;
+    border-radius:6px;
+    padding:11px 17px;
+    font-size:13px;
+    cursor:pointer;
+    font-weight:600;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:7px;
+}
+
+.btn-primary{
+    background:var(--primary);
+    color:#222;
+}
+
+.btn-primary:hover{
+    background:var(--primary-dark);
+}
+
+.btn-secondary{
+    background:#f1f1f1;
+    color:#555;
+}
+
+.btn-secondary:hover{
+    background:#e5e5e5;
+}
+
+/* TOOLBAR */
+.branch-toolbar{
+    background:#fff;
+    border:1px solid var(--border);
+    border-radius:8px 8px 0 0;
+    padding:16px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+
+.branch-toolbar-title{
+    font-size:14px;
+    font-weight:600;
+}
+
+.branch-toolbar-subtitle{
+    font-size:11px;
+    color:#999;
+    margin-top:4px;
+}
+
+.search-box{
+    width:300px;
+    position:relative;
+}
+
+.search-box input{
+    width:100%;
+    height:40px;
+    border:1px solid #ddd;
+    border-radius:6px;
+    padding:0 12px 0 38px;
+    outline:none;
+    font-size:13px;
+}
+
+.search-box input:focus{
+    border-color:var(--primary);
+}
+
+.search-icon{
+    position:absolute;
+    left:13px;
+    top:11px;
+    color:#999;
+}
+
+/* TABLE */
+.table-container{
+    background:#fff;
+    border:1px solid var(--border);
+    border-top:none;
+    border-radius:0 0 8px 8px;
+    overflow-x:auto;
+}
+
+.branch-table{
+    width:100%;
+    border-collapse:collapse;
+    min-width:1050px;
+}
+
+.branch-table th{
+    background:#fafafa;
+    padding:14px 15px;
+    border-bottom:1px solid var(--border);
+    font-size:11px;
+    color:#666;
+    text-align:left;
+}
+
+.branch-table td{
+    padding:15px;
+    border-bottom:1px solid #eee;
+    font-size:12px;
+    vertical-align:top;
+}
+
+.branch-table tbody tr:hover{
+    background:#fffaf7;
+}
+
+.branch-name{
+    font-weight:600;
+    color:#333;
+}
+
+.address{
+    max-width:380px;
+    white-space:pre-line;
+    line-height:1.5;
+    color:#555;
+}
+
+.table-email,
+.table-phone{
+    margin-bottom:4px;
+    color:#444;
+}
+
+/* STATUS */
+.status{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:5px 10px;
+    border-radius:20px;
+    font-size:10px;
+    font-weight:600;
+}
+
+.status::before{
+    content:"";
+    width:6px;
+    height:6px;
+    border-radius:50%;
+}
+
+.status.active{
+    background:#eaf7ef;
+    color:var(--success);
+}
+
+.status.active::before{
+    background:var(--success);
+}
+
+.status.inactive{
+    background:#f4f4f4;
+    color:#777;
+}
+
+.status.inactive::before{
+    background:#999;
+}
+
+/* ACTIONS */
+.actions{
+    display:flex;
+    gap:6px;
+}
+
+.action-btn{
+    width:32px;
+    height:32px;
+    border:1px solid var(--border);
+    background:#fff;
+    border-radius:5px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+}
+
+.action-btn:hover{
+    background:#f7f7f7;
+}
+
+.action-btn.delete{
+    color:var(--danger);
+}
+
+/* INFO */
+.info-card{
+    margin-top:20px;
+    background:#fff8f4;
+    border:1px solid #f0d4c3;
+    border-radius:8px;
+    padding:15px;
+    display:flex;
+    gap:12px;
+}
+
+.info-icon{
+    color:#c76f43;
+    font-size:18px;
+}
+
+.info-card h4{
+    font-size:12px;
+    margin-bottom:5px;
+}
+
+.info-card p{
+    font-size:11px;
+    color:#777;
+    line-height:1.6;
+}
+
+.info-card a{
+    color:#b8643c;
+    font-weight:600;
+    text-decoration:none;
+}
+
+/* MODAL */
+.modal-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.5);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:1000;
+    padding:20px;
+}
+
+.modal-overlay.show{
+    display:flex;
+}
+
+.modal{
+    width:680px;
+    max-width:100%;
+    max-height:94vh;
+    overflow-y:auto;
+    background:#fff;
+    border-radius:10px;
+    box-shadow:0 15px 50px rgba(0,0,0,.25);
+}
+
+.modal-header{
+    padding:20px 24px;
+    border-bottom:1px solid var(--border);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+}
+
+.modal-header h3{
+    font-size:17px;
+}
+
+.close-modal{
+    width:32px;
+    height:32px;
+    border:none;
+    background:#f5f5f5;
+    border-radius:5px;
+    font-size:18px;
+    cursor:pointer;
+}
+
+.modal-body{
+    padding:22px 24px;
+}
+
+.modal-footer{
+    padding:15px 24px;
+    border-top:1px solid var(--border);
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+}
+
+/* FORM */
+.form-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:16px;
+}
+
+.form-group{
+    display:flex;
+    flex-direction:column;
+    gap:7px;
+}
+
+.form-group.full{
+    grid-column:1/-1;
+}
+
+.form-group label{
+    font-size:12px;
+    font-weight:600;
+    color:#555;
+}
+
+.required{
+    color:#d9534f;
+}
+
+.form-control{
+    width:100%;
+    height:40px;
+    border:1px solid #ddd;
+    border-radius:6px;
+    padding:0 12px;
+    outline:none;
+    font-family:Arial,Helvetica,sans-serif;
+    font-size:13px;
+}
+
+.form-control:focus{
+    border-color:var(--primary);
+    box-shadow:0 0 0 3px rgba(244,172,131,.15);
+}
+
+.branch-address-input{
+    min-height:115px;
+    resize:vertical;
+    padding:12px;
+    line-height:1.5;
+}
+
+.form-help{
+    font-size:10px;
+    color:#999;
+    line-height:1.4;
+}
+
+/* DYNAMIC FIELDS */
+.field-heading{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:7px;
+}
+
+.add-field-btn{
+    border:none;
+    background:var(--primary-light);
+    color:#b8643c;
+    padding:7px 11px;
+    border-radius:5px;
+    font-size:11px;
+    font-weight:600;
+    cursor:pointer;
+}
+
+.add-field-btn:hover{
+    background:#ffe4d4;
+}
+
+.dynamic-row{
+    display:flex;
+    gap:8px;
+    margin-bottom:8px;
+}
+
+.dynamic-row .form-control{
+    flex:1;
+}
+
+.remove-field-btn{
+    width:40px;
+    height:40px;
+    flex-shrink:0;
+    border:1px solid #f0d0d0;
+    background:#fff5f5;
+    color:#d9534f;
+    border-radius:6px;
+    font-size:18px;
+    cursor:pointer;
+}
+
+.remove-field-btn:hover{
+    background:#ffe5e5;
+}
+
+/* SWITCH */
+.switch-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    background:#fafafa;
+    border:1px solid #eee;
+    padding:10px 12px;
+    border-radius:6px;
+    min-height:40px;
+}
+
+.switch{
+    position:relative;
+    width:42px;
+    height:22px;
+}
+
+.switch input{
+    opacity:0;
+    width:0;
+    height:0;
+}
+
+.slider{
+    position:absolute;
+    inset:0;
+    background:#ccc;
+    border-radius:20px;
+    cursor:pointer;
+}
+
+.slider:before{
+    content:"";
+    position:absolute;
+    width:16px;
+    height:16px;
+    left:3px;
+    top:3px;
+    background:white;
+    border-radius:50%;
+    transition:.2s;
+}
+
+.switch input:checked + .slider{
+    background:var(--primary);
+}
+
+.switch input:checked + .slider:before{
+    transform:translateX(20px);
+}
+
+/* PREVIEW */
+.preview-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.7);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:3000;
+    padding:20px;
+}
+
+.preview-overlay.show{
+    display:flex;
+}
+
+.preview-modal{
+    width:1000px;
+    max-width:100%;
+    height:95vh;
+    background:#f1f1f1;
+    border-radius:10px;
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+}
+
+.preview-header{
+    background:#fff;
+    padding:16px 22px;
+    border-bottom:1px solid #ddd;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+}
+
+.preview-header h3{
+    font-size:17px;
+    margin-bottom:4px;
+}
+
+.preview-header p{
+    font-size:11px;
+    color:#888;
+}
+
+.preview-close{
+    width:34px;
+    height:34px;
+    border:none;
+    background:#f5f5f5;
+    border-radius:5px;
+    font-size:20px;
+    cursor:pointer;
+}
+
+.preview-body{
+    flex:1;
+    overflow:auto;
+    padding:30px;
+    display:flex;
+    justify-content:center;
+    align-items:flex-start;
+}
+
+.preview-footer{
+    background:#fff;
+    padding:14px 22px;
+    border-top:1px solid #ddd;
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+}
+
+/* PAYSLIP */
+.payslip-page{
+    width:794px;
+    min-height:1123px;
+    background:white;
+    padding:45px 50px;
+    position:relative;
+
+    font-family:"Times New Roman",Times,serif;
+    font-size:11px;
+    color:#111;
+
+    box-shadow:0 5px 20px rgba(0,0,0,.15);
+}
+
+.payslip-company{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:8px;
+}
+
+.payslip-logo{
+    display:flex;
+    align-items:center;
+    gap:8px;
+}
+
+.preview-logo{
+    width:40px;
+    height:40px;
+    border:4px solid #f4ac83;
+    color:#f4ac83;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family:Arial,sans-serif;
+    font-size:24px;
+    font-weight:bold;
+    transform:rotate(45deg);
+}
+
+.preview-logo span{
+    transform:rotate(-45deg);
+}
+
+.payslip-company-name{
+    font-family:Arial,sans-serif;
+    font-size:22px;
+    color:#777;
+    font-weight:600;
+}
+
+.payslip-tagline{
+    font-family:Arial,sans-serif;
+    font-size:7px;
+    color:#aaa;
+    letter-spacing:1px;
+}
+
+.payslip-company-title{
+    color:#e2b6a5;
+    font-size:12px;
+    font-weight:bold;
+    text-align:right;
+}
+
+.payslip-line{
+    height:3px;
+    background:#f4ac83;
+    margin-bottom:14px;
+}
+
+.payslip-title{
+    background:#555;
+    color:white;
+    text-align:center;
+    padding:5px;
+    font-weight:bold;
+    font-size:12px;
+    margin-bottom:10px;
+}
+
+.employee-info{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    border:1px solid #222;
+    font-size:10px;
+}
+
+.employee-info div{
+    padding:5px;
+    border-bottom:1px solid #222;
+}
+
+.employee-info div:nth-child(odd){
+    border-right:1px solid #222;
+}
+
+.salary-table{
+    width:100%;
+    border-collapse:collapse;
+    margin-top:12px;
+    font-size:10px;
+}
+
+.salary-table th{
+    background:#f4ac83;
+    border:1px solid #222;
+    padding:5px;
+    text-align:left;
+}
+
+.salary-table td{
+    border:1px solid #222;
+    padding:4px;
+}
+
+.salary-table td:last-child,
+.salary-table th:last-child{
+    text-align:right;
+}
+
+.total-row{
+    font-weight:bold;
+    background:#f5f5f5;
+}
+
+.net-salary{
+    margin-top:14px;
+    border:1px solid #222;
+    background:#eee;
+    padding:8px;
+    display:flex;
+    justify-content:space-between;
+    font-size:12px;
+}
+
+.payslip-branch{
+    position:absolute;
+    left:50px;
+    right:50px;
+    bottom:30px;
+    border-top:2px solid #f4ac83;
+    padding-top:9px;
+    text-align:center;
+}
+
+.branch-footer-title{
+    color:#e2b6a5;
+    font-size:12px;
+    font-weight:bold;
+    margin-bottom:4px;
+}
+
+.preview-branch-address{
+    white-space:pre-line;
+    font-size:9px;
+    line-height:1.4;
+    color:#777;
+}
+
+.preview-branch-emails,
+.preview-branch-phones{
+    margin-top:4px;
+    font-size:9px;
+    line-height:1.4;
+    color:#777;
+}
+
+/* TOAST */
+.toast{
+    position:fixed;
+    right:25px;
+    bottom:25px;
+    background:#333;
+    color:#fff;
+    padding:13px 17px;
+    border-radius:7px;
+    font-size:12px;
+    opacity:0;
+    transform:translateY(100px);
+    pointer-events:none;
+    transition:.3s;
+    z-index:5000;
+}
+
+.toast.show{
+    opacity:1;
+    transform:translateY(0);
+}
+
+/* RESPONSIVE */
+@media(max-width:800px){
+
+    .content{
+        padding:20px 15px;
+    }
+
+    .settings-header{
+        flex-direction:column;
+        align-items:flex-start;
+        gap:15px;
+    }
+
+    .header-buttons{
+        width:100%;
+        flex-direction:column;
+    }
+
+    .header-buttons .btn{
+        width:100%;
+    }
+
+    .branch-toolbar{
+        flex-direction:column;
+        align-items:stretch;
+        gap:12px;
+    }
+
+    .search-box{
+        width:100%;
+    }
+
+    .form-grid{
+        grid-template-columns:1fr;
+    }
+
+    .form-group.full{
+        grid-column:auto;
+    }
+
+    .topbar{
+        padding:0 15px;
+    }
+
+    .user-area{
+        display:none;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<!-- =====================================================
+     TOP HEADER
+===================================================== -->
+
+<header class="topbar">
+
+    <div class="company-header">
+
+        <div class="logo-symbol">
+            <span>A</span>
+        </div>
+
+        <div>
+            <div class="company-name">AROWANA</div>
+
+            <div class="company-tagline">
+                PRECISION • INNOVATION • SUCCESS
+            </div>
+        </div>
+
+    </div>
+
+    <div class="user-area">
+
+        <div class="notification">🔔</div>
+
+        <div class="user-avatar">PN</div>
+
+    </div>
+
+</header>
+
+
+<!-- =====================================================
+     MAIN
+===================================================== -->
+
+<main class="main">
+
+<div class="content">
+
+    <!-- BREADCRUMB -->
+
+    <div class="breadcrumb">
+
+        <span>Settings</span>
+
+        <span>›</span>
+
+        <span class="current">
+            Payslip Settings
+        </span>
+
+    </div>
+
+
+    <!-- SETTINGS TABS -->
+
+    <div class="settings-tabs">
+
+        <div class="settings-tab">General</div>
+
+        <div class="settings-tab">Company</div>
+
+        <div class="settings-tab">Attendance</div>
+
+        <div class="settings-tab">Payroll</div>
+
+        <div class="settings-tab active">
+            Payslip Settings
+        </div>
+
+        <div class="settings-tab">
+            Notifications
+        </div>
+
+    </div>
+
+
+    <!-- PAGE HEADER -->
+
+    <div class="settings-header">
+
+        <div class="settings-header-left">
+
+            <div class="settings-icon">
+                🧾
+            </div>
+
+            <div>
+
+                <h2>Payslip Settings</h2>
+
+                <p>
+                    Manage branch information displayed on employee payslips.
+                </p>
+
+            </div>
+
+        </div>
+
+
+        <div class="header-buttons">
+
+            <!-- FIXED ADD BRANCH BUTTON -->
+
+            <button
+                type="button"
+                class="btn btn-secondary"
+                id="previewPayslipBtn">
+
+                👁 Preview Payslip
+
+            </button>
+
+
+            <button
+                type="button"
+                class="btn btn-primary"
+                id="addBranchBtn">
+
+                ＋ Add New Branch
+
+            </button>
+
+        </div>
+
+    </div>
+
+
+    <!-- TOOLBAR -->
+
+    <div class="branch-toolbar">
+
+        <div>
+
+            <div class="branch-toolbar-title">
+                Branch Management
+            </div>
+
+            <div class="branch-toolbar-subtitle">
+                Each branch can have its own address,
+                multiple email IDs and multiple phone numbers.
+            </div>
+
+        </div>
+
+
+        <div class="search-box">
+
+            <span class="search-icon">
+                🔍
+            </span>
+
+            <input
+                type="text"
+                id="searchBranch"
+                placeholder="Search branch...">
+
+        </div>
+
+    </div>
+
+
+    <!-- TABLE -->
+
+    <div class="table-container">
+
+        <table class="branch-table">
+
+            <thead>
+
+                <tr>
+
+                    <th>Branch</th>
+
+                    <th>Branch Address</th>
+
+                    <th>Email IDs</th>
+
+                    <th>Phone Numbers</th>
+
+                    <th>Status</th>
+
+                    <th>Actions</th>
+
+                </tr>
+
+            </thead>
+
+
+            <tbody id="branchTableBody">
+
+                <tr>
+
+                    <td>
+
+                        <div class="branch-name">
+                            Visakhapatnam Branch
+                        </div>
+
+                    </td>
+
+
+                    <td>
+
+                        <div class="address">#30-10-12 & 13, 1ST & 2ND FLOOR,
+BESIDE UNION BANK OF INDIA
+BANK STREET, MURALI NAGAR,
+VISAKHAPATNAM - 530007</div>
+
+                    </td>
+
+
+                    <td>
+
+                        <div class="table-email">
+                            hr2@arowanasoft.com
+                        </div>
+
+                        <div class="table-email">
+                            hr3@arowanasoft.com
+                        </div>
+
+                    </td>
+
+
+                    <td>
+
+                        <div class="table-phone">
+                            +91 83749 25568
+                        </div>
+
+                        <div class="table-phone">
+                            +91 98765 43210
+                        </div>
+
+                    </td>
+
+
+                    <td>
+
+                        <span class="status active">
+                            Active
+                        </span>
+
+                    </td>
+
+
+                    <td>
+
+                        <div class="actions">
+
+                            <button
+                                type="button"
+                                class="action-btn edit-btn"
+                                title="Edit">
+
+                                ✏
+
+                            </button>
+
+
+                            <button
+                                type="button"
+                                class="action-btn delete delete-btn"
+                                title="Delete">
+
+                                🗑
+
+                            </button>
+
+                        </div>
+
+                    </td>
+
+                </tr>
+
+            </tbody>
+
+        </table>
+
+
+        <div
+            id="emptyState"
+            style="
+                display:none;
+                padding:45px;
+                text-align:center;
+                color:#999;
+            ">
+
+            No branches found.
+
+        </div>
+
+    </div>
+
+
+    <!-- INFORMATION -->
+
+    <div class="info-card">
+
+        <div class="info-icon">
+            ℹ
+        </div>
+
+        <div>
+
+            <h4>
+                Payslip Branch Information
+            </h4>
+
+            <p>
+                The branch assigned to an employee will
+                determine the branch name, address, email IDs
+                and phone numbers displayed on the payslip.
+            </p>
+
+        </div>
+
+    </div>
+
+
+    <!-- HR NOTE -->
+
+    <div class="info-card">
+
+        <div class="info-icon">
+            ✉
+        </div>
+
+        <div>
+
+            <h4>
+                Need Help?
+            </h4>
+
+            <p>
+
+                Note: If you have any queries, please contact
+
+                <a href="mailto:hr2@arowanasoft.com">
+                    hr2@arowanasoft.com
+                </a>
+
+                or
+
+                <a href="mailto:hr3@arowanasoft.com">
+                    hr3@arowanasoft.com
+                </a>
+
+            </p>
+
+        </div>
+
+    </div>
+
+</div>
+
+</main>
+
+
+<!-- =====================================================
+     BRANCH MODAL
+===================================================== -->
+
+<div
+    class="modal-overlay"
+    id="branchModal">
+
+    <div class="modal">
+
+        <div class="modal-header">
+
+            <h3 id="modalTitle">
+                Add New Branch
+            </h3>
+
+            <button
+                type="button"
+                class="close-modal"
+                id="closeBranchBtn">
+
+                ×
+
+            </button>
+
+        </div>
+
+
+        <div class="modal-body">
+
+            <div class="form-grid">
+
+
+                <!-- BRANCH NAME -->
+
+                <div class="form-group full">
+
+                    <label>
+                        Branch Name
+                        <span class="required">*</span>
+                    </label>
+
+                    <input
+                        type="text"
+                        id="branchName"
+                        class="form-control"
+                        placeholder="e.g. Visakhapatnam Branch">
+
+                </div>
+
+
+                <!-- ADDRESS -->
+
+                <div class="form-group full">
+
+                    <label>
+                        Branch Address
+                        <span class="required">*</span>
+                    </label>
+
+                    <textarea
+                        id="branchAddress"
+                        class="form-control branch-address-input"
+                        placeholder="Enter complete branch address"></textarea>
+
+                    <div class="form-help">
+                        Enter the complete address exactly as it
+                        should appear on the payslip.
+                    </div>
+
+                </div>
+
+
+                <!-- EMAILS -->
+
+                <div class="form-group full">
+
+                    <div class="field-heading">
+
+                        <label>
+                            Branch Email ID
+                            <span class="required">*</span>
+                        </label>
+
+                        <button
+                            type="button"
+                            class="add-field-btn"
+                            id="addEmailBtn">
+
+                            ＋ Add Email
+
+                        </button>
+
+                    </div>
+
+
+                    <div id="emailFields"></div>
+
+                    <div class="form-help">
+                        You can add multiple email IDs.
+                    </div>
+
+                </div>
+
+
+                <!-- PHONES -->
+
+                <div class="form-group full">
+
+                    <div class="field-heading">
+
+                        <label>
+                            Branch Phone Number
+                        </label>
+
+                        <button
+                            type="button"
+                            class="add-field-btn"
+                            id="addPhoneBtn">
+
+                            ＋ Add Phone
+
+                        </button>
+
+                    </div>
+
+
+                    <div id="phoneFields"></div>
+
+                    <div class="form-help">
+                        You can add multiple phone numbers.
+                    </div>
+
+                </div>
+
+
+                <!-- STATUS -->
+
+                <div class="form-group full">
+
+                    <label>
+                        Status
+                    </label>
+
+                    <div class="switch-row">
+
+                        <div>
+
+                            <strong style="font-size:12px;">
+                                Active Branch
+                            </strong>
+
+                            <div style="
+                                color:#999;
+                                font-size:10px;
+                                margin-top:3px;
+                            ">
+                                Active branches can be assigned
+                                to employees.
+                            </div>
+
+                        </div>
+
+
+                        <label class="switch">
+
+                            <input
+                                type="checkbox"
+                                id="branchStatus"
+                                checked>
+
+                            <span class="slider"></span>
+
+                        </label>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="modal-footer">
+
+            <button
+                type="button"
+                class="btn btn-secondary"
+                id="cancelBranchBtn">
+
+                Cancel
+
+            </button>
+
+
+            <button
+                type="button"
+                class="btn btn-primary"
+                id="saveBranchBtn">
+
+                Save Branch
+
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- =====================================================
+     PREVIEW MODAL
+===================================================== -->
+
+<div
+    class="preview-overlay"
+    id="previewModal">
+
+    <div class="preview-modal">
+
+        <div class="preview-header">
+
+            <div>
+
+                <h3>
+                    Payslip Preview
+                </h3>
+
+                <p>
+                    Preview how the selected branch information will appear.
+                </p>
+
+            </div>
+
+
+            <button
+                type="button"
+                class="preview-close"
+                id="closePreviewBtn">
+
+                ×
+
+            </button>
+
+        </div>
+
+
+        <div class="preview-body">
+
+
+            <div
+                class="payslip-page"
+                id="payslipPreview">
+
+
+                <!-- COMPANY HEADER -->
+
+                <div class="payslip-company">
+
+                    <div class="payslip-logo">
+
+                        <div class="preview-logo">
+                            <span>A</span>
+                        </div>
+
+                        <div>
+
+                            <div class="payslip-company-name">
+                                AROWANA
+                            </div>
+
+                            <div class="payslip-tagline">
+                                PRECISION • INNOVATION • SUCCESS
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="payslip-company-title">
+                        AROWANA CORPORATIONS PRIVATE LIMITED
+                    </div>
+
+                </div>
+
+
+                <div class="payslip-line"></div>
+
+
+                <div class="payslip-title">
+                    DETAILED COMPENSATION STRUCTURE
+                </div>
+
+
+                <!-- EMPLOYEE -->
+
+                <div class="employee-info">
+
+                    <div>
+                        <strong>Employee Name:</strong>
+                        Mr. XXXXX
+                    </div>
+
+                    <div>
+                        <strong>Employee ID:</strong>
+                        EMP001
+                    </div>
+
+                    <div>
+                        <strong>Designation:</strong>
+                        Software Engineer
+                    </div>
+
+                    <div>
+                        <strong>Pay Month:</strong>
+                        August 2026
+                    </div>
+
+                </div>
+
+
+                <!-- SALARY -->
+
+                <table class="salary-table">
+
+                    <thead>
+
+                        <tr>
+
+                            <th>
+                                Salary Components
+                            </th>
+
+                            <th>
+                                Amount
+                            </th>
+
+                        </tr>
+
+                    </thead>
+
+
+                    <tbody>
+
+                        <tr>
+                            <td>Basic Salary</td>
+                            <td>₹19,280.00</td>
+                        </tr>
+
+                        <tr>
+                            <td>House Rent Allowance</td>
+                            <td>₹7,712.00</td>
+                        </tr>
+
+                        <tr>
+                            <td>Conveyance Allowance</td>
+                            <td>₹10,000.00</td>
+                        </tr>
+
+                        <tr>
+                            <td>Leave Travel Allowance</td>
+                            <td>₹19,928.00</td>
+                        </tr>
+
+                        <tr>
+                            <td>Children's Education Allowance</td>
+                            <td>₹2,400.00</td>
+                        </tr>
+
+                        <tr>
+                            <td>Special Allowance</td>
+                            <td>₹18,680.00</td>
+                        </tr>
+
+                        <tr class="total-row">
+
+                            <td>
+                                Gross Salary
+                            </td>
+
+                            <td>
+                                ₹78,000.00
+                            </td>
+
+                        </tr>
+
+                    </tbody>
+
+                </table>
+
+
+                <!-- DEDUCTIONS -->
+
+                <table class="salary-table">
+
+                    <thead>
+
+                        <tr>
+
+                            <th>
+                                Employee Contributions / Deductions
+                            </th>
+
+                            <th>
+                                Amount
+                            </th>
+
+                        </tr>
+
+                    </thead>
+
+
+                    <tbody>
+
+                        <tr>
+                            <td>Employee PF</td>
+                            <td>₹1,800.00</td>
+                        </tr>
+
+                        <tr>
+                            <td>Professional Tax</td>
+                            <td>₹200.00</td>
+                        </tr>
+
+                        <tr class="total-row">
+
+                            <td>
+                                Total Deductions
+                            </td>
+
+                            <td>
+                                ₹2,000.00
+                            </td>
+
+                        </tr>
+
+                    </tbody>
+
+                </table>
+
+
+                <!-- NET -->
+
+                <div class="net-salary">
+
+                    <span>
+                        NET SALARY
+                    </span>
+
+                    <strong>
+                        ₹76,000.00
+                    </strong>
+
+                </div>
+
+
+                <!-- BRANCH FOOTER -->
+
+                <div class="payslip-branch">
+
+                    <div class="branch-footer-title">
+                        AROWANA CORPORATIONS PRIVATE LIMITED
+                    </div>
+
+                    <div
+                        class="preview-branch-address"
+                        id="previewBranchAddress">
+                    </div>
+
+                    <div
+                        class="preview-branch-emails"
+                        id="previewBranchEmails">
+                    </div>
+
+                    <div
+                        class="preview-branch-phones"
+                        id="previewBranchPhones">
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="preview-footer">
+
+            <button
+                type="button"
+                class="btn btn-secondary"
+                id="closePreviewBottomBtn">
+
+                Close
+
+            </button>
+
+
+            <button
+                type="button"
+                class="btn btn-primary"
+                id="printPayslipBtn">
+
+                🖨 Print Payslip
+
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- TOAST -->
+
+<div
+    id="toast"
+    class="toast">
+</div>
+
+
+<script>
+
+/* =========================================================
+   VARIABLES
+========================================================= */
+
+let editingRow = null;
+
+let toastTimer = null;
+
+
+/* =========================================================
+   DOM READY
+========================================================= */
+
+document.addEventListener("DOMContentLoaded", function(){
+
+    /*
+     * Initial fields
+     */
+
+    addEmailField();
+
+    addPhoneField();
+
+
+    /*
+     * ADD BRANCH BUTTON
+     */
+
+    document
+        .getElementById("addBranchBtn")
+        .addEventListener("click", function(){
+
+            openBranchModal();
+
+        });
+
+
+    /*
+     * PREVIEW BUTTON
+     */
+
+    document
+        .getElementById("previewPayslipBtn")
+        .addEventListener("click", function(){
+
+            openPayslipPreview();
+
+        });
+
+
+    /*
+     * CLOSE BRANCH
+     */
+
+    document
+        .getElementById("closeBranchBtn")
+        .addEventListener("click", function(){
+
+            closeBranchModal();
+
+        });
+
+
+    document
+        .getElementById("cancelBranchBtn")
+        .addEventListener("click", function(){
+
+            closeBranchModal();
+
+        });
+
+
+    /*
+     * SAVE
+     */
+
+    document
+        .getElementById("saveBranchBtn")
+        .addEventListener("click", function(){
+
+            saveBranch();
+
+        });
+
+
+    /*
+     * ADD EMAIL
+     */
+
+    document
+        .getElementById("addEmailBtn")
+        .addEventListener("click", function(){
+
+            addEmailField();
+
+        });
+
+
+    /*
+     * ADD PHONE
+     */
+
+    document
+        .getElementById("addPhoneBtn")
+        .addEventListener("click", function(){
+
+            addPhoneField();
+
+        });
+
+
+    /*
+     * SEARCH
+     */
+
+    document
+        .getElementById("searchBranch")
+        .addEventListener("input", function(){
+
+            searchBranches();
+
+        });
+
+
+    /*
+     * CLOSE PREVIEW
+     */
+
+    document
+        .getElementById("closePreviewBtn")
+        .addEventListener("click", function(){
+
+            closePayslipPreview();
+
+        });
+
+
+    document
+        .getElementById("closePreviewBottomBtn")
+        .addEventListener("click", function(){
+
+            closePayslipPreview();
+
+        });
+
+
+    /*
+     * PRINT
+     */
+
+    document
+        .getElementById("printPayslipBtn")
+        .addEventListener("click", function(){
+
+            printPayslipPreview();
+
+        });
+
+
+    /*
+     * EDIT / DELETE
+     */
+
+    document
+        .getElementById("branchTableBody")
+        .addEventListener("click", function(event){
+
+            const editButton =
+                event.target.closest(".edit-btn");
+
+            const deleteButton =
+                event.target.closest(".delete-btn");
+
+
+            if(editButton){
+
+                editBranch(editButton);
+
+            }
+
+
+            if(deleteButton){
+
+                deleteBranch(deleteButton);
+
+            }
+
+        });
+
+});
+
+
+/* =========================================================
+   OPEN BRANCH MODAL
+========================================================= */
+
+function openBranchModal(){
+
+    editingRow = null;
+
+
+    document.getElementById("modalTitle")
+        .textContent = "Add New Branch";
+
+
+    document.getElementById("branchName")
+        .value = "";
+
+
+    document.getElementById("branchAddress")
+        .value = "";
+
+
+    document.getElementById("branchStatus")
+        .checked = true;
+
+
+    document.getElementById("emailFields")
+        .innerHTML = "";
+
+
+    document.getElementById("phoneFields")
+        .innerHTML = "";
+
+
+    addEmailField();
+
+    addPhoneField();
+
+
+    document.getElementById("branchModal")
+        .classList.add("show");
+
+
+    document.body.style.overflow = "hidden";
+
+
+    /*
+     * Focus branch name
+     */
+
+    setTimeout(function(){
+
+        document.getElementById("branchName")
+            .focus();
+
+    },100);
+
+}
+
+
+/* =========================================================
+   CLOSE BRANCH
+========================================================= */
+
+function closeBranchModal(){
+
+    document.getElementById("branchModal")
+        .classList.remove("show");
+
+
+    document.body.style.overflow = "";
+
+    editingRow = null;
+
+}
+
+
+/* =========================================================
+   ADD EMAIL FIELD
+========================================================= */
+
+function addEmailField(value=""){
+
+    const container =
+        document.getElementById("emailFields");
+
+
+    const row =
+        document.createElement("div");
+
+
+    row.className = "dynamic-row";
+
+
+    row.innerHTML = `
+
+        <input
+            type="email"
+            class="form-control branch-email"
+            placeholder="Enter branch email ID"
+            value="${escapeHTML(value)}">
+
+
+        <button
+            type="button"
+            class="remove-field-btn remove-email">
+
+            ×
+
+        </button>
+
+    `;
+
+
+    container.appendChild(row);
+
+
+    row.querySelector(".remove-email")
+        .addEventListener("click", function(){
+
+            removeEmailField(this);
+
+        });
+
+}
+
+
+/* =========================================================
+   REMOVE EMAIL
+========================================================= */
+
+function removeEmailField(button){
+
+    const rows =
+        document.querySelectorAll(
+            "#emailFields .dynamic-row"
+        );
+
+
+    if(rows.length <= 1){
+
+        showToast(
+            "At least one email field is required."
+        );
+
+        return;
+
+    }
+
+
+    button
+        .closest(".dynamic-row")
+        .remove();
+
+}
+
+
+/* =========================================================
+   ADD PHONE
+========================================================= */
+
+function addPhoneField(value=""){
+
+    const container =
+        document.getElementById("phoneFields");
+
+
+    const row =
+        document.createElement("div");
+
+
+    row.className = "dynamic-row";
+
+
+    row.innerHTML = `
+
+        <input
+            type="text"
+            class="form-control branch-phone"
+            placeholder="+91 83749 25568"
+            value="${escapeHTML(value)}">
+
+
+        <button
+            type="button"
+            class="remove-field-btn remove-phone">
+
+            ×
+
+        </button>
+
+    `;
+
+
+    container.appendChild(row);
+
+
+    row.querySelector(".remove-phone")
+        .addEventListener("click", function(){
+
+            removePhoneField(this);
+
+        });
+
+}
+
+
+/* =========================================================
+   REMOVE PHONE
+========================================================= */
+
+function removePhoneField(button){
+
+    const rows =
+        document.querySelectorAll(
+            "#phoneFields .dynamic-row"
+        );
+
+
+    if(rows.length <= 1){
+
+        showToast(
+            "At least one phone field is required."
+        );
+
+        return;
+
+    }
+
+
+    button
+        .closest(".dynamic-row")
+        .remove();
+
+}
+
+
+/* =========================================================
+   GET EMAILS
+========================================================= */
+
+function getEmails(){
+
+    return Array.from(
+        document.querySelectorAll(".branch-email")
+    )
+    .map(function(input){
+
+        return input.value.trim();
+
+    })
+    .filter(Boolean);
+
+}
+
+
+/* =========================================================
+   GET PHONES
+========================================================= */
+
+function getPhones(){
+
+    return Array.from(
+        document.querySelectorAll(".branch-phone")
+    )
+    .map(function(input){
+
+        return input.value.trim();
+
+    })
+    .filter(Boolean);
+
+}
+
+
+/* =========================================================
+   SAVE BRANCH
+========================================================= */
+
+function saveBranch(){
+
+    const name =
+        document.getElementById("branchName")
+        .value.trim();
+
+
+    const address =
+        document.getElementById("branchAddress")
+        .value.trim();
+
+
+    const emails =
+        getEmails();
+
+
+    const phones =
+        getPhones();
+
+
+    const active =
+        document.getElementById("branchStatus")
+        .checked;
+
+
+    if(!name){
+
+        showToast(
+            "Please enter Branch Name."
+        );
+
+        return;
+
+    }
+
+
+    if(!address){
+
+        showToast(
+            "Please enter Branch Address."
+        );
+
+        return;
+
+    }
+
+
+    if(emails.length === 0){
+
+        showToast(
+            "Please enter at least one email ID."
+        );
+
+        return;
+
+    }
+
+
+    const emailPattern =
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+
+    for(const email of emails){
+
+        if(!emailPattern.test(email)){
+
+            showToast(
+                "Invalid email: " + email
+            );
+
+            return;
+
+        }
+
+    }
+
+
+    const emailHTML =
+        emails.map(function(email){
+
+            return `
+                <div class="table-email">
+                    ${escapeHTML(email)}
+                </div>
+            `;
+
+        }).join("");
+
+
+    const phoneHTML =
+        phones.map(function(phone){
+
+            return `
+                <div class="table-phone">
+                    ${escapeHTML(phone)}
+                </div>
+            `;
+
+        }).join("");
+
+
+    /* =====================================================
+       EDIT
+    ===================================================== */
+
+    if(editingRow){
+
+        const cells =
+            editingRow.cells;
+
+
+        cells[0].innerHTML = `
+
+            <div class="branch-name">
+                ${escapeHTML(name)}
+            </div>
+
+        `;
+
+
+        cells[1].innerHTML = `
+
+            <div class="address">
+                ${escapeHTML(address)}
+            </div>
+
+        `;
+
+
+        cells[2].innerHTML =
+            emailHTML;
+
+
+        cells[3].innerHTML =
+            phoneHTML;
+
+
+        cells[4].innerHTML =
+            active
+
+            ?
+
+            `
+            <span class="status active">
+                Active
+            </span>
+            `
+
+            :
+
+            `
+            <span class="status inactive">
+                Inactive
+            </span>
+            `;
+
+
+        closeBranchModal();
+
+
+        showToast(
+            "Branch updated successfully."
+        );
+
+
+        return;
+
+    }
+
+
+    /* =====================================================
+       ADD
+    ===================================================== */
+
+    const tbody =
+        document.getElementById(
+            "branchTableBody"
+        );
+
+
+    const row =
+        document.createElement("tr");
+
+
+    row.innerHTML = `
+
+        <td>
+
+            <div class="branch-name">
+                ${escapeHTML(name)}
+            </div>
+
+        </td>
+
+
+        <td>
+
+            <div class="address">
+                ${escapeHTML(address)}
+            </div>
+
+        </td>
+
+
+        <td>
+            ${emailHTML}
+        </td>
+
+
+        <td>
+            ${phoneHTML}
+        </td>
+
+
+        <td>
+
+            ${
+                active
+
+                ?
+
+                `
+                <span class="status active">
+                    Active
+                </span>
+                `
+
+                :
+
+                `
+                <span class="status inactive">
+                    Inactive
+                </span>
+                `
+            }
+
+        </td>
+
+
+        <td>
+
+            <div class="actions">
+
+                <button
+                    type="button"
+                    class="action-btn edit-btn"
+                    title="Edit">
+
+                    ✏
+
+                </button>
+
+
+                <button
+                    type="button"
+                    class="action-btn delete delete-btn"
+                    title="Delete">
+
+                    🗑
+
+                </button>
+
+            </div>
+
+        </td>
+
+    `;
+
+
+    tbody.appendChild(row);
+
+
+    closeBranchModal();
+
+
+    showToast(
+        "Branch added successfully."
+    );
+
+
+    searchBranches();
+
+}
+
+
+/* =========================================================
+   EDIT BRANCH
+========================================================= */
+
+function editBranch(button){
+
+    editingRow =
+        button.closest("tr");
+
+
+    const cells =
+        editingRow.cells;
+
+
+    const name =
+        cells[0]
+        .querySelector(".branch-name")
+        .textContent.trim();
+
+
+    const address =
+        cells[1]
+        .querySelector(".address")
+        .textContent.trim();
+
+
+    const emails =
+        Array.from(
+            cells[2]
+            .querySelectorAll(".table-email")
+        )
+        .map(function(el){
+
+            return el.textContent.trim();
+
+        });
+
+
+    const phones =
+        Array.from(
+            cells[3]
+            .querySelectorAll(".table-phone")
+        )
+        .map(function(el){
+
+            return el.textContent.trim();
+
+        });
+
+
+    document.getElementById("modalTitle")
+        .textContent = "Edit Branch";
+
+
+    document.getElementById("branchName")
+        .value = name;
+
+
+    document.getElementById("branchAddress")
+        .value = address;
+
+
+    document.getElementById("emailFields")
+        .innerHTML = "";
+
+
+    document.getElementById("phoneFields")
+        .innerHTML = "";
+
+
+    if(emails.length){
+
+        emails.forEach(function(email){
+
+            addEmailField(email);
+
+        });
+
+    }else{
+
+        addEmailField();
+
+    }
+
+
+    if(phones.length){
+
+        phones.forEach(function(phone){
+
+            addPhoneField(phone);
+
+        });
+
+    }else{
+
+        addPhoneField();
+
+    }
+
+
+    document.getElementById("branchStatus")
+        .checked =
+        cells[4]
+        .querySelector(".active") !== null;
+
+
+    document.getElementById("branchModal")
+        .classList.add("show");
+
+
+    document.body.style.overflow = "hidden";
+
+}
+
+
+/* =========================================================
+   DELETE
+========================================================= */
+
+function deleteBranch(button){
+
+    const row =
+        button.closest("tr");
+
+
+    const name =
+        row.querySelector(
+            ".branch-name"
+        )
+        .textContent.trim();
+
+
+    if(
+        !confirm(
+            'Are you sure you want to delete "' +
+            name +
+            '"?'
+        )
+    ){
+
+        return;
+
+    }
+
+
+    row.remove();
+
+
+    showToast(
+        "Branch deleted successfully."
+    );
+
+
+    searchBranches();
+
+}
+
+
+/* =========================================================
+   SEARCH
+========================================================= */
+
+function searchBranches(){
+
+    const search =
+        document.getElementById(
+            "searchBranch"
+        )
+        .value
+        .toLowerCase()
+        .trim();
+
+
+    const rows =
+        document.querySelectorAll(
+            "#branchTableBody tr"
+        );
+
+
+    let visible = 0;
+
+
+    rows.forEach(function(row){
+
+        const text =
+            row.textContent.toLowerCase();
+
+
+        if(text.includes(search)){
+
+            row.style.display = "";
+
+            visible++;
+
+        }else{
+
+            row.style.display = "none";
+
+        }
+
+    });
+
+
+    document.getElementById(
+        "emptyState"
+    ).style.display =
+        visible === 0
+        ? "block"
+        : "none";
+
+}
+
+
+/* =========================================================
+   PREVIEW
+========================================================= */
+
+function openPayslipPreview(){
+
+    const rows =
+        document.querySelectorAll(
+            "#branchTableBody tr"
+        );
+
+
+    if(rows.length === 0){
+
+        showToast(
+            "Please add a branch first."
+        );
+
+        return;
+
+    }
+
+
+    let row = null;
+
+
+    for(const currentRow of rows){
+
+        if(
+            currentRow.style.display !== "none"
+        ){
+
+            row = currentRow;
+
+            break;
+
+        }
+
+    }
+
+
+    if(!row){
+
+        row = rows[0];
+
+    }
+
+
+    const cells =
+        row.cells;
+
+
+    const address =
+        cells[1]
+        .querySelector(".address")
+        .textContent.trim();
+
+
+    const emails =
+        Array.from(
+            cells[2]
+            .querySelectorAll(".table-email")
+        )
+        .map(function(el){
+
+            return el.textContent.trim();
+
+        });
+
+
+    const phones =
+        Array.from(
+            cells[3]
+            .querySelectorAll(".table-phone")
+        )
+        .map(function(el){
+
+            return el.textContent.trim();
+
+        });
+
+
+    document.getElementById(
+        "previewBranchAddress"
+    ).textContent =
+        address;
+
+
+    document.getElementById(
+        "previewBranchEmails"
+    ).innerHTML =
+        emails.map(function(email){
+
+            return `
+                <div>
+                    ${escapeHTML(email)}
+                </div>
+            `;
+
+        }).join("");
+
+
+    document.getElementById(
+        "previewBranchPhones"
+    ).innerHTML =
+        phones.map(function(phone){
+
+            return `
+                <div>
+                    ${escapeHTML(phone)}
+                </div>
+            `;
+
+        }).join("");
+
+
+    document.getElementById(
+        "previewModal"
+    ).classList.add("show");
+
+
+    document.body.style.overflow = "hidden";
+
+}
+
+
+/* =========================================================
+   CLOSE PREVIEW
+========================================================= */
+
+function closePayslipPreview(){
+
+    document.getElementById(
+        "previewModal"
+    ).classList.remove("show");
+
+
+    document.body.style.overflow = "";
+
+}
+
+
+/* =========================================================
+   PRINT
+========================================================= */
+
+function printPayslipPreview(){
+
+    const content =
+        document.getElementById(
+            "payslipPreview"
+        ).outerHTML;
+
+
+    const printWindow =
+        window.open(
+            "",
+            "_blank",
+            "width=900,height=1000"
+        );
+
+
+    if(!printWindow){
+
+        showToast(
+            "Please allow pop-ups to print."
+        );
+
+        return;
+
+    }
+
+
+    printWindow.document.write(`
+
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="UTF-8">
+
+<title>Payslip</title>
+
+<style>
+
+@page{
+    size:A4;
+    margin:0;
+}
+
+*{
+    box-sizing:border-box;
+}
+
+body{
+    margin:0;
+    background:#fff;
+}
+
+.payslip-page{
+    width:794px;
+    min-height:1123px;
+    background:#fff;
+    padding:45px 50px;
+    position:relative;
+
+    font-family:"Times New Roman",Times,serif;
+    font-size:11px;
+    color:#111;
+}
+
+.payslip-company{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:8px;
+}
+
+.payslip-logo{
+    display:flex;
+    align-items:center;
+    gap:8px;
+}
+
+.preview-logo{
+    width:40px;
+    height:40px;
+    border:4px solid #f4ac83;
+    color:#f4ac83;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family:Arial,sans-serif;
+    font-size:24px;
+    font-weight:bold;
+    transform:rotate(45deg);
+}
+
+.preview-logo span{
+    transform:rotate(-45deg);
+}
+
+.payslip-company-name{
+    font-family:Arial,sans-serif;
+    font-size:22px;
+    color:#777;
+    font-weight:600;
+}
+
+.payslip-tagline{
+    font-family:Arial,sans-serif;
+    font-size:7px;
+    color:#aaa;
+    letter-spacing:1px;
+}
+
+.payslip-company-title{
+    color:#e2b6a5;
+    font-size:12px;
+    font-weight:bold;
+    text-align:right;
+}
+
+.payslip-line{
+    height:3px;
+    background:#f4ac83;
+    margin-bottom:14px;
+}
+
+.payslip-title{
+    background:#555;
+    color:#fff;
+    text-align:center;
+    padding:5px;
+    font-weight:bold;
+    font-size:12px;
+    margin-bottom:10px;
+}
+
+.employee-info{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    border:1px solid #222;
+    font-size:10px;
+}
+
+.employee-info div{
+    padding:5px;
+    border-bottom:1px solid #222;
+}
+
+.employee-info div:nth-child(odd){
+    border-right:1px solid #222;
+}
+
+.salary-table{
+    width:100%;
+    border-collapse:collapse;
+    margin-top:12px;
+    font-size:10px;
+}
+
+.salary-table th{
+    background:#f4ac83;
+    border:1px solid #222;
+    padding:5px;
+    text-align:left;
+}
+
+.salary-table td{
+    border:1px solid #222;
+    padding:4px;
+}
+
+.salary-table td:last-child,
+.salary-table th:last-child{
+    text-align:right;
+}
+
+.total-row{
+    font-weight:bold;
+    background:#f5f5f5;
+}
+
+.net-salary{
+    margin-top:14px;
+    border:1px solid #222;
+    background:#eee;
+    padding:8px;
+    display:flex;
+    justify-content:space-between;
+    font-size:12px;
+}
+
+.payslip-branch{
+    position:absolute;
+    left:50px;
+    right:50px;
+    bottom:30px;
+    border-top:2px solid #f4ac83;
+    padding-top:9px;
+    text-align:center;
+}
+
+.branch-footer-title{
+    color:#e2b6a5;
+    font-size:12px;
+    font-weight:bold;
+    margin-bottom:4px;
+}
+
+.preview-branch-address{
+    white-space:pre-line;
+    font-size:9px;
+    line-height:1.4;
+    color:#777;
+}
+
+.preview-branch-emails,
+.preview-branch-phones{
+    margin-top:4px;
+    font-size:9px;
+    line-height:1.4;
+    color:#777;
+}
+
+</style>
+
+</head>
+
+<body>
+
+${content}
+
+</body>
+
+</html>
+
+`);
+
+
+    printWindow.document.close();
+
+
+    printWindow.onload = function(){
+
+        printWindow.focus();
+
+        printWindow.print();
+
+    };
+
+}
+
+
+/* =========================================================
+   ESCAPE HTML
+========================================================= */
+
+function escapeHTML(value){
+
+    return String(value)
+        .replace(/&/g,"&amp;")
+        .replace(/</g,"&lt;")
+        .replace(/>/g,"&gt;")
+        .replace(/"/g,"&quot;")
+        .replace(/'/g,"&#039;");
+
+}
+
+
+/* =========================================================
+   TOAST
+========================================================= */
+
+function showToast(message){
+
+    const toast =
+        document.getElementById("toast");
+
+
+    toast.textContent =
+        message;
+
+
+    toast.classList.add("show");
+
+
+    clearTimeout(toastTimer);
+
+
+    toastTimer =
+        setTimeout(function(){
+
+            toast.classList.remove("show");
+
+        },2500);
+
+}
+
+
+/* =========================================================
+   CLICK OUTSIDE MODALS
+========================================================= */
+
+document.addEventListener("click",function(event){
+
+    const branchModal =
+        document.getElementById("branchModal");
+
+
+    const previewModal =
+        document.getElementById("previewModal");
+
+
+    if(event.target === branchModal){
+
+        closeBranchModal();
+
+    }
+
+
+    if(event.target === previewModal){
+
+        closePayslipPreview();
+
+    }
+
+});
+
+
+/* =========================================================
+   ESC KEY
+========================================================= */
+
+document.addEventListener("keydown",function(event){
+
+    if(event.key === "Escape"){
+
+        closeBranchModal();
+
+        closePayslipPreview();
+
+    }
+
+});
+
+</script>
+
+</body>
+</html>

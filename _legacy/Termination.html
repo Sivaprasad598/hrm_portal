@@ -1,0 +1,648 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Resignation</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 24px;
+      background: #f1f5f9;
+      font-family: Arial, Helvetica, sans-serif;
+      color: #172033;
+    }
+
+    .page-title {
+      font-size: 14px;
+      font-weight: 400;
+      color: #334155;
+      margin: 0 0 16px;
+    }
+
+    .card {
+      background: #fff;
+      border: 1px solid #dbe3ee;
+      border-radius: 10px;
+      box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06);
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+
+    .section-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin: 0 0 16px;
+    }
+
+    /* Search Employee */
+
+    .search-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px 14px;
+    }
+
+    .search-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    /* Resignation Details */
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px 26px;
+    }
+
+    .field {
+      min-width: 0;
+    }
+
+    .full {
+      grid-column: 1 / -1;
+    }
+
+    label {
+      display: block;
+      color: #52627a;
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+
+    .required {
+      color: #ef4444;
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      border: 1px solid #dbe3ee;
+      border-radius: 6px;
+      background: #fff;
+      color: #253247;
+      font: inherit;
+      font-size: 13px;
+      outline: none;
+      padding: 10px 12px;
+    }
+
+    input,
+    select {
+      height: 36px;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.10);
+    }
+
+    textarea {
+      min-height: 70px;
+      resize: vertical;
+      padding-top: 12px;
+    }
+
+    .radio-group {
+      display: flex;
+      flex-direction: column;
+      gap: 11px;
+      padding-top: 1px;
+    }
+
+    .radio-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: #334155;
+      cursor: pointer;
+      margin: 0;
+    }
+
+    .radio-option input {
+      width: 15px;
+      height: 15px;
+      accent-color: #2563eb;
+      padding: 0;
+      margin: 0;
+    }
+
+    button {
+      border: 0;
+      border-radius: 6px;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 11px 18px;
+      cursor: pointer;
+    }
+
+    .search-button {
+      background: #2563eb;
+      color: #fff;
+    }
+
+    .search-button:hover {
+      background: #1d4ed8;
+    }
+
+    .reset-button {
+      background: #eef3f9;
+      color: #334155;
+      border: 1px solid #dbe3ee;
+    }
+
+    .reset-button:hover {
+      background: #e2e8f0;
+    }
+
+    .footer {
+      border-top: 1px solid #e5eaf1;
+      margin: 18px -18px -18px;
+      padding: 14px 18px;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .submit-button {
+      background: #4f46e5;
+      color: #fff;
+      box-shadow: 0 3px 8px rgba(79, 70, 229, 0.25);
+    }
+
+    .submit-button:hover {
+      background: #4338ca;
+    }
+
+    .message {
+      display: none;
+      margin-top: 14px;
+      padding: 10px 12px;
+      border-radius: 6px;
+      background: #eff6ff;
+      color: #1d4ed8;
+      font-size: 12px;
+    }
+
+    .message.visible {
+      display: block;
+    }
+
+    /* Search Results */
+
+    .results {
+      display: none;
+      margin-top: 18px;
+      border-top: 1px solid #e5eaf1;
+      padding-top: 14px;
+    }
+
+    .results.visible {
+      display: block;
+    }
+
+    .results-heading {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+
+    .employee-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .employee-row {
+      display: grid;
+      grid-template-columns: 70px 1.5fr 1fr 1fr auto;
+      gap: 12px;
+      align-items: center;
+      border: 1px solid #dbe3ee;
+      border-radius: 6px;
+      padding: 11px 12px;
+      font-size: 12px;
+    }
+
+    .employee-name {
+      font-weight: 600;
+      font-size: 13px;
+    }
+
+    .employee-email {
+      color: #64748b;
+      margin-top: 3px;
+      font-size: 11px;
+    }
+
+    .select-employee {
+      padding: 8px 12px;
+      font-size: 12px;
+      background: #fff;
+      color: #334155;
+      border: 1px solid #cbd5e1;
+    }
+
+    @media (max-width: 700px) {
+      .search-grid,
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .full {
+        grid-column: auto;
+      }
+
+      .employee-row {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .select-employee {
+        grid-column: 1 / -1;
+        width: 100%;
+      }
+    }
+
+    @media (max-width: 450px) {
+      body {
+        padding: 12px;
+      }
+
+      .card {
+        padding: 14px;
+      }
+
+      .footer {
+        margin-left: -14px;
+        margin-right: -14px;
+        padding: 12px 14px;
+      }
+
+      .submit-button {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <h2 class="page-title">Resignation</h2>
+
+  <!-- Search Employee -->
+  <section class="card">
+
+    <h3 class="section-title">Search Employee</h3>
+
+    <div class="search-grid">
+
+      <div>
+        <label for="employee-id">Employee ID</label>
+        <input
+          id="employee-id"
+          type="text"
+          placeholder="Enter employee ID"
+        >
+      </div>
+
+      <div>
+        <label for="employee-name">Employee Name</label>
+        <input
+          id="employee-name"
+          type="text"
+          placeholder="Enter employee name"
+        >
+      </div>
+
+      <div>
+        <label for="department">Department</label>
+        <select id="department">
+          <option value="">All Departments</option>
+          <option value="GIS Department">GIS Department</option>
+          <option value="HR Department">HR Department</option>
+          <option value="Finance Department">Finance Department</option>
+          <option value="IT Department">IT Department</option>
+        </select>
+      </div>
+
+    </div>
+
+    <div class="search-actions">
+      <button
+        type="button"
+        class="search-button"
+        id="search-button"
+      >
+        Search
+      </button>
+
+      <button
+        type="button"
+        class="reset-button"
+        id="reset-button"
+      >
+        Reset
+      </button>
+    </div>
+
+    <!-- Search Results -->
+    <div id="results" class="results">
+
+      <div class="results-heading">Search Results</div>
+
+      <div id="employee-list" class="employee-list"></div>
+
+    </div>
+
+  </section>
+
+  <!-- Resignation Details - Always Visible -->
+  <section class="card">
+
+    <h3 class="section-title">Resignation Details</h3>
+
+    <form id="resignation-form">
+
+      <div class="form-grid">
+
+        <div class="field">
+          <label for="resignation-date">
+            Resignation Date <span class="required">*</span>
+          </label>
+          <input
+            id="resignation-date"
+            type="date"
+            required
+          >
+        </div>
+
+        <div class="field">
+          <label for="notice-period">
+            Notice Period (Days) <span class="required">*</span>
+          </label>
+          <input
+            id="notice-period"
+            type="number"
+            min="0"
+            value="30"
+            required
+          >
+        </div>
+
+        <div class="field">
+          <label for="notice-start">
+            Notice Period Start Date
+          </label>
+          <input
+            id="notice-start"
+            type="date"
+          >
+        </div>
+
+        <div class="field">
+          <label for="last-working-date">
+            Proposed Last Working Date <span class="required">*</span>
+          </label>
+          <input
+            id="last-working-date"
+            type="date"
+            required
+          >
+        </div>
+
+        <div class="field">
+          <label>Notice Period Served?</label>
+
+          <div class="radio-group">
+            <label class="radio-option">
+              <input
+                type="radio"
+                name="notice-served"
+                value="Yes"
+              >
+              Yes
+            </label>
+
+            <label class="radio-option">
+              <input
+                type="radio"
+                name="notice-served"
+                value="No"
+                checked
+              >
+              No
+            </label>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="resignation-reason">
+            Reason for Resignation <span class="required">*</span>
+          </label>
+
+          <select id="resignation-reason" required>
+            <option value="">Select reason</option>
+            <option>Better Career Opportunity</option>
+            <option>Personal Reasons</option>
+            <option>Higher Studies</option>
+            <option>Relocation</option>
+            <option>Health Reasons</option>
+            <option>Other</option>
+          </select>
+        </div>
+
+        <div class="field full">
+          <label for="resignation-remarks">
+            Resignation Remarks
+          </label>
+
+          <textarea
+            id="resignation-remarks"
+            placeholder="Enter additional details about your resignation..."
+          ></textarea>
+        </div>
+
+      </div>
+
+      <div class="footer">
+        <button
+          type="submit"
+          class="submit-button"
+        >
+          ✓ Submit Resignation
+        </button>
+      </div>
+
+    </form>
+
+  </section>
+
+  <div id="message" class="message"></div>
+
+  <script>
+    const employees = [
+      {
+        id: "7",
+        name: "Ganapati Shiva",
+        email: "nprudhvi648@gmail.com",
+        dept: "GIS Department"
+      },
+      {
+        id: "8",
+        name: "Anjali Rao",
+        email: "anjali@example.com",
+        dept: "HR Department"
+      },
+      {
+        id: "9",
+        name: "Ravi Kumar",
+        email: "ravi@example.com",
+        dept: "Finance Department"
+      },
+      {
+        id: "10",
+        name: "Priya Sharma",
+        email: "priya@example.com",
+        dept: "IT Department"
+      }
+    ];
+
+    const searchButton = document.getElementById("search-button");
+    const resetButton = document.getElementById("reset-button");
+    const results = document.getElementById("results");
+    const employeeList = document.getElementById("employee-list");
+    const message = document.getElementById("message");
+
+    function renderResults() {
+      const id = document.getElementById("employee-id").value.trim().toLowerCase();
+      const name = document.getElementById("employee-name").value.trim().toLowerCase();
+      const dept = document.getElementById("department").value;
+
+      const filtered = employees.filter(employee =>
+        (!id || employee.id.toLowerCase().includes(id)) &&
+        (!name || employee.name.toLowerCase().includes(name)) &&
+        (!dept || employee.dept === dept)
+      );
+
+      employeeList.innerHTML = "";
+      results.classList.add("visible");
+
+      if (!filtered.length) {
+        employeeList.innerHTML =
+          '<div style="color:#64748b;font-size:13px;padding:8px 0;">No employees found.</div>';
+        return;
+      }
+
+      filtered.forEach(employee => {
+        const row = document.createElement("div");
+        row.className = "employee-row";
+
+        row.innerHTML = `
+          <div><strong>${employee.id}</strong></div>
+
+          <div>
+            <div class="employee-name">${employee.name}</div>
+            <div class="employee-email">${employee.email}</div>
+          </div>
+
+          <div>${employee.dept}</div>
+
+          <div></div>
+
+          <button type="button" class="select-employee">
+            Select
+          </button>
+        `;
+
+        row.querySelector(".select-employee")
+          .addEventListener("click", () => {
+            document.getElementById("resignation-date").focus();
+          });
+
+        employeeList.appendChild(row);
+      });
+    }
+
+    function resetSearch() {
+      document.getElementById("employee-id").value = "";
+      document.getElementById("employee-name").value = "";
+      document.getElementById("department").value = "";
+
+      employeeList.innerHTML = "";
+      results.classList.remove("visible");
+
+      // Resignation Details remains visible
+    }
+
+    searchButton.addEventListener("click", renderResults);
+    resetButton.addEventListener("click", resetSearch);
+
+    // Allow Enter key to search
+    document.querySelectorAll("#employee-id, #employee-name").forEach(input => {
+      input.addEventListener("keydown", event => {
+        if (event.key === "Enter") {
+          renderResults();
+        }
+      });
+    });
+
+    // Date calculation
+    const resignationDate = document.getElementById("resignation-date");
+    const noticeStart = document.getElementById("notice-start");
+    const lastWorkingDate = document.getElementById("last-working-date");
+    const noticePeriod = document.getElementById("notice-period");
+
+    function formatDate(date) {
+      return date.toISOString().split("T")[0];
+    }
+
+    function addDays(dateString, days) {
+      const date = new Date(dateString + "T00:00:00");
+      date.setDate(date.getDate() + Number(days || 0));
+      return formatDate(date);
+    }
+
+    const today = formatDate(new Date());
+
+    resignationDate.value = today;
+    noticeStart.value = today;
+    lastWorkingDate.value = addDays(today, noticePeriod.value);
+
+    resignationDate.addEventListener("change", () => {
+      noticeStart.value = resignationDate.value;
+      lastWorkingDate.value =
+        addDays(resignationDate.value, noticePeriod.value);
+    });
+
+    noticePeriod.addEventListener("input", () => {
+      if (resignationDate.value) {
+        lastWorkingDate.value =
+          addDays(resignationDate.value, noticePeriod.value);
+      }
+    });
+
+    // Submit
+    document.getElementById("resignation-form")
+      .addEventListener("submit", event => {
+        event.preventDefault();
+
+        message.textContent =
+          "Resignation details submitted successfully.";
+
+        message.classList.add("visible");
+      });
+  </script>
+
+</body>
+</html>

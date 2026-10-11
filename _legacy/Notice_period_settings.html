@@ -1,0 +1,1303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="refresh" content="0; url=Notice_period_settings.php">
+
+<title>Probation Period</title>
+
+<script>
+    window.location.replace('Notice_period_settings.php');
+</script>
+
+<style>
+
+/* ================================
+   RESET
+================================ */
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, Helvetica, sans-serif;
+    background: #f4f7fb;
+    color: #344054;
+    font-size: 13px;
+}
+
+
+/* ================================
+   PAGE
+================================ */
+
+.page {
+    padding: 28px;
+    max-width: 1250px;
+    margin: 0 auto;
+}
+
+
+/* ================================
+   PAGE HEADER
+================================ */
+
+.page-header {
+    margin-bottom: 22px;
+}
+
+.page-header h2 {
+    margin: 0;
+    font-size: 21px;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.page-header p {
+    margin: 6px 0 0;
+    font-size: 12px;
+    color: #8a94a6;
+}
+
+
+/* ================================
+   MAIN CONTENT
+================================ */
+
+.content {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    gap: 20px;
+    align-items: start;
+}
+
+
+/* ================================
+   CARD
+================================ */
+
+.card {
+    background: #ffffff;
+    border: 1px solid #e1e6ed;
+    border-radius: 8px;
+    box-shadow: 0 2px 7px rgba(0, 0, 0, 0.03);
+    overflow: hidden;
+}
+
+
+/* ================================
+   CARD HEADER
+================================ */
+
+.card-header {
+    padding: 18px 20px;
+    border-bottom: 1px solid #e8ecf1;
+}
+
+.card-header h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #344054;
+}
+
+.card-header p {
+    margin: 5px 0 0;
+    font-size: 11px;
+    color: #98a2b3;
+}
+
+
+/* ================================
+   CARD BODY
+================================ */
+
+.card-body {
+    padding: 20px;
+}
+
+
+/* ================================
+   FORM
+================================ */
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 7px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #475467;
+}
+
+.required {
+    color: #e53935;
+}
+
+
+/* ================================
+   INPUT
+================================ */
+
+.input-wrapper {
+    position: relative;
+}
+
+.input-wrapper input {
+    width: 100%;
+    height: 42px;
+    padding: 0 75px 0 12px;
+    border: 1px solid #d8dee8;
+    border-radius: 5px;
+    outline: none;
+    font-size: 13px;
+    color: #344054;
+    background: #ffffff;
+}
+
+.input-wrapper input::placeholder {
+    color: #a0a8b5;
+}
+
+.input-wrapper input:focus {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.08);
+}
+
+.input-unit {
+    position: absolute;
+    right: 12px;
+    top: 13px;
+    color: #98a2b3;
+    font-size: 12px;
+    pointer-events: none;
+}
+
+
+/* ================================
+   HELP TEXT
+================================ */
+
+.help-text {
+    margin-top: 7px;
+    font-size: 10px;
+    color: #98a2b3;
+    line-height: 1.5;
+}
+
+
+/* ================================
+   BUTTONS
+================================ */
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 5px;
+}
+
+button {
+    font-family: inherit;
+}
+
+.btn {
+    height: 38px;
+    padding: 0 17px;
+    border-radius: 5px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.15s ease;
+}
+
+.btn-cancel {
+    background: #ffffff;
+    border: 1px solid #d0d5dd;
+    color: #475467;
+}
+
+.btn-cancel:hover {
+    background: #f8fafc;
+}
+
+.btn-save {
+    background: #4f46e5;
+    border: 1px solid #4f46e5;
+    color: #ffffff;
+}
+
+.btn-save:hover {
+    background: #4338ca;
+}
+
+
+/* ================================
+   SUCCESS MESSAGE
+================================ */
+
+.success-message {
+    display: none;
+    margin-bottom: 17px;
+    padding: 11px 13px;
+    border: 1px solid #bce5cc;
+    background: #eaf8ef;
+    color: #18864b;
+    border-radius: 5px;
+    font-size: 11px;
+}
+
+.success-message.show {
+    display: block;
+}
+
+
+/* ================================
+   PERIOD LIST
+================================ */
+
+.period-list {
+    width: 100%;
+}
+
+
+/* ================================
+   PERIOD ROW
+================================ */
+
+.period-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    padding: 16px 20px;
+    border-bottom: 1px solid #edf0f4;
+}
+
+.period-row:last-child {
+    border-bottom: none;
+}
+
+
+/* ================================
+   PERIOD INFORMATION
+================================ */
+
+.period-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.period-icon {
+    flex: 0 0 36px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #eef2ff;
+    color: #4f46e5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+}
+
+.period-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: #344054;
+}
+
+.period-date {
+    margin-top: 4px;
+    font-size: 10px;
+    color: #98a2b3;
+}
+
+
+/* ================================
+   RIGHT SIDE
+================================ */
+
+.period-right {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex-shrink: 0;
+}
+
+
+/* ================================
+   PERIOD BADGE
+================================ */
+
+.period-badge {
+    padding: 6px 10px;
+    border-radius: 20px;
+    background: #e8f7ed;
+    color: #18864b;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+
+/* ================================
+   ACTION BUTTONS
+================================ */
+
+.action-btn {
+    height: 30px;
+    padding: 0 10px;
+    border-radius: 5px;
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    background: #ffffff;
+    transition: 0.15s ease;
+}
+
+
+/* EDIT */
+
+.edit-btn {
+    color: #4f46e5;
+    border: 1px solid #cfd0ff;
+}
+
+.edit-btn:hover {
+    background: #f3f2ff;
+}
+
+
+/* DELETE */
+
+.delete-btn {
+    color: #dc2626;
+    border: 1px solid #f2c5c5;
+}
+
+.delete-btn:hover {
+    background: #fff5f5;
+}
+
+
+/* ================================
+   EMPTY STATE
+================================ */
+
+.empty-state {
+    padding: 45px 20px;
+    text-align: center;
+    color: #98a2b3;
+}
+
+.empty-icon {
+    font-size: 28px;
+    margin-bottom: 10px;
+}
+
+.empty-state p {
+    margin: 0;
+    font-size: 11px;
+}
+
+
+/* ================================
+   EDIT MODE
+================================ */
+
+.editing-notice {
+    display: none;
+    margin-bottom: 15px;
+    padding: 9px 11px;
+    border-radius: 5px;
+    background: #eef2ff;
+    color: #4f46e5;
+    font-size: 11px;
+}
+
+.editing-notice.show {
+    display: block;
+}
+
+
+/* ================================
+   RESPONSIVE
+================================ */
+
+@media (max-width: 900px) {
+
+    .content {
+        grid-template-columns: 1fr;
+    }
+
+}
+
+
+@media (max-width: 650px) {
+
+    .page {
+        padding: 15px;
+    }
+
+    .period-row {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .period-right {
+        width: 100%;
+        justify-content: flex-end;
+    }
+
+}
+
+
+@media (max-width: 450px) {
+
+    .period-right {
+        flex-wrap: wrap;
+        justify-content: flex-start;
+    }
+
+    .form-actions {
+        flex-direction: column;
+    }
+
+    .form-actions button {
+        width: 100%;
+    }
+
+}
+
+</style>
+</head>
+
+
+<body>
+
+<div class="page">
+
+
+    <!-- =====================================
+         PAGE HEADER
+    ====================================== -->
+
+    <div class="page-header">
+
+        <h2>
+            Probation Period
+        </h2>
+
+        <p>
+            Configure the probation period for employees
+        </p>
+
+    </div>
+
+
+    <!-- =====================================
+         CONTENT
+    ====================================== -->
+
+    <div class="content">
+
+
+        <!-- =================================
+             ADD PROBATION CARD
+        ================================== -->
+
+        <div class="card">
+
+            <div class="card-header">
+
+                <h3>
+                    Add Probation Period
+                </h3>
+
+                <p>
+                    Enter the probation duration in months
+                </p>
+
+            </div>
+
+
+            <div class="card-body">
+
+
+                <!-- SUCCESS -->
+
+                <div
+                    id="successMessage"
+                    class="success-message"
+                >
+                    ✓ Probation period added successfully.
+                </div>
+
+
+                <!-- EDITING -->
+
+                <div
+                    id="editingNotice"
+                    class="editing-notice"
+                >
+                    Editing probation period
+                </div>
+
+
+                <!-- FORM -->
+
+                <form id="probationForm">
+
+
+                    <!-- MONTHS -->
+
+                    <div class="form-group">
+
+                        <label for="probationMonths">
+
+                            Probation Period
+
+                            <span class="required">
+                                *
+                            </span>
+
+                        </label>
+
+
+                        <div class="input-wrapper">
+
+                            <input
+                                type="number"
+                                id="probationMonths"
+                                name="probationMonths"
+                                min="1"
+                                max="60"
+                                step="1"
+                                placeholder="Enter number of months"
+                                required
+                            >
+
+                            <span class="input-unit">
+                                Months
+                            </span>
+
+                        </div>
+
+
+                        <div class="help-text">
+
+                            Enter the standard probation period
+                            applicable to employees.
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- BUTTONS -->
+
+                    <div class="form-actions">
+
+                        <button
+                            type="button"
+                            class="btn btn-cancel"
+                            onclick="resetForm()"
+                        >
+                            Cancel
+                        </button>
+
+
+                        <button
+                            type="submit"
+                            class="btn btn-save"
+                            id="saveButton"
+                        >
+                            Save
+                        </button>
+
+                    </div>
+
+
+                </form>
+
+            </div>
+
+        </div>
+
+
+
+        <!-- =================================
+             ADDED PERIODS CARD
+        ================================== -->
+
+        <div class="card">
+
+
+            <div class="card-header">
+
+                <h3>
+                    Added Probation Periods
+                </h3>
+
+                <p>
+                    Existing probation period configurations
+                </p>
+
+            </div>
+
+
+            <div
+                class="period-list"
+                id="periodList"
+            >
+
+
+                <!-- =================================
+                     6 MONTHS
+                ================================== -->
+
+                <div
+                    class="period-row"
+                    data-months="6"
+                >
+
+                    <div class="period-info">
+
+                        <div class="period-icon">
+                            ◷
+                        </div>
+
+
+                        <div>
+
+                            <div class="period-name">
+                                Standard Probation
+                            </div>
+
+                            <div class="period-date">
+                                Added on 03-09-2026
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="period-right">
+
+                        <div class="period-badge">
+                            6 Months
+                        </div>
+
+
+                        <button
+                            type="button"
+                            class="action-btn edit-btn"
+                            onclick="editProbation(this)"
+                        >
+                            Edit
+                        </button>
+
+
+                        <button
+                            type="button"
+                            class="action-btn delete-btn"
+                            onclick="deleteProbation(this)"
+                        >
+                            Delete
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+
+                <!-- =================================
+                     3 MONTHS
+                ================================== -->
+
+                <div
+                    class="period-row"
+                    data-months="3"
+                >
+
+                    <div class="period-info">
+
+                        <div class="period-icon">
+                            ◷
+                        </div>
+
+
+                        <div>
+
+                            <div class="period-name">
+                                Probation Period
+                            </div>
+
+                            <div class="period-date">
+                                Added on 03-09-2026
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="period-right">
+
+                        <div class="period-badge">
+                            3 Months
+                        </div>
+
+
+                        <button
+                            type="button"
+                            class="action-btn edit-btn"
+                            onclick="editProbation(this)"
+                        >
+                            Edit
+                        </button>
+
+
+                        <button
+                            type="button"
+                            class="action-btn delete-btn"
+                            onclick="deleteProbation(this)"
+                        >
+                            Delete
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<script>
+
+/* ==========================================
+   VARIABLES
+========================================== */
+
+const form =
+    document.getElementById("probationForm");
+
+const input =
+    document.getElementById("probationMonths");
+
+const list =
+    document.getElementById("periodList");
+
+const success =
+    document.getElementById("successMessage");
+
+const editingNotice =
+    document.getElementById("editingNotice");
+
+const saveButton =
+    document.getElementById("saveButton");
+
+
+let editingRow = null;
+
+
+/* ==========================================
+   FORM SUBMIT
+========================================== */
+
+form.addEventListener("submit", function(event) {
+
+    event.preventDefault();
+
+
+    const months =
+        parseInt(input.value);
+
+
+    /* Validate */
+
+    if (!months || months < 1) {
+
+        alert(
+            "Please enter a valid number of months."
+        );
+
+        input.focus();
+
+        return;
+    }
+
+
+    if (months > 60) {
+
+        alert(
+            "Probation period cannot exceed 60 months."
+        );
+
+        input.focus();
+
+        return;
+    }
+
+
+    /* ======================================
+       UPDATE EXISTING
+    ====================================== */
+
+    if (editingRow) {
+
+
+        editingRow.dataset.months =
+            months;
+
+
+        const badge =
+            editingRow.querySelector(
+                ".period-badge"
+            );
+
+
+        badge.textContent =
+            months +
+            " " +
+            (
+                months === 1
+                    ? "Month"
+                    : "Months"
+            );
+
+
+        const dateElement =
+            editingRow.querySelector(
+                ".period-date"
+            );
+
+
+        const today =
+            new Date();
+
+
+        const date =
+            String(
+                today.getDate()
+            ).padStart(2, "0")
+            + "-"
+            +
+            String(
+                today.getMonth() + 1
+            ).padStart(2, "0")
+            + "-"
+            +
+            today.getFullYear();
+
+
+        dateElement.textContent =
+            "Updated on " + date;
+
+
+        showSuccess(
+            "✓ Probation period updated successfully."
+        );
+
+
+        editingRow = null;
+
+        input.value = "";
+
+        saveButton.textContent =
+            "Save";
+
+        editingNotice.classList.remove(
+            "show"
+        );
+
+
+        return;
+    }
+
+
+    /* ======================================
+       ADD NEW
+    ====================================== */
+
+    const row =
+        document.createElement("div");
+
+
+    row.className =
+        "period-row";
+
+
+    row.dataset.months =
+        months;
+
+
+    const today =
+        new Date();
+
+
+    const date =
+        String(
+            today.getDate()
+        ).padStart(2, "0")
+        + "-"
+        +
+        String(
+            today.getMonth() + 1
+        ).padStart(2, "0")
+        + "-"
+        +
+        today.getFullYear();
+
+
+    row.innerHTML = `
+
+        <div class="period-info">
+
+            <div class="period-icon">
+                ◷
+            </div>
+
+            <div>
+
+                <div class="period-name">
+                    Probation Period
+                </div>
+
+                <div class="period-date">
+                    Added on ${date}
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="period-right">
+
+            <div class="period-badge">
+
+                ${months}
+                ${months === 1 ? "Month" : "Months"}
+
+            </div>
+
+
+            <button
+                type="button"
+                class="action-btn edit-btn"
+                onclick="editProbation(this)"
+            >
+                Edit
+            </button>
+
+
+            <button
+                type="button"
+                class="action-btn delete-btn"
+                onclick="deleteProbation(this)"
+            >
+                Delete
+            </button>
+
+        </div>
+
+    `;
+
+
+    /* Add to top */
+
+    list.prepend(row);
+
+
+    /* Success */
+
+    showSuccess(
+        "✓ Probation period added successfully."
+    );
+
+
+    /* Clear */
+
+    input.value = "";
+
+});
+
+
+/* ==========================================
+   EDIT
+========================================== */
+
+function editProbation(button) {
+
+
+    const row =
+        button.closest(".period-row");
+
+
+    if (!row) {
+        return;
+    }
+
+
+    const months =
+        row.dataset.months;
+
+
+    /* Put value into input */
+
+    input.value =
+        months;
+
+
+    /* Store row */
+
+    editingRow =
+        row;
+
+
+    /* Change button */
+
+    saveButton.textContent =
+        "Update";
+
+
+    /* Show editing notice */
+
+    editingNotice.classList.add(
+        "show"
+    );
+
+
+    /* Scroll to form */
+
+    window.scrollTo({
+        top: 0,
+        behavior: "smooth"
+    });
+
+
+    /* Focus */
+
+    setTimeout(function() {
+
+        input.focus();
+
+    }, 300);
+
+}
+
+
+/* ==========================================
+   DELETE
+========================================== */
+
+function deleteProbation(button) {
+
+
+    const row =
+        button.closest(".period-row");
+
+
+    if (!row) {
+        return;
+    }
+
+
+    const months =
+        row.dataset.months;
+
+
+    const confirmation =
+        confirm(
+            "Are you sure you want to delete the " +
+            months +
+            " month probation period?"
+        );
+
+
+    if (!confirmation) {
+
+        return;
+
+    }
+
+
+    /* If deleting currently edited row */
+
+    if (editingRow === row) {
+
+        resetForm();
+
+    }
+
+
+    /* Remove */
+
+    row.remove();
+
+
+    /* Success */
+
+    showSuccess(
+        "✓ Probation period deleted successfully."
+    );
+
+
+    /* Empty state */
+
+    checkEmptyState();
+
+}
+
+
+/* ==========================================
+   RESET FORM
+========================================== */
+
+function resetForm() {
+
+
+    form.reset();
+
+
+    editingRow = null;
+
+
+    saveButton.textContent =
+        "Save";
+
+
+    editingNotice.classList.remove(
+        "show"
+    );
+
+
+    input.focus();
+
+}
+
+
+/* ==========================================
+   SUCCESS MESSAGE
+========================================== */
+
+let successTimer = null;
+
+
+function showSuccess(message) {
+
+
+    success.textContent =
+        message;
+
+
+    success.classList.add(
+        "show"
+    );
+
+
+    clearTimeout(
+        successTimer
+    );
+
+
+    successTimer =
+        setTimeout(function() {
+
+            success.classList.remove(
+                "show"
+            );
+
+        }, 3000);
+
+}
+
+
+/* ==========================================
+   EMPTY STATE
+========================================== */
+
+function checkEmptyState() {
+
+
+    const rows =
+        list.querySelectorAll(
+            ".period-row"
+        );
+
+
+    const existingEmpty =
+        list.querySelector(
+            ".empty-state"
+        );
+
+
+    if (
+        rows.length === 0 &&
+        !existingEmpty
+    ) {
+
+
+        const empty =
+            document.createElement("div");
+
+
+        empty.className =
+            "empty-state";
+
+
+        empty.innerHTML = `
+
+            <div class="empty-icon">
+                ◷
+            </div>
+
+            <p>
+                No probation periods added yet.
+            </p>
+
+        `;
+
+
+        list.appendChild(
+            empty
+        );
+
+    }
+
+
+    if (
+        rows.length > 0 &&
+        existingEmpty
+    ) {
+
+        existingEmpty.remove();
+
+    }
+
+}
+
+</script>
+
+</body>
+</html>

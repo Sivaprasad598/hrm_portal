@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Payroll Salary Components</title>
+
+<style>
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background: #f5f6f8;
+    font-family: Arial, Helvetica, sans-serif;
+    color: #333;
+}
+
+/* MAIN FORM */
+
+.payroll-container {
+    width: 100%;
+    max-width: 760px;
+    margin: 20px auto;
+    padding: 0 18px 40px;
+}
+
+/* SECTION */
+
+.section {
+    margin-bottom: 10px;
+}
+
+.section-title {
+    border-top: 1px solid #d4dce5;
+    padding: 7px 0 6px 12px;
+
+    color: #004b87;
+
+    font-size: 11px;
+    font-weight: 500;
+
+    position: relative;
+}
+
+.section-title::before {
+    content: "";
+
+    position: absolute;
+
+    left: 0;
+    top: 12px;
+
+    width: 4px;
+    height: 4px;
+
+    background: #004b87;
+
+    border-radius: 50%;
+}
+
+/* FIELD */
+
+.field {
+    margin-bottom: 7px;
+}
+
+.field label {
+    display: block;
+
+    font-size: 9px;
+
+    color: #555;
+
+    margin-bottom: 4px;
+}
+
+.field label .formula {
+    color: #888;
+}
+
+/* INPUT */
+
+.input {
+    width: 100%;
+
+    height: 34px;
+
+    border: 1px solid #cbd7e3;
+
+    border-radius: 7px;
+
+    background: #fff;
+
+    padding: 0 10px;
+
+    font-size: 10px;
+
+    color: #333;
+
+    outline: none;
+}
+
+.input:focus {
+    border-color: #72a9d5;
+
+    box-shadow:
+        0 0 0 2px rgba(65, 145, 205, .10);
+}
+
+/* TWO COLUMN */
+
+.two-column {
+    display: grid;
+
+    grid-template-columns: 1fr 1fr;
+
+    gap: 10px;
+}
+
+/* CALCULATION TEXT */
+
+.calculation {
+    font-size: 8px;
+
+    color: #777;
+
+    margin-top: 3px;
+
+    line-height: 1.4;
+}
+
+.calculation strong {
+    color: #555;
+}
+
+/* CALCULATION RESULT */
+
+.calculation-result {
+    background: #eaf4fc;
+
+    border-radius: 5px;
+
+    padding: 5px 8px;
+
+    margin-top: 4px;
+
+    font-size: 9px;
+
+    color: #0067a8;
+}
+
+.calculation-result strong {
+    color: #00568d;
+}
+
+/* READ ONLY */
+
+.readonly {
+    background: #eef2f6;
+
+    color: #444;
+}
+
+/* BUTTON AREA */
+
+.button-area {
+    border-top: 1px solid #d4dce5;
+
+    margin-top: 15px;
+
+    padding-top: 15px;
+
+    display: flex;
+
+    justify-content: flex-end;
+
+    gap: 8px;
+}
+
+button {
+    border: none;
+
+    border-radius: 6px;
+
+    padding: 9px 18px;
+
+    font-size: 11px;
+
+    cursor: pointer;
+}
+
+.btn-reset {
+    background: #e9edf1;
+
+    color: #555;
+}
+
+.btn-save {
+    background: #f4ac83;
+
+    color: #222;
+
+    font-weight: 600;
+}
+
+.btn-save:hover {
+    background: #e69a70;
+}
+
+/* SUCCESS MESSAGE */
+
+.message {
+    display: none;
+
+    margin-bottom: 12px;
+
+    padding: 9px 12px;
+
+    border-radius: 5px;
+
+    font-size: 10px;
+}
+
+.message.success {
+    display: block;
+
+    background: #e9f7ef;
+
+    color: #287a4b;
+
+    border: 1px solid #b9e3c9;
+}
+
+/* MOBILE */
+
+@media(max-width:600px) {
+
+    .payroll-container {
+        padding: 0 12px 30px;
+    }
+
+    .two-column {
+        grid-template-columns: 1fr;
+        gap: 0;
+    }
+
+}
+
+</style>
+</head>
+
+<body>
+
+
+<div class="payroll-container">
+
+
+    <!-- SUCCESS -->
+
+    <div
+        id="successMessage"
+        class="message">
+
+        Payroll salary components updated successfully.
+
+    </div>
+
+
+    <!-- ==================================================
+         BASIC
+    ================================================== -->
+
+    <div class="section">
+
+        <div class="section-title">
+            Basic
+        </div>
+
+
+        <div class="field">
+
+            <label>
+                Basic %
+                <span class="formula">(of Gross)</span>
+            </label>
+
+            <input
+                type="number"
+                id="basicPercent"
+                class="input"
+                value="30"
+                min="0"
+                max="100"
+                step="0.01">
+
+            <div class="calculation">
+                → Basic = ₹<span id="basicAmount">11,250</span>
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ==================================================
+         HRA
+    ================================================== -->
+
+    <div class="section">
+
+        <div class="section-title">
+            HRA (House Rent Allowance)
+        </div>
+
+
+        <div class="field">
+
+            <label>
+                HRA %
+                <span class="formula">(of Basic)</span>
+            </label>
+
+            <input
+                type="number"
+                id="hraPercent"
+                class="input"
+                value="50"
+                min="0"
+                max="100"
+                step="0.01">
+
+            <div class="calculation">
+                → HRA = ₹<span id="hraAmount">5,625</span>
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ==================================================
+         CA
+    ================================================== -->
+
+    <div class="section">
+
+        <div class="section-title">
+            CA (Conveyance Allowance)
+        </div>
+
+
+        <div class="field">
+
+            <label>
+                CA threshold salary (₹)
+            </label>
+
+            <input
+                type="number"
+                id="caThreshold"
+                class="input"
+                value="20000">
+
+            <div class="calculation">
+                Gross at or above this → high slab &nbsp;
+                below this → low slab
+            </div>
+
+        </div>
+
+
+        <div class="two-column">
+
+            <div class="field">
+
+                <label>
+                    CA if Gross ≥ threshold (₹)
+                </label>
+
+                <input
+                    type="number"
+                    id="caHigh"
+                    class="input"
+                    value="1600">
+
+            </div>
+
+
+            <div class="field">
+
+                <label>
+                    CA if Gross &lt; threshold (₹)
+                </label>
+
+                <input
+                    type="number"
+                    id="caLow"
+                    class="input"
+                    value="800">
+
+            </div>
+
+        </div>
+
+
+        <div class="calculation-result">
+
+            ✓ Gross ₹
+            <span id="grossDisplay">
+                37,500
+            </span>
+
+            ≥ ₹
+            <span id="thresholdDisplay">
+                20,000
+            </span>
+
+            → CA ₹
+            <strong id="caResult">
+                1,600
+            </strong>
+
+        </div>
+
+    </div>
+
+
+    <!-- ==================================================
+         PT
+    ================================================== -->
+
+    <div class="section">
+
+        <div class="section-title">
+            PT (Professional Tax)
+        </div>
+
+
+        <div class="field">
+
+            <label>
+                PT ₹
+            </label>
+
+            <input
+                type="number"
+                id="pt"
+                class="input"
+                value="200">
+
+        </div>
+
+    </div>
+
+
+    <!-- ==================================================
+         OTHERS
+    ================================================== -->
+
+    <div class="section">
+
+        <div class="section-title">
+            Others
+        </div>
+
+
+        <div class="field">
+
+            <label>
+                Others
+                <span class="formula">(auto-calculated)</span>
+            </label>
+
+            <input
+                type="text"
+                id="others"
+                class="input readonly"
+                value="₹ 19,025"
+                readonly>
+
+            <div class="calculation">
+                Gross − (Basic + HRA + CA)
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ==================================================
+         ESI
+    ================================================== -->
+
+    <div class="section">
+
+        <div class="section-title">
+            ESI (Employee State Insurance)
+        </div>
+
+
+        <div class="two-column">
+
+            <div class="field">
+
+                <label>
+                    ESI Threshold (Gross below ₹)
+                </label>
+
+                <input
+                    type="number"
+                    id="esiThreshold"
+                    class="input"
+                    value="20000">
+
+            </div>
+
+
+            <div class="field">
+
+                <label>
+                    ESI % <span class="formula">(of Gross)</span>
+                </label>
+
+                <input
+                    type="number"
+                    id="esiPercent"
+                    class="input"
+                    value="0.4"
+                    step="0.01">
+
+                <div class="calculation">
+                    applies if Gross &lt; threshold
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="calculation-result">
+
+            ESI =
+            <strong id="esiAmount">
+                ₹0
+            </strong>
+
+        </div>
+
+    </div>
+
+
+    <!-- ==================================================
+         PF
+    ================================================== -->
+
+    <div class="section">
+
+        <div class="section-title">
+            PF (Provident Fund)
+        </div>
+
+
+        <div class="field">
+
+            <label>
+                PF % of Basic
+                <span class="formula">
+                    — employee contribution
+                </span>
+            </label>
+
+            <input
+                type="number"
+                id="pfPercent"
+                class="input"
+                value="12"
+                min="0"
+                max="100"
+                step="0.01">
+
+            <div class="calculation">
+                → PF = ₹<span id="pfAmount">1,350</span>
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ==================================================
+         BUTTONS
+    ================================================== -->
+
+    <div class="button-area">
+
+        <button
+            type="button"
+            class="btn-reset"
+            id="resetBtn">
+
+            Reset
+
+        </button>
+
+
+        <button
+            type="button"
+            class="btn-save"
+            id="saveBtn">
+
+            Save Payroll Settings
+
+        </button>
+
+    </div>
+
+
+</div>
+
+
+<script>
+
+/* =====================================================
+   BASE GROSS
+===================================================== */
+
+const GROSS = 37500;
+
+
+/* =====================================================
+   ELEMENTS
+===================================================== */
+
+const basicPercent =
+    document.getElementById("basicPercent");
+
+const hraPercent =
+    document.getElementById("hraPercent");
+
+const caThreshold =
+    document.getElementById("caThreshold");
+
+const caHigh =
+    document.getElementById("caHigh");
+
+const caLow =
+    document.getElementById("caLow");
+
+const pt =
+    document.getElementById("pt");
+
+const esiThreshold =
+    document.getElementById("esiThreshold");
+
+const esiPercent =
+    document.getElementById("esiPercent");
+
+const pfPercent =
+    document.getElementById("pfPercent");
+
+
+/* =====================================================
+   FORMAT CURRENCY
+===================================================== */
+
+function formatNumber(value) {
+
+    return Number(value).toLocaleString(
+        "en-IN",
+        {
+            maximumFractionDigits: 2
+        }
+    );
+
+}
+
+
+/* =====================================================
+   CALCULATE
+===================================================== */
+
+function calculatePayroll() {
+
+
+    /* BASIC */
+
+    const basic =
+        GROSS *
+        (
+            Number(basicPercent.value) / 100
+        );
+
+
+    document.getElementById(
+        "basicAmount"
+    ).textContent =
+        formatNumber(basic);
+
+
+    /* HRA */
+
+    const hra =
+        basic *
+        (
+            Number(hraPercent.value) / 100
+        );
+
+
+    document.getElementById(
+        "hraAmount"
+    ).textContent =
+        formatNumber(hra);
+
+
+    /* CA */
+
+    const threshold =
+        Number(caThreshold.value);
+
+
+    let ca = 0;
+
+
+    if(GROSS >= threshold) {
+
+        ca =
+            Number(caHigh.value);
+
+    } else {
+
+        ca =
+            Number(caLow.value);
+
+    }
+
+
+    document.getElementById(
+        "grossDisplay"
+    ).textContent =
+        formatNumber(GROSS);
+
+
+    document.getElementById(
+        "thresholdDisplay"
+    ).textContent =
+        formatNumber(threshold);
+
+
+    document.getElementById(
+        "caResult"
+    ).textContent =
+        formatNumber(ca);
+
+
+    /* OTHERS */
+
+    const others =
+        GROSS -
+        basic -
+        hra -
+        ca;
+
+
+    document.getElementById(
+        "others"
+    ).value =
+        "₹ " + formatNumber(others);
+
+
+    /* ESI */
+
+    const esiLimit =
+        Number(esiThreshold.value);
+
+
+    let esi = 0;
+
+
+    if(GROSS < esiLimit) {
+
+        esi =
+            GROSS *
+            (
+                Number(esiPercent.value) / 100
+            );
+
+    }
+
+
+    document.getElementById(
+        "esiAmount"
+    ).textContent =
+        "₹" + formatNumber(esi);
+
+
+    /* PF */
+
+    const pf =
+        basic *
+        (
+            Number(pfPercent.value) / 100
+        );
+
+
+    document.getElementById(
+        "pfAmount"
+    ).textContent =
+        formatNumber(pf);
+
+}
+
+
+/* =====================================================
+   INPUT EVENTS
+===================================================== */
+
+document
+    .querySelectorAll(
+        ".input:not(.readonly)"
+    )
+    .forEach(function(input) {
+
+        input.addEventListener(
+            "input",
+            calculatePayroll
+        );
+
+    });
+
+
+/* =====================================================
+   RESET
+===================================================== */
+
+document
+    .getElementById("resetBtn")
+    .addEventListener(
+        "click",
+        function() {
+
+            basicPercent.value = 30;
+
+            hraPercent.value = 50;
+
+            caThreshold.value = 20000;
+
+            caHigh.value = 1600;
+
+            caLow.value = 800;
+
+            pt.value = 200;
+
+            esiThreshold.value = 20000;
+
+            esiPercent.value = 0.4;
+
+            pfPercent.value = 12;
+
+            calculatePayroll();
+
+            document
+                .getElementById("successMessage")
+                .classList
+                .remove("success");
+
+        }
+    );
+
+
+/* =====================================================
+   SAVE
+===================================================== */
+
+document
+    .getElementById("saveBtn")
+    .addEventListener(
+        "click",
+        function() {
+
+            calculatePayroll();
+
+
+            const message =
+                document.getElementById(
+                    "successMessage"
+                );
+
+
+            message.classList.add(
+                "success"
+            );
+
+
+            message.scrollIntoView({
+                behavior: "smooth",
+                block: "center"
+            });
+
+        }
+    );
+
+
+/* INITIAL */
+
+calculatePayroll();
+
+</script>
+
+</body>
+</html>

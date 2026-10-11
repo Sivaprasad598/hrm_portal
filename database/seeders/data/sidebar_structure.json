@@ -1,0 +1,1169 @@
+[
+    {
+        "label": "app.menu.dashboard",
+        "route": null,
+        "icon": "bi bi-house",
+        "line": 11,
+        "condition": {
+            "permission_key": null,
+            "permission_rule": null,
+            "role_rule": null,
+            "module": null,
+            "raw": "@if (in_array('admin', user_roles()) || $sidebarUserPermissions['view_overview_dashboard'] == 4 || $sidebarUserPermissions['view_project_dashboard'] == 4 || $sidebarUserPermissions['view_client_dashboard'] == 4 || $sidebarUserPermissions['view_hr_dashboard'] == 4 || $sidebarUserPermissions['view_ticket_dashboard'] == 4 || $sidebarUserPermissions['view_finance_dashboard'] == 4 )",
+            "complex": true
+        },
+        "items": [
+            {
+                "label": "app.menu.privateDashboard",
+                "route": "dashboard",
+                "line": 19,
+                "condition": {
+                    "permission_key": null,
+                    "permission_rule": null,
+                    "role_rule": null,
+                    "module": null,
+                    "raw": "@if (in_array('admin', user_roles()) || $sidebarUserPermissions['view_overview_dashboard'] == 4 || $sidebarUserPermissions['view_project_dashboard'] == 4 || $sidebarUserPermissions['view_client_dashboard'] == 4 || $sidebarUserPermissions['view_hr_dashboard'] == 4 || $sidebarUserPermissions['view_ticket_dashboard'] == 4 || $sidebarUserPermissions['view_finance_dashboard'] == 4 )",
+                    "complex": true
+                }
+            },
+            {
+                "label": "app.menu.advanceDashboard",
+                "route": "dashboard.advanced",
+                "line": 21,
+                "condition": {
+                    "permission_key": null,
+                    "permission_rule": null,
+                    "role_rule": null,
+                    "module": null,
+                    "raw": "@if (in_array('admin', user_roles()) || $sidebarUserPermissions['view_overview_dashboard'] == 4 || $sidebarUserPermissions['view_project_dashboard'] == 4 || $sidebarUserPermissions['view_client_dashboard'] == 4 || $sidebarUserPermissions['view_hr_dashboard'] == 4 || $sidebarUserPermissions['view_ticket_dashboard'] == 4 || $sidebarUserPermissions['view_finance_dashboard'] == 4 )",
+                    "complex": true
+                }
+            }
+        ]
+    },
+    {
+        "label": "app.menu.dashboard",
+        "route": "dashboard",
+        "icon": "bi bi-house",
+        "line": 26,
+        "condition": {
+            "permission_key": null,
+            "permission_rule": null,
+            "role_rule": null,
+            "module": null,
+            "raw": "@else",
+            "complex": false
+        },
+        "items": []
+    },
+    {
+        "label": "app.menu.myCalendar",
+        "route": "my-calendar.index",
+        "icon": "bi bi-calendar-range",
+        "line": 39,
+        "condition": {
+            "permission_key": null,
+            "permission_rule": null,
+            "role_rule": null,
+            "module": null,
+            "raw": "@if (in_array('tasks', user_modules()) || in_array('events', user_modules()) || in_array('holidays', user_modules()) || in_array('tickets', user_modules()) || in_array('leaves', user_modules()))",
+            "complex": true
+        },
+        "items": []
+    },
+    {
+        "label": "app.menu.lead",
+        "route": null,
+        "icon": "bi bi-person",
+        "line": 49,
+        "condition": {
+            "permission_key": null,
+            "permission_rule": null,
+            "role_rule": null,
+            "module": null,
+            "raw": "@if (!in_array('client', user_roles()) && (in_array('leads', user_modules())) && (($sidebarUserPermissions['view_lead'] != 5 && $sidebarUserPermissions['view_lead'] != 'none') || ($sidebarUserPermissions['view_deals'] != 5 && $sidebarUserPermissions['view_deals'] != 'none')))",
+            "complex": true
+        },
+        "items": [
+            {
+                "label": "app.leadContact",
+                "route": "lead-contact.index",
+                "line": 56,
+                "condition": {
+                    "permission_key": "view_lead",
+                    "permission_rule": "any",
+                    "role_rule": null,
+                    "module": null,
+                    "raw": "@if ($sidebarUserPermissions['view_lead'] != 5 && $sidebarUserPermissions['view_lead'] != 'none')",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.deal",
+                "route": "deals.index",
+                "line": 61,
+                "condition": {
+                    "permission_key": "view_deals",
+                    "permission_rule": "any",
+                    "role_rule": null,
+                    "module": null,
+                    "raw": "@if ($sidebarUserPermissions['view_deals'] != 5 && $sidebarUserPermissions['view_deals'] != 'none')",
+                    "complex": false
+                }
+            }
+        ]
+    },
+    {
+        "label": "app.menu.clients",
+        "route": "clients.index",
+        "icon": "bi bi-building",
+        "line": 69,
+        "condition": {
+            "permission_key": "view_clients",
+            "permission_rule": "any",
+            "role_rule": "not_client",
+            "module": "clients",
+            "raw": "@if (!in_array('client', user_roles()) && in_array('clients', user_modules()) && $sidebarUserPermissions['view_clients'] != 5 && $sidebarUserPermissions['view_clients'] != 'none')",
+            "complex": false
+        },
+        "items": []
+    },
+    {
+        "label": "app.menu.hr",
+        "route": null,
+        "icon": "bi bi-people",
+        "line": 81,
+        "condition": {
+            "permission_key": null,
+            "permission_rule": null,
+            "role_rule": null,
+            "module": null,
+            "raw": "@if (!in_array('client', user_roles()) && (in_array('employees', user_modules()) || in_array('leaves', user_modules()) || in_array('attendance', user_modules()) || in_array('holidays', user_modules())) && ($sidebarUserPermissions['view_employees'] != 5 || $sidebarUserPermissions['view_leave'] != 5 || $sidebarUserPermissions['view_attendance'] != 5 || $sidebarUserPermissions['view_holiday'] != 5) && ($sidebarUserPermissions['view_employees'] != 'none' || $sidebarUserPermissions['view_leave'] != 'none' || $sidebarUserPermissions['view_attendance'] != 'none' || $sidebarUserPermissions['view_holiday'] != 'none' || $sidebarUserPermissions['view_shift_roster'] != 'none'))",
+            "complex": true
+        },
+        "items": [
+            {
+                "label": "app.menu.employees",
+                "route": "employees.index",
+                "line": 88,
+                "condition": {
+                    "permission_key": "view_employees",
+                    "permission_rule": "any",
+                    "role_rule": null,
+                    "module": "employees",
+                    "raw": "@if (in_array('employees', user_modules()) && $sidebarUserPermissions['view_employees'] != 5 && $sidebarUserPermissions['view_employees'] != 'none' && isset($sidebarUserPermissions['view_employee_menu']) && $sidebarUserPermissions['view_employee_menu'] == 4)",
+                    "complex": true
+                }
+            },
+            {
+                "label": "Employee Exit",
+                "route": "employee-exit.index",
+                "line": 89,
+                "condition": {
+                    "permission_key": "view_employees",
+                    "permission_rule": "any",
+                    "role_rule": null,
+                    "module": "employees",
+                    "raw": "@if (in_array('employees', user_modules()) && $sidebarUserPermissions['view_employees'] != 5 && $sidebarUserPermissions['view_employees'] != 'none' && isset($sidebarUserPermissions['view_employee_menu']) && $sidebarUserPermissions['view_employee_menu'] == 4)",
+                    "complex": true
+                }
+            },
+            {
+                "label": "Employee Termination",
+                "route": "employee-termination.index",
+                "line": 90,
+                "condition": {
+                    "permission_key": "view_employees",
+                    "permission_rule": "any",
+                    "role_rule": null,
+                    "module": "employees",
+                    "raw": "@if (in_array('employees', user_modules()) && $sidebarUserPermissions['view_employees'] != 5 && $sidebarUserPermissions['view_employees'] != 'none' && isset($sidebarUserPermissions['view_employee_menu']) && $sidebarUserPermissions['view_employee_menu'] == 4)",
+                    "complex": true
+                }
+            },
+            {
+                "label": "Employee Resignation",
+                "route": "resignation-management.index",
+                "line": 91,
+                "condition": {
+                    "permission_key": "view_employees",
+                    "permission_rule": "any",
+                    "role_rule": null,
+                    "module": "employees",
+                    "raw": "@if (in_array('employees', user_modules()) && $sidebarUserPermissions['view_employees'] != 5 && $sidebarUserPermissions['view_employees'] != 'none' && isset($sidebarUserPermissions['view_employee_menu']) && $sidebarUserPermissions['view_employee_menu'] == 4)",
+                    "complex": true
+                }
+            },
+            {
+                "label": "app.menu.probationPeriodRequests",
+                "route": "probation-requests.index",
+                "line": 92,
+                "condition": {
+                    "permission_key": "view_employees",
+                    "permission_rule": "any",
+                    "role_rule": null,
+                    "module": "employees",
+                    "raw": "@if (in_array('employees', user_modules()) && $sidebarUserPermissions['view_employees'] != 5 && $sidebarUserPermissions['view_employees'] != 'none' && isset($sidebarUserPermissions['view_employee_menu']) && $sidebarUserPermissions['view_employee_menu'] == 4)",
+                    "complex": true
+                }
+            },
+            {
+                "label": "Resignation",
+                "route": "resignations.index",
+                "line": 95,
+                "condition": {
+                    "permission_key": null,
+                    "permission_rule": null,
+                    "role_rule": "not_client",
+                    "module": null,
+                    "raw": "@if (!in_array('client', user_roles()))",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.menu.identityCard",
+                "route": "identity.index",
+                "line": 105,
+                "condition": {
+                    "permission_key": null,
+                    "permission_rule": null,
+                    "role_rule": "admin",
+                    "module": null,
+                    "raw": "@if(in_array('admin', user_roles()))",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.menu.shiftRoster",
+                "route": "shifts.index",
+                "line": 121,
+                "condition": {
+                    "permission_key": "view_shift_roster",
+                    "permission_rule": "any",
+                    "role_rule": null,
+                    "module": "attendance",
+                    "raw": "@if (in_array('attendance', user_modules()) && isset($sidebarUserPermissions['view_shift_roster']) && $sidebarUserPermissions['view_shift_roster'] != 5 && $sidebarUserPermissions['view_shift_roster'] != 'none')",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.menu.attendance",
+                "route": "attendances.index",
+                "line": 124,
+                "condition": {
+                    "permission_key": "view_attendance",
+                    "permission_rule": "any",
+                    "role_rule": null,
+                    "module": "attendance",
+                    "raw": "@if (in_array('attendance', user_modules()) && $sidebarUserPermissions['view_attendance'] != 5 && $sidebarUserPermissions['view_attendance'] != 'none')",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.menu.holiday",
+                "route": "holidays.index",
+                "line": 127,
+                "condition": {
+                    "permission_key": "view_holiday",
+                    "permission_rule": "any",
+                    "role_rule": null,
+                    "module": "holidays",
+                    "raw": "@if (in_array('holidays', user_modules()) && $sidebarUserPermissions['view_holiday'] != 5 && $sidebarUserPermissions['view_holiday'] != 'none')",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.menu.designation",
+                "route": "designations.index",
+                "line": 130,
+                "condition": {
+                    "permission_key": "view_designation",
+                    "permission_rule": "all",
+                    "role_rule": null,
+                    "module": null,
+                    "raw": "@if (isset($sidebarUserPermissions['view_designation']) && $sidebarUserPermissions['view_designation'] == 4 )",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.menu.department",
+                "route": "departments.index",
+                "line": 133,
+                "condition": {
+                    "permission_key": "view_department",
+                    "permission_rule": "all",
+                    "role_rule": null,
+                    "module": null,
+                    "raw": "@if (isset($sidebarUserPermissions['view_department']) && $sidebarUserPermissions['view_department'] == 4)",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.menu.appreciation",
+                "route": "appreciations.index",
+                "line": 136,
+                "condition": {
+                    "permission_key": "view_appreciation",
+                    "permission_rule": "any",
+                    "role_rule": null,
+                    "module": null,
+                    "raw": "@if (isset($sidebarUserPermissions['view_appreciation']) && $sidebarUserPermissions['view_appreciation'] != 5)",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.menu.appreciation",
+                "route": "awards.index",
+                "line": 139,
+                "condition": {
+                    "permission_key": "view_appreciation",
+                    "permission_rule": "own",
+                    "role_rule": null,
+                    "module": null,
+                    "raw": "@if (isset($sidebarUserPermissions['view_appreciation'])  && $sidebarUserPermissions['view_appreciation'] == 5 && isset($sidebarUserPermissions['manage_award']) && $sidebarUserPermissions['manage_award'] == 4)",
+                    "complex": true
+                }
+            },
+            {
+                "label": "app.menu.payslipEntry",
+                "route": "payslip-entry.index",
+                "line": 106,
+                "condition": {
+                    "permission_key": null,
+                    "permission_rule": null,
+                    "role_rule": "admin",
+                    "module": null,
+                    "raw": "@if(in_array('admin', user_roles()))",
+                    "complex": false
+                }
+            }
+        ]
+    },
+    {
+        "label": "app.menu.leaveManagementSection",
+        "route": null,
+        "icon": "bi bi-calendar-check",
+        "line": 0,
+        "condition": {
+            "permission_key": null,
+            "permission_rule": null,
+            "role_rule": null,
+            "module": null,
+            "raw": "",
+            "complex": false
+        },
+        "items": [
+            {
+                "label": "app.menu.leaves",
+                "route": "leaves.index",
+                "line": 98,
+                "condition": {
+                    "permission_key": "view_leave",
+                    "permission_rule": "any",
+                    "role_rule": null,
+                    "module": "leaves",
+                    "raw": "@if (in_array('leaves', user_modules()) && $sidebarUserPermissions['view_leave'] != 5 && $sidebarUserPermissions['view_leave'] != 'none')",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.menu.leaveManagement",
+                "route": "leave-management.index",
+                "line": 99,
+                "condition": {
+                    "permission_key": "view_leave",
+                    "permission_rule": "any",
+                    "role_rule": null,
+                    "module": "leaves",
+                    "raw": "@if (in_array('leaves', user_modules()) && $sidebarUserPermissions['view_leave'] != 5 && $sidebarUserPermissions['view_leave'] != 'none')",
+                    "complex": false
+                }
+            },
+            {
+                "label": "Leave Year End",
+                "route": "leave-year-end.index",
+                "line": 101,
+                "condition": {
+                    "permission_key": null,
+                    "permission_rule": null,
+                    "role_rule": null,
+                    "module": null,
+                    "raw": "@if (user()->permission('manage_leave_setting') == 'all')",
+                    "complex": false
+                }
+            }
+        ]
+    },
+    {
+        "label": "app.menu.payrollSection",
+        "route": null,
+        "icon": "bi bi-cash-coin",
+        "line": 0,
+        "condition": {
+            "permission_key": null,
+            "permission_rule": null,
+            "role_rule": null,
+            "module": null,
+            "raw": "",
+            "complex": false
+        },
+        "items": [
+            {
+                "label": "app.menu.payslips",
+                "route": "payslips.index",
+                "line": 109,
+                "condition": {
+                    "permission_key": null,
+                    "permission_rule": null,
+                    "role_rule": "employee_or_admin",
+                    "module": null,
+                    "raw": "@if (in_array('employee', user_roles()) || in_array('admin', user_roles()))",
+                    "complex": false
+                }
+            },
+            {
+                "label": "Payroll",
+                "route": "payroll-run.index",
+                "line": 114,
+                "condition": {
+                    "permission_key": null,
+                    "permission_rule": null,
+                    "role_rule": "admin",
+                    "module": null,
+                    "raw": "@if (in_array('admin', user_roles()))",
+                    "complex": false
+                }
+            },
+            {
+                "label": "Payroll Dashboard",
+                "route": "payroll-dashboard.index",
+                "line": 115,
+                "condition": {
+                    "permission_key": null,
+                    "permission_rule": null,
+                    "role_rule": "admin",
+                    "module": null,
+                    "raw": "@if (in_array('admin', user_roles()))",
+                    "complex": false
+                }
+            },
+            {
+                "label": "Income Tax",
+                "route": "income-tax.index",
+                "line": 116,
+                "condition": {
+                    "permission_key": null,
+                    "permission_rule": null,
+                    "role_rule": "admin",
+                    "module": null,
+                    "raw": "@if (in_array('admin', user_roles()))",
+                    "complex": false
+                }
+            },
+            {
+                "label": "Statutory Returns",
+                "route": "statutory-returns.index",
+                "line": 117,
+                "condition": {
+                    "permission_key": null,
+                    "permission_rule": null,
+                    "role_rule": "admin",
+                    "module": null,
+                    "raw": "@if (in_array('admin', user_roles()))",
+                    "complex": false
+                }
+            },
+            {
+                "label": "Full &amp; Final Settlement",
+                "route": "settlements.index",
+                "line": 118,
+                "condition": {
+                    "permission_key": null,
+                    "permission_rule": null,
+                    "role_rule": "admin",
+                    "module": null,
+                    "raw": "@if (in_array('admin', user_roles()))",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.menu.payslipsIssued",
+                "route": "payslips.generated",
+                "line": 0,
+                "condition": {
+                    "permission_key": "manage_payroll",
+                    "permission_rule": "setting_all",
+                    "role_rule": null,
+                    "module": null,
+                    "raw": "@if (user()->permission('manage_payroll') == 'all')",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.menu.payrollRegister",
+                "route": "payroll-register.index",
+                "line": 0,
+                "condition": {
+                    "permission_key": "manage_payroll",
+                    "permission_rule": "setting_all",
+                    "role_rule": null,
+                    "module": null,
+                    "raw": "@if (user()->permission('manage_payroll') == 'all')",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.menu.payElements",
+                "route": "pay-elements.index",
+                "line": 0,
+                "condition": {
+                    "permission_key": "manage_payroll",
+                    "permission_rule": "setting_all",
+                    "role_rule": null,
+                    "module": null,
+                    "raw": "@if (user()->permission('manage_payroll') == 'all')",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.menu.myPayslips",
+                "route": "my-payslips.index",
+                "line": 0,
+                "condition": {
+                    "permission_key": null,
+                    "permission_rule": null,
+                    "role_rule": "not_client",
+                    "module": null,
+                    "raw": "@if (!in_array('client', user_roles()))",
+                    "complex": false
+                }
+            }
+        ]
+    },
+    {
+        "label": "app.menu.biometric",
+        "route": null,
+        "icon": "bi bi-fingerprint",
+        "line": 151,
+        "condition": {
+            "permission_key": "view_attendance",
+            "permission_rule": "any",
+            "role_rule": null,
+            "module": "attendance",
+            "raw": "@if (in_array('attendance', user_modules()) && $sidebarUserPermissions['view_attendance'] != 5 && $sidebarUserPermissions['view_attendance'] != 'none')",
+            "complex": false
+        },
+        "items": [
+            {
+                "label": "app.menu.syncCalendar",
+                "route": "biometric.calendar",
+                "line": 165,
+                "condition": {
+                    "permission_key": "view_attendance",
+                    "permission_rule": "any",
+                    "role_rule": null,
+                    "module": "attendance",
+                    "raw": "@if (in_array('attendance', user_modules()) && $sidebarUserPermissions['view_attendance'] != 5 && $sidebarUserPermissions['view_attendance'] != 'none')",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.menu.deviceAttendance",
+                "route": "biometric.attendance",
+                "line": 166,
+                "condition": {
+                    "permission_key": "view_attendance",
+                    "permission_rule": "any",
+                    "role_rule": null,
+                    "module": "attendance",
+                    "raw": "@if (in_array('attendance', user_modules()) && $sidebarUserPermissions['view_attendance'] != 5 && $sidebarUserPermissions['view_attendance'] != 'none')",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.menu.attendanceSync",
+                "route": "biometric.attendance-sync",
+                "line": 167,
+                "condition": {
+                    "permission_key": "view_attendance",
+                    "permission_rule": "any",
+                    "role_rule": null,
+                    "module": "attendance",
+                    "raw": "@if (in_array('attendance', user_modules()) && $sidebarUserPermissions['view_attendance'] != 5 && $sidebarUserPermissions['view_attendance'] != 'none')",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.menu.punchLog",
+                "route": "biometric.punch-log",
+                "line": 168,
+                "condition": {
+                    "permission_key": "view_attendance",
+                    "permission_rule": "any",
+                    "role_rule": null,
+                    "module": "attendance",
+                    "raw": "@if (in_array('attendance', user_modules()) && $sidebarUserPermissions['view_attendance'] != 5 && $sidebarUserPermissions['view_attendance'] != 'none')",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.menu.attendanceProfile",
+                "route": "biometric.profile",
+                "line": 169,
+                "condition": {
+                    "permission_key": "view_attendance",
+                    "permission_rule": "any",
+                    "role_rule": null,
+                    "module": "attendance",
+                    "raw": "@if (in_array('attendance', user_modules()) && $sidebarUserPermissions['view_attendance'] != 5 && $sidebarUserPermissions['view_attendance'] != 'none')",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.menu.attendanceExceptions",
+                "route": "biometric.exceptions",
+                "line": 170,
+                "condition": {
+                    "permission_key": "view_attendance",
+                    "permission_rule": "any",
+                    "role_rule": null,
+                    "module": "attendance",
+                    "raw": "@if (in_array('attendance', user_modules()) && $sidebarUserPermissions['view_attendance'] != 5 && $sidebarUserPermissions['view_attendance'] != 'none')",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.menu.biometricShifts",
+                "route": "biometric.shifts",
+                "line": 171,
+                "condition": {
+                    "permission_key": "view_attendance",
+                    "permission_rule": "any",
+                    "role_rule": null,
+                    "module": "attendance",
+                    "raw": "@if (in_array('attendance', user_modules()) && $sidebarUserPermissions['view_attendance'] != 5 && $sidebarUserPermissions['view_attendance'] != 'none')",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.menu.biometricEmployees",
+                "route": "biometric.employees",
+                "line": 172,
+                "condition": {
+                    "permission_key": "view_attendance",
+                    "permission_rule": "any",
+                    "role_rule": null,
+                    "module": "attendance",
+                    "raw": "@if (in_array('attendance', user_modules()) && $sidebarUserPermissions['view_attendance'] != 5 && $sidebarUserPermissions['view_attendance'] != 'none')",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.menu.employeeComparison",
+                "route": "biometric.comparison",
+                "line": 173,
+                "condition": {
+                    "permission_key": "view_attendance",
+                    "permission_rule": "any",
+                    "role_rule": null,
+                    "module": "attendance",
+                    "raw": "@if (in_array('attendance', user_modules()) && $sidebarUserPermissions['view_attendance'] != 5 && $sidebarUserPermissions['view_attendance'] != 'none')",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.menu.biometricDevices",
+                "route": "biometric.devices",
+                "line": 174,
+                "condition": {
+                    "permission_key": "view_attendance",
+                    "permission_rule": "any",
+                    "role_rule": null,
+                    "module": "attendance",
+                    "raw": "@if (in_array('attendance', user_modules()) && $sidebarUserPermissions['view_attendance'] != 5 && $sidebarUserPermissions['view_attendance'] != 'none')",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.menu.biometricSync",
+                "route": "biometric.sync-logs",
+                "line": 175,
+                "condition": {
+                    "permission_key": "view_attendance",
+                    "permission_rule": "any",
+                    "role_rule": null,
+                    "module": "attendance",
+                    "raw": "@if (in_array('attendance', user_modules()) && $sidebarUserPermissions['view_attendance'] != 5 && $sidebarUserPermissions['view_attendance'] != 'none')",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.menu.biometricActions",
+                "route": "biometric.actions",
+                "line": 175,
+                "condition": {
+                    "permission_key": "view_attendance",
+                    "permission_rule": "any",
+                    "role_rule": null,
+                    "module": "attendance",
+                    "raw": "@if (in_array('attendance', user_modules()) && $sidebarUserPermissions['view_attendance'] != 5 && $sidebarUserPermissions['view_attendance'] != 'none')",
+                    "complex": false
+                }
+            }
+        ]
+    },
+    {
+        "label": "app.menu.work",
+        "route": null,
+        "icon": "bi bi-briefcase",
+        "line": 182,
+        "condition": {
+            "permission_key": null,
+            "permission_rule": null,
+            "role_rule": null,
+            "module": null,
+            "raw": "@if ((in_array('contracts', user_modules()) || in_array('projects', user_modules()) || in_array('tasks', user_modules()) || in_array('timelogs', user_modules())) && ($sidebarUserPermissions['view_contract'] != 5 || $sidebarUserPermissions['view_projects'] != 5 || $sidebarUserPermissions['view_tasks'] != 5 || $sidebarUserPermissions['view_timelogs'] != 5) && ($sidebarUserPermissions['view_contract'] != 'none' || $sidebarUserPermissions['view_projects'] != 'none' || $sidebarUserPermissions['view_tasks'] != 'none' || $sidebarUserPermissions['view_timelogs'] != 'none'))",
+            "complex": true
+        },
+        "items": [
+            {
+                "label": "app.menu.contracts",
+                "route": "contracts.index",
+                "line": 189,
+                "condition": {
+                    "permission_key": "view_contract",
+                    "permission_rule": "any",
+                    "role_rule": null,
+                    "module": "contracts",
+                    "raw": "@if (in_array('contracts', user_modules()) && $sidebarUserPermissions['view_contract'] != 5 && $sidebarUserPermissions['view_contract'] != 'none')",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.menu.projects",
+                "route": "projects.index",
+                "line": 192,
+                "condition": {
+                    "permission_key": "view_projects",
+                    "permission_rule": "any",
+                    "role_rule": null,
+                    "module": "projects",
+                    "raw": "@if (in_array('projects', user_modules()) && $sidebarUserPermissions['view_projects'] != 5 && $sidebarUserPermissions['view_projects'] != 'none')",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.menu.tasks",
+                "route": "tasks.index",
+                "line": 196,
+                "condition": {
+                    "permission_key": "view_tasks",
+                    "permission_rule": "any",
+                    "role_rule": null,
+                    "module": "tasks",
+                    "raw": "@if (in_array('tasks', user_modules()) && $sidebarUserPermissions['view_tasks'] != 5 && $sidebarUserPermissions['view_tasks'] != 'none')",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.menu.timeLogs",
+                "route": "timelogs.index",
+                "line": 199,
+                "condition": {
+                    "permission_key": "view_timelogs",
+                    "permission_rule": "any",
+                    "role_rule": null,
+                    "module": "timelogs",
+                    "raw": "@if (in_array('timelogs', user_modules()) && $sidebarUserPermissions['view_timelogs'] != 5 && $sidebarUserPermissions['view_timelogs'] != 'none')",
+                    "complex": false
+                }
+            }
+        ]
+    },
+    {
+        "label": "app.menu.finance",
+        "route": null,
+        "icon": "bi bi-cash-coin",
+        "line": 212,
+        "condition": {
+            "permission_key": null,
+            "permission_rule": null,
+            "role_rule": null,
+            "module": null,
+            "raw": "@if ((in_array('estimates', user_modules()) || in_array('invoices', user_modules()) || in_array('payments', user_modules()) || in_array('expenses', user_modules()) || in_array('bankaccount', user_modules())) && ($sidebarUserPermissions['view_estimates'] != 5 || $sidebarUserPermissions['view_invoices'] != 5 || $sidebarUserPermissions['view_payments'] != 5 || $sidebarUserPermissions['view_expenses'] != 5 || $sidebarUserPermissions['view_lead_proposals'] != 5 || $sidebarUserPermissions['view_bankaccount'] != 5) && ($sidebarUserPermissions['view_estimates'] != 'none' || $sidebarUserPermissions['view_invoices'] != 'none' || $sidebarUserPermissions['view_payments'] != 'none' || $sidebarUserPermissions['view_expenses'] != 'none' || $sidebarUserPermissions['view_lead_proposals'] != 'none' || $sidebarUserPermissions['view_bankaccount'] != 'none'))",
+            "complex": true
+        },
+        "items": [
+            {
+                "label": "app.menu.proposal",
+                "route": "proposals.index",
+                "line": 220,
+                "condition": {
+                    "permission_key": "view_lead_proposals",
+                    "permission_rule": "any",
+                    "role_rule": null,
+                    "module": "leads",
+                    "raw": "@if (in_array('leads', user_modules()) && $sidebarUserPermissions['view_lead_proposals'] != 5 && $sidebarUserPermissions['view_lead_proposals'] != 'none')",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.menu.estimates",
+                "route": "estimates.index",
+                "line": 223,
+                "condition": {
+                    "permission_key": "view_estimates",
+                    "permission_rule": "any",
+                    "role_rule": null,
+                    "module": "estimates",
+                    "raw": "@if (in_array('estimates', user_modules()) && $sidebarUserPermissions['view_estimates'] != 5 && $sidebarUserPermissions['view_estimates'] != 'none')",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.menu.invoices",
+                "route": "invoices.index",
+                "line": 226,
+                "condition": {
+                    "permission_key": "view_invoices",
+                    "permission_rule": "any",
+                    "role_rule": null,
+                    "module": "invoices",
+                    "raw": "@if (in_array('invoices', user_modules()) && $sidebarUserPermissions['view_invoices'] != 5 && $sidebarUserPermissions['view_invoices'] != 'none')",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.menu.payments",
+                "route": "payments.index",
+                "line": 229,
+                "condition": {
+                    "permission_key": "view_payments",
+                    "permission_rule": "any",
+                    "role_rule": null,
+                    "module": "payments",
+                    "raw": "@if (in_array('payments', user_modules()) && $sidebarUserPermissions['view_payments'] != 5 && $sidebarUserPermissions['view_payments'] != 'none')",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.subscriptions",
+                "route": "subscriptions.index",
+                "line": 233,
+                "condition": {
+                    "permission_key": null,
+                    "permission_rule": null,
+                    "role_rule": "not_client",
+                    "module": null,
+                    "raw": "@if (!in_array('client', user_roles()))",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.mySubscriptions",
+                "route": "client.subscriptions.index",
+                "line": 235,
+                "condition": {
+                    "permission_key": null,
+                    "permission_rule": null,
+                    "role_rule": null,
+                    "module": null,
+                    "raw": "@else",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.menu.credit-note",
+                "route": "creditnotes.index",
+                "line": 239,
+                "condition": {
+                    "permission_key": "view_invoices",
+                    "permission_rule": "any",
+                    "role_rule": null,
+                    "module": "invoices",
+                    "raw": "@if (in_array('invoices', user_modules()) && $sidebarUserPermissions['view_invoices'] != 5 && $sidebarUserPermissions['view_invoices'] != 'none')",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.menu.expenses",
+                "route": "expenses.index",
+                "line": 244,
+                "condition": {
+                    "permission_key": "view_expenses",
+                    "permission_rule": "any",
+                    "role_rule": null,
+                    "module": "expenses",
+                    "raw": "@if (in_array('expenses', user_modules()) && $sidebarUserPermissions['view_expenses'] != 5 && $sidebarUserPermissions['view_expenses'] != 'none')",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.menu.bankaccount",
+                "route": "bankaccounts.index",
+                "line": 248,
+                "condition": {
+                    "permission_key": "view_bankaccount",
+                    "permission_rule": "any",
+                    "role_rule": null,
+                    "module": "bankaccount",
+                    "raw": "@if (in_array('bankaccount', user_modules()) && $sidebarUserPermissions['view_bankaccount'] != 5 && $sidebarUserPermissions['view_bankaccount'] != 'none')",
+                    "complex": false
+                }
+            }
+        ]
+    },
+    {
+        "label": "app.menu.tickets",
+        "route": "tickets.index",
+        "icon": "bi bi-headset",
+        "line": 282,
+        "condition": {
+            "permission_key": "view_tickets",
+            "permission_rule": "any",
+            "role_rule": null,
+            "module": "tickets",
+            "raw": "@if (in_array('tickets', user_modules()) && $sidebarUserPermissions['view_tickets'] != 5 && $sidebarUserPermissions['view_tickets'] != 'none')",
+            "complex": false
+        },
+        "items": []
+    },
+    {
+        "label": "app.menu.events",
+        "route": "events.index",
+        "icon": "bi bi-calendar-event",
+        "line": 292,
+        "condition": {
+            "permission_key": "view_events",
+            "permission_rule": "any",
+            "role_rule": null,
+            "module": "events",
+            "raw": "@if (in_array('events', user_modules()) && $sidebarUserPermissions['view_events'] != 5 && $sidebarUserPermissions['view_events'] != 'none')",
+            "complex": false
+        },
+        "items": []
+    },
+    {
+        "label": "app.menu.messages",
+        "route": "messages.index",
+        "icon": "bi bi-chat-left-text",
+        "line": 305,
+        "condition": {
+            "permission_key": null,
+            "permission_rule": null,
+            "role_rule": null,
+            "module": null,
+            "raw": "@if (in_array('messages', user_modules()) && (!in_array('groupmessage', user_modules()))) && @if ((message_setting()->allow_client_admin == 'yes' || message_setting()->allow_client_employee == 'yes') && in_array('client', user_roles()))",
+            "complex": true
+        },
+        "items": []
+    },
+    {
+        "label": "app.menu.messages",
+        "route": "messages.index",
+        "icon": "bi bi-chat-left-text",
+        "line": 315,
+        "condition": {
+            "permission_key": null,
+            "permission_rule": null,
+            "role_rule": "employee_or_admin",
+            "module": "messages",
+            "raw": "@if (in_array('messages', user_modules()) && (!in_array('groupmessage', user_modules()))) && @elseif (in_array('employee', user_roles()))",
+            "complex": false
+        },
+        "items": []
+    },
+    {
+        "label": "app.menu.gdpr",
+        "route": "gdpr.index",
+        "icon": "bi bi-lock",
+        "line": 329,
+        "condition": {
+            "permission_key": null,
+            "permission_rule": null,
+            "role_rule": null,
+            "module": null,
+            "raw": "@if ((in_array('admin', user_roles()) || in_array('client', user_roles())) && $gdpr->enable_gdpr == 1)",
+            "complex": false
+        },
+        "items": []
+    },
+    {
+        "label": "app.menu.noticeBoard",
+        "route": "notices.index",
+        "icon": "bi bi-clipboard",
+        "line": 339,
+        "condition": {
+            "permission_key": "view_notice",
+            "permission_rule": "any",
+            "role_rule": null,
+            "module": "notices",
+            "raw": "@if (in_array('notices', user_modules()) && $sidebarUserPermissions['view_notice'] != 5 && $sidebarUserPermissions['view_notice'] != 'none')",
+            "complex": false
+        },
+        "items": []
+    },
+    {
+        "label": "app.menu.notes",
+        "route": "client-notes.index",
+        "icon": "bi bi-journal-text",
+        "line": 375,
+        "condition": {
+            "permission_key": "view_client_note",
+            "permission_rule": "any",
+            "role_rule": "client_only",
+            "module": null,
+            "raw": "@if (in_array('client', user_roles()) && $sidebarUserPermissions['view_client_note'] != 5)",
+            "complex": false
+        },
+        "items": []
+    },
+    {
+        "label": "app.menu.reports",
+        "route": null,
+        "icon": "bi bi-graph-up",
+        "line": 394,
+        "condition": {
+            "permission_key": null,
+            "permission_rule": null,
+            "role_rule": null,
+            "module": null,
+            "raw": "@if (in_array('reports', user_modules()) && ($sidebarUserPermissions['view_task_report'] == 4 || $sidebarUserPermissions['view_time_log_report'] == 4 || (isset($sidebarUserPermissions['view_expense_report']) && $sidebarUserPermissions['view_expense_report'] == 4) || $sidebarUserPermissions['view_finance_report'] != 5 || $sidebarUserPermissions['view_income_expense_report'] == 4 || $sidebarUserPermissions['view_leave_report'] != 5 || $sidebarUserPermissions['view_attendance_report'] == 4 || $sidebarUserPermissions['view_lead_report'] == 4 || $sidebarUserPermissions['view_sales_report'] == 4) && ($sidebarUserPermissions['view_task_report'] != 'none' || $sidebarUserPermissions['view_time_log_report'] != 'none' || $sidebarUserPermissions['view_finance_report'] != 'none' || $sidebarUserPermissions['view_income_expense_report'] != 'none' || $sidebarUserPermissions['view_leave_report'] != 'none' || $sidebarUserPermissions['view_attendance_report'] != 'none' || $sidebarUserPermissions['view_lead_report'] != 'none' || $sidebarUserPermissions['view_sales_report'] != 'none' || (isset($sidebarUserPermissions['view_expense_report']) && $sidebarUserPermissions['view_expense_report'] != 'none')))",
+            "complex": true
+        },
+        "items": [
+            {
+                "label": "app.menu.taskReport",
+                "route": "task-report.index",
+                "line": 402,
+                "condition": {
+                    "permission_key": "view_task_report",
+                    "permission_rule": "all",
+                    "role_rule": null,
+                    "module": "tasks",
+                    "raw": "@if ($sidebarUserPermissions['view_task_report'] == 4 && $sidebarUserPermissions['view_task_report'] != 'none' && in_array('tasks', user_modules()))",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.menu.timeLogReport",
+                "route": "time-log-report.index",
+                "line": 406,
+                "condition": {
+                    "permission_key": "view_time_log_report",
+                    "permission_rule": "all",
+                    "role_rule": null,
+                    "module": "timelogs",
+                    "raw": "@if ($sidebarUserPermissions['view_time_log_report'] == 4 && $sidebarUserPermissions['view_time_log_report'] != 'none' && in_array('timelogs', user_modules()))",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.menu.weeklyTimehsheet",
+                "route": "time-log-weekly-report.index",
+                "line": 411,
+                "condition": {
+                    "permission_key": "view_time_log_report",
+                    "permission_rule": "all",
+                    "role_rule": null,
+                    "module": "timelogs",
+                    "raw": "@if ($sidebarUserPermissions['view_time_log_report'] == 4 && $sidebarUserPermissions['view_time_log_report'] != 'none' && in_array('timelogs', user_modules()))",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.menu.financeReport",
+                "route": "finance-report.index",
+                "line": 416,
+                "condition": {
+                    "permission_key": "view_finance_report",
+                    "permission_rule": "any",
+                    "role_rule": null,
+                    "module": "payments",
+                    "raw": "@if ($sidebarUserPermissions['view_finance_report'] != 5 && $sidebarUserPermissions['view_finance_report'] != 'none' && in_array('payments', user_modules()))",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.menu.incomeVsExpenseReport",
+                "route": "income-expense-report.index",
+                "line": 421,
+                "condition": {
+                    "permission_key": "view_income_expense_report",
+                    "permission_rule": "all",
+                    "role_rule": null,
+                    "module": "expenses",
+                    "raw": "@if ($sidebarUserPermissions['view_income_expense_report'] == 4 && $sidebarUserPermissions['view_income_expense_report'] != 'none' && in_array('expenses', user_modules()))",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.menu.leaveReport",
+                "route": "leave-report.leave_quota",
+                "line": 426,
+                "condition": {
+                    "permission_key": "view_leave_report",
+                    "permission_rule": "any",
+                    "role_rule": null,
+                    "module": "leaves",
+                    "raw": "@if ($sidebarUserPermissions['view_leave_report'] != 5 && $sidebarUserPermissions['view_leave_report'] != 'none' && in_array('leaves', user_modules()))",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.menu.attendanceReport",
+                "route": "attendance-report.index",
+                "line": 431,
+                "condition": {
+                    "permission_key": "view_attendance_report",
+                    "permission_rule": "all",
+                    "role_rule": null,
+                    "module": "attendance",
+                    "raw": "@if ($sidebarUserPermissions['view_attendance_report'] == 4 && $sidebarUserPermissions['view_attendance_report'] != 'none' && in_array('attendance', user_modules()))",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.menu.expenseReport",
+                "route": "expense-report.index",
+                "line": 435,
+                "condition": {
+                    "permission_key": "view_expense_report",
+                    "permission_rule": "all",
+                    "role_rule": null,
+                    "module": "expenses",
+                    "raw": "@if (isset($sidebarUserPermissions['view_expense_report']) && $sidebarUserPermissions['view_expense_report'] == 4 && $sidebarUserPermissions['view_expense_report'] != 'none' && in_array('expenses', user_modules()))",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.menu.dealReport",
+                "route": "lead-report.index",
+                "line": 439,
+                "condition": {
+                    "permission_key": "view_lead_report",
+                    "permission_rule": "all",
+                    "role_rule": null,
+                    "module": "leads",
+                    "raw": "@if (isset($sidebarUserPermissions['view_lead_report']) && $sidebarUserPermissions['view_lead_report'] == 4 && $sidebarUserPermissions['view_lead_report'] != 'none' && in_array('leads', user_modules()))",
+                    "complex": false
+                }
+            }
+        ]
+    },
+    {
+        "label": "app.menu.settings",
+        "route": "company-settings.index",
+        "icon": "bi bi-gear",
+        "line": 476,
+        "condition": {
+            "permission_key": null,
+            "permission_rule": null,
+            "role_rule": null,
+            "module": null,
+            "raw": "",
+            "complex": false
+        },
+        "items": []
+    }
+]

@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monthly Attendance Sheet</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f5f5;
+            margin: 20px;
+        }
+
+        .attendance-container {
+            background: #fff;
+            border: 1px solid #ccc;
+            overflow-x: auto;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        table {
+            border-collapse: collapse;
+            min-width: 1400px;
+            width: 100%;
+            text-align: center;
+        }
+
+        th, td {
+            border: 1px solid #999;
+            padding: 6px 8px;
+            font-size: 13px;
+        }
+
+        .title-row th {
+            background: #ffe600;
+            color: #000;
+            font-size: 18px;
+            font-weight: bold;
+            padding: 10px;
+        }
+
+        .header {
+            background: #d9e8fb;
+            font-weight: bold;
+        }
+
+        .name-col {
+            min-width: 180px;
+            text-align: left;
+            font-weight: bold;
+        }
+
+        .present {
+            background: #e6ffe6;
+            color: green;
+            font-weight: bold;
+        }
+
+        .absent {
+            background: #ffe6e6;
+            color: red;
+            font-weight: bold;
+        }
+
+        .weekoff {
+            background: #f2f2f2;
+            color: #666;
+            font-weight: bold;
+        }
+
+        .halfday {
+            background: #fff3cd;
+            color: #d97706;
+            font-weight: bold;
+        }
+
+        .total-head {
+            background: #fff2cc;
+            font-weight: bold;
+        }
+
+        .lop {
+            color: #c00000;
+            font-weight: bold;
+        }
+
+        .sl {
+            color: #ff9900;
+            font-weight: bold;
+        }
+
+        .cl {
+            color: #7030a0;
+            font-weight: bold;
+        }
+
+        .tl {
+            color: #008000;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<div class="attendance-container">
+    <table>
+        <tr class="title-row">
+            <th colspan="20">IT DEVELOPMENT TEAM</th>
+        </tr>
+
+        <tr class="header">
+            <th>S.No</th>
+            <th class="name-col">Name of the Employee</th>
+            <th>21-May<br>Thu</th>
+            <th>22-May<br>Fri</th>
+            <th>23-May<br>Sat</th>
+            <th>24-May<br>Sun</th>
+            <th>25-May<br>Mon</th>
+            <th>26-May<br>Tue</th>
+            <th>27-May<br>Wed</th>
+            <th>28-May<br>Thu</th>
+            <th>29-May<br>Fri</th>
+            <th>30-May<br>Sat</th>
+            <th class="total-head">CL</th>
+            <th class="total-head">SL</th>
+            <th class="total-head">LOP</th>
+            <th class="total-head">0.5</th>
+            <th class="total-head">TL</th>
+        </tr>
+
+        <tr>
+            <td>1</td>
+            <td class="name-col">B.Prudhvi</td>
+            <td class="present">P</td>
+            <td class="present">P</td>
+            <td class="present">P</td>
+            <td class="weekoff">Sun</td>
+            <td class="present">P</td>
+            <td class="present">P</td>
+            <td class="halfday">0.5</td>
+            <td class="present">P</td>
+            <td class="present">P</td>
+            <td class="weekoff">Sun</td>
+            <td class="cl">0</td>
+            <td class="sl">0</td>
+            <td class="lop">0</td>
+            <td>2</td>
+            <td class="tl">1</td>
+        </tr>
+
+        <tr>
+            <td>2</td>
+            <td class="name-col">A.Ravi Kumar</td>
+            <td class="present">P</td>
+            <td class="present">P</td>
+            <td class="absent">A</td>
+            <td class="weekoff">Sun</td>
+            <td class="present">P</td>
+            <td class="present">P</td>
+            <td class="present">P</td>
+            <td class="present">P</td>
+            <td class="halfday">0.5</td>
+            <td class="weekoff">Sun</td>
+            <td class="cl">0</td>
+            <td class="sl">0</td>
+            <td class="lop">1</td>
+            <td>1</td>
+            <td class="tl">0</td>
+        </tr>
+
+    </table>
+</div>
+
+</body>
+</html>

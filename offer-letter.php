@@ -1,0 +1,1884 @@
+<?php
+/**
+ * Arowana Offer Letter
+ * Server-side (PHP) port of Offer_letter.html.
+ *
+ * Accepts ?emp_id=<employee_card_id> to fill the designation, branch,
+ * joining date and annual CTC with that employee's real data (looked up
+ * from employee_details / users / designations / branches). When no
+ * employee is selected, those fields are left blank.
+ */
+
+// Guarded: the framework defines the same helper when this page is served
+// through its authenticated route, and redeclaring it would be fatal.
+if (!function_exists('e')) {
+    function e($value)
+    {
+        return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
+    }
+}
+
+/** 0–99 in words */
+function words_two($n)
+{
+    static $ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
+                    'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen',
+                    'Seventeen', 'Eighteen', 'Nineteen'];
+    static $tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+    if ($n < 20) {
+        return $ones[$n];
+    }
+
+    $unit = $n % 10;
+    return $tens[intdiv($n, 10)] . ($unit ? '-' . $ones[$unit] : '');
+}
+
+function words_three($n)
+{
+    $parts    = [];
+    $hundreds = intdiv($n, 100);
+    $rest     = $n % 100;
+
+    if ($hundreds) {
+        $parts[] = words_two($hundreds) . ' Hundred';
+    }
+    if ($rest) {
+        $parts[] = words_two($rest);
+    }
+
+    return implode(' ', $parts);
+}
+
+/** Indian digit grouping: 1234567 → 12,34,567 */
+function indian_number($value)
+{
+    $value = (int) round((float) $value);
+    $s     = (string) abs($value);
+
+    if (strlen($s) <= 3) {
+        return $s;
+    }
+
+    $last3 = substr($s, -3);
+    $rest  = preg_replace('/\B(?=(\d{2})+(?!\d))/', ',', substr($s, 0, -3));
+
+    return $rest . ',' . $last3;
+}
+
+function amount_in_words($amount)
+{
+    $n = (int) round((float) $amount);
+
+    if ($n === 0) {
+        return 'Zero Rupees only';
+    }
+
+    $parts = [];
+
+    $crore = intdiv($n, 10000000);
+    $n %= 10000000;
+    $lakh = intdiv($n, 100000);
+    $n %= 100000;
+    $thousand = intdiv($n, 1000);
+    $n %= 1000;
+
+    if ($crore) {
+        $parts[] = words_three($crore) . ' Crore';
+    }
+    if ($lakh) {
+        $parts[] = words_two($lakh) . ' Lakh';
+    }
+    if ($thousand) {
+        $parts[] = words_two($thousand) . ' Thousand';
+    }
+    if ($n) {
+        $parts[] = words_three($n);
+    }
+
+    return implode(' ', $parts) . ' Rupees only';
+}
+
+// ---------------------------------------------------------------------------
+// Fetch the selected employee's name / designation / branch / joining date / CTC
+// ---------------------------------------------------------------------------
+$empName = '';
+$empDesignation = '';
+$empBranch = '';
+$empJoiningDate = '';
+$empCtcDisplay = '';
+
+$dbConfig = @include __DIR__ . '/config/database.php';
+$dbConn = $dbConfig['connections']['mysql'] ?? null;
+$empCardId = isset($_GET['emp_id']) ? trim($_GET['emp_id']) : '';
+
+if ($dbConn && $empCardId !== '') {
+    try {
+        $dsn = "mysql:host={$dbConn['host']};port={$dbConn['port']};dbname={$dbConn['database']};charset={$dbConn['charset']}";
+        $pdo = new PDO($dsn, $dbConn['username'], $dbConn['password'] ?? '', [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        ]);
+
+        $stmt = $pdo->prepare(
+            "SELECT u.name AS employee_name,
+                    u.employee_ctc,
+                    d.name AS designation_name,
+                    b.branch_name,
+                    ed.joining_date
+             FROM employee_details ed
+             LEFT JOIN users u ON u.id = ed.user_id
+             LEFT JOIN designations d ON d.id = ed.designation_id
+             LEFT JOIN branches b ON b.id = ed.branch_id
+             WHERE ed.employee_card_id = :cardId
+             LIMIT 1"
+        );
+        $stmt->execute([':cardId' => $empCardId]);
+        $row = $stmt->fetch();
+
+        if ($row) {
+            $empName = $row['employee_name'] ?? '';
+            $empDesignation = $row['designation_name'] ?? '';
+            $empBranch = $row['branch_name'] ?? '';
+
+            if (!empty($row['joining_date'])) {
+                $empJoiningDate = date('jS F Y', strtotime($row['joining_date']));
+            }
+
+            if (!empty($row['employee_ctc']) && (float) $row['employee_ctc'] > 0) {
+                $ctc = (float) $row['employee_ctc'];
+                $empCtcDisplay = 'Rs. ' . indian_number($ctc) . '/- (' . amount_in_words($ctc) . ')';
+            }
+        }
+    } catch (PDOException $ex) {
+        error_log('Offer letter employee fetch failed: ' . $ex->getMessage());
+    }
+}
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Arowana Corporations - Offer Letter</title>
+
+<style>
+
+/* =========================================================
+   AROWANA COLORS
+   ========================================================= */
+
+:root {
+    --peach: #DFB7A9;
+    --orange: #F4AC83;
+    --dark: #555555;
+    --gray: #777777;
+    --border: #000000;
+    --page-gray: #eeeeee;
+    --white: #ffffff;
+    --black: #000000;
+}
+
+
+/* =========================================================
+   RESET
+   ========================================================= */
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background: var(--page-gray);
+    color: var(--black);
+
+    /* MAIN DOCUMENT FONT */
+    font-family: "Times New Roman", Times, serif;
+    font-size: 11pt;
+}
+
+
+/* =========================================================
+   TOOLBAR
+   ========================================================= */
+
+.toolbar {
+    width: 210mm;
+    margin: 12px auto;
+
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+
+    font-family: Arial, sans-serif;
+}
+
+.toolbar button {
+    border: 0;
+    padding: 9px 16px;
+
+    border-radius: 3px;
+
+    cursor: pointer;
+
+    font-family: Arial, sans-serif;
+    font-size: 12px;
+}
+
+.print-btn {
+    background: var(--orange);
+    color: #000000;
+    font-weight: bold;
+}
+
+.print-btn:hover {
+    background: #e79e73;
+}
+
+
+/* =========================================================
+   A4 PAGE
+   ========================================================= */
+
+.page {
+    width: 210mm;
+    height: 297mm;
+
+    margin: 0 auto 15px;
+
+    background: #ffffff;
+
+    position: relative;
+
+    overflow: hidden;
+
+    border: 1px solid #c3c3c3;
+}
+
+
+/* =========================================================
+   AROWANA LOGO
+   ========================================================= */
+
+.logo {
+    position: absolute;
+
+    top: 5mm;
+    left: 8mm;
+
+    display: flex;
+    align-items: center;
+
+    height: 18mm;
+}
+
+
+/* Logo icon */
+
+.logo-icon {
+    width: 14mm;
+    height: 14mm;
+
+    position: relative;
+
+    margin-right: 2mm;
+}
+
+
+/* Outer A */
+
+.logo-icon::before {
+    content: "";
+
+    position: absolute;
+
+    width: 9mm;
+    height: 9mm;
+
+    left: 2mm;
+    top: 1mm;
+
+    border-left: 3px solid var(--orange);
+    border-top: 3px solid var(--orange);
+
+    transform: rotate(45deg);
+}
+
+
+/* Inner A */
+
+.logo-icon::after {
+    content: "";
+
+    position: absolute;
+
+    width: 4mm;
+    height: 4mm;
+
+    left: 5mm;
+    top: 5mm;
+
+    border-left: 2px solid var(--orange);
+    border-top: 2px solid var(--orange);
+
+    transform: rotate(45deg);
+}
+
+
+/* Logo text */
+
+.logo-text {
+    line-height: 1;
+}
+
+.logo-name {
+    font-family: Arial, Helvetica, sans-serif;
+
+    color: #777777;
+
+    font-size: 20px;
+
+    font-weight: bold;
+
+    letter-spacing: -1px;
+}
+
+.logo-tagline {
+    margin-top: 3px;
+
+    font-family: Arial, Helvetica, sans-serif;
+
+    color: #aaaaaa;
+
+    font-size: 5px;
+
+    letter-spacing: .7px;
+}
+
+.logo-tagline b {
+    color: var(--orange);
+}
+
+
+/* =========================================================
+   PAGE 1
+   OFFER LETTER CONTENT
+   ========================================================= */
+
+.offer-content {
+    position: absolute;
+
+    left: 10mm;
+    right: 10mm;
+
+    top: 28mm;
+    bottom: 22mm;
+}
+
+
+/* =========================================================
+   OFFER META
+   ========================================================= */
+
+.offer-meta {
+    font-family: "Times New Roman", Times, serif;
+
+    font-size: 11pt;
+
+    line-height: 1.25;
+
+    margin-bottom: 6mm;
+}
+
+.offer-date {
+    margin-top: 2mm;
+}
+
+
+/* =========================================================
+   EMPLOYEE ADDRESS
+   ========================================================= */
+
+.employee-address {
+    font-family: "Times New Roman", Times, serif;
+
+    font-size: 11pt;
+
+    line-height: 1.25;
+
+    margin-bottom: 5mm;
+}
+
+
+/* =========================================================
+   SUBJECT
+   ========================================================= */
+
+.subject {
+    font-family: "Times New Roman", Times, serif;
+
+    font-size: 11pt;
+
+    font-weight: bold;
+
+    text-decoration: underline;
+
+    margin-bottom: 5mm;
+}
+
+
+/* =========================================================
+   LETTER BODY
+   ========================================================= */
+
+.letter-body {
+    font-family: "Times New Roman", Times, serif;
+
+    font-size: 11pt;
+
+    line-height: 1.25;
+
+    text-align: justify;
+}
+
+.letter-body p {
+    margin: 0 0 4mm;
+}
+
+.letter-body strong {
+    font-weight: bold;
+}
+
+
+/* =========================================================
+   DOCUMENT LIST
+   ========================================================= */
+
+.document-list {
+    margin-top: 1mm;
+
+    margin-bottom: 3mm;
+
+    padding-left: 7mm;
+}
+
+.document-list li {
+    margin-bottom: 1mm;
+
+    padding-left: 1mm;
+}
+
+
+/* =========================================================
+   NOTE
+   ========================================================= */
+
+.note {
+    margin-top: 1mm;
+
+    margin-bottom: 2mm !important;
+}
+
+
+/* =========================================================
+   REGARDS
+   ========================================================= */
+
+.regards {
+    margin-top: 1mm;
+
+    font-family: "Times New Roman", Times, serif;
+
+    font-size: 11pt;
+}
+
+
+/* =========================================================
+   SIGNATURE
+   ========================================================= */
+
+.signature {
+    margin-top: 6mm;
+
+    font-family: "Times New Roman", Times, serif;
+
+    font-size: 11pt;
+
+    line-height: 1.25;
+}
+
+
+/* =========================================================
+   ENCLOSURE
+   ========================================================= */
+
+.enclosure {
+    margin-top: 8mm;
+
+    font-family: "Times New Roman", Times, serif;
+
+    font-size: 11pt;
+}
+
+
+/* =========================================================
+   FOOTER
+   ========================================================= */
+
+.footer {
+    position: absolute;
+
+    left: 10mm;
+    right: 10mm;
+
+    bottom: 3mm;
+
+    border-top: 3px solid var(--peach);
+
+    padding-top: 2.5mm;
+
+    text-align: center;
+
+    font-family: Arial, Helvetica, sans-serif;
+
+    color: #999999;
+
+    font-size: 5px;
+}
+
+.footer-company {
+    color: var(--peach);
+
+    font-size: 10px;
+
+    font-weight: bold;
+
+    margin-bottom: 1px;
+}
+
+.footer-address {
+    font-size: 5px;
+}
+
+.footer-contact {
+    display: flex;
+
+    justify-content: space-between;
+
+    margin-top: 3mm;
+
+    padding: 0 2mm;
+
+    font-size: 5px;
+}
+
+.footer-icon {
+    color: var(--peach);
+
+    font-size: 7px;
+}
+
+
+/* =========================================================
+   PAGE 2
+   SALARY STRUCTURE
+   ========================================================= */
+
+.salary-content {
+    position: absolute;
+
+    left: 10mm;
+    right: 10mm;
+
+    top: 27mm;
+    bottom: 18mm;
+}
+
+
+/* =========================================================
+   SALARY DOCUMENT
+   ========================================================= */
+
+.salary-document {
+    width: 155mm;
+
+    margin: 0 auto;
+
+    font-family: "Times New Roman", Times, serif;
+}
+
+
+/* =========================================================
+   ANNEXURE LABEL
+   ========================================================= */
+
+.annexure-label {
+    height: 7mm;
+
+    border: 1px solid #000000;
+
+    border-bottom: 0;
+
+    padding: 1.5mm 2mm;
+
+    font-family: "Times New Roman", Times, serif;
+
+    font-size: 11pt;
+
+    font-weight: bold;
+}
+
+
+/* =========================================================
+   COMPANY ORANGE BAR
+   ========================================================= */
+
+.company-bar {
+    height: 7mm;
+
+    background: var(--orange);
+
+    border: 1px solid #000000;
+
+    border-bottom: 0;
+
+    text-align: center;
+
+    font-family: "Times New Roman", Times, serif;
+
+    font-size: 11pt;
+
+    font-weight: bold;
+
+    line-height: 7mm;
+}
+
+
+/* =========================================================
+   DARK GRAY BAR
+   ========================================================= */
+
+.compensation-bar {
+    height: 7mm;
+
+    background: var(--dark);
+
+    border: 1px solid #000000;
+
+    color: #ffffff;
+
+    text-align: center;
+
+    font-family: "Times New Roman", Times, serif;
+
+    font-size: 11pt;
+
+    font-weight: bold;
+
+    line-height: 7mm;
+}
+
+
+/* =========================================================
+   EMPLOYEE INFORMATION
+   ========================================================= */
+
+.employee-table {
+    width: 100%;
+
+    border-collapse: collapse;
+
+    table-layout: fixed;
+
+    font-family: "Times New Roman", Times, serif;
+
+    font-size: 11pt;
+}
+
+.employee-table td {
+    border: 1px solid #000000;
+
+    height: 6mm;
+
+    padding: 1mm 2mm;
+
+    vertical-align: middle;
+}
+
+.employee-table td:first-child {
+    width: 50%;
+}
+
+.employee-table td:last-child {
+    width: 50%;
+}
+
+
+/* =========================================================
+   SECTION TITLES
+   ========================================================= */
+
+.section-title {
+    height: 6mm;
+
+    text-align: center;
+
+    font-family: "Times New Roman", Times, serif;
+
+    font-size: 11pt;
+
+    font-weight: bold;
+
+    line-height: 6mm;
+}
+
+
+/* =========================================================
+   SALARY TABLE
+   ========================================================= */
+
+.salary-table {
+    width: 100%;
+
+    border-collapse: collapse;
+
+    table-layout: fixed;
+
+    font-family: "Times New Roman", Times, serif;
+
+    font-size: 11pt;
+}
+
+.salary-table th,
+.salary-table td {
+    border: 1px solid #000000;
+
+    height: 5.5mm;
+
+    padding: 0.7mm 2mm;
+
+    vertical-align: middle;
+}
+
+
+/* Component */
+
+.salary-table th:first-child,
+.salary-table td:first-child {
+    width: 58%;
+}
+
+
+/* Month */
+
+.salary-table th:nth-child(2),
+.salary-table td:nth-child(2) {
+    width: 21%;
+
+    text-align: right;
+}
+
+
+/* Annual */
+
+.salary-table th:nth-child(3),
+.salary-table td:nth-child(3) {
+    width: 21%;
+
+    text-align: right;
+}
+
+
+/* Table heading */
+
+.salary-table thead th {
+    background: #eeeeee;
+
+    text-align: center !important;
+
+    font-weight: bold;
+
+    height: 6mm;
+}
+
+
+/* =========================================================
+   TOTAL ROW
+   ========================================================= */
+
+.total td {
+    font-weight: bold;
+}
+
+
+/* =========================================================
+   FIXED CTC
+   ========================================================= */
+
+.fixed-ctc td {
+    font-weight: bold;
+}
+
+
+/* =========================================================
+   NET SALARY
+   ========================================================= */
+
+.net td {
+    font-weight: bold;
+}
+
+
+/* =========================================================
+   PAGE 2 ACKNOWLEDGEMENT
+   ========================================================= */
+
+.acknowledgement {
+    margin-top: 6mm;
+
+    font-family: "Times New Roman", Times, serif;
+
+    font-size: 11pt;
+
+    line-height: 1.25;
+
+    text-align: justify;
+}
+
+.acceptance {
+    margin-top: 4mm;
+}
+
+
+/* =========================================================
+   PAGE 2 SIGNATURE
+   ========================================================= */
+
+.signature-area {
+    margin-top: 4mm;
+
+    font-family: "Times New Roman", Times, serif;
+
+    font-size: 11pt;
+
+    line-height: 1.8;
+}
+
+
+/* =========================================================
+   PRINT
+   ========================================================= */
+
+@media print {
+
+    @page {
+        size: A4;
+
+        margin: 0;
+    }
+
+    html,
+    body {
+        width: 210mm;
+
+        height: 297mm;
+
+        margin: 0;
+        padding: 0;
+
+        background: #ffffff;
+    }
+
+    .toolbar {
+        display: none !important;
+    }
+
+    .page {
+        width: 210mm;
+
+        height: 297mm;
+
+        margin: 0;
+
+        border: none;
+
+        box-shadow: none;
+
+        page-break-after: always;
+    }
+
+    .page:last-child {
+        page-break-after: auto;
+    }
+}
+
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media screen and (max-width: 800px) {
+
+    body {
+        padding: 10px;
+    }
+
+    .toolbar {
+        width: 100%;
+    }
+
+    .page {
+        width: 100%;
+
+        height: auto;
+
+        min-height: 297mm;
+    }
+
+    .offer-content {
+        position: relative;
+
+        top: 25mm;
+
+        left: 10mm;
+        right: 10mm;
+
+        width: calc(100% - 20mm);
+    }
+
+    .salary-content {
+        position: relative;
+
+        top: 25mm;
+
+        left: 10mm;
+        right: 10mm;
+
+        width: calc(100% - 20mm);
+    }
+
+    .salary-document {
+        width: 100%;
+    }
+}
+
+</style>
+</head>
+
+
+<body>
+
+
+<!-- =====================================================
+     TOOLBAR
+     ===================================================== -->
+
+<div class="toolbar">
+
+    <button
+        class="print-btn"
+        onclick="window.print()">
+
+        🖨 Print / Save PDF
+
+    </button>
+
+</div>
+
+
+
+<!-- =====================================================
+     PAGE 1
+     OFFER LETTER
+     ===================================================== -->
+
+<section class="page">
+
+
+    <!-- AROWANA LOGO -->
+
+    <div class="logo">
+
+        <div class="logo-icon"></div>
+
+        <div class="logo-text">
+
+            <div class="logo-name">
+                AROWANA
+            </div>
+
+            <div class="logo-tagline">
+                PRECISION
+                <b>▲</b>
+                INNOVATION
+                <b>▲</b>
+                SUCCESS
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- OFFER CONTENT -->
+
+    <div class="offer-content">
+
+
+        <!-- REFERENCE -->
+
+        <div class="offer-meta">
+
+            <div>
+                Reference No.: XXXX/2026
+            </div>
+
+            <div class="offer-date">
+                11<sup>th</sup> August 2026
+            </div>
+
+        </div>
+
+
+
+        <!-- EMPLOYEE ADDRESS -->
+
+        <div class="employee-address">
+
+            Mr. Mehul Parmar<br>
+
+            201, Tower 1, Tropical Lagoon,<br>
+
+            Anand Nagar, GB Road,<br>
+
+            Thane West – 400 615
+
+        </div>
+
+
+
+        <!-- SUBJECT -->
+
+        <div class="subject">
+
+            Sub.: Offer Letter for the Position of <?= e($empDesignation) ?>
+
+        </div>
+
+
+
+        <!-- LETTER BODY -->
+
+        <div class="letter-body">
+
+
+            <p>
+
+                We are pleased to offer you the position of
+                <strong><?= e($empDesignation) ?></strong>
+                at our organization, based in <strong><?= e($empBranch) ?></strong>.
+
+            </p>
+
+
+            <p>
+
+                Your date of joining will be
+                <strong><?= e($empJoiningDate) ?></strong>,
+                and you will be reporting to
+                <strong>CEO</strong> of the Company.
+
+            </p>
+
+
+            <p>
+
+                As agreed, your Annual CTC will be
+                <strong><?= e($empCtcDisplay) ?></strong>.
+                Other terms of employment are detailed in the ACPL employee
+                handbook which would be issued on the date of joining.
+
+            </p>
+
+
+            <p>
+
+                You will be on probation for a period of
+                <strong>1 month</strong> from the date of joining.
+                Based on your performance, your services will be regularized.
+                While we hope that this professional relationship will be
+                mutually beneficial, nevertheless the notice period for
+                termination of employment is 15 days during the probation
+                period and 60 days during the permanent employment from
+                either side.
+
+            </p>
+
+
+            <p>
+
+                Your compensation package is confidential and in case of any
+                clarifications you are encouraged to discuss this with the
+                Human Resources Department. Please sign and return this
+                document by email as a token of your acceptance.
+
+            </p>
+
+
+            <p>
+
+                On the date of Joining
+                <strong>Arowana Corporations Pvt Ltd</strong>,
+                you are requested to bring the photocopies of the following
+                documents for our records along with the originals for our
+                verification.
+
+            </p>
+
+
+
+            <!-- DOCUMENTS -->
+
+            <ol class="document-list">
+
+                <li>
+                    Appointment, Relieving & Experience Letter from your last employer.
+                </li>
+
+                <li>
+                    Latest / Last 3 Months Salary Pay slips from your last employer.
+                </li>
+
+                <li>
+                    Your Salary Account Bank Statement for the last three months.
+                </li>
+
+                <li>
+                    All Educational Qualification Certificates.
+                </li>
+
+                <li>
+                    Pan Card & Aadhar Card.
+                </li>
+
+                <li>
+                    3 Latest Passport size Photographs.
+                </li>
+
+            </ol>
+
+
+
+            <!-- NOTE -->
+
+            <p class="note">
+
+                <strong>Note-</strong>
+                All the employment terms of the offer letter shall be applicable
+                & valid subject to clearance of Background Verification.
+
+            </p>
+
+
+            <p>
+                Best Regards,
+            </p>
+
+
+        </div>
+
+
+
+        <!-- SIGNATURE -->
+
+        <div class="signature">
+
+            <strong>Ms. XXXX</strong><br>
+
+            Designation<br>
+
+            Human Resource Department.
+
+        </div>
+
+
+
+        <!-- ENCLOSURE -->
+
+        <div class="enclosure">
+
+            Encl.: Annexure – I – Salary Structure
+
+        </div>
+
+
+    </div>
+
+
+
+    <!-- FOOTER -->
+
+    <div class="footer">
+
+        <div class="footer-company">
+            AROWANA CORPORATIONS PRIVATE LIMITED
+        </div>
+
+        <div class="footer-address">
+
+            #26-2-33/1, Snehapuri Colony, Chinagantyada,
+            Gajuwaka, Visakhapatnam - 530026, Andhra Pradesh, INDIA.
+
+        </div>
+
+
+        <div class="footer-contact">
+
+            <span>
+                <span class="footer-icon">☎</span>
+                +91 83749 25568
+            </span>
+
+            <span>
+                www.arowanasoft.com
+            </span>
+
+            <span>
+                <span class="footer-icon">✉</span>
+                info@arowanasoft.com
+            </span>
+
+        </div>
+
+    </div>
+
+
+</section>
+
+
+
+
+<!-- =====================================================
+     PAGE 2
+     SALARY STRUCTURE
+     ===================================================== -->
+
+<section class="page">
+
+
+    <!-- AROWANA LOGO -->
+
+    <div class="logo">
+
+        <div class="logo-icon"></div>
+
+        <div class="logo-text">
+
+            <div class="logo-name">
+                AROWANA
+            </div>
+
+            <div class="logo-tagline">
+                PRECISION
+                <b>▲</b>
+                INNOVATION
+                <b>▲</b>
+                SUCCESS
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- SALARY CONTENT -->
+
+    <div class="salary-content">
+
+
+        <div class="salary-document">
+
+
+            <!-- ANNEXURE -->
+
+            <div class="annexure-label">
+
+                Annexure – I - Salary Structure
+
+            </div>
+
+
+
+            <!-- COMPANY -->
+
+            <div class="company-bar">
+
+                AROWANA CORPORATIONS PRIVATE LIMITED
+
+            </div>
+
+
+
+            <!-- COMPENSATION -->
+
+            <div class="compensation-bar">
+
+                DETAILED COMPENSATION STRUCTURE
+
+            </div>
+
+
+
+            <!-- EMPLOYEE DETAILS -->
+
+            <table class="employee-table">
+
+                <tr>
+
+                    <td>
+                        Employee Name
+                    </td>
+
+                    <td>
+                        <?= e($empName) ?>
+                    </td>
+
+                </tr>
+
+
+                <tr>
+
+                    <td>
+                        Designation
+                    </td>
+
+                    <td>
+                        <?= e($empDesignation) ?>
+                    </td>
+
+                </tr>
+
+
+                <tr>
+
+                    <td>
+                        Date of Joining
+                    </td>
+
+                    <td>
+                        <?= e($empJoiningDate) ?>
+                    </td>
+
+                </tr>
+
+            </table>
+
+
+
+            <!-- GROSS SALARY -->
+
+            <div class="section-title">
+                Gross Salary
+            </div>
+
+
+            <table class="salary-table">
+
+
+                <thead>
+
+                    <tr>
+
+                        <th>
+                            Salary Components
+                        </th>
+
+                        <th>
+                            Per Month
+                        </th>
+
+                        <th>
+                            Per Annum
+                        </th>
+
+                    </tr>
+
+                </thead>
+
+
+                <tbody>
+
+
+                    <tr>
+
+                        <td>
+                            Basic Salary
+                        </td>
+
+                        <td>
+
+                        </td>
+
+                        <td>
+
+                        </td>
+
+                    </tr>
+
+
+                    <tr>
+
+                        <td>
+                            House Rent Allowance (HRA)
+                        </td>
+
+                        <td>
+
+                        </td>
+
+                        <td>
+
+                        </td>
+
+                    </tr>
+
+
+                    <tr>
+
+                        <td>
+                            Conveyance Allowance
+                        </td>
+
+                        <td>
+
+                        </td>
+
+                        <td>
+
+                        </td>
+
+                    </tr>
+
+
+                    <tr>
+
+                        <td>
+                            Leave Travel Allowance
+                        </td>
+
+                        <td>
+
+                        </td>
+
+                        <td>
+
+                        </td>
+
+                    </tr>
+
+
+                    <tr>
+
+                        <td>
+                            Children's Education Allowance
+                        </td>
+
+                        <td>
+
+                        </td>
+
+                        <td>
+
+                        </td>
+
+                    </tr>
+
+
+                    <tr>
+
+                        <td>
+                            Special Allowance
+                        </td>
+
+                        <td>
+
+                        </td>
+
+                        <td>
+
+                        </td>
+
+                    </tr>
+
+
+                    <tr class="total">
+
+                        <td>
+                            Gross Salary (A)
+                        </td>
+
+                        <td>
+
+                        </td>
+
+                        <td>
+
+                        </td>
+
+                    </tr>
+
+
+                </tbody>
+
+            </table>
+
+
+
+            <!-- EMPLOYER CONTRIBUTION -->
+
+            <div class="section-title">
+                Employer's Contribution
+            </div>
+
+
+            <table class="salary-table">
+
+                <tbody>
+
+
+                    <tr>
+
+                        <td>
+                            Provident Fund - Employer's Share
+                        </td>
+
+                        <td>
+
+                        </td>
+
+                        <td>
+
+                        </td>
+
+                    </tr>
+
+
+                    <tr>
+
+                        <td>
+                            ESIC - Employer's Share
+                        </td>
+
+                        <td>
+
+                        </td>
+
+                        <td>
+
+                        </td>
+
+                    </tr>
+
+
+                    <tr class="total">
+
+                        <td>
+                            Total Employer's Contribution (B)
+                        </td>
+
+                        <td>
+
+                        </td>
+
+                        <td>
+
+                        </td>
+
+                    </tr>
+
+
+                </tbody>
+
+            </table>
+
+
+
+            <!-- FIXED CTC -->
+
+            <div class="section-title">
+                Fixed CTC
+            </div>
+
+
+            <table class="salary-table">
+
+                <tbody>
+
+                    <tr class="fixed-ctc">
+
+                        <td>
+                            Fixed CTC (A) + (B)
+                        </td>
+
+                        <td>
+
+                        </td>
+
+                        <td>
+
+                        </td>
+
+                    </tr>
+
+                </tbody>
+
+            </table>
+
+
+
+            <!-- EMPLOYEE CONTRIBUTIONS -->
+
+            <div class="section-title">
+                Employee's Contributions
+            </div>
+
+
+            <table class="salary-table">
+
+                <tbody>
+
+
+                    <tr>
+
+                        <td>
+                            Provident Fund - Employee's Share
+                        </td>
+
+                        <td>
+
+                        </td>
+
+                        <td>
+
+                        </td>
+
+                    </tr>
+
+
+                    <tr>
+
+                        <td>
+                            ESIC - Employee's Share
+                        </td>
+
+                        <td>
+
+                        </td>
+
+                        <td>
+
+                        </td>
+
+                    </tr>
+
+
+                    <tr>
+
+                        <td>
+                            Professional Tax
+                        </td>
+
+                        <td>
+
+                        </td>
+
+                        <td>
+
+                        </td>
+
+                    </tr>
+
+
+                    <tr class="total">
+
+                        <td>
+                            Total Employee Deductions(C)
+                        </td>
+
+                        <td>
+
+                        </td>
+
+                        <td>
+
+                        </td>
+
+                    </tr>
+
+
+                </tbody>
+
+            </table>
+
+
+
+            <!-- NET SALARY -->
+
+            <div class="section-title">
+                Net Salary
+            </div>
+
+
+            <table class="salary-table">
+
+                <tbody>
+
+                    <tr class="net">
+
+                        <td>
+                            Net In Hand Salary (Before Income Tax Deductions)
+                        </td>
+
+                        <td>
+
+                        </td>
+
+                        <td>
+
+                        </td>
+
+                    </tr>
+
+                </tbody>
+
+            </table>
+
+
+
+            <!-- ACKNOWLEDGEMENT -->
+
+            <div class="acknowledgement">
+
+                Kindly acknowledge the receipt of this letter and return a
+                signed copy as an acceptance of the offer.
+
+
+                <div class="acceptance">
+
+                    I ______________________________ acknowledge that I have
+                    read, understood, and accept this offer and the terms and
+                    conditions contained in the attached annexure and agree
+                    to be bound by the terms and conditions of employment as
+                    outlined therein.
+
+                </div>
+
+            </div>
+
+
+
+            <!-- SIGNATURE -->
+
+            <div class="signature-area">
+
+                <strong>Signature:</strong>
+                ______________________________
+
+                <br>
+
+                <strong>Date:</strong>
+                ______________________________
+
+            </div>
+
+
+        </div>
+
+    </div>
+
+
+
+    <!-- FOOTER -->
+
+    <div class="footer">
+
+        <div class="footer-company">
+            AROWANA CORPORATIONS PRIVATE LIMITED
+        </div>
+
+        <div class="footer-address">
+
+            #26-2-33/1, Snehapuri Colony, Chinagantyada,
+            Gajuwaka, Visakhapatnam - 530026, Andhra Pradesh, INDIA.
+
+        </div>
+
+
+        <div class="footer-contact">
+
+            <span>
+                <span class="footer-icon">☎</span>
+                +91 83749 25568
+            </span>
+
+            <span>
+                www.arowanasoft.com
+            </span>
+
+            <span>
+                <span class="footer-icon">✉</span>
+                info@arowanasoft.com
+            </span>
+
+        </div>
+
+    </div>
+
+
+</section>
+
+
+
+<script>
+
+/* =========================================================
+   PRINT / SAVE PDF
+   ========================================================= */
+
+function printOfferLetter() {
+    window.print();
+}
+
+
+/* =========================================================
+   CTRL + P
+   ========================================================= */
+
+document.addEventListener("keydown", function(event) {
+
+    if (
+        event.ctrlKey &&
+        event.key.toLowerCase() === "p"
+    ) {
+
+        event.preventDefault();
+
+        printOfferLetter();
+
+    }
+
+});
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,10 @@
+# These pages hold salary and employee data and used to be reachable here with
+# no login. They are served through the application instead, at
+# /account/legacy/{page}, which authenticates first. Direct access is denied.
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+</IfModule>

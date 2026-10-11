@@ -1,0 +1,28 @@
+{
+    "name": "craftsys/msg91-laravel",
+    "description": "Laravel service provider for MSG91 client",
+    "type": "library",
+    "license": "MIT",
+    "require": {
+        "php": "^8.1 || ^8.2 || ^8.3",
+        "illuminate/support": "^10.0 || ^11.0 || ^12.0",
+        "craftsys/msg91-php": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "Craftsys\\Msg91\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Craftsys\\Msg91\\Msg91LaravelServiceProvider"
+            ],
+            "aliases": {
+                "Msg91": "Craftsys\\Msg91\\Facade\\Msg91"
+            }
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}

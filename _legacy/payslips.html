@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arowana Salary Slip</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 35px 15px;
+    background: #f3f3f3;
+    font-family: Arial, Helvetica, sans-serif;
+    color: #111;
+  }
+  .payslip {
+    width: 860px;
+    max-width: 100%;
+    margin: auto;
+    background: #fff;
+    border: 2px solid #111;
+  }
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  td, th { border: 1px solid #111; padding: 5px 7px; font-size: 13px; vertical-align: middle; }
+  .no-border { border: 0; }
+  .header td { height: 135px; }
+  .logo-cell { width: 50%; text-align: center; }
+  .logo {
+    font-size: 38px;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+  .logo .mark { color: #c97757; margin-right: 8px; }
+  .tagline { font-size: 9px; letter-spacing: 1px; margin-top: -5px; }
+  .address { text-align: center; line-height: 1.5; font-size: 13px; }
+  .month { text-align: center; font-weight: 700; padding: 3px; }
+  .employee-info td { height: 41px; }
+  .center { text-align: center; }
+  .right { text-align: right; }
+  .bold { font-weight: 700; }
+  .section-title { font-weight: 700; text-align: center; background: #fafafa; }
+  .component { width: 28%; }
+  .amount { width: 22%; text-align: center; }
+  .summary-label { font-weight: 700; }
+  .signature-area { height: 145px; text-align: center; vertical-align: bottom; }
+  .stamp {
+    width: 110px; height: 110px; border: 3px solid #1f5b91; border-radius: 50%;
+    margin: 5px auto; display: flex; align-items: center; justify-content: center;
+    color: #1f5b91; font-weight: bold; font-size: 11px; transform: rotate(-8deg);
+  }
+  .words { font-weight: 700; }
+  .note { font-size: 12px; }
+  @media print {
+    body { background: white; padding: 0; }
+    .payslip { width: 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="payslip">
+  <table class="header">
+    <tr>
+      <td class="logo-cell">
+        <div class="logo"><span class="mark">△</span>AROWANA</div>
+        <div class="tagline">PRECISION ▲ INNOVATION ▲ SUCCESS</div>
+      </td>
+      <td class="address">
+        #30-10-12 &amp; 13, 1ST &amp; 2ND FLOOR, BESIDE UNION BANK OF INDIA<br>
+        BANK STREET, MURALI NAGAR, VISAKHAPATNAM - 530007
+      </td>
+    </tr>
+  </table>
+
+  <div class="month">Salary slips for the Month of April - 2026</div>
+
+  <table class="employee-info">
+    <tr>
+      <td><b>Name:</b> Phani Pakalapati</td>
+      <td class="center"><b>Emp.ID:</b> ACPL0018</td>
+      <td><b>Designation:</b> Project lead</td>
+      <td class="center"><b>PAN No:</b> BIDPP5210K</td>
+    </tr>
+  </table>
+
+  <table>
+    <tr>
+      <th colspan="2" class="section-title">Earnings</th>
+      <th colspan="2" class="section-title">Deductions</th>
+    </tr>
+    <tr>
+      <th class="component" style="text-align:left">Components</th>
+      <th class="amount">Amount (in Rupees)</th>
+      <th class="component" style="text-align:left">Components</th>
+      <th class="amount">Amount (in Rupees)</th>
+    </tr>
+    <tr><td>Basic</td><td class="amount">16,920</td><td>Employee PF</td><td class="amount">1,800</td></tr>
+    <tr><td>HRA</td><td class="amount">8,460</td><td>Employee ESI</td><td class="amount">-</td></tr>
+    <tr><td>Food Allowance</td><td class="amount">1,600</td><td>Professional Tax</td><td class="amount">200</td></tr>
+    <tr><td>Special Allowance</td><td class="amount">29,420</td><td>Lop</td><td class="amount">-</td></tr>
+    <tr><td>LTA</td><td class="amount">-</td><td>Others</td><td class="amount">0</td></tr>
+    <tr><td>PF Pending Amount</td><td class="amount">-</td><td></td><td></td></tr>
+
+    <tr>
+      <td class="summary-label">Total (Gross Earning)</td>
+      <td class="amount bold">56,400</td>
+      <td class="summary-label">Total (Gross Deductions)</td>
+      <td class="amount bold">2,000</td>
+    </tr>
+
+    <tr>
+      <td>Employer PF</td><td class="amount">1,800</td>
+      <td rowspan="5" colspan="2" class="signature-area">
+        <div class="stamp">AROWANA<br>CORPORATIONS<br>AUTHORIZED</div>
+      </td>
+    </tr>
+    <tr><td>Employer ESI</td><td class="amount">-</td></tr>
+    <tr><td class="summary-label">Total (Employer Contributions)</td><td class="amount bold">-</td></tr>
+    <tr><td class="summary-label">Total Statutory Contributions<br>(Employee+ Employer)</td><td class="amount bold">3,800</td></tr>
+    <tr><td class="summary-label">CTC (Monthly &amp; Year)</td><td class="amount bold">56,400</td></tr>
+
+    <tr>
+      <td class="summary-label">Net Salary</td>
+      <td class="amount bold">52,600</td>
+      <td class="center bold">6,76,800</td>
+      <td class="center bold">Authorized Signature</td>
+    </tr>
+    <tr>
+      <td class="summary-label">Net Salary (in words)</td>
+      <td colspan="3" class="words">Fifty-Two Thousand Six Hundred Rupees only</td>
+    </tr>
+    <tr>
+      <td colspan="4" class="note"><b>Note:</b> If you have any queries, please contact hr2@arowansoft.com Or hr3@arowansoft.com</td>
+    </tr>
+  </table>
+</div>
+</body>
+</html>

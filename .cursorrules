@@ -1,0 +1,11 @@
+exclude:
+  - node_modules/**
+  - vendor/**
+  - public/**
+  - storage/**
+  - .git/**
+  - dist/**
+  - build/**
+  - *.log
+  - *.min.js
+  - *.sql

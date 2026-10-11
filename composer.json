@@ -1,0 +1,200 @@
+{
+    "name": "laravel/laravel",
+    "type": "project",
+    "description": "The Laravel Framework.",
+    "keywords": [
+        "framework",
+        "laravel",
+        "arowana-hr-portal"
+    ],
+    "license": "MIT",
+    "require": {
+        "php": "^8.2",
+        "authorizenet/authorizenet": "^2.0",
+        "barryvdh/laravel-dompdf": "dev-master",
+        "barryvdh/laravel-translation-manager": "^0.6.3",
+        "billowapp/payfast": "^0.6.2",
+        "billowapp/show-me-the-money": "0.4.4",
+        "craftsys/msg91-laravel": "*",
+        "doctrine/dbal": "^3.0",
+        "dompdf/dompdf": "^3.0",
+        "edujugon/push-notification": "^5.5",
+        "eluceo/ical": "^0.16.1",
+        "endroid/qr-code": "^5.0",
+        "froiden/envato": "^5.0",
+        "froiden/laravel-installer": "^1.6",
+        "froiden/laravel-rest-api": "^13.0.0",
+        "google/apiclient": "^2.10",
+        "graham-campbell/gitlab": "^8.0",
+        "graham-campbell/markdown": "^16.0",
+        "guzzlehttp/guzzle": "^7.2",
+        "hisorange/browser-detect": "^5.0",
+        "http-interop/http-factory-guzzle": "^1.0",
+        "intervention/image": "^2.5",
+        "ivanomatteo/laravel-device-tracking": "dev-master as 1.0.1",
+        "khaled.alshamaa/ar-php": "^7.0",
+        "kingflamez/laravelrave": "*",
+        "laravel-lang/lang": "~6.1",
+        "laravel-notification-channels/onesignal": "^2.8",
+        "laravel-notification-channels/telegram": "^6.0",
+        "laravel-notification-channels/twilio": "^4.0",
+        "laravel/cashier": "^15.6",
+        "laravel/fortify": "^1.7",
+        "laravel/framework": "^12.0",
+        "laravel/helpers": "^1.4",
+        "laravel/sanctum": "^4.0",
+        "laravel/slack-notification-channel": "^3.2",
+        "laravel/socialite": "^5.1",
+        "laravel/tinker": "^2.10",
+        "laravel/vonage-notification-channel": "^3.0",
+        "league/flysystem": "~3.0",
+        "league/flysystem-aws-s3-v3": "^3.0",
+        "maatwebsite/excel": "^3.1",
+        "macellan/laravel-zip": "^1.0",
+        "mailchimp/marketing": "^3.0",
+        "mollie/laravel-mollie": "^3.0",
+        "nwidart/laravel-modules": "10.0.6",
+        "opcodesio/log-viewer": "^3.8",
+        "paragonie/random_compat": "^9.99",
+        "paypal/rest-api-sdk-php": "dev-laravel10",
+        "pcinaglia/laraupdater": "^1.0",
+        "psr/http-factory-implementation": "*",
+        "pusher/pusher-php-server": "^7.2",
+        "pusher/pusher-push-notifications": "^2.0",
+        "quickbooks/v3-php-sdk": "^6.1",
+        "razorpay/razorpay": "^2.5",
+        "saloonphp/xml-wrangler": "^0.2.0",
+        "sentry/sentry-laravel": "^4.2",
+        "setasign/fpdf": "^1.8",
+        "shanmuga/laravel-entrust": "*",
+        "spatie/laravel-backup": "^9.4",
+        "spatie/laravel-model-status": "^1.18",
+        "square/square": "16.0.0.20211117",
+        "stevebauman/location": "^7.2",
+        "stripe/stripe-php": "^16.2",
+        "tanmuhittin/laravel-google-translate": "^2.4",
+        "twilio/sdk": "^7.16",
+        "unicodeveloper/laravel-paystack": "*",
+        "webklex/laravel-imap": "^6.0",
+        "webklex/laravel-pdfmerger": "^1.3",
+        "yajra/laravel-datatables-buttons": "^12.0",
+        "yajra/laravel-datatables-html": "^12.0",
+        "yajra/laravel-datatables-oracle": "^12.0"
+    },
+    "require-dev": {
+        "barryvdh/laravel-ide-helper": "^3.0",
+        "barryvdh/laravel-debugbar": "^3.5",
+        "fakerphp/faker": "^1.9.1",
+        "laravel/sail": "^1.18",
+        "mockery/mockery": "^1.6",
+        "nunomaduro/collision": "^8.6",
+        "spatie/laravel-ignition": "^2.0"
+    },
+    "repositories": [
+        {
+            "type": "path",
+            "url": "packages/msg91-laravel"
+        },
+        {
+            "type": "path",
+            "url": "packages/laravel-paystack"
+        },
+        {
+            "type": "path",
+            "url": "packages/laravelrave"
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/Froiden/payfast"
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/Froiden/laravel-device-tracking"
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/Froiden/show-me-the-money"
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/Froiden/laravelrave"
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/Froiden/PayPal-PHP-SDK"
+        }
+    ],
+    "config": {
+        "optimize-autoloader": true,
+        "preferred-install": "dist",
+        "sort-packages": true,
+        "platform": {
+            "php": "8.2.99",
+            "php-64bit": "8.2.99"
+        },
+        "allow-plugins": {
+            "composer/package-versions-deprecated": true,
+            "pestphp/pest-plugin": true,
+            "php-http/discovery": true
+        }
+    },
+    "extra": {
+        "laravel": {
+            "dont-discover": [
+                "barryvdh/laravel-ide-helper",
+                "spatie/laravel-backup"
+            ]
+        },
+        "google/apiclient-services": [
+            "Calendar",
+            "Oauth2"
+        ],
+        "aws/aws-sdk-php": [
+            "S3"
+        ]
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/",
+            "Craftsys\\Notifications\\": "app/Notifications/Craftsys/",
+            "Database\\Factories\\": "database/factories/",
+            "Database\\Seeders\\": "database/seeders/",
+            "Modules\\": "Modules/",
+            "Froiden\\Envato\\": "froiden-verify/src"
+        },
+        "files": [
+            "app/Helper/start.php"
+        ],
+        "exclude-from-classmap": [
+            "Modules/UniversalBundle/Modules/*"
+        ]
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "scripts": {
+        "pre-autoload-dump": [
+            "Google\\Task\\Composer::cleanup",
+            "Aws\\Script\\Composer\\Composer::removeUnusedServices"
+        ],
+        "post-autoload-dump": [
+            "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
+            "@php artisan package:discover --ansi"
+        ],
+        "post-root-package-install": [
+            "@php -r \"file_exists('.env') || copy('.env.example', '.env');\""
+        ],
+        "post-create-project-cmd": [
+            "@php artisan key:generate --ansi"
+        ],
+        "post-update-cmd": [
+            "Illuminate\\Foundation\\ComposerScripts::postUpdate",
+            "LARAVEL_CONCURRENCY_DRIVER=sync VONAGE_KEY=ide-helper-key VONAGE_SECRET=ide-helper-secret php artisan ide-helper:generate --quiet > /dev/null 2>&1",
+            "LARAVEL_CONCURRENCY_DRIVER=sync VONAGE_KEY=ide-helper-key VONAGE_SECRET=ide-helper-secret php artisan ide-helper:meta --quiet > /dev/null 2>&1"
+        ]
+    }
+}

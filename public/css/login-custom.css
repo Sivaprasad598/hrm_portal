@@ -1,0 +1,487 @@
+/* ===========================================================================
+   Arowana - authentication screens
+   ---------------------------------------------------------------------------
+   Loaded by resources/views/components/auth.blade.php, which looks for this
+   exact path and includes it last in head. That makes it the supported place
+   to restyle sign-in without editing a single vendor Blade file, and because
+   every auth screen renders through the x-auth component, one sheet covers
+   login, forgot password, reset password, client sign-up and two-factor.
+
+   Loaded after sections/theme_css, so --header_color (the company brand
+   colour, #1D82F5 here) is already defined and is used throughout rather than
+   hard-coding a blue.
+
+   !important appears only where a vendor rule already used it; the comment on
+   each one says which rule it is beating.
+   =========================================================================== */
+
+:root {
+    --auth-width: 560px;
+    --auth-radius: 20px;
+    --auth-field-radius: 11px;
+    --auth-field-height: 54px;
+    --auth-ease: cubic-bezier(.4, 0, .2, 1);
+
+    /* The brand colour, with a fallback for any page rendered without the
+       theme block. */
+    --auth-brand: var(--header_color, #1D82F5);
+}
+
+/* ---------------------------------------------------------------- canvas -- */
+
+/* The page background moves to body so the section can go transparent.
+   That matters: when a login background image is configured, the component
+   writes it as an inline background shorthand, and clearing only the *colour*
+   below leaves that image intact instead of painting over it. */
+body {
+    background-color: #0e1324;
+    background-image:
+        radial-gradient(1000px 580px at 12% -10%, rgba(29, 130, 245, .20), transparent 60%),
+        radial-gradient(820px 520px at 92% 110%, rgba(29, 130, 245, .14), transparent 62%),
+        linear-gradient(168deg, #121831 0%, #0e1324 48%, #090d1a 100%);
+    background-attachment: fixed;
+}
+
+body:not(.dark-theme) {
+    background-color: #eef2f8;
+    background-image:
+        radial-gradient(1000px 580px at 12% -10%, rgba(29, 130, 245, .14), transparent 60%),
+        radial-gradient(820px 520px at 92% 110%, rgba(29, 130, 245, .10), transparent 62%),
+        linear-gradient(168deg, #f7f9fc 0%, #eef2f8 55%, #e4eaf3 100%);
+}
+
+/* Vendor sets .login_section colour with !important under .dark-theme
+   (#29304c) and inline when a background image is configured. Clearing the
+   colour alone lets the body gradient through and keeps the image. */
+.login_section {
+    background-color: transparent !important;
+    display: flex;
+    align-items: center;
+    padding-top: 3rem !important;
+    padding-bottom: 3rem !important;
+}
+
+/* ---------------------------------------------------------------- header -- */
+
+/* A full-width white bar is heavy over a dark page. The bar becomes a
+   hairline-separated strip and the white moves onto the logo, where it is
+   actually needed for the mark to stay legible.
+   !important: the component writes .login_header colour inline from
+   global_settings.logo_background_color. */
+.login_header {
+    background-color: rgba(14, 19, 36, .72) !important;
+    -webkit-backdrop-filter: saturate(160%) blur(14px);
+    backdrop-filter: saturate(160%) blur(14px);
+    border-bottom: 1px solid rgba(255, 255, 255, .08);
+    box-shadow: 0 1px 24px rgba(0, 0, 0, .28);
+    padding: 15px 0;
+}
+
+body:not(.dark-theme) .login_header {
+    background-color: rgba(255, 255, 255, .82) !important;
+    border-bottom-color: rgba(16, 24, 40, .08);
+    box-shadow: 0 1px 20px rgba(16, 24, 40, .06);
+}
+
+.login_header img {
+    background-color: #fff;
+    border-radius: 8px;
+    padding: 5px 10px;
+    max-height: 40px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .14);
+}
+
+.login_header h3 {
+    font-size: 18px;
+    font-weight: 500;
+    letter-spacing: .01em;
+}
+
+/* ------------------------------------------------------------------ card -- */
+
+.login_box {
+    position: relative;
+    width: var(--auth-width);          /* vendor: 452px */
+    max-width: 100%;
+    margin-top: 2.5rem;
+    padding: 52px 56px 48px !important;    /* vendor: 30px */
+    border-radius: var(--auth-radius);
+    background-color: rgba(26, 33, 56, .9) !important;   /* vendor .bg-white, re-pinned by dark-theme */
+    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, .1);
+    box-shadow:
+        0 1px 0 rgba(255, 255, 255, .07) inset,
+        0 32px 72px -16px rgba(0, 0, 0, .6),
+        0 10px 24px -10px rgba(0, 0, 0, .45);
+    animation: auth-rise .45s var(--auth-ease) both;
+}
+
+body:not(.dark-theme) .login_box {
+    background-color: rgba(255, 255, 255, .97) !important;
+    border-color: rgba(16, 24, 40, .07);
+    box-shadow:
+        0 32px 72px -20px rgba(16, 24, 40, .2),
+        0 8px 20px -10px rgba(16, 24, 40, .1);
+}
+
+/* A thin brand rule along the top edge. */
+.login_box::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 12%;
+    right: 12%;
+    height: 2px;
+    border-radius: 0 0 2px 2px;
+    background: linear-gradient(90deg, transparent, var(--auth-brand), transparent);
+    opacity: .9;
+}
+
+@keyframes auth-rise {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: none; }
+}
+
+/* Vendor centres everything in the card while the field labels are left
+   aligned, so the heading never lines up with anything under it. */
+.login_box h3 {
+    text-align: left;
+    font-size: 29px;
+    font-weight: 600;
+    letter-spacing: -.02em;
+    margin-bottom: 2rem !important;    /* vendor .mb-4 */
+}
+
+/* ---------------------------------------------------------------- fields -- */
+
+.login_box .form-group {
+    margin-bottom: 1.35rem;
+}
+
+.login_box .form-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: .02em;
+    margin-bottom: .5rem;
+    opacity: .85;
+}
+
+.login_box .form-control {
+    height: var(--auth-field-height);
+    padding: 0 18px;
+    font-size: 15px;
+    border-radius: var(--auth-field-radius);
+    background-color: rgba(10, 14, 28, .55);
+    border: 1px solid rgba(255, 255, 255, .12);
+    box-shadow: none;
+    transition: border-color .18s var(--auth-ease), box-shadow .18s var(--auth-ease), background-color .18s var(--auth-ease);
+}
+
+body:not(.dark-theme) .login_box .form-control {
+    background-color: #fff;
+    border-color: #d8dfe9;
+}
+
+.login_box .form-control::placeholder {
+    opacity: .45;
+}
+
+.login_box .form-control:focus {
+    background-color: rgba(10, 14, 28, .72);
+    border-color: var(--auth-brand);
+    box-shadow: 0 0 0 3px rgba(29, 130, 245, .22);
+    outline: none;
+}
+
+body:not(.dark-theme) .login_box .form-control:focus {
+    background-color: #fff;
+}
+
+/* Chrome paints autofilled fields with its own near-white background, which on
+   a dark card leaves the email box a different shade from the password box.
+   An inset shadow is the only thing that overrides it. */
+.login_box .form-control:-webkit-autofill,
+.login_box .form-control:-webkit-autofill:hover,
+.login_box .form-control:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0 1000px #151c33 inset;
+    -webkit-text-fill-color: #d5d8df;
+    caret-color: #d5d8df;
+    transition: background-color 9999s ease-in-out 0s;
+}
+
+body:not(.dark-theme) .login_box .form-control:-webkit-autofill,
+body:not(.dark-theme) .login_box .form-control:-webkit-autofill:hover,
+body:not(.dark-theme) .login_box .form-control:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0 1000px #fff inset;
+    -webkit-text-fill-color: #28313c;
+    caret-color: #28313c;
+}
+
+/* The show-password eye sits in an input-group; square off the shared edge so
+   the two read as one control rather than a field with a button bolted on. */
+.login_box .input-group > .form-control {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    border-right: 0;
+}
+
+.login_box .input-group .toggle-password {
+    height: var(--auth-field-height);
+    width: 54px;
+    border-radius: 0 var(--auth-field-radius) var(--auth-field-radius) 0;
+    background-color: rgba(10, 14, 28, .55);
+    border: 1px solid rgba(255, 255, 255, .12);
+    border-left: 0;
+    color: inherit;
+    opacity: .6;
+    transition: opacity .18s var(--auth-ease), color .18s var(--auth-ease);
+}
+
+body:not(.dark-theme) .login_box .input-group .toggle-password {
+    background-color: #fff;
+    border-color: #d8dfe9;
+}
+
+.login_box .input-group .toggle-password:hover,
+.login_box .input-group .toggle-password:focus {
+    opacity: 1;
+    color: var(--auth-brand);
+    box-shadow: none;
+}
+
+/* Invalid fields keep the ring, in red. */
+.login_box .form-control.is-invalid,
+.login_box .form-control.is-invalid:focus {
+    border-color: #e5484d;
+    box-shadow: 0 0 0 3px rgba(229, 72, 77, .18);
+    background-image: none;
+    padding-right: 18px;
+}
+
+.login_box .invalid-feedback {
+    font-size: 13px;
+    margin-top: .45rem;
+    color: #ff6b6e;
+}
+
+/* -------------------------------------------------------------- remember -- */
+
+/* The checkbox and its label are siblings with no wrapper, so the block
+   display set on labels above would drop the text onto its own line. The
+   attribute selector is more specific, so it wins without !important. */
+.login_box .form-group label[for="checkbox-signup"] {
+    display: inline;
+    font-size: 14px;
+    font-weight: 400;
+    margin-bottom: 0;
+    opacity: .85;
+    vertical-align: middle;
+}
+
+.login_box #checkbox-signup {
+    width: 17px;
+    height: 17px;
+    margin-right: .6rem;
+    vertical-align: middle;
+    accent-color: var(--auth-brand);
+}
+
+/* ----------------------------------------------------------------- links -- */
+
+.login_box .forgot_pswd {
+    text-align: right;
+    margin-top: -.5rem;
+}
+
+/* Vendor gives .forgot_pswd a a grey in a selector carrying !important. */
+.login_box .forgot_pswd a {
+    display: inline-flex;
+    width: auto;
+    font-size: 13px;
+    font-weight: 500;
+    text-decoration: none;
+    color: var(--auth-brand) !important;
+    opacity: .9;
+    transition: opacity .18s var(--auth-ease);
+}
+
+.login_box .forgot_pswd a:hover {
+    opacity: 1;
+    text-decoration: underline;
+}
+
+/* --------------------------------------------------------------- buttons -- */
+
+/* main.css turns every primary button white under the dark theme
+   (body.dark-theme .btn-primary{background-color:#fff!important;
+   border:1px solid #fff!important;color:#181c34!important}), which is why the
+   sign-in button had no brand colour. Overridden inside .login_box only, so
+   buttons everywhere else in the app are left exactly as they were. */
+body.dark-theme .login_box .btn-primary,
+.login_box .btn-primary {
+    height: var(--auth-field-height);
+    border-radius: var(--auth-field-radius) !important;    /* vendor .rounded */
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: .01em;
+    background-color: var(--auth-brand) !important;
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, .17), rgba(255, 255, 255, 0));
+    border: 0 !important;
+    color: #fff !important;
+    box-shadow: 0 8px 22px -8px rgba(29, 130, 245, .65);
+    transition: transform .15s var(--auth-ease), box-shadow .2s var(--auth-ease), filter .2s var(--auth-ease);
+}
+
+body.dark-theme .login_box .btn-primary:hover:not(:disabled),
+.login_box .btn-primary:hover:not(:disabled) {
+    background-color: var(--auth-brand) !important;    /* dark theme flips it to black on hover */
+    color: #fff !important;
+    filter: brightness(1.1);
+    transform: translateY(-1px);
+    box-shadow: 0 12px 28px -10px rgba(29, 130, 245, .75);
+}
+
+.login_box .btn-primary:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 4px 12px -5px rgba(29, 130, 245, .6);
+}
+
+.login_box .btn-primary:disabled {
+    opacity: .65;
+    box-shadow: none;
+    transform: none;
+}
+
+.login_box .btn-primary:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 3px;
+}
+
+/* The spinner swapped in on submit inherits the button text colour. */
+.login_box .btn-primary .spinner-border {
+    vertical-align: -2px;
+}
+
+.login_box .btn-secondary {
+    height: var(--auth-field-height);
+    border-radius: var(--auth-field-radius) !important;
+    font-size: 15px;
+    font-weight: 500;
+    background-color: transparent !important;
+    border: 1px solid rgba(255, 255, 255, .16) !important;
+    transition: background-color .18s var(--auth-ease), border-color .18s var(--auth-ease);
+}
+
+body:not(.dark-theme) .login_box .btn-secondary {
+    border-color: #d8dfe9 !important;
+}
+
+.login_box .btn-secondary:hover {
+    background-color: rgba(255, 255, 255, .06) !important;
+    border-color: rgba(255, 255, 255, .28) !important;
+}
+
+/* ------------------------------------------------------- social sign-in --- */
+
+/* Vendor styles every anchor in the card as a full-width bordered row; this
+   softens it to match the fields. The :not() list keeps the forgot-password
+   link, the sign-up button and the language menu out of it. */
+.login_box a:not([href*="forgot"]):not(.btn-secondary):not(.dropdown-item):not(.change-lang) {
+    border-radius: var(--auth-field-radius);
+    border-color: rgba(255, 255, 255, .14);
+    font-size: 15px;
+    font-weight: 500;
+    height: var(--auth-field-height);
+    padding: 0 !important;
+    transition: border-color .18s var(--auth-ease), background-color .18s var(--auth-ease);
+}
+
+.login_box a:not([href*="forgot"]):not(.btn-secondary):not(.dropdown-item):not(.change-lang):hover {
+    background-color: rgba(255, 255, 255, .05);
+    border-color: rgba(255, 255, 255, .26);
+}
+
+/* The "or use your email" divider. Vendor disables its rules with
+   content:none, so turning them back on needs !important. */
+.login_box p {
+    font-size: 12.5px;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    opacity: .5;
+}
+
+.login_box p::before,
+.login_box p::after {
+    content: "" !important;
+    width: 32%;
+    background-color: currentColor;
+    opacity: .35;
+}
+
+/* -------------------------------------------------- language switcher ----- */
+
+/* The component writes .change-lang a light grey in an inline style block. */
+.change-lang {
+    background-color: rgba(255, 255, 255, .06) !important;
+    border: 1px solid rgba(255, 255, 255, .1);
+    border-radius: 999px;
+    padding: 5px 12px !important;
+    font-size: 12px;
+    transition: background-color .18s var(--auth-ease);
+}
+
+body:not(.dark-theme) .change-lang {
+    background-color: rgba(16, 24, 40, .04) !important;
+    border-color: rgba(16, 24, 40, .08);
+}
+
+.change-lang:hover {
+    background-color: rgba(255, 255, 255, .12) !important;
+}
+
+/* ------------------------------------------------------------ responsive -- */
+
+/* Below the card width plus a gutter, go fluid rather than letting the fixed
+   width force a horizontal scroll. */
+@media (max-width: 624px) {
+    .login_box {
+        width: 100%;
+        padding: 40px 32px 36px !important;
+    }
+
+    .login_box h3 {
+        font-size: 25px;
+    }
+}
+
+@media (max-width: 420px) {
+    .login_box {
+        margin-top: 1.25rem;
+        padding: 32px 22px 28px !important;
+        border-radius: 16px;
+    }
+
+    .login_box h3 {
+        font-size: 22px;
+    }
+
+    .login_header img {
+        max-height: 32px;
+    }
+
+    .login_header h3 {
+        font-size: 15px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .login_box {
+        animation: none;
+    }
+
+    .login_box .btn-primary:hover:not(:disabled) {
+        transform: none;
+    }
+}

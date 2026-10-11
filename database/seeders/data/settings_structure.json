@@ -1,0 +1,197 @@
+[
+    {
+        "route": "app-settings.index",
+        "label": "App Settings",
+        "key": "app_settings"
+    },
+    {
+        "route": "app-launcher-settings.index",
+        "label": "App Launcher Settings",
+        "key": "app_launcher_settings"
+    },
+    {
+        "route": "attendance-settings.index",
+        "label": "Attendance Settings",
+        "key": "attendance_settings"
+    },
+    {
+        "route": "employee-shifts.index",
+        "label": "Shift Settings",
+        "key": "shift_settings"
+    },
+    {
+        "route": "biometric-settings.index",
+        "label": "Biometric Settings",
+        "key": "biometric_settings"
+    },
+    {
+        "route": "business-address.index",
+        "label": "Business Address",
+        "key": "business_address"
+    },
+    {
+        "route": "company-settings.index",
+        "label": "Company Settings",
+        "key": "company_settings"
+    },
+    {
+        "route": "contract-settings.index",
+        "label": "Contract Settings",
+        "key": "contract_settings"
+    },
+    {
+        "route": "currency-settings.index",
+        "label": "Currency Settings",
+        "key": "currency_settings"
+    },
+    {
+        "route": "custom-fields.index",
+        "label": "Custom Fields",
+        "key": "custom_fields"
+    },
+    {
+        "route": "custom-link-settings.index",
+        "label": "Custom Link Settings",
+        "key": "custom_link_settings"
+    },
+    {
+        "route": "database-backup-settings.index",
+        "label": "Database Backup Settings",
+        "key": "database_backup_settings"
+    },
+    {
+        "route": "downloads.index",
+        "label": "Downloads",
+        "key": "app_downloads"
+    },
+    {
+        "route": "invoice-settings.index",
+        "label": "Finance Settings",
+        "key": "invoice_settings"
+    },
+    {
+        "route": "gdpr-settings.index",
+        "label": "GDPR Settings",
+        "key": "gdpr_settings"
+    },
+    {
+        "route": "google-calendar-settings.index",
+        "label": "Google Calendar Settings",
+        "key": "google_calendar_settings"
+    },
+    {
+        "route": "language-settings.index",
+        "label": "Language Settings",
+        "key": "language_settings"
+    },
+    {
+        "route": "lead-settings.index",
+        "label": "Lead Settings",
+        "key": "lead_settings"
+    },
+    {
+        "route": "leaves-settings.index",
+        "label": "Leaves Settings",
+        "key": "leave_settings"
+    },
+    {
+        "route": "message-settings.index",
+        "label": "Message Settings",
+        "key": "message_settings"
+    },
+    {
+        "route": "module-settings.index",
+        "label": "Module Settings",
+        "key": "module_settings"
+    },
+    {
+        "route": "notice-period-settings.index",
+        "label": "Notice Period Settings",
+        "key": "notice_period_settings"
+    },
+    {
+        "route": "notifications.index",
+        "label": "Notification Settings",
+        "key": "notification_settings"
+    },
+    {
+        "route": "payment-gateway-settings.index",
+        "label": "Payment Credentials",
+        "key": "payment_gateway_settings"
+    },
+    {
+        "route": "payslip-settings.index",
+        "label": "Payslip Settings",
+        "key": "payslip_settings"
+    },
+    {
+        "route": "profile-settings.index",
+        "label": "Profile Settings",
+        "key": "profile_settings"
+    },
+    {
+        "route": "project-settings.index",
+        "label": "Project Settings",
+        "key": "project_settings"
+    },
+    {
+        "route": "role-permissions.index",
+        "label": "Roles & Permissions",
+        "key": "role_permissions"
+    },
+    {
+        "route": "assign-menus.index",
+        "label": "Assign Menus",
+        "key": "role_management"
+    },
+    {
+        "route": "menu-management.index",
+        "label": "Add Menu",
+        "key": "menu_management"
+    },
+    {
+        "route": "security-settings.index",
+        "label": "Security Settings",
+        "key": "security_settings"
+    },
+    {
+        "route": "sign-up-settings.index",
+        "label": "Sign Up Settings",
+        "key": "sign_up_setting"
+    },
+    {
+        "route": "social-auth-settings.index",
+        "label": "Social Login Settings",
+        "key": "social_auth_settings"
+    },
+    {
+        "route": "storage-settings.index",
+        "label": "Storage Settings",
+        "key": "storage_settings"
+    },
+    {
+        "route": "task-settings.index",
+        "label": "Task Settings",
+        "key": "task_settings"
+    },
+    {
+        "route": "taxes.index",
+        "label": "Tax Settings",
+        "key": "tax_settings"
+    },
+    {
+        "route": "theme-settings.index",
+        "label": "Theme Settings",
+        "key": "theme_settings"
+    },
+    {
+        "route": "ticket-settings.index",
+        "label": "Ticket Settings",
+        "key": "ticket_settings"
+    },
+    {
+        "route": "timelog-settings.index",
+        "label": "Time Log Settings",
+        "key": "timelog_settings"
+    }
+]
