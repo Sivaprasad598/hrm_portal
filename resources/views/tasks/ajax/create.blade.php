@@ -179,6 +179,7 @@
                             <x-forms.select fieldId="board_column_id" :fieldLabel="__('app.status')"
                                             fieldName="board_column_id" search="true">
                                 @foreach ($taskboardColumns as $item)
+                                    @continue($item->slug == 'on_hold')
                                     @php
                                         if ($item->slug == 'completed' || $item->slug == 'incomplete') {
                                             if ($item->slug == 'completed') {

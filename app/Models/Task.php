@@ -295,6 +295,28 @@ class Task extends BaseModel
         return $this->hasMany(ProjectTimeLog::class, 'task_id')->where('project_time_logs.approved', 1)->orderBy('project_time_logs.start_time', 'desc');
     }
 
+    /** Open roadblocks: this task is On Hold waiting on these. */
+    public function openBlockers(): HasMany
+    {
+        return $this->hasMany(TaskBlocker::class, 'task_id')->where('task_blockers.status', 'open');
+    }
+
+    /** Open roadblocks of other tasks that are waiting on this task. */
+    public function blockingRequests(): HasMany
+    {
+        return $this->hasMany(TaskBlocker::class, 'linked_task_id')->where('task_blockers.status', 'open');
+    }
+
+    public function meetings(): HasMany
+    {
+        return $this->hasMany(Event::class, 'task_id')->orderByDesc('start_date_time');
+    }
+
+    public function statusLogs(): HasMany
+    {
+        return $this->hasMany(TaskStatusLog::class, 'task_id')->orderBy('changed_at')->orderBy('id');
+    }
+
     public function recurrings(): HasMany
     {
         return $this->hasMany(Task::class, 'recurring_task_id');
@@ -614,6 +636,44 @@ class Task extends BaseModel
     public function canEditTicket(): bool
     {
         return $this->hasPermission(user()->permission('edit_tasks'));
+    }
+
+    /**
+     * Whether the logged-in user may change this task's status
+     * (task list dropdown, task page, Kanban board, bulk action).
+     */
+    public function canChangeStatus(): bool
+    {
+        $permission = user()->permission('change_status');
+        $taskUsers = $this->users->pluck('id')->toArray();
+
+        return $permission == 'all'
+            || ($permission == 'added' && $this->added_by == user()->id)
+            || ($permission == 'owned' && in_array(user()->id, $taskUsers))
+            || ($permission == 'both' && (in_array(user()->id, $taskUsers) || $this->added_by == user()->id))
+            || $this->isProjectAdmin();
+    }
+
+    /**
+     * Whether the logged-in user is the admin of this task's project.
+     * Queried directly because the default eager load of `project`
+     * does not include the project_admin column.
+     */
+    public function isProjectAdmin(): bool
+    {
+        if (!$this->project_id || !user()) {
+            return false;
+        }
+
+        return Project::withTrashed()->where('id', $this->project_id)->value('project_admin') == user()->id;
+    }
+
+    /**
+     * Whether the logged-in user may approve or reject a task waiting for approval.
+     */
+    public function canApprove(): bool
+    {
+        return in_array('admin', user_roles()) || $this->isProjectAdmin();
     }
 
     public function hasPermission($permission): bool

@@ -45,7 +45,7 @@ class SendAutoTaskReminder extends Command
                     ->first();
 
                 if ($company->before_days > 0) {
-                    $beforeDeadline = $now->clone()->subDays($company->before_days)->format('Y-m-d');
+                    $beforeDeadline = $now->clone()->addDays($company->before_days)->format('Y-m-d');
                     $tasks = Task::where('due_date', $beforeDeadline)
                         ->where('company_id', $company->id)
                         ->where('board_column_id', '<>', $completedTaskColumn->id)
@@ -57,7 +57,7 @@ class SendAutoTaskReminder extends Command
                 }
 
                 if ($company->after_days > 0) {
-                    $afterDeadline = $now->clone()->addDays($company->after_days)->format('Y-m-d');
+                    $afterDeadline = $now->clone()->subDays($company->after_days)->format('Y-m-d');
                     $tasks = Task::where('due_date', $afterDeadline)
                         ->where('company_id', $company->id)
                         ->where('board_column_id', '<>', $completedTaskColumn->id)

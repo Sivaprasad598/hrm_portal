@@ -12,6 +12,8 @@ use App\Models\TaskCategory;
 use App\Models\TaskLabelList;
 use App\Models\User;
 use App\Models\UserTaskboardSetting;
+use App\Models\TaskBlocker;
+use App\Services\TaskStatusTracker;
 use App\Traits\pusherConfigTrait;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -212,7 +214,7 @@ class TaskBoardController extends AccountBaseController
                 }
             ])
                 ->with(['tasks' => function ($q) use ($startDate, $endDate, $request, $userId) {
-                    $q->withCount(['subtasks', 'completedSubtasks', 'comments'])
+                    $q->withCount(['subtasks', 'completedSubtasks', 'comments', 'openBlockers', 'blockingRequests'])
                         ->leftJoin('projects', 'projects.id', '=', 'tasks.project_id')
                         ->leftJoin('users as client', 'client.id', '=', 'projects.client_id');
 
@@ -452,7 +454,7 @@ class TaskBoardController extends AccountBaseController
         $userId = UserService::getUserId();
 
         $tasks = Task::with('users', 'project', 'labels')
-            ->withCount(['subtasks', 'completedSubtasks', 'comments'])
+            ->withCount(['subtasks', 'completedSubtasks', 'comments', 'openBlockers', 'blockingRequests'])
             ->leftJoin('projects', 'projects.id', '=', 'tasks.project_id')
             ->leftJoin('users as client', 'client.id', '=', 'projects.client_id');
 
@@ -601,6 +603,15 @@ class TaskBoardController extends AccountBaseController
 
         $board = TaskboardColumn::findOrFail($boardColumnId);
 
+        // Dropping a card on On Hold opens the roadblock form instead (see board_data.blade.php)
+        if ($board->slug == TaskStatusTracker::ON_HOLD && $request->movingTaskId) {
+            $movingTask = Task::findOrFail($request->movingTaskId);
+
+            if ($movingTask->board_column_id != $board->id && !TaskBlocker::where('task_id', $movingTask->id)->open()->exists()) {
+                return Reply::error(__('messages.roadblockRequired'));
+            }
+        }
+
         if (isset($taskIds) && count($taskIds) > 0) {
 
             $taskIds = (array_filter($taskIds, function ($value) {
@@ -611,11 +622,14 @@ class TaskBoardController extends AccountBaseController
                 if (!is_null($taskId)) {
                     $task = Task::with('labels')->findOrFail($taskId);
 
+                    // Moving a task to another column is a status change
+                    abort_403($task->board_column_id != $boardColumnId && !$task->canChangeStatus());
+
                     if ($board->slug == 'completed') {
                         $task->update(
                             [
                                 'board_column_id' => $boardColumnId,
-                                'completed_on' => now()->format('Y-m-d'),
+                                'completed_on' => $task->completed_on ?? now()->format('Y-m-d'),
                                 'column_priority' => $priorities[$key]
                             ]
                         );
@@ -623,6 +637,7 @@ class TaskBoardController extends AccountBaseController
                         $task->update(
                             [
                                 'board_column_id' => $boardColumnId,
+                                'completed_on' => null,
                                 'column_priority' => $priorities[$key]
                             ]
                         );

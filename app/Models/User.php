@@ -772,7 +772,7 @@ class User extends BaseModel implements AuthenticatableContract, AuthorizableCon
     public static function departmentUsers($teamId)
     {
         $users = User::join('employee_details', 'employee_details.user_id', '=', 'users.id')
-            ->select('users.id', 'users.name', 'users.email', 'users.created_at')
+            ->select('users.id', 'users.company_id', 'users.name', 'users.email', 'users.created_at', 'users.image', 'users.salutation', 'users.status')
             ->where('employee_details.department_id', $teamId);
 
         return $users->get();

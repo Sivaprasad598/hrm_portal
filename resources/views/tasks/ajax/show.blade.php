@@ -51,6 +51,33 @@
                                 @endif
                             @endif
 
+                            @php
+                                $taskSlug = $task->boardColumn->slug;
+                                $canRaiseRoadblock = !in_array($taskSlug, ['completed', 'waiting_approval'])
+                                    && (in_array(user()->id, $taskUsers) || $task->canChangeStatus());
+                            @endphp
+
+                            @if (!in_array($taskSlug, ['doing', 'completed', 'on_hold', 'waiting_approval']) && $task->canChangeStatus())
+                                <x-forms.button-secondary icon="play" data-status="doing"
+                                                          class="change-task-status mr-2 mb-2 mb-lg-0 mb-md-0">
+                                    @lang('modules.tasks.startTask')
+                                </x-forms.button-secondary>
+                            @endif
+
+                            @if ($canRaiseRoadblock)
+                                <x-forms.button-secondary icon="hand-paper" data-task-id="{{ $task->id }}"
+                                                          class="open-roadblock-modal mr-2 mb-2 mb-lg-0 mb-md-0">
+                                    @lang('modules.tasks.raiseRoadblock')
+                                </x-forms.button-secondary>
+                            @endif
+
+                            @if ($canOrganiseMeeting)
+                                <x-forms.button-secondary icon="users" data-task-id="{{ $task->id }}"
+                                                          class="open-meeting-modal mr-2 mb-2 mb-lg-0 mb-md-0">
+                                    @lang('modules.tasks.requestMeeting')
+                                </x-forms.button-secondary>
+                            @endif
+
                             @if ($task->boardColumn->slug != 'completed' && !is_null($task->is_task_user) && in_array('timelogs', user_modules()))
                                 @if (is_null($task->userActiveTimer))
                                     @if($task->approval_send == 0)
@@ -374,6 +401,27 @@
             </div>
 
             @if ((($taskSettings->files == 'yes' || $taskSettings->sub_task == 'yes' || $taskSettings->comments == 'yes'|| $taskSettings->time_logs == 'yes'|| $taskSettings->notes == 'yes' || $taskSettings->history == 'yes') && in_array('client', user_roles())) || in_array('admin', user_roles()) || in_array('employee', user_roles()))
+                @if ($openBlockers->isNotEmpty())
+                    <div class="alert alert-warning mt-3 mb-0 f-13">
+                        <div class="f-w-500 mb-1"><i class="fa fa-hand-paper mr-1"></i> @lang('modules.tasks.roadblockOnHoldBanner')</div>
+                        @foreach ($openBlockers as $blocker)
+                            <div class="mb-1">
+                                @if ($blocker->urgency == 'urgent')
+                                    <span class="badge badge-danger mr-1">🚩 @lang('modules.tasks.roadblockUrgent')</span>
+                                @endif
+                                @lang('modules.tasks.roadblockWaitingOn') <strong>{{ $blocker->blockingUser?->name }}</strong>:
+                                {{ \Illuminate\Support\Str::limit($blocker->need, 120) }}
+                                @if ($blocker->needed_by)
+                                    <span @class(['text-danger f-w-500' => $blocker->isOverdue()])>
+                                        &middot; @lang('modules.tasks.roadblockNeededBy') {{ $blocker->needed_by->translatedFormat(company()->date_format) }}
+                                    </span>
+                                @endif
+                            </div>
+                        @endforeach
+                        <a href="{{ route('tasks.show', $task->id) }}?view=roadblocks" class="ajax-tab f-12">@lang('modules.tasks.roadblocks') &rarr;</a>
+                    </div>
+                @endif
+
                 <!-- TASK TABS START -->
                 <div class="bg-additional-grey rounded my-3">
 
@@ -417,6 +465,26 @@
                                     <x-tab-item class="ajax-tab" :active="(request('view') === 'notes')"
                                                 :link="route('tasks.show', $task->id).'?view=notes'">@lang('app.notes')</x-tab-item>
                                 @endif
+                            @endif
+
+                            @if (in_array('admin', user_roles()) || in_array('employee', user_roles()))
+                                <x-tab-item class="ajax-tab" :active="(request('view') === 'meetings')"
+                                            :link="route('tasks.show', $task->id).'?view=meetings'">
+                                    @lang('modules.tasks.meetings')
+                                    @if ($upcomingMeetingCount > 0)
+                                        <span class="badge badge-pill badge-primary f-11 ml-1 flex-shrink-0">{{ $upcomingMeetingCount }}</span>
+                                    @endif
+                                </x-tab-item>
+                            @endif
+
+                            @if (in_array('admin', user_roles()) || in_array('employee', user_roles()))
+                                <x-tab-item class="ajax-tab" :active="(request('view') === 'roadblocks')"
+                                            :link="route('tasks.show', $task->id).'?view=roadblocks'">
+                                    @lang('modules.tasks.roadblocks')
+                                    @if ($openBlockers->isNotEmpty())
+                                        <span class="badge badge-pill badge-danger f-11 ml-1 flex-shrink-0">{{ $openBlockers->count() }}</span>
+                                    @endif
+                                </x-tab-item>
                             @endif
 
                             @if (($taskSettings->history == 'yes' && in_array('client', user_roles())) || in_array('admin', user_roles()) || in_array('employee', user_roles()))

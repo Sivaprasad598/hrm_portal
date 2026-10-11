@@ -40,13 +40,13 @@ class SendTaskReminder extends Command
 
                 // If the company has set "before_days"
                 if ($company->before_days > 0) {
-                    $beforeDeadline = $now->clone()->subDays($company->before_days)->format('Y-m-d');
+                    $beforeDeadline = $now->clone()->addDays($company->before_days)->format('Y-m-d');
                     $this->sendReminders($beforeDeadline, $company);
                 }
 
                 // If the company has set "after_days"
                 if ($company->after_days > 0) {
-                    $afterDeadline = $now->clone()->addDays($company->after_days)->format('Y-m-d');
+                    $afterDeadline = $now->clone()->subDays($company->after_days)->format('Y-m-d');
                     $this->sendReminders($afterDeadline, $company);
                 }
 

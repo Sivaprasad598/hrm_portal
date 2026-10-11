@@ -281,6 +281,17 @@ class TasksDataTable extends BaseDataTable
                 $subTask .= '<a href="' . route('tasks.show', [$row->id]) . '?view=sub_task" class="openRightModal"><span class="border rounded p-1 f-11 mr-1 text-dark-grey" data-toggle="tooltip" data-original-title="' . __('modules.tasks.subTask') . '"><i class="bi bi-diagram-2"></i> ' . $row->completed_subtasks_count . '/' . $row->subtasks_count . '</span></a>';
             }
 
+            if ($row->blocking_count > 0) {
+                $timer .= '<a href="' . route('tasks.show', [$row->id]) . '" class="openRightModal"><span class="badge badge-danger mr-1" data-toggle="tooltip" data-original-title="' . __('modules.tasks.roadblockLinkedTaskInfo') . '">'
+                    . ($row->blocking_urgent_count > 0 ? '🚩 ' . __('modules.tasks.roadblockUrgent') . ' &middot; ' : '🚩 ')
+                    . __('modules.tasks.roadblockBlocking') . ' (' . $row->blocking_count . ')</span></a>';
+            }
+
+            if ($row->open_blockers_count > 0) {
+                $timer .= '<a href="' . route('tasks.show', [$row->id]) . '?view=roadblocks" class="openRightModal"><span class="badge badge-warning mr-1"><i class="fa fa-hand-paper"></i> '
+                    . __('modules.tasks.roadblockWaiting', ['count' => $row->open_blockers_count]) . '</span></a>';
+            }
+
             if (!is_null($row->dependent_task_id)) {
                 $dependentTask .= '<a href="' . route('tasks.show', [$row->dependent_task_id]) . '?view=dependent_task" class="openRightModal"><span class="border rounded p-1 f-11 mr-1 text-dark-grey" data-toggle="tooltip" data-original-title="' . __('app.dependentTask') . '"><i class="fas fa-project-diagram"></i></span></a>';
             }
@@ -499,7 +510,10 @@ class TasksDataTable extends BaseDataTable
                 'tasks.id, tasks.approval_send, tasks.priority, tasks.estimate_hours, tasks.estimate_minutes, tasks.completed_on, tasks.task_short_code, tasks.start_date, tasks.added_by, projects.need_approval_by_admin, projects.project_name, projects.project_admin, tasks.heading, tasks.repeat, client.name as clientName, creator_user.name as created_by, creator_user.image as created_image, tasks.board_column_id,
              tasks.due_date, taskboard_columns.column_name as board_column, taskboard_columns.label_color, tasks.task_category_id,
               tasks.project_id, tasks.is_private ,( select count("id") from pinned where pinned.task_id = tasks.id and pinned.user_id = ' . $userId . ') as pinned_task,
-               project_milestones.milestone_title as milestone_name, project_milestones.id as milestone_id, tasks.dependent_task_id'
+               project_milestones.milestone_title as milestone_name, project_milestones.id as milestone_id, tasks.dependent_task_id,
+               (select count(*) from task_blockers where task_blockers.task_id = tasks.id and task_blockers.status = "open") as open_blockers_count,
+               (select count(*) from task_blockers where task_blockers.linked_task_id = tasks.id and task_blockers.status = "open") as blocking_count,
+               (select count(*) from task_blockers where task_blockers.linked_task_id = tasks.id and task_blockers.status = "open" and task_blockers.urgency = "urgent") as blocking_urgent_count'
             )
             ->addSelect('tasks.company_id') // Company_id is fetched so the we have fetch company relation with it)
             ->with('users', 'activeTimerAll', 'boardColumn', 'activeTimer', 'timeLogged', 'timeLogged.breaks', 'userActiveTimer', 'userActiveTimer.activeBreak', 'labels', 'taskUsers', 'category')
@@ -699,6 +713,7 @@ class TasksDataTable extends BaseDataTable
             $model->where('tasks.is_private', 0);
         }
 
+        $model->orderByRaw('blocking_urgent_count > 0 desc, blocking_count > 0 desc');
         $model->orderbyRaw('pinned_task desc');
 
         return $model;

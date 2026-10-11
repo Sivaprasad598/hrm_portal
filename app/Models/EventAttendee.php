@@ -36,6 +36,10 @@ class EventAttendee extends BaseModel
 
     protected $guarded = ['id'];
 
+    protected $casts = [
+        'responded_at' => 'datetime',
+    ];
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id')->withoutGlobalScope(ActiveScope::class);

@@ -145,6 +145,7 @@ class WeeklyTimesheetController extends AccountBaseController
 
         $this->tasksForWeek = $tasks;
         $this->weekDates = $weekDates;
+        $this->autoLoggedTime = $this->autoLoggedTime(user()->id, $this->weekStartDate, $this->weekEndDate);
 
         $view = view('weekly-timesheets.ajax.week_summary_data', $this->data)->render();
 
@@ -176,6 +177,28 @@ class WeeklyTimesheetController extends AccountBaseController
         ], [], [
             'task_ids' => __('app.task')
         ]);
+
+        // Hours for a task and day that already has timer / auto logs would be counted twice
+        $conflicts = [];
+
+        foreach ($taskIds as $key => $taskId) {
+            foreach ($dates[$key] as $key2 => $date) {
+                if (($hours[$key][$key2] ?? 0) <= 0) {
+                    continue;
+                }
+
+                $day = Carbon::parse($date, company()->timezone);
+                $timerLog = $this->timerLogs(user()->id, $day, $day)->firstWhere('task_id', $taskId);
+
+                if ($timerLog) {
+                    $conflicts[] = ($timerLog->task?->heading ?? __('app.task')) . ' (' . $day->translatedFormat(company()->date_format) . ')';
+                }
+            }
+        }
+
+        if (!empty($conflicts)) {
+            return Reply::error(__('messages.weeklyTimesheetAutoLogged', ['entries' => implode(', ', array_unique($conflicts))]));
+        }
 
         reset($taskIds);
 
@@ -322,6 +345,7 @@ class WeeklyTimesheetController extends AccountBaseController
 
         $this->tasksForWeek = $tasks;
         $this->weekDates = $weekDates;
+        $this->autoLoggedTime = $this->autoLoggedTime(user()->id, $this->weekStartDate, $this->weekEndDate);
 
         $this->view = 'weekly-timesheets.ajax.week_summary_data';
 
@@ -330,6 +354,40 @@ class WeeklyTimesheetController extends AccountBaseController
         $this->month = $now->format('m');
         return view('weekly-timesheets.edit', $this->data);
 
+    }
+
+    /**
+     * Time already logged by timers and task status changes in the week, per task and day,
+     * shown read-only above the weekly grid.
+     */
+    private function autoLoggedTime($userId, Carbon $from, Carbon $to)
+    {
+        return $this->timerLogs($userId, $from, $to)
+            ->groupBy(fn ($timeLog) => $timeLog->task_id . '|' . $timeLog->start_time->copy()->tz(company()->timezone)->format('Y-m-d'))
+            ->map(fn ($timeLogs) => [
+                'task' => $timeLogs->first()->task,
+                'date' => $timeLogs->first()->start_time->copy()->tz(company()->timezone),
+                'minutes' => $timeLogs->sum(fn ($timeLog) => max(0, $timeLog->total_minutes - (int) $timeLog->total_break_minutes)),
+            ])
+            ->sortBy('date')
+            ->values();
+    }
+
+    /**
+     * Finished time logs from timers and task status changes (not from weekly timesheets)
+     * for a user between two dates in the company timezone.
+     */
+    private function timerLogs($userId, Carbon $from, Carbon $to)
+    {
+        $start = $from->copy()->tz(company()->timezone)->startOfDay()->tz(config('app.timezone'));
+        $end = $to->copy()->tz(company()->timezone)->endOfDay()->tz(config('app.timezone'));
+
+        return ProjectTimeLog::with('task:id,heading')
+            ->where('user_id', $userId)
+            ->whereNull('weekly_timesheet_id')
+            ->whereNotNull('end_time')
+            ->whereBetween('start_time', [$start, $end])
+            ->get();
     }
 
 }

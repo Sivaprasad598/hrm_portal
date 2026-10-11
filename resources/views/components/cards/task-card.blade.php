@@ -31,6 +31,21 @@ $moveClass = '';
             </p>
         </div>
 
+        @if (($task->blocking_requests_count ?? 0) > 0 || ($task->open_blockers_count ?? 0) > 0)
+            <div class="mb-1 d-flex flex-wrap">
+                @if (($task->blocking_requests_count ?? 0) > 0)
+                    <span class="badge badge-danger mr-1" data-toggle="tooltip" data-original-title="@lang('modules.tasks.roadblockLinkedTaskInfo')">
+                        🚩 @lang('modules.tasks.roadblockBlocking') ({{ $task->blocking_requests_count }})
+                    </span>
+                @endif
+                @if (($task->open_blockers_count ?? 0) > 0)
+                    <span class="badge badge-warning mr-1">
+                        <i class="fa fa-hand-paper"></i> @lang('modules.tasks.roadblockWaiting', ['count' => $task->open_blockers_count])
+                    </span>
+                @endif
+            </div>
+        @endif
+
         @if (count($task->labels) > 0)
             <div class="mb-1 d-flex flex-wrap">
                 @foreach ($task->labels as $key => $label)
@@ -68,7 +83,9 @@ $moveClass = '';
                 @endforeach
             </div>
             @if ($task->subtasks_count > 0)
-                {{ $task->completed_subtasks_count .'/' . $task->subtasks_count }}
+                <span class="f-11 text-lightest" data-toggle="tooltip" data-original-title="@lang('modules.tasks.subTask')">
+                    <i class="bi bi-diagram-2"></i> {{ $task->completed_subtasks_count .'/' . $task->subtasks_count }}
+                </span>
             @endif
             @if (!is_null($task->due_date))
                 @if ($task->due_date->endOfDay()->isPast())

@@ -7,7 +7,8 @@ $changeStatusPermission = user()->permission('change_status');
 @foreach ($result['boardColumns'] as $key => $column)
     @if ($column->userSetting && $column->userSetting->collapsed)
         <!-- MINIMIZED BOARD PANEL START -->
-        <div class="minimized rounded bg-additional-grey border-grey mr-3">
+        <div class="minimized rounded bg-additional-grey border-grey mr-3" style="--column-color: {{ $column->label_color }}"
+            title="{{ $column->slug == 'completed' || $column->slug == 'incomplete' ? __('app.' . $column->slug) : $column->column_name }}">
             <!-- TASK BOARD HEADER START -->
             <div class="d-flex mt-4 mx-1 b-p-header align-items-center">
                 <a href="javascript:;" class="d-grid f-8 mb-3 text-lightest collapse-column"
@@ -28,14 +29,15 @@ $changeStatusPermission = user()->permission('change_status');
         <!-- MINIMIZED BOARD PANEL END -->
     @else
         <!-- BOARD PANEL 2 START -->
-        <div class="board-panel rounded bg-additional-grey border-grey mr-3">
+        @php
+            $columnName = $column->slug == 'completed' || $column->slug == 'incomplete' ? __('app.' . $column->slug) : $column->column_name;
+        @endphp
+        <div class="board-panel rounded bg-additional-grey border-grey mr-3" style="--column-color: {{ $column->label_color }}">
             <!-- TASK BOARD HEADER START -->
             <div class="d-flex m-3 b-p-header">
-                <p class="mb-0 f-15 mr-3 text-dark-grey font-weight-bold"><i class="fa fa-circle mr-2 text-yellow"
-                        style="color: {{ $column->label_color }}"></i>
-                    <span @if(strlen($column->column_name) > 20) data-toggle="tooltip" data-original-title="{{ $column->column_name }}" @endif>
-                        {{ str_limit($column->column_name, 20, '...') }}
-                    </span>
+                <p class="b-p-title mb-0 text-dark-grey font-weight-bold" data-toggle="tooltip" data-original-title="{{ $columnName }}">
+                    <i class="fa fa-circle mr-2 f-10 flex-shrink-0" style="color: {{ $column->label_color }}"></i>
+                    <span class="b-p-name">{{ $columnName }}</span>
                 </p>
 
                 <span
@@ -230,6 +232,12 @@ $changeStatusPermission = user()->permission('change_status');
             });
             return;
         }
+        else if (targetStatus == 'on_hold' && sourceStatus != 'on_hold') {
+            // On Hold needs a roadblock: put the card back and open the roadblock form
+            drake.cancel(true);
+            openRoadblockModal(movingTaskId);
+            return;
+        }
         else if(targetStatus == 'completed' && role == 'no' && needApproval == 1){
             Swal.fire({
                 title: "@lang('messages.sweetAlertTitle')",
@@ -324,4 +332,11 @@ $changeStatusPermission = user()->permission('change_status');
 
     });
 
+</script>
+
+<script>
+    // The board was (re)loaded: size it to the viewport
+    if (window.fitTaskBoard) {
+        window.fitTaskBoard();
+    }
 </script>

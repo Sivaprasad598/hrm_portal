@@ -3,6 +3,8 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\GdprController;
 use App\Http\Controllers\DealController;
+use App\Http\Controllers\TaskBlockerController;
+use App\Http\Controllers\TaskMeetingController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\AwardController;
 use App\Http\Controllers\ImageController;
@@ -531,6 +533,17 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account'], function () {
     Route::post('tasks/import/process', [TaskController::class, 'importProcess'])->name('tasks.import.process');
     Route::get('tasks/show-waiting-approval-change-status-modal', [TaskController::class, 'statusReason'])->name('tasks.show_status_reason_modal');
     Route::post('tasks/store-status-reason', [TaskController::class, 'storeStatusReason'])->name('tasks.store_comment_on_change_status');
+
+    /* Task roadblocks */
+    Route::get('task-blockers/user-tasks', [TaskBlockerController::class, 'userTasks'])->name('task-blockers.user_tasks');
+    Route::resource('task-blockers', TaskBlockerController::class)->only(['index', 'create', 'store', 'edit', 'update']);
+
+    /* Task meetings */
+    Route::post('task-meetings/{id}/respond', [TaskMeetingController::class, 'respond'])->name('task-meetings.respond');
+    Route::post('task-meetings/{id}/cancel', [TaskMeetingController::class, 'cancel'])->name('task-meetings.cancel');
+    Route::get('task-meetings/{id}/minutes', [TaskMeetingController::class, 'minutes'])->name('task-meetings.minutes');
+    Route::post('task-meetings/{id}/minutes', [TaskMeetingController::class, 'storeMinutes'])->name('task-meetings.store_minutes');
+    Route::resource('task-meetings', TaskMeetingController::class)->only(['create', 'store', 'edit', 'update']);
 
     Route::group(['prefix' => 'tasks'], function () {
 

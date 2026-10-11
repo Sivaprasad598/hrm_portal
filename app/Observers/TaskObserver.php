@@ -8,6 +8,7 @@ use App\Http\Controllers\AccountBaseController;
 use App\Models\GoogleCalendarModule;
 use App\Models\MentionUser;
 use App\Models\Notification;
+use App\Models\Project;
 use App\Models\ProjectTimeLog;
 use App\Models\Task;
 use App\Models\TaskboardColumn;
@@ -16,6 +17,8 @@ use App\Traits\ProjectProgress;
 use App\Models\UniversalSearch;
 use App\Models\User;
 use App\Services\Google;
+use App\Services\TaskBlockerService;
+use App\Services\TaskStatusTracker;
 use Carbon\Carbon;
 use Google\Service\Exception;
 use Google_Service_Calendar_Event;
@@ -141,7 +144,6 @@ class TaskObserver
             }
 
             if ($task->project_id) {
-                info('task_completion 433435');
                 // Calculate project progress if enabled
                 $log->logProjectActivity($task->project_id, 'messages.newTaskAddedToTheProject');
                 $this->calculateProjectProgress($task->project_id);
@@ -158,11 +160,19 @@ class TaskObserver
 
             }
 
+            // Record the starting status (and start a timer if created as Started)
+            (new TaskStatusTracker())->handle($task, null);
+
         }
     }
 
     public function updating(Task $task)
     {
+        // Only the task form sends mentions; status changes, board drags and
+        // console jobs must not wipe the existing mentions
+        if (!request()->has('mention_user_ids')) {
+            return;
+        }
 
         $mentionedUser = MentionUser::where('task_id', $task->id)->pluck('user_id');
         $requestMentionIds = explode(',', request()->mention_user_ids);
@@ -211,6 +221,9 @@ class TaskObserver
 
             if ($task->isDirty('board_column_id')) {
 
+                // The relation may have been loaded before the status changed
+                $task->load('boardColumn');
+
                 if ($task->boardColumn->slug == 'completed'){
                     $notification = 'TaskCompleted';
                 } elseif ($task->boardColumn->slug == 'waiting_approval'){
@@ -223,19 +236,15 @@ class TaskObserver
 
                     $admins = User::allAdmins($task->company->id);
 
-                    $users = $task->taskUsers;
-
-                    $projectAdmintask = Task::with('project')
-                        ->whereHas('project', function ($query) {
-                            $query->whereNotNull('project_admin');
-                        })
-                        ->get()
-                        ->pluck('project.projectAdmin');
+                    $users = $task->users;
 
                     $admins = $users->merge($admins);
 
-                    if (!$projectAdmintask->isEmpty()){
-                        $admins = $admins->merge($projectAdmintask);
+                    // Only this task's project admin needs to approve it
+                    $projectAdmin = $task->project_id ? Project::withTrashed()->find($task->project_id)?->projectAdmin : null;
+
+                    if ($projectAdmin) {
+                        $admins = $admins->merge([$projectAdmin]);
                     }
 
                 }else{
@@ -256,52 +265,14 @@ class TaskObserver
                 $taskUser = $task->users->whereNotIn('id', $admins->pluck('id'))->whereNotIn('id', [$task->added_by]);
                 event(new TaskEvent($task, $taskUser, $notification));
 
-                $timeLogs = ProjectTimeLog::with('user')->whereNull('end_time')
-                    ->where('task_id', $task->id)
-                    ->get();
+                // Record the status change and start/stop timers to match the new status
+                (new TaskStatusTracker())->handle($task, $task->getOriginal('board_column_id'));
 
-                if ($timeLogs && ($task->boardColumn->slug == 'completed' || $task->boardColumn->slug == 'waiting_approval')) {
-                    foreach ($timeLogs as $timeLog) {
+                // Left On Hold without the roadblocks being resolved (e.g. completed): close them
+                $previousSlug = TaskboardColumn::withoutGlobalScopes()->where('id', $task->getOriginal('board_column_id'))->value('slug');
 
-                        $timeLog->end_time = now();
-                        $timeLog->edited_by_user = (user()) ? user()->id : null;
-                        $timeLog->save();
-
-                        /** @phpstan-ignore-next-line */
-                        $timeLog->total_hours = ($timeLog->end_time->diff($timeLog->start_time)->format('%d') * 24) + ($timeLog->end_time->diff($timeLog->start_time)->format('%H'));
-
-                        if ($timeLog->total_hours == 0) {
-                            /** @phpstan-ignore-next-line */
-                            $timeLog->total_hours = round(($timeLog->end_time->diff($timeLog->start_time)->format('%i') / 60), 2);
-                        }
-
-                        $timeLog->total_hours = abs((float) $timeLog->total_hours);
-
-                        /** @phpstan-ignore-next-line */
-                        $timeLog->total_minutes = abs((int) (($timeLog->total_hours * 60) + ($timeLog->end_time->diff($timeLog->start_time)->format('%i'))));
-
-                        $timeLog->save();
-
-                        if (!is_null($timeLog->activeBreak)) {
-                            /** @phpstan-ignore-next-line */
-                            
-                            $activeBreak = $timeLog->activeBreak;
-
-                            $startTime = Carbon::parse($activeBreak->start_time)->format('Y-m-d') . ' ' . Carbon::parse($activeBreak->start_time)->format('H:i:s');
-                            $startTime = Carbon::createFromFormat('Y-m-d H:i:s', $startTime, company()->timezone)->setTimezone('UTC');
-
-                            $endTime = Carbon::parse($timeLog->end_time)->format('Y-m-d') . ' ' . Carbon::parse($timeLog->end_time)->format('H:i:s');
-                            $endTime = Carbon::createFromFormat('Y-m-d H:i:s', $endTime, company()->timezone)->setTimezone('UTC');
-
-            
-                            $activeBreak->total_hours = abs((int) $endTime->diffInHours($startTime));
-                            $activeBreak->total_minutes = abs((int) $endTime->diffInMinutes($startTime));
-                
-                            $activeBreak->end_time = $timeLog->end_time->format('Y-m-d H:i:s');
-                            $activeBreak->save();
-
-                        }
-                    }
+                if ($previousSlug == TaskStatusTracker::ON_HOLD) {
+                    (new TaskBlockerService())->closeOpenForTask($task, $task->boardColumn->column_name);
                 }
 
                 if ((request()->project_id && request()->project_id != 'all') || (!is_null($task->project_id))) {
@@ -425,6 +396,7 @@ class TaskObserver
      */
     public function deleted(Task $task)
     {
+        (new TaskBlockerService())->closeOpenForTask($task, __('modules.tasks.roadblockTaskDeleted'));
 
         if (user()) {
             self::createEmployeeActivity(user()->id, 'task-deleted');
@@ -432,7 +404,6 @@ class TaskObserver
         }
 
         if (!is_null($task->project_id)) {
-            info('task_completion 433435deleted');
             // Calculate project progress if enabled
             $this->calculateProjectProgress($task->project_id);
             $this->calculateProjectProgressByTime($task->project_id);

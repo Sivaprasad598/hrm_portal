@@ -82,6 +82,7 @@ class Event extends BaseModel
     protected $casts = [
         'start_date_time' => 'datetime',
         'end_date_time' => 'datetime',
+        'completed_at' => 'datetime',
     ];
     protected $fillable = ['start_date_time', 'end_date_time', 'event_name', 'where', 'description'];
 
@@ -119,5 +120,21 @@ class Event extends BaseModel
     public function user()
     {
         return $this->belongsTo(User::class, 'host');
+    }
+
+    /** Task this meeting was requested from (task meetings only). */
+    public function task()
+    {
+        return $this->belongsTo(Task::class, 'task_id')->withTrashed();
+    }
+
+    public function followUpOf()
+    {
+        return $this->belongsTo(Event::class, 'follow_up_of');
+    }
+
+    public function followUps(): HasMany
+    {
+        return $this->hasMany(Event::class, 'follow_up_of');
     }
 }

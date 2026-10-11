@@ -5,6 +5,7 @@
     <link rel='stylesheet' href="{{ asset('vendor/css/dragula.css') }}" type='text/css' />
     <link rel='stylesheet' href="{{ asset('vendor/css/drag.css') }}" type='text/css' />
     <link rel="stylesheet" href="{{ asset('vendor/css/bootstrap-colorpicker.css') }}" />
+    @include('taskboard.partials.styles')
     <style>
         #colorpicker .form-group {
             width: 87%;
@@ -281,13 +282,15 @@ $addTaskPermission = user()->permission('add_tasks');
                         </svg>
                         @if($waitingApprovalCount > 0)<span class="badge badge-pill badge-danger position-absolute">{{ $waitingApprovalCount }}</span>@endif
                     </a>
+
+                    @include('tasks.partials.roadblocks-button')
                 @endif
             </div>
         </div>
 
-        <x-alert type="warning">
-            <div><b>Note:</b>@lang('modules.tasks.taskboardNote') <a href="{{ route('tasks.index') }}">@lang('app.tasks')</a> @lang('modules.tasks.menu') </div>
-        </x-alert>
+        <p class="taskboard-hint text-lightest mb-3">
+            <i class="fa fa-info-circle mr-1"></i>@lang('modules.tasks.taskboardNote') <a href="{{ route('tasks.index') }}">@lang('app.tasks')</a> @lang('modules.tasks.menu')
+        </p>
 
         <div class="w-task-board-panel d-flex" id="taskboard-columns">
 

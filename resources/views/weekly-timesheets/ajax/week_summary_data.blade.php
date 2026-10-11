@@ -29,6 +29,18 @@
 
 </div>
 
+@if (isset($autoLoggedTime) && $autoLoggedTime->isNotEmpty())
+    <div class="alert alert-info mt-3 mb-0 f-13">
+        <div class="f-w-500 mb-1"><i class="fa fa-clock mr-1"></i> @lang('modules.timeLogs.autoLoggedThisWeek')</div>
+        <div class="f-12 mb-2">@lang('modules.timeLogs.autoLoggedThisWeekInfo')</div>
+        @foreach ($autoLoggedTime as $entry)
+            <span class="badge badge-light border mr-1 mb-1 p-2 f-12">
+                {{ $entry['date']->translatedFormat('D d M') }} &middot; {{ $entry['task']?->heading ?? '--' }}:
+                <strong>{{ intdiv($entry['minutes'], 60) }}h {{ sprintf('%02d', $entry['minutes'] % 60) }}m</strong>
+            </span>
+        @endforeach
+    </div>
+@endif
 
 <form action="{{ route('weekly-timesheets.store') }}" method="post" id="weekly-timesheet-form">
     <input type="hidden" name="status" id="status" value="{{ $weekTimesheet ? $weekTimesheet->status : 'draft' }}">

@@ -42,6 +42,7 @@ class AutoCreateRecurringTasks extends Command
                 $repeatedTasks = Task::withCount('recurrings')
                     ->with('labels', 'users', 'project', 'subtasks')
                     ->where('repeat', 1)
+                    ->whereNull('recurring_task_id') // generated copies never repeat themselves
                     ->whereDate('start_date', '<', $now)
                     ->where('repeat_complete', 0)
                     ->where('company_id', $company->id)
@@ -112,7 +113,7 @@ class AutoCreateRecurringTasks extends Command
         $newTask->start_date = $startDate->format('Y-m-d');
         $newTask->due_date = (!is_null($endDate)) ? $endDate->format('Y-m-d') : null;
         $newTask->project_id = $task->project_id;
-        $newTask->task_category_id = $task->category_id;
+        $newTask->task_category_id = $task->task_category_id;
         $newTask->priority = $task->priority;
         $newTask->repeat = 1;
         $newTask->board_column_id = $taskStatus;

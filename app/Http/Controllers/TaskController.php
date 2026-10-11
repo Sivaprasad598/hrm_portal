@@ -15,6 +15,9 @@ use App\Models\TaskFile;
 use App\Models\TaskUser;
 use App\Http\Requests\Tasks\ActionTask;
 use App\Models\TaskComment;
+use App\Models\TaskBlocker;
+use App\Models\Event;
+use App\Services\TaskStatusTracker;
 use App\Models\TaskCommentEmoji;
 use App\Models\TaskHistory;
 use App\Models\TaskNote;
@@ -140,7 +143,8 @@ class TaskController extends AccountBaseController
 
         $ids = explode(',', $request->row_ids);
 
-        Task::whereIn('id', $ids)->delete();
+        // Delete one by one so the observer cleans up files, notifications and project progress
+        Task::whereIn('id', $ids)->get()->each(fn ($task) => $task->delete());
     }
 
     protected function changeBulkStatus($request)
@@ -149,19 +153,32 @@ class TaskController extends AccountBaseController
 
         $taskBoardColumn = TaskboardColumn::findOrFail(request()->status);
 
+        // On Hold needs a roadblock per task, which the bulk action cannot collect
+        abort_if($taskBoardColumn->slug == TaskStatusTracker::ON_HOLD, 422, __('messages.roadblockRequired'));
+
         // Update tasks based on the requested status
         $taskIds = explode(',', $request->row_ids);
 
-        if ($taskBoardColumn && $taskBoardColumn->slug == 'completed') {
-            Task::whereIn('id', $taskIds)->update([
-                'status' => 'completed',
-                'board_column_id' => $request->status,
-                'completed_on' => now()->format('Y-m-d')
-            ]);
-        }
-        else {
-            Task::whereIn('id', $taskIds)->update(['board_column_id' => $request->status]);
-        }
+        // Save each task so the observer runs: notifications, history,
+        // timers and project progress
+        Task::whereIn('id', $taskIds)->get()->each(function ($task) use ($taskBoardColumn) {
+            if ($task->board_column_id == $taskBoardColumn->id) {
+                return;
+            }
+
+            $task->board_column_id = $taskBoardColumn->id;
+
+            if ($taskBoardColumn->slug == 'completed') {
+                $task->status = 'completed';
+                $task->completed_on = now()->format('Y-m-d');
+            }
+            else {
+                $task->status = 'incomplete';
+                $task->completed_on = null;
+            }
+
+            $task->save();
+        });
 
     }
 
@@ -197,7 +214,13 @@ class TaskController extends AccountBaseController
             )
         );
 
-        $taskBoardColumn = TaskboardColumn::where('slug', $status)->first();
+        $taskBoardColumn = TaskboardColumn::where('slug', $status)->firstOrFail();
+
+        // On Hold needs a roadblock (what is needed, from whom) - raised through its own form
+        if ($this->needsRoadblock($task, $taskBoardColumn)) {
+            return Reply::error(__('messages.roadblockRequired'));
+        }
+
         $task->board_column_id = $taskBoardColumn->id;
 
         if ($task->status === 'completed' && $status !== 'completed') {
@@ -209,6 +232,7 @@ class TaskController extends AccountBaseController
             $task->completed_on = now()->format('Y-m-d');
         }
         else {
+            $task->status = 'incomplete';
             $task->completed_on = null;
         }
 
@@ -474,6 +498,10 @@ class TaskController extends AccountBaseController
         $task->estimate_minutes = $request->estimate_minutes;
 
         if ($request->board_column_id) {
+            if (TaskboardColumn::where('id', $request->board_column_id)->value('slug') == TaskStatusTracker::ON_HOLD) {
+                return Reply::error(__('messages.roadblockRequired'));
+            }
+
             $task->board_column_id = $request->board_column_id;
         }
 
@@ -937,9 +965,14 @@ class TaskController extends AccountBaseController
 
         if ($request->has('board_column_id')) {
 
+            $taskBoardColumn = TaskboardColumn::findOrFail($request->board_column_id);
+
+            if ($this->needsRoadblock($task, $taskBoardColumn)) {
+                return Reply::error(__('messages.roadblockRequired'));
+            }
+
             $task->board_column_id = $request->board_column_id;
             $task->approval_send = 0;
-            $taskBoardColumn = TaskboardColumn::findOrFail($request->board_column_id);
 
             if ($taskBoardColumn->slug == 'completed') {
                 $task->completed_on = now()->format('Y-m-d');
@@ -1023,6 +1056,17 @@ class TaskController extends AccountBaseController
         }
 
         return Reply::successWithData(__('messages.updateSuccess'), ['redirectUrl' => route('tasks.show', $id)]);
+    }
+
+    /**
+     * Moving a task into On Hold must go through the roadblock form, unless it
+     * already has open roadblocks.
+     */
+    private function needsRoadblock(Task $task, TaskboardColumn $column): bool
+    {
+        return $column->slug == TaskStatusTracker::ON_HOLD
+            && $task->board_column_id != $column->id
+            && !TaskBlocker::where('task_id', $task->id)->open()->exists();
     }
 
     /**
@@ -1131,7 +1175,7 @@ class TaskController extends AccountBaseController
 
         if (!$this->task->project_id || ($this->task->project_id && $this->task->project->project_admin != $this->userId)) {
 
-            abort_403($this->viewUnassignedTasksPermission == 'none' && count($taskUsers) == 0 && ((is_null($this->task->mentionTask)) && in_array($userId, $mentionUser)));
+            abort_403($this->viewUnassignedTasksPermission == 'none' && count($taskUsers) == 0 && ((is_null($this->task->mentionTask)) && in_array($this->userId, $mentionUser)));
 
         }
 
@@ -1141,6 +1185,11 @@ class TaskController extends AccountBaseController
             $this->pageTitle = __('app.task');
         }
         $this->status = TaskboardColumn::where('id', $this->task->board_column_id)->first();
+        $this->openBlockers = TaskBlocker::with('blockingUser')->where('task_id', $this->task->id)->open()->get();
+        $this->upcomingMeetingCount = Event::where('task_id', $this->task->id)->where('status', 'pending')->where('end_date_time', '>=', now())->count();
+        $this->canOrganiseMeeting = !in_array('client', user_roles())
+            && (in_array('admin', user_roles()) || in_array(user()->id, $taskUsers) || $this->task->added_by == user()->id
+                || $this->task->isProjectAdmin() || $this->task->canChangeStatus());
         $getCustomFieldGroupsWithFields = $this->task->getCustomFieldGroupsWithFields();
 
         if ($getCustomFieldGroupsWithFields) {
@@ -1221,6 +1270,24 @@ class TaskController extends AccountBaseController
         case 'history':
             $this->tab = 'tasks.ajax.history';
             break;
+        case 'meetings':
+            abort_403(in_array('client', user_roles()));
+            $this->meetings = Event::with('attendee.user', 'user', 'followUpOf:id,event_name')
+                ->where('task_id', $this->task->id)
+                ->orderByRaw("FIELD(status, 'pending', 'completed', 'cancelled')")
+                ->orderBy('start_date_time')
+                ->get();
+            $this->tab = 'tasks.ajax.meetings';
+            break;
+        case 'roadblocks':
+            abort_403(in_array('client', user_roles()));
+            $this->blockers = TaskBlocker::with('raisedBy', 'blockingUser', 'resolvedBy', 'linkedTask:id,heading')
+                ->where('task_id', $this->task->id)
+                ->orderByRaw("FIELD(status, 'open', 'resolved', 'cancelled')")
+                ->latest('id')
+                ->get();
+            $this->tab = 'tasks.ajax.roadblocks';
+            break;
         case 'time_logs':
             abort_403(!in_array('timelogs', user_modules()));
             $this->tab = 'tasks.ajax.timelogs';
@@ -1300,6 +1367,8 @@ class TaskController extends AccountBaseController
     public function sendApproval(Request $request){
 
         $task = Task::findOrFail($request->taskId);
+        abort_403(!$task->canChangeStatus());
+
         $taskBoardColumn = TaskboardColumn::where('slug', 'waiting_approval')->first();
 
         $task->approval_send = $request->isApproval ?? 0;
@@ -1366,9 +1435,23 @@ class TaskController extends AccountBaseController
     public function storeStatusReason(ActionTask $request){
 
         $task = Task::findOrFail($request->taskId);
-        $taskBoardColumn = TaskboardColumn::where('slug', $request->taskStatus)->first();
+        // Approvers can always act; others only when the task is not locked for approval
+        $lockedForApproval = $task->approval_send == 1 && $task->project && $task->project->need_approval_by_admin == 1;
+        abort_403(!($task->canApprove() || ($task->canChangeStatus() && !$lockedForApproval)));
+
+        $taskBoardColumn = TaskboardColumn::where('slug', $request->taskStatus)->firstOrFail();
         $task->board_column_id = $taskBoardColumn->id;
         $task->approval_send = 0;
+
+        if ($taskBoardColumn->slug == 'completed') {
+            $task->status = 'completed';
+            $task->completed_on = now()->format('Y-m-d');
+        }
+        else {
+            $task->status = 'incomplete';
+            $task->completed_on = null;
+        }
+
         $task->save();
 
         $comment = new TaskComment();
@@ -1399,6 +1482,8 @@ class TaskController extends AccountBaseController
     public function updateTaskDuration(Request $request, $id)
     {
         $task = Task::findOrFail($id);
+        abort_403(!$task->canEditTicket());
+
         $task->start_date = Carbon::createFromFormat('d/m/Y', $request->start_date)->format('Y-m-d');
         $task->due_date = (!is_null($task->due_date)) ? Carbon::createFromFormat('d/m/Y', $request->end_date)->addDay()->format('Y-m-d') : null;
         $task->save();
@@ -1442,9 +1527,21 @@ class TaskController extends AccountBaseController
         $startDateMin = null;
 
         if ($id != 0) {
-            $members = Task::with('users')->findOrFail($id);
+            $members = Task::with('users', 'project.projectMembers')->findOrFail($id);
 
-            foreach ($members->users as $item) {
+            // List the task assignees; if the task has none, fall back to the
+            // project members, and then to all active employees
+            $users = $members->users->where('status', 'active');
+
+            if ($users->isEmpty() && $members->project) {
+                $users = $members->project->projectMembers->where('status', 'active');
+            }
+
+            if ($users->isEmpty()) {
+                $users = User::allEmployees(null, true);
+            }
+
+            foreach ($users as $item) {
                 $self_select = (user() && user()->id == $item->id) ? '<span class=\'ml-2 badge badge-secondary\'>' . __('app.itsYou') . '</span>' : '';
                 if($item->status == 'active'){
                     $content = ( $item->status == 'deactive') ? "<span class='badge badge-pill badge-danger border align-center ml-2 px-2'>Inactive</span>" : '';

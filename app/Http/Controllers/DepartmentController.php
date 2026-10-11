@@ -348,6 +348,11 @@ class DepartmentController extends AccountBaseController
             }
 
             foreach ($members as $item) {
+                // Skip deactivated employees unless they are already assigned
+                if ($item->status !== 'active' && !in_array($item->id, $userId)) {
+                    continue;
+                }
+
                 $selected = '';
 
                 if (isset($userId)){

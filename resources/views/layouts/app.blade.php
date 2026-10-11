@@ -325,6 +325,10 @@
 
 @stack('scripts')
 
+@if (user() && in_array('tasks', user_modules()))
+    @include('task-blockers.scripts')
+@endif
+
 <script>
     $(window).on('load', function () {
         // Animate loader off screen

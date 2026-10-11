@@ -115,6 +115,7 @@ $editMilestonePermission = user()->permission('edit_project_milestones');
                             <x-forms.select fieldId="board_column_id" :fieldLabel="__('app.status')"
                                 fieldName="board_column_id" search="true" :disabled="$task->board_column_id === $waitingApprovalTaskBoardColumn->id ? 'disabled' : ''">
                                 @foreach ($taskboardColumns as $item)
+                                    @continue($item->slug == 'on_hold' && $task->board_column_id != $item->id)
                                     @php
                                         if ($item->slug == 'completed' || $item->slug == 'incomplete') {
                                             if ($item->slug == 'completed') {

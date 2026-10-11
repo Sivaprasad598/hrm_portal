@@ -120,6 +120,7 @@ $projectArchived = $project->trashed();
                 <div class="select-status mr-3 d-none quick-action-field" id="change-status-action">
                     <select name="status" class="form-control select-picker">
                         @foreach ($taskBoardStatus as $status)
+                            @continue($status->slug == 'on_hold') {{-- needs a roadblock per task --}}
                             <option value="{{ $status->id }}">{{ $status->slug == 'completed' || $status->slug == 'incomplete' ? __('app.' . $status->slug) : $status->column_name }}</option>
                         @endforeach
                     </select>

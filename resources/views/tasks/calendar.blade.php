@@ -199,6 +199,8 @@
                         </svg>
                         @if($waitingApprovalCount > 0)<span class="badge badge-pill badge-danger position-absolute">{{ $waitingApprovalCount }}</span>@endif
                     </a>
+
+                    @include('tasks.partials.roadblocks-button')
                 @endif
             </div>
         </div>

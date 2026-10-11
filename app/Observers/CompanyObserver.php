@@ -644,9 +644,10 @@ class CompanyObserver
         $columns = [
             ['column_name' => 'Incomplete', 'label_color' => '#d21010', 'priority' => 1, 'slug' => str_slug('Incomplete', '_'), 'company_id' => $company->id],
             ['column_name' => 'To Do', 'label_color' => '#f5c308', 'priority' => 2, 'slug' => str_slug('To Do', '_'), 'company_id' => $company->id],
-            ['column_name' => 'Doing', 'label_color' => '#00b5ff', 'priority' => 3, 'slug' => str_slug('Doing', '_'), 'company_id' => $company->id],
-            ['column_name' => 'Completed', 'label_color' => '#679c0d', 'priority' => 4, 'slug' => str_slug('Completed', '_'), 'company_id' => $company->id],
-            ['column_name' => 'Waiting Approval', 'label_color' => '#000', 'priority' => 5, 'slug' => str_slug('Waiting Approval', '_'), 'company_id' => $company->id],
+            ['column_name' => 'Started', 'label_color' => '#00b5ff', 'priority' => 3, 'slug' => 'doing', 'company_id' => $company->id],
+            ['column_name' => 'On Hold – Waiting for Resources', 'label_color' => '#ff8c00', 'priority' => 4, 'slug' => 'on_hold', 'company_id' => $company->id],
+            ['column_name' => 'Completed', 'label_color' => '#679c0d', 'priority' => 5, 'slug' => str_slug('Completed', '_'), 'company_id' => $company->id],
+            ['column_name' => 'Waiting Approval', 'label_color' => '#000', 'priority' => 6, 'slug' => str_slug('Waiting Approval', '_'), 'company_id' => $company->id],
         ];
 
         TaskboardColumn::insert($columns);
