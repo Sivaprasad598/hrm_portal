@@ -47,6 +47,17 @@ return [
         'token' => env('TELEGRAM_BOT_TOKEN', 'YOUR BOT TOKEN HERE')
     ],
 
+    // CRM Notes bot: OpenAI speech-to-text and meeting notes
+    'openai' => [
+        'key' => env('OPENAI_API_KEY'),
+        'organization' => env('OPENAI_ORG_ID'),
+        'project' => env('OPENAI_PROJECT_ID'),
+        'transcribe_model' => env('OPENAI_TRANSCRIBE_MODEL', 'whisper-1'),
+        'notes_model' => env('OPENAI_NOTES_MODEL', 'gpt-4o-mini'),
+        // Key of the CRM Notetaker bot (notetaker-bot/.env BOT_KEY)
+        'bot_key' => env('CRM_NOTES_BOT_KEY'),
+    ],
+
     'google' => [
         'client_id' => env('GOOGLE_CLIENT_ID'),
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
@@ -59,6 +70,11 @@ return [
             \Google_Service_Oauth2::USERINFO_PROFILE,
             // Managing the user's calendars and events.
             \Google_Service_Calendar::CALENDAR,
+            // Google Meet: turn on automatic Smart Notes for CRM meetings and read them back
+            'https://www.googleapis.com/auth/meetings.space.settings',
+            'https://www.googleapis.com/auth/meetings.space.readonly',
+            // Read the notes Docs that Meet creates in Drive (only files created by Meet)
+            'https://www.googleapis.com/auth/drive.meet.readonly',
         ],
         // Enables automatic token refresh.
         'approval_prompt' => 'force',

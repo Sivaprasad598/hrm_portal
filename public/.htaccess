@@ -4,7 +4,7 @@
     </IfModule>
 
     RewriteEngine On
-    RewriteBase /hrm_portal/public/
+    RewriteBase /hrms_portal/public/
 
     # Handle Authorization Header
     RewriteCond %{HTTP:Authorization} .

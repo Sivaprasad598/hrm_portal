@@ -53,8 +53,25 @@ class LeadSettingController extends AccountBaseController
             'agent' => 'lead-settings.ajax.agent',
             'category' => 'lead-settings.ajax.category',
             'method' => 'lead-settings.ajax.method',
+            'meeting-purpose', 'meeting-status', 'meeting-result' => 'lead-settings.ajax.meeting-options',
+            'notetaker-bot' => 'lead-settings.ajax.notetaker-bot',
             default => 'lead-settings.ajax.source',
         };
+
+        // CRM Notetaker bot settings: admins only
+        if ($tab === 'notetaker-bot') {
+            abort_403(!in_array('admin', user_roles()));
+            $notetakerBot = app(\App\Services\NotetakerBot::class);
+            $this->botSettings = $notetakerBot->settings();
+            $this->botStatus = $notetakerBot->status();
+        }
+
+        // Customer meeting dropdown options (Customers → Meetings form)
+        if (in_array($tab, ['meeting-purpose', 'meeting-status', 'meeting-result'])) {
+            $this->meetingOptionType = substr($tab, strlen('meeting-')); // purpose | status | result
+            $this->meetingOptionLabel = \App\Models\MeetingOption::TYPES[$this->meetingOptionType];
+            $this->meetingOptions = \App\Models\MeetingOption::ofType($this->meetingOptionType)->get();
+        }
 
         $this->activeTab = $tab ?: 'source';
 

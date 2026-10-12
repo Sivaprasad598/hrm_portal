@@ -1,0 +1,40 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>CRM Notes options</title>
+  <style>
+    body { font: 14px/1.5 Arial, sans-serif; color: #1f2937; max-width: 560px; margin: 32px auto; padding: 0 16px; }
+    h1 { font-size: 20px; margin-bottom: 4px; }
+    p.hint { color: #6b7280; margin-top: 0; }
+    label { display: block; font-weight: bold; margin: 16px 0 6px; }
+    input { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; }
+    button { margin-top: 16px; padding: 8px 16px; border: 0; border-radius: 6px; background: #5850ec; color: #fff; font-weight: bold; cursor: pointer; }
+    button.secondary { background: #fff; color: #5850ec; border: 1px solid #5850ec; }
+    .status { margin-top: 10px; font-size: 13px; }
+    .ok { color: #047857; } .err { color: #b91c1c; }
+    hr { border: 0; border-top: 1px solid #e5e7eb; margin: 28px 0 8px; }
+  </style>
+</head>
+<body>
+  <h1>CRM Notes</h1>
+  <p class="hint">Get the Portal URL and your key from the HRM portal: Customers → Meetings → <b>CRM Notes extension</b> → Create my key.</p>
+
+  <label for="portalUrl">Portal URL</label>
+  <input id="portalUrl" placeholder="http://localhost/hrm_portal/public">
+
+  <label for="key">Your key</label>
+  <input id="key" placeholder="crmn_...">
+
+  <button id="save">Save and test</button>
+  <div class="status" id="saveStatus"></div>
+
+  <hr>
+  <label>Microphone</label>
+  <p class="hint">Allow the microphone once so your own voice is included in the notes (the call audio only contains the other people).</p>
+  <button class="secondary" id="mic">Allow microphone</button>
+  <div class="status" id="micStatus"></div>
+
+  <script src="options.js"></script>
+</body>
+</html>

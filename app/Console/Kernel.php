@@ -19,7 +19,6 @@ use App\Console\Commands\LeavesQuotaRenew;
 use App\Console\Commands\RemoveSeenNotification;
 use App\Console\Commands\SendAttendanceReminder;
 use App\Console\Commands\SendAutoTaskReminder;
-use App\Console\Commands\SendTaskBlockerReminders;
 use App\Console\Commands\SendEventReminder;
 use App\Console\Commands\SendAutoFollowUpReminder;
 use App\Console\Commands\SendDailyTimelogReport;
@@ -66,7 +65,6 @@ class Kernel extends ConsoleKernel
         SendProjectReminder::class,
         HideCronJobMessage::class,
         SendAutoTaskReminder::class,
-        SendTaskBlockerReminders::class,
         CreateTranslations::class,
         AutoCreateRecurringInvoices::class,
         CarryForwardLeaves::class,
@@ -128,6 +126,7 @@ class Kernel extends ConsoleKernel
 
         // Every Minute
         $schedule->command('send-event-reminder')->everyMinute();
+        $schedule->command('send-customer-meeting-reminders')->everyMinute();
         $schedule->command('auto-clock-out')->everyMinute();
         $schedule->command('hide-cron-message')->everyMinute();
         $schedule->command('send-attendance-reminder')->everyMinute();
@@ -140,7 +139,6 @@ class Kernel extends ConsoleKernel
         $schedule->command('projects-update-deadline-progress')->dailyAt('01:00');
         $schedule->command('send-project-reminder')->dailyAt('01:10');
         $schedule->command('send-auto-task-reminder')->dailyAt('01:20');
-        $schedule->command('send-task-blocker-reminders')->dailyAt('10:00');
         $schedule->command('recurring-invoice-create')->dailyAt('01:30');
         $schedule->command('recurring-expenses-create')->dailyAt('01:40');
         $schedule->command('send-invoice-reminder')->hourly();

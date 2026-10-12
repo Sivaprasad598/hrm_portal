@@ -1,0 +1,8 @@
+# Signed-in Google account of the bot (cookies, tokens): never commit
+chrome-profile/
+node_modules/
+.env
+bot.log
+bot.pid
+stop.flag
+*.png

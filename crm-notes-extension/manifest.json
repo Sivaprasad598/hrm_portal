@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "CRM Notes",
+  "version": "1.0.0",
+  "description": "Records CRM Google Meet calls from your browser and saves AI meeting notes in the HRM portal (Customers → Meetings → Meet Notes).",
+  "permissions": ["tabCapture", "offscreen", "storage", "tabs"],
+  "host_permissions": ["https://meet.google.com/*", "http://localhost/*", "http://127.0.0.1/*"],
+  "optional_host_permissions": ["https://*/*", "http://*/*"],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_title": "CRM Notes: click after joining a CRM meeting to take notes" },
+  "options_page": "options.html",
+  "content_scripts": [
+    {
+      "matches": ["https://meet.google.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

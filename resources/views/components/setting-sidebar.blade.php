@@ -105,6 +105,12 @@
                                  :text="__('app.menu.googleCalendarSetting')"/>
         @endif
 
+        @if (isArowana() && user()->permission('manage_google_calendar_setting') == 'all')
+            <x-setting-menu-item :active="$activeMenu" menu="microsoft_teams_settings"
+                                 :href="route('microsoft-teams-settings.index')"
+                                 text="Microsoft Teams"/>
+        @endif
+
         @if (isArowana() && user()->permission('manage_language_setting') == 'all')
             <x-setting-menu-item :active="$activeMenu" menu="language_settings"
                                  :href="route('language-settings.index')"

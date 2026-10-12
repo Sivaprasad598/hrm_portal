@@ -205,6 +205,8 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account/settings'], function 
     /* Lead Settings */
     Route::resource('lead-settings', LeadSettingController::class);
     Route::post('lead-settings-status/update-status/{companyId}', [LeadSettingController::class, 'updateLeadSettingStatus'])->name('lead-setting.update_status');
+    // CRM Notetaker bot settings (Lead Settings → Notetaker Bot tab), written to notetaker-bot/.env
+    Route::put('notetaker-bot-settings', [\App\Http\Controllers\NotetakerBotSettingController::class, 'update'])->name('notetaker-bot-settings.update');
     Route::resource('lead-source-settings', LeadSourceSettingController::class);
 
     Route::get('lead-stage-update/{statusId}', [LeadStageSettingController::class, 'statusUpdate'])->name('lead-stage-setting.stageUpdate');
@@ -229,6 +231,12 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account/settings'], function 
     Route::resource('google-calendar-settings', GoogleCalendarSettingController::class);
     Route::get('google-auth', [GoogleAuthController::class, 'index'])->name('googleAuth');
     Route::delete('google-auth', [GoogleAuthController::class, 'destroy'])->name('googleAuth.destroy');
+
+    // Microsoft Teams links for customer meetings (Microsoft Graph)
+    Route::get('microsoft-teams-settings', [\App\Http\Controllers\MicrosoftTeamsSettingController::class, 'index'])->name('microsoft-teams-settings.index');
+    Route::post('microsoft-teams-settings', [\App\Http\Controllers\MicrosoftTeamsSettingController::class, 'store'])->name('microsoft-teams-settings.store');
+    Route::get('microsoft-auth', [\App\Http\Controllers\MicrosoftTeamsSettingController::class, 'auth'])->name('microsoftAuth');
+    Route::delete('microsoft-auth', [\App\Http\Controllers\MicrosoftTeamsSettingController::class, 'disconnect'])->name('microsoftAuth.destroy');
 
 
     // Database Backup Settings

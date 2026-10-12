@@ -313,6 +313,36 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account'], function () {
     Route::delete('app-launcher-settings/{id}', [App\Http\Controllers\AppLauncherController::class, 'destroy'])->name('app-launcher-settings.destroy');
     Route::post('app-launcher-settings/{id}/toggle-active', [App\Http\Controllers\AppLauncherController::class, 'toggleActive'])->name('app-launcher-settings.toggle-active');
 
+    // =========================================================
+    // CUSTOMERS & MEETINGS
+    // =========================================================
+    Route::get('customers', [\App\Http\Controllers\CustomerController::class, 'index'])->name('customers.index');
+    Route::get('customers/create', [\App\Http\Controllers\CustomerController::class, 'createCustomer'])->name('customers.create');
+    Route::post('customers', [\App\Http\Controllers\CustomerController::class, 'storeCustomer'])->name('customers.store');
+    Route::get('customers/{id}/edit', [\App\Http\Controllers\CustomerController::class, 'editCustomer'])->name('customers.edit');
+    Route::put('customers/{id}', [\App\Http\Controllers\CustomerController::class, 'updateCustomer'])->name('customers.update');
+    Route::get('customers/{id}', [\App\Http\Controllers\CustomerController::class, 'customerMeetings'])->name('customers.meetings');
+    Route::delete('customers/{id}', [\App\Http\Controllers\CustomerController::class, 'destroyCustomer'])->name('customers.destroy');
+
+    Route::get('customer-meetings/live-status', [\App\Http\Controllers\CustomerController::class, 'meetingsLiveStatus'])->name('customers.meetings.live-status');
+    Route::get('customer-meetings/create', [\App\Http\Controllers\CustomerController::class, 'createMeeting'])->name('customers.meetings.create');
+    Route::post('customer-meetings/generate-meet', [\App\Http\Controllers\CustomerController::class, 'generateMeetLink'])->name('customers.meetings.generate-meet');
+    Route::post('customer-meetings', [\App\Http\Controllers\CustomerController::class, 'storeMeeting'])->name('customers.meetings.store');
+    Route::put('customer-meetings/{id}', [\App\Http\Controllers\CustomerController::class, 'updateMeeting'])->name('customers.meetings.update');
+    Route::get('customer-meetings/{id}/result', [\App\Http\Controllers\CustomerController::class, 'meetingResult'])->name('customers.meetings.result');
+    Route::post('customer-meetings/{id}/result', [\App\Http\Controllers\CustomerController::class, 'saveMeetingResult'])->name('customers.meetings.result.save');
+    Route::post('crm-notes/key', [\App\Http\Controllers\CrmNotesController::class, 'createKey'])->name('crm-notes.key');
+    Route::get('customer-meetings/{id}/notes', [\App\Http\Controllers\CustomerController::class, 'meetingNotes'])->name('customers.meetings.notes');
+    Route::post('customer-meetings/{id}/notes', [\App\Http\Controllers\CustomerController::class, 'refreshMeetingNotes'])->name('customers.meetings.notes.refresh');
+    Route::delete('customer-meetings/{id}', [\App\Http\Controllers\CustomerController::class, 'destroyMeeting'])->name('customers.meetings.destroy');
+
+    // Meeting Purpose / Meeting Status dropdown options ({type} = purpose | status)
+    Route::get('meeting-options/{type}', [\App\Http\Controllers\MeetingOptionController::class, 'index'])->name('meeting-options.index');
+    Route::post('meeting-options/{type}', [\App\Http\Controllers\MeetingOptionController::class, 'store'])->name('meeting-options.store');
+    Route::put('meeting-options/{type}/{id}', [\App\Http\Controllers\MeetingOptionController::class, 'update'])->name('meeting-options.update');
+    Route::delete('meeting-options/{type}/{id}', [\App\Http\Controllers\MeetingOptionController::class, 'destroy'])->name('meeting-options.destroy');
+
+
     /* PROJECTS */
     Route::resource('projectCategory', ProjectCategoryController::class);
     Route::post('projects/change-status', [ProjectController::class, 'changeProjectStatus'])->name('projects.change_status');

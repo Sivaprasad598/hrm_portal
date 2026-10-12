@@ -34,6 +34,24 @@ $addLeadCategoryPermission = user()->permission('add_lead_category');
                                 href="{{ route('lead-settings.index') }}?tab=method" role="tab"
                                 aria-controls="nav-leadAgent" aria-selected="true">@lang('modules.deal.dealMethod')
                             </a>
+                            <a class="nav-item nav-link f-15 meeting-purpose"
+                                href="{{ route('lead-settings.index') }}?tab=meeting-purpose" role="tab"
+                                aria-controls="nav-meetingPurpose" aria-selected="true">Meeting Purpose
+                            </a>
+                            <a class="nav-item nav-link f-15 meeting-status"
+                                href="{{ route('lead-settings.index') }}?tab=meeting-status" role="tab"
+                                aria-controls="nav-meetingStatus" aria-selected="true">Meeting Status
+                            </a>
+                            <a class="nav-item nav-link f-15 meeting-result"
+                                href="{{ route('lead-settings.index') }}?tab=meeting-result" role="tab"
+                                aria-controls="nav-meetingResult" aria-selected="true">Meeting Result
+                            </a>
+                            @if (in_array('admin', user_roles()))
+                                <a class="nav-item nav-link f-15 notetaker-bot"
+                                    href="{{ route('lead-settings.index') }}?tab=notetaker-bot" role="tab"
+                                    aria-controls="nav-notetakerBot" aria-selected="true">Notetaker Bot
+                                </a>
+                            @endif
                         </div>
                     </nav>
                 </div>
@@ -66,6 +84,19 @@ $addLeadCategoryPermission = user()->permission('add_lead_category');
                                 @lang('app.addNewDealCategory')
                             </x-forms.button-primary>
                         @endif
+
+                        <x-forms.button-primary icon="plus" class="add-meeting-option meeting-purpose-btn mb-2 d-none actionBtn"
+                            data-option-type="purpose">
+                            Add Meeting Purpose
+                        </x-forms.button-primary>
+                        <x-forms.button-primary icon="plus" class="add-meeting-option meeting-status-btn mb-2 d-none actionBtn"
+                            data-option-type="status">
+                            Add Meeting Status
+                        </x-forms.button-primary>
+                        <x-forms.button-primary icon="plus" class="add-meeting-option meeting-result-btn mb-2 d-none actionBtn"
+                            data-option-type="result">
+                            Add Meeting Result
+                        </x-forms.button-primary>
                     </div>
                 </div>
             </x-slot>
@@ -570,6 +601,144 @@ $addLeadCategoryPermission = user()->permission('add_lead_category');
                 }
             });
         });
+
+        /* MEETING PURPOSE / STATUS OPTIONS (Customers → Meetings) */
+        var meetingOptionLabels = { purpose: 'Meeting Purpose', status: 'Meeting Status', result: 'Meeting Result' };
+        var meetingOptionUrls = {
+            store: "{{ route('meeting-options.store', ':type') }}",
+            update: "{{ route('meeting-options.update', [':type', ':id']) }}",
+            destroy: "{{ route('meeting-options.destroy', [':type', ':id']) }}"
+        };
+
+        function meetingOptionError(xhr, fallback) {
+            var json = xhr.responseJSON || {};
+            if (json.errors) {
+                return json.errors[Object.keys(json.errors)[0]][0];
+            }
+            return json.message || fallback;
+        }
+
+        // Add / edit share one dialog; a duplicate keeps the dialog open with "already exists"
+        function meetingOptionDialog(type, id, currentName) {
+            var label = meetingOptionLabels[type];
+            var url = (id ? meetingOptionUrls.update : meetingOptionUrls.store).replace(':type', type).replace(':id', id || '');
+
+            Swal.fire({
+                title: (id ? 'Edit ' : 'Add ') + label,
+                input: 'text',
+                inputValue: currentName || '',
+                inputPlaceholder: 'Enter ' + label.toLowerCase(),
+                inputAttributes: { maxlength: 100 },
+                showCancelButton: true,
+                confirmButtonText: id ? "@lang('app.update')" : "@lang('app.save')",
+                cancelButtonText: "@lang('app.cancel')",
+                customClass: {
+                    confirmButton: 'btn btn-primary mr-3',
+                    cancelButton: 'btn btn-secondary'
+                },
+                buttonsStyling: false,
+                showLoaderOnConfirm: true,
+                preConfirm: function (value) {
+                    value = $.trim(value || '');
+                    if (!value) {
+                        Swal.showValidationMessage('Enter a ' + label.toLowerCase() + '.');
+                        return false;
+                    }
+                    if (id && value === currentName) {
+                        return { unchanged: true };
+                    }
+
+                    var data = { _token: "{{ csrf_token() }}", name: value };
+                    if (id) data._method = 'PUT';
+
+                    return $.ajax({ url: url, type: 'POST', data: data }).then(
+                        function (response) { return response; },
+                        function (xhr) {
+                            Swal.showValidationMessage(meetingOptionError(xhr, 'Unable to save.'));
+                            return false;
+                        }
+                    );
+                },
+                allowOutsideClick: function () { return !Swal.isLoading(); }
+            }).then(function (result) {
+                if (result.value && !result.value.unchanged) {
+                    window.location.reload();
+                }
+            });
+        }
+
+        $('body').on('click', '.add-meeting-option', function () {
+            meetingOptionDialog($(this).data('option-type'));
+        });
+
+        $('body').on('click', '.edit-meeting-option', function () {
+            meetingOptionDialog($(this).data('option-type'), $(this).data('option-id'), String($(this).data('option-name')));
+        });
+
+        $('body').on('click', '.delete-meeting-option', function () {
+            var type = $(this).data('option-type');
+            var id = $(this).data('option-id');
+            var name = $(this).data('option-name');
+
+            Swal.fire({
+                title: "@lang('messages.sweetAlertTitle')",
+                text: 'Delete "' + name + '"? Existing meetings keep their saved value.',
+                icon: 'warning',
+                showCancelButton: true,
+                focusConfirm: false,
+                confirmButtonText: "@lang('messages.confirmDelete')",
+                cancelButtonText: "@lang('app.cancel')",
+                customClass: {
+                    confirmButton: 'btn btn-primary mr-3',
+                    cancelButton: 'btn btn-secondary'
+                },
+                showClass: {
+                    popup: 'swal2-noanimation',
+                    backdrop: 'swal2-noanimation'
+                },
+                buttonsStyling: false
+            }).then(function (result) {
+                if (!result.isConfirmed) return;
+
+                $.ajax({
+                    url: meetingOptionUrls.destroy.replace(':type', type).replace(':id', id),
+                    type: 'POST',
+                    data: { _token: "{{ csrf_token() }}", _method: 'DELETE' },
+                    success: function () {
+                        $('.meeting-option-row' + id).fadeOut(100, function () { $(this).remove(); });
+                    },
+                    error: function (xhr) {
+                        Swal.fire({ icon: 'error', title: 'Cannot delete', text: meetingOptionError(xhr, 'Unable to delete.') });
+                    }
+                });
+            });
+        });
+        /* MEETING PURPOSE / STATUS OPTIONS */
+
+        /* CRM NOTETAKER BOT SETTINGS */
+        $('body').on('click', '#useThisPortalUrl', function () {
+            $('#botPortalUrl').val($(this).data('url'));
+        });
+
+        $('body').on('submit', '#notetakerBotForm', function (e) {
+            e.preventDefault();
+
+            $.easyAjax({
+                url: "{{ route('notetaker-bot-settings.update') }}",
+                container: '#notetakerBotForm',
+                disableButton: true,
+                blockUI: true,
+                buttonSelector: '#saveNotetakerBot',
+                type: 'POST',
+                data: $(this).serialize(),
+                success: function (response) {
+                    if (response.status == 'success') {
+                        $('.nav-item.notetaker-bot').trigger('click');
+                    }
+                }
+            });
+        });
+        /* CRM NOTETAKER BOT SETTINGS */
 
     </script>
 @endpush
