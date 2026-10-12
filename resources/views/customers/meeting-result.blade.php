@@ -162,24 +162,52 @@
 @endsection
 
 @push('scripts')
+{{-- jQuery TE: the same rich text editor as the question bank --}}
+<link rel="stylesheet" href="{{ asset('vendor/jquery-te/jquery-te-1.4.0.css') }}">
+<script src="{{ asset('vendor/jquery-te/jquery-te-1.4.0.min.js') }}"></script>
 <style>
     .result-title { font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 18px; }
     .result-radio { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer; }
+    .jqte { margin: 0; border-radius: 4px; box-shadow: none; border-color: #ced4da; }
+    .jqte_editor { min-height: 120px; }
+    .jqte.is-invalid { border-color: #dc3545; }
 </style>
 <script>
 $(document).ready(function () {
     var form = $('#meetingResultForm');
     var emojiPattern = /[\u{1F000}-\u{1FAFF}\u{2300}-\u{23FF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{200D}\u{20E3}]/u;
 
+    // Meeting Result Reason and Discussion Ended notes are rich text
+    var richFields = ['#outcomeReason', '#endNotes'];
+    richFields.forEach(function (id) { $(id).jqte(); });
+
+    // The editor copies itself into the textarea a moment after typing; do it now so nothing is missed
+    function syncEditors() {
+        richFields.forEach(function (id) {
+            var editor = $(id).closest('.jqte').find('.jqte_editor');
+            if (editor.length && !$(id).is(':visible')) {
+                $(id).val(editor.html());
+            }
+        });
+    }
+
+    // The words typed, without the formatting (an "empty" editor can still hold <br> or <p></p>)
+    function plainText(id) {
+        return $.trim($('<div>').html($(id).val()).text().replace(/ /g, ' '));
+    }
+
     function result() { return form.find('[name="result"]:checked').val(); }
 
     function showError(name, message) {
-        form.find('[name="' + name + '"]').toggleClass('is-invalid', !!message);
+        var field = form.find('[name="' + name + '"]');
+        field.toggleClass('is-invalid', !!message);
+        field.closest('.jqte').toggleClass('is-invalid', !!message);
         form.find('[data-error-for="' + name + '"]').text(message || '');
     }
 
     function clearErrors() {
         form.find('.is-invalid').removeClass('is-invalid');
+        form.find('.jqte.is-invalid').removeClass('is-invalid');
         form.find('[data-error-for]').text('');
     }
 
@@ -309,11 +337,13 @@ $(document).ready(function () {
 
         if (result() === 'ended') {
             if (!$('#endReason').val()) errors.end_reason = 'Please select a reason.';
-            if (!$.trim($('#endNotes').val())) errors.end_notes = 'Please enter additional notes.';
+            if (!plainText('#endNotes')) errors.end_notes = 'Please enter additional notes.';
+            else if (emojiPattern.test($('#endNotes').val())) errors.end_notes = 'Emojis are not allowed.';
             ['end_reason', 'end_notes'].forEach(function (name) { showError(name, errors[name] || ''); });
         } else {
             if (!$('#meetingOutcome').val()) errors.outcome = 'Select the meeting result.';
-            if (!$.trim($('#outcomeReason').val())) errors.outcome_reason = 'Enter the meeting result reason.';
+            if (!plainText('#outcomeReason')) errors.outcome_reason = 'Enter the meeting result reason.';
+            else if (emojiPattern.test($('#outcomeReason').val())) errors.outcome_reason = 'Emojis are not allowed.';
             ['outcome', 'outcome_reason'].forEach(function (name) { showError(name, errors[name] || ''); });
 
             if (!needsFollowupMeeting()) {
@@ -337,9 +367,11 @@ $(document).ready(function () {
 
     form.on('submit', function (e) {
         e.preventDefault();
+        syncEditors();
 
         if (!validate()) {
-            form.find('.is-invalid').first().focus();
+            var invalid = form.find('.is-invalid').first();
+            invalid.is('.jqte') ? invalid.find('.jqte_editor').focus() : invalid.focus();
             return;
         }
 

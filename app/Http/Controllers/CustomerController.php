@@ -495,12 +495,19 @@ class CustomerController extends AccountBaseController
             }
         };
 
+        // The notes come from a rich text editor: count the words typed, not the formatting around them
+        $hasText = function ($attribute, $value, $fail) {
+            if (self::plainText($value) === '') {
+                $fail($attribute === 'end_notes' ? 'Please enter additional notes.' : 'Enter the meeting result reason.');
+            }
+        };
+
         $request->validate(['result' => 'required|in:ended,outcome']);
 
         if ($request->result === 'ended') {
             $request->validate([
                 'end_reason' => ['required', Rule::in(self::END_REASONS)],
-                'end_notes'  => ['required', 'string', 'max:5000', $noEmoji],
+                'end_notes'  => ['required', 'string', 'max:20000', $noEmoji, $hasText],
             ], [
                 'end_reason.required' => 'Please select a reason.',
                 'end_notes.required'  => 'Please enter additional notes.',
@@ -509,13 +516,13 @@ class CustomerController extends AccountBaseController
             $meeting->fill([
                 'result'     => 'ended',
                 'end_reason' => $request->end_reason,
-                'end_notes'  => $request->end_notes,
+                'end_notes'  => self::cleanHtml($request->end_notes),
             ]);
             $message = 'Lead closed as Discussion Ended.';
         } elseif ($request->result === 'outcome') {
             $request->validate([
                 'outcome'        => ['required', Rule::in(MeetingOption::ofType('result')->pluck('name')->all())],
-                'outcome_reason' => ['required', 'string', 'max:5000', $noEmoji],
+                'outcome_reason' => ['required', 'string', 'max:20000', $noEmoji, $hasText],
             ], [
                 'outcome.required'        => 'Select the meeting result.',
                 'outcome_reason.required' => 'Enter the meeting result reason.',
@@ -524,11 +531,12 @@ class CustomerController extends AccountBaseController
             $meeting->fill([
                 'result'         => 'outcome',
                 'outcome'        => $request->outcome,
-                'outcome_reason' => $request->outcome_reason,
+                'outcome_reason' => self::cleanHtml($request->outcome_reason),
             ]);
 
             if ($request->boolean('followup_required')) {
-                $followup = $this->saveFollowupMeeting($request, $meeting, 'Follow-up (' . $request->outcome . '): ' . $request->outcome_reason);
+                // The follow-up's description is plain text
+                $followup = $this->saveFollowupMeeting($request, $meeting, 'Follow-up (' . $request->outcome . '): ' . self::plainText($request->outcome_reason));
                 $meeting->fill(['followup_date' => $followup->meeting_date, 'followup_meeting_id' => $followup->id]);
                 $message = 'Meeting result saved and the follow-up meeting is scheduled.';
             } else {
@@ -551,6 +559,36 @@ class CustomerController extends AccountBaseController
      * Create (or update) the follow-up meeting from the Meet with Customer form on the Meeting Result page.
      * Uses the same fields and save as the Meetings tab form (validation, Google Meet, invites).
      */
+    /**
+     * Keeps the formatting the meeting-result editor (jQuery TE) produces and drops everything else:
+     * scripts, event handlers, javascript: links, iframes, images and any other markup.
+     */
+    private static function cleanHtml(?string $html): string
+    {
+        static $purifier = null;
+
+        if ($purifier === null) {
+            $config = \HTMLPurifier_Config::createDefault();
+            $config->set('Cache.DefinitionImpl', null);
+            $config->set('HTML.Allowed', 'p[style],br,div[style],span[style],b,strong,i,em,u,strike,s,sub,sup,'
+                . 'ol,ul,li,h1[style],h2[style],h3[style],h4[style],h5[style],h6[style],pre,blockquote,hr,a[href]');
+            $config->set('CSS.AllowedProperties', 'color,font-size,text-align,font-weight,font-style,text-decoration');
+            $config->set('URI.AllowedSchemes', ['http' => true, 'https' => true, 'mailto' => true]);
+            $config->set('HTML.TargetBlank', true);
+            $purifier = new \HTMLPurifier($config);
+        }
+
+        return trim($purifier->purify((string) $html));
+    }
+
+    /** The text of an editor value without its formatting. */
+    private static function plainText(?string $html): string
+    {
+        $text = html_entity_decode(strip_tags(str_replace(['<br>', '<br/>', '<br />', '</p>', '</div>', '</li>'], ' ', (string) $html)), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        return trim(preg_replace('/[\s\x{00A0}]+/u', ' ', $text));
+    }
+
     private function saveFollowupMeeting(Request $request, CustomerMeeting $meeting, string $defaultDescription): CustomerMeeting
     {
         $followup = $meeting->followupMeeting ?? new CustomerMeeting(['added_by' => user()->id]);
