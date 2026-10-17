@@ -78,17 +78,27 @@ class DeviceTransEndpoint
     }
 
     /**
-     * One call: punches in (after, until].
+     * One call: punches in (after, until], optionally for one employee code.
+     *
+     * The employee filter field is `empcode` (also accepted as `empCode` and
+     * `EmpCode`); `EmployeeCode` is rejected with "Filter Parameter Not Found!".
+     * Verified against the live server, read-only.
      */
-    public function between(Carbon $after, Carbon $until, array $fields = self::FIELDS): IappResponse
+    public function between(Carbon $after, Carbon $until, array $fields = self::FIELDS, ?string $empCode = null): IappResponse
     {
+        $filter = sprintf(
+            "PunchDetail gt '%s' and PunchDetail lteq '%s'",
+            IappHelper::escapeFilterValue($after->format(IappHelper::FILTER_DATETIME)),
+            IappHelper::escapeFilterValue($until->format(IappHelper::FILTER_DATETIME))
+        );
+
+        if ($empCode !== null && $empCode !== '') {
+            $filter .= sprintf(" and empcode eq '%s'", IappHelper::escapeFilterValue($empCode));
+        }
+
         return $this->client->get(self::PATH, [
             'select' => implode(',', $fields),
-            'filter' => sprintf(
-                "PunchDetail gt '%s' and PunchDetail lteq '%s'",
-                IappHelper::escapeFilterValue($after->format(IappHelper::FILTER_DATETIME)),
-                IappHelper::escapeFilterValue($until->format(IappHelper::FILTER_DATETIME))
-            ),
+            'filter' => $filter,
             'pageno' => 1,
         ]);
     }
@@ -116,7 +126,7 @@ class DeviceTransEndpoint
      *
      * @return \Generator<int, array<int, array>>
      */
-    public function stream(Carbon $from, ?Carbon $until = null, int $maxCalls = 20000): \Generator
+    public function stream(Carbon $from, ?Carbon $until = null, int $maxCalls = 20000, ?string $empCode = null): \Generator
     {
         $until = ($until ?? Carbon::now())->copy();
         // `gt` is exclusive, so step back to keep a punch exactly at $from.
@@ -132,7 +142,7 @@ class DeviceTransEndpoint
             }
 
             $calls++;
-            $response = $this->between($cursor, $end);
+            $response = $this->between($cursor, $end, self::FIELDS, $empCode);
 
             if (!$response->successful()) {
                 // "not found" means this window is simply empty.

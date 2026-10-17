@@ -55,12 +55,34 @@ class PayslipWriter
             return $this->refuse($employee->name . ' has no CTC on record');
         }
 
+        // The cycle must be over, and for anyone on the device the feed must
+        // reach its last day - see PipelineStatus::payslipBlocker().
+        $pipeline = new \App\Services\Iapp\Pipeline\PipelineStatus();
+
+        if ($blocker = $pipeline->payslipBlocker($userId, $cycle)) {
+            return $this->refuse($employee->name . ': ' . $blocker);
+        }
+
         $standing = DB::table('payslips')
             ->where('emp_id', (string) $employee->employee_card_id)->where('period', $period)
             ->where('status', 'active')->whereNull('deleted_at')->first(['id']);
 
         if ($standing) {
             return $this->refuse($employee->name . ' already has a payslip for ' . $period . '; revoke it first');
+        }
+
+        // Device days that have not been written into ERP attendance yet would
+        // count as absence, so write them first. Skip mode: a day already holding
+        // attendance from anywhere else is left as it is.
+        if ($pipeline->deviceInUse() && $pipeline->deviceCodeFor($userId)
+            && $pipeline->pendingPushDays($cycle->start, $cycle->end, [$userId]) > 0) {
+            (new \App\Services\Iapp\Sync\AttendanceSync($pipeline->config()))->run(
+                $cycle->start->copy()->startOfDay(),
+                $cycle->end->copy()->endOfDay(),
+                \App\Models\IappAttendanceSyncRun::MODE_SKIP,
+                [$userId],
+                $issuedBy
+            );
         }
 
         $count = $this->days->forRange($userId, $cycle->start, $cycle->end);

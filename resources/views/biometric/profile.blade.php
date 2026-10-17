@@ -488,6 +488,24 @@
                     $(this).closest('form').trigger('submit');
                 }
             });
+
+            // The same for the dates: once someone is chosen, a new range loads by
+            // itself. A short pause lets both dates be changed in one go.
+            let dateTimer = null;
+
+            $('.employee-picker-row input[type="date"]').on('change', function () {
+                let form = $(this).closest('form');
+                let start = form.find('[name="start_date"]').val();
+                let end = form.find('[name="end_date"]').val();
+
+                clearTimeout(dateTimer);
+
+                if (!$('#employee-picker').val() || !start || !end || start > end) {
+                    return;
+                }
+
+                dateTimer = setTimeout(function () { form.trigger('submit'); }, 700);
+            });
         });
     </script>
 <script>

@@ -28,6 +28,8 @@ use App\Services\Iapp\Sync\EmployeeMatcher;
 use App\Services\Iapp\Sync\EmployeeSync;
 use App\Services\Iapp\Sync\PunchAggregator;
 use App\Services\Iapp\Sync\PunchSync;
+use App\Services\Iapp\Pipeline\AttendancePipeline;
+use App\Services\Iapp\Pipeline\PipelineStatus;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
@@ -119,7 +121,14 @@ class BiometricController extends AccountBaseController
      * safe — the punch upsert is keyed on a hash and the rebuild replaces
      * only rows it previously derived.
      */
-    public function sync(Request $request, PunchSync $punchSync, PunchAggregator $aggregator)
+    /**
+     * Pull from the device now: everybody, or one employee (emp_code).
+     *
+     * Runs the whole AttendancePipeline - pull, build Device Attendance, and
+     * write ERP attendance when automatic push is on (or push=1) - so a manual
+     * pull leaves things exactly as the schedule would.
+     */
+    public function sync(Request $request)
     {
         abort_403(!in_array(user()->permission('view_attendance'), ['all', 'added', 'owned', 'both']));
 
@@ -127,37 +136,189 @@ class BiometricController extends AccountBaseController
 
         $from = Carbon::parse($startDate)->startOfDay();
         $to = Carbon::parse($endDate)->endOfDay();
+        $empCode = trim((string) $request->emp_code) ?: null;
 
         // A pull walks the feed 100 rows at a time and can run for minutes.
         // PHP holds the session file locked for a whole request, so without
-        // this the rest of the UI freezes for the duration — every other page
+        // this the rest of the UI freezes for the duration - every other page
         // the same browser asks for queues behind this one. Nothing after this
         // point writes to the session.
         session()->save();
 
-        // A wide range means many sequential calls: the feed returns 100 rows
-        // per request and ignores page size, so the cost is linear in punches.
-        if ($from->diffInDays($to) > 31) {
-            return Reply::error('Please select a range of 31 days or fewer.');
+        // A wide range means many sequential calls, linear in punches. One
+        // employee's punches are a small fraction of the feed, so a longer
+        // stretch is fine for them.
+        $limit = $empCode ? 92 : 31;
+
+        if ($from->diffInDays($to) > $limit) {
+            return Reply::error(sprintf('Please select a range of %d days or fewer.', $limit));
         }
 
-        $log = $punchSync->run($from, $to, 'manual', user()->id);
-
-        if ($log->status === IappSyncLog::STATUS_FAILED) {
-            return Reply::error('Sync failed: ' . $log->message);
-        }
-
-        $built = $aggregator->build($from, $to);
-
-        return Reply::successWithData(
-            sprintf(
-                '%d punches pulled. %d attendance day(s) built for %d employee(s).',
-                $log->records_fetched,
-                $built['days'],
-                $built['employees']
-            ),
-            ['log_id' => $log->id]
+        $result = (new AttendancePipeline())->run(
+            $from,
+            $to,
+            'manual',
+            user()->id,
+            $empCode,
+            $request->has('push') ? $request->boolean('push') : null
         );
+
+        return $result['ok']
+            ? Reply::successWithData($result['message'], ['log_id' => $result['pull']?->id])
+            : Reply::error($result['message']);
+    }
+
+    /**
+     * Daily Review: every active employee's day, judged the morning after -
+     * absent without leave, late, short hours, missing exit, leave clashes -
+     * with what HR has resolved. Filled by attendance:daily; "Review again"
+     * re-runs it for the date shown.
+     */
+    public function review(Request $request)
+    {
+        $this->pageTitle = 'app.menu.dailyReview';
+        $this->activeTab = 'review';
+
+        $tz = company()->timezone;
+        $yesterday = now($tz)->subDay()->startOfDay();
+
+        try {
+            $this->date = $request->date ? Carbon::parse($request->date, $tz)->startOfDay() : $yesterday;
+        } catch (\Throwable) {
+            $this->date = $yesterday;
+        }
+
+        $this->show = in_array($request->show, ['exceptions', 'all', 'open'], true) ? $request->show : 'exceptions';
+        $this->statusFilter = array_key_exists((string) $request->status, \App\Models\AttendanceReview::STATUSES) ? $request->status : null;
+        $this->flagFilter = array_key_exists((string) $request->flag, \App\Models\AttendanceReview::FLAGS) ? $request->flag : null;
+
+        $all = \App\Models\AttendanceReview::with('user:id,name,image', 'resolvedBy:id,name')
+            ->where('date', $this->date->toDateString())
+            ->get();
+
+        $this->counts = [
+            'employees' => $all->count(),
+            'exceptions' => $all->where('is_exception', true)->count(),
+            'open' => $all->where('is_exception', true)->whereNull('resolved_at')->count(),
+            'absent' => $all->where('status', \App\Models\AttendanceReview::ABSENT)->count(),
+            'short' => $all->whereIn('status', [\App\Models\AttendanceReview::HALF_DAY, \App\Models\AttendanceReview::SHORT_HOURS])->count(),
+            'missing_exit' => $all->filter(fn ($r) => array_intersect($r->flags ?? [], ['missing_exit', 'single_punch']) !== [])->count(),
+            'late' => $all->filter(fn ($r) => in_array('late', $r->flags ?? [], true))->count(),
+            'leave' => $all->whereIn('status', [\App\Models\AttendanceReview::LEAVE_WORKED, \App\Models\AttendanceReview::LEAVE_PENDING])->count(),
+        ];
+
+        $this->reviews = $all
+            ->when($this->show === 'exceptions', fn ($c) => $c->where('is_exception', true))
+            ->when($this->show === 'open', fn ($c) => $c->where('is_exception', true)->whereNull('resolved_at'))
+            ->when($this->statusFilter, fn ($c) => $c->where('status', $this->statusFilter))
+            ->when($this->flagFilter, fn ($c) => $c->filter(fn ($r) => in_array($this->flagFilter, $r->flags ?? [], true)))
+            ->sortBy(fn ($r) => [$r->is_exception ? 0 : 1, $r->resolved_at ? 1 : 0, array_search($r->status, array_keys(\App\Models\AttendanceReview::STATUSES)), $r->user?->name])
+            ->values();
+
+        // Employee 360 is keyed by the device register, not the user.
+        $this->profileIds = IappEmployee::whereIn('user_id', $all->pluck('user_id'))->where('map_status', IappEmployee::STATUS_MAPPED)->pluck('id', 'user_id');
+        $this->run = \App\Models\AttendanceDailyRun::where('date', $this->date->toDateString())->first();
+        $this->setting = IappSetting::first();
+        $this->canGoForward = $this->date->lt($yesterday);
+
+        return view('biometric.review', $this->data);
+    }
+
+    /** Mark one employee-day resolved (with a note), or open it again. */
+    public function resolveReview(Request $request)
+    {
+        abort_403(!in_array(user()->permission('view_attendance'), ['all', 'added', 'owned', 'both']));
+
+        $this->validate($request, ['id' => 'required|integer', 'note' => 'nullable|string|max:500', 'reopen' => 'nullable|boolean']);
+
+        $review = \App\Models\AttendanceReview::findOrFail($request->id);
+
+        if ($request->boolean('reopen')) {
+            $review->forceFill(['resolved_at' => null, 'resolved_by' => null])->save();
+
+            return Reply::success('Opened again.');
+        }
+
+        $review->forceFill(['resolved_at' => now(), 'resolved_by' => user()->id, 'note' => $request->note])->save();
+
+        return Reply::success('Marked resolved.');
+    }
+
+    /** Run the daily routine for the date shown: pull (optional), review. No notifications. */
+    public function runReview(Request $request)
+    {
+        abort_403(!in_array(user()->permission('view_attendance'), ['all', 'added', 'owned', 'both']));
+
+        $this->validate($request, ['date' => 'required|date']);
+
+        // The pull can take minutes; free the session so the rest of the UI keeps working.
+        session()->save();
+
+        $options = ['--date' => Carbon::parse($request->date)->toDateString(), '--no-notify' => true];
+
+        if (!$request->boolean('pull')) {
+            $options['--no-pull'] = true;
+        }
+
+        \Illuminate\Support\Facades\Artisan::call('attendance:daily', $options);
+
+        $run = \App\Models\AttendanceDailyRun::where('date', $options['--date'])->first();
+
+        return $run && $run->status === \App\Models\AttendanceDailyRun::STATUS_REVIEWED
+            ? Reply::success('Reviewed: ' . $run->summary . ($run->device_complete ? '' : ' — device data incomplete' . ($run->last_error ? ' (' . $run->last_error . ')' : '')))
+            : Reply::error('Could not review: ' . ($run?->last_error ?: 'see Sync Status'));
+    }
+
+    /**
+     * The biometric -> attendance -> payslip chain on one screen: where each
+     * step stands, what needs attention, and the buttons to run it now.
+     */
+    public function overview()
+    {
+        $this->pageTitle = 'app.menu.biometricOverview';
+        $this->activeTab = 'overview';
+
+        $status = new PipelineStatus();
+        $this->status = $status;
+        $this->setting = IappSetting::first();
+        $this->lastRun = AttendancePipeline::lastRun();
+        $this->lastPull = $status->lastPull();
+        $this->lastPush = $status->lastPush();
+        $this->dataThrough = $status->deviceDataThrough();
+
+        $this->currentCycle = $status->currentCycle();
+        $this->lastCycle = $status->lastEndedCycle();
+        $this->pendingPush = $status->pendingPushDays(
+            $this->lastCycle->start->copy()->startOfDay(),
+            $status->today()
+        );
+        $this->unmapped = $status->unmappedEmployees();
+        // The same count the Exceptions screen shows for the current cycle.
+        $this->exceptionDays = (new AttendanceExceptions(
+            $this->currentCycle->start->copy(),
+            $status->today()
+        ))->query()->count();
+        $this->departed = app(\App\Services\Iapp\Reports\DepartedEnrolments::class)->outstanding();
+
+        $this->lastPayslipRun = \Illuminate\Support\Facades\Cache::store('file')->get(\App\Console\Commands\GenerateDuePayslips::LAST_RUN_KEY);
+        $this->lastCycleSlips = \Illuminate\Support\Facades\DB::table('payslips')
+            ->where('period', $this->lastCycle->label)->where('status', 'active')->whereNull('deleted_at')
+            ->selectRaw('approval_status, count(*) as n')->groupBy('approval_status')->pluck('n', 'approval_status');
+
+        // Yesterday's daily run and what it left open.
+        $this->yesterday = $status->today()->copy()->subDay();
+        $this->dailyRun = \App\Models\AttendanceDailyRun::where('date', $this->yesterday->toDateString())->first();
+        $this->openReviews = \App\Models\AttendanceReview::where('date', $this->yesterday->toDateString())
+            ->where('is_exception', true)->whereNull('resolved_at')->count();
+
+        // For the one-employee pull: everybody linked to a device code.
+        $this->mappedEmployees = IappEmployee::where('map_status', IappEmployee::STATUS_MAPPED)
+            ->whereNotNull('user_id')
+            ->with('user:id,name')
+            ->orderBy('employee_name')
+            ->get(['emp_code', 'employee_name', 'user_id']);
+
+        return view('biometric.overview', $this->data);
     }
 
     /**

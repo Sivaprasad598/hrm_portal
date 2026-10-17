@@ -132,9 +132,12 @@
                         </div>
 
                         <div class="col-lg-3 col-md-6">
-                            <x-forms.number fieldId="sync_interval_minutes" :fieldLabel="__('Sync every (minutes)')"
-                                            fieldName="sync_interval_minutes" :fieldValue="$setting->sync_interval_minutes ?? 30"
-                                            fieldRequired="true" />
+                            <label class="f-14 text-dark-grey mb-12 mt-3 d-block" for="daily_pull_time">Daily run at</label>
+                            <input type="time" id="daily_pull_time" name="daily_pull_time" class="form-control height-35 f-14"
+                                   value="{{ $setting->daily_pull_time ?? '11:00' }}" required>
+                            <p class="f-11 text-lightest mt-1">
+                                Pulls the previous day from the device, writes attendance and reviews it. Retried until 19:00 if the device cannot be reached.
+                            </p>
                         </div>
 
                         <div class="col-lg-3 col-md-6">
@@ -155,13 +158,42 @@
                         </div>
                         <div class="col-lg-3 col-md-6">
                             <x-forms.checkbox fieldId="sync_enabled" fieldName="sync_enabled"
-                                              :fieldLabel="__('Scheduled sync')"
+                                              :fieldLabel="__('Daily automatic run')"
                                               :checked="$setting->sync_enabled ?? false" fieldValue="1" />
                         </div>
                         <div class="col-lg-3 col-md-6">
                             <x-forms.checkbox fieldId="verify_ssl" fieldName="verify_ssl"
                                               :fieldLabel="__('Verify TLS certificate')"
                                               :checked="$setting->verify_ssl ?? $effective['verify_ssl']" fieldValue="1" />
+                        </div>
+                    </div>
+
+                    {{-- The device → attendance → payslip chain. Overview shows where it stands. --}}
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <h5 class="f-15 f-w-500 mb-1">Automation</h5>
+                            <p class="f-12 text-lightest mb-2">
+                                With all three on, attendance and draft payslips need no manual steps; approving and paying
+                                stay with a person. See <a href="{{ route('biometric.overview') }}">Biometric → Overview</a>.
+                            </p>
+                        </div>
+                        <div class="col-lg-4 col-md-6">
+                            <x-forms.checkbox fieldId="auto_promote" fieldName="auto_promote"
+                                              :fieldLabel="__('Write device days into ERP attendance automatically')"
+                                              :checked="$setting->auto_promote ?? false" fieldValue="1" />
+                            <p class="f-11 text-lightest">After every pull. A day that already has attendance from elsewhere is left alone.</p>
+                        </div>
+                        <div class="col-lg-4 col-md-6">
+                            <x-forms.checkbox fieldId="auto_generate_payslips" fieldName="auto_generate_payslips"
+                                              :fieldLabel="__('Generate draft payslips when a pay cycle ends')"
+                                              :checked="$setting->auto_generate_payslips ?? false" fieldValue="1" />
+                            <p class="f-11 text-lightest">After the daily run, for the cycle just ended. Admins are notified to approve.</p>
+                        </div>
+                        <div class="col-lg-4 col-md-6">
+                            <x-forms.checkbox fieldId="notify_employees" fieldName="notify_employees"
+                                              :fieldLabel="__('Tell employees about their own exceptions')"
+                                              :checked="$setting->notify_employees ?? true" fieldValue="1" />
+                            <p class="f-11 text-lightest">Absent without leave, missing exit punch or short hours. HR and admins always get the daily summary.</p>
                         </div>
                     </div>
 

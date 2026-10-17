@@ -49,7 +49,10 @@ class PunchSync
      * @param  string  $trigger  'manual', 'schedule' or 'command'
      * @return IappSyncLog  the completed run record
      */
-    public function run(Carbon $from, ?Carbon $until = null, string $trigger = 'manual', ?int $userId = null): IappSyncLog
+    /**
+     * @param  ?string  $empCode  pull only this device code (one employee); null pulls everybody
+     */
+    public function run(Carbon $from, ?Carbon $until = null, string $trigger = 'manual', ?int $userId = null, ?string $empCode = null): IappSyncLog
     {
         $startedAt = now();
         $timer = microtime(true);
@@ -62,6 +65,7 @@ class PunchSync
             'to_date' => ($until ?? now())->toDateString(),
             'status' => IappSyncLog::STATUS_RUNNING,
             'started_at' => $startedAt,
+            'emp_code' => $empCode ?: null,
         ]);
 
         $log->company_id = $this->config()->companyId();
@@ -75,7 +79,7 @@ class PunchSync
                 throw new \RuntimeException('iApp connection is not configured.');
             }
 
-            $result = $this->ingest($from, $until);
+            $result = $this->ingest($from, $until, $empCode);
             $fetched = $result['fetched'];
             $unique = $result['unique'];
 
@@ -92,7 +96,8 @@ class PunchSync
                     ? IappSyncLog::STATUS_PARTIAL
                     : IappSyncLog::STATUS_SUCCESS,
                 'message' => sprintf(
-                    '%d punches (%d unique), %d matched, %d unmatched.',
+                    '%s%d punches (%d unique), %d matched, %d unmatched.',
+                    $empCode ? $empCode . ': ' : '',
                     $fetched,
                     $unique,
                     $this->resolver->matchedCount(),
@@ -113,9 +118,46 @@ class PunchSync
         $log->duration_ms = (int) round((microtime(true) - $timer) * 1000);
         $log->save();
 
-        $this->recordOutcome($log);
+        // A one-employee pull says nothing about the company's feed as a whole,
+        // so only full pulls move "last synced" and the Sync Calendar.
+        if (!$empCode) {
+            $this->recordOutcome($log);
+            $this->recordCalendar($log, $from, $until ?? now());
+        }
 
         return $log;
+    }
+
+    /**
+     * One Sync Calendar row per date a full pull covered, so pulls made from
+     * the schedule or the Pull button show up there as well as backfills.
+     */
+    protected function recordCalendar(IappSyncLog $log, Carbon $from, Carbon $until): void
+    {
+        if ($log->status === IappSyncLog::STATUS_FAILED) {
+            return;
+        }
+
+        $companyId = $this->config()->companyId();
+
+        for ($day = $from->copy()->startOfDay(); $day->lte($until); $day->addDay()) {
+            $date = $day->toDateString();
+            $punches = \App\Models\IappDeviceTransaction::query()
+                ->when($companyId, fn ($q) => $q->where('company_id', $companyId))
+                ->whereBetween('punch_time', [$date . ' 00:00:00', $date . ' 23:59:59']);
+
+            \App\Models\IappDaySync::record(
+                $companyId,
+                $date,
+                (clone $punches)->count(),
+                (clone $punches)->distinct('emp_code')->count('emp_code'),
+                \App\Models\IappAttendanceRecord::withoutGlobalScopes()
+                    ->when($companyId, fn ($q) => $q->where('company_id', $companyId))
+                    ->whereDate('attendance_date', $date)->count(),
+                null,
+                $log->triggered_by
+            );
+        }
     }
 
     /**
@@ -127,14 +169,14 @@ class PunchSync
      *
      * @return array{fetched:int, unique:int, created:int, updated:int}
      */
-    public function ingest(Carbon $from, ?Carbon $until = null): array
+    public function ingest(Carbon $from, ?Carbon $until = null, ?string $empCode = null): array
     {
         $fetched = 0;
         $unique = [];
 
         // De-duplicated before writing: one controller reports each gate
         // separately, so a single swipe arrives three or four times.
-        foreach ($this->endpoint->stream($from, $until) as $rows) {
+        foreach ($this->endpoint->stream($from, $until, 20000, $empCode) as $rows) {
             $fetched += count($rows);
 
             foreach ($rows as $row) {

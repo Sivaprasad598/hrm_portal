@@ -180,7 +180,9 @@ class ImportAttendanceJob implements ShouldQueue
             // — which uses the wall-clock time *when the row is created*, not this clock-in time —
             // never overrides them. Only meaningful for the day's first session; a lunch-break
             // second session isn't a fresh "arrival" in the late/half-day sense.
-            $isFirstSessionToday = $todaysRows->isEmpty();
+            // Zero-length rows (an exit swipe with nothing to pair) are not arrivals,
+            // so they do not stop the real first session from being judged.
+            $isFirstSessionToday = $realSessionsToday === 0;
 
             $lateFlag = ($isFirstSessionToday && $this->isLateArrival($shift, $clockInLocal, $localDate, $timezone)) ? 'yes' : 'no';
             $halfDayFlag = ($isFirstSessionToday && $this->isHalfDayArrival($shift, $clockInLocal, $localDate, $timezone)) ? 'yes' : 'no';
@@ -264,6 +266,15 @@ class ImportAttendanceJob implements ShouldQueue
             return;
         }
 
+        // Only a session left open from an earlier day is stale. Someone working
+        // past the shift end and punching out the same evening is still there.
+        $timezone = $this->company?->timezone ?? 'UTC';
+
+        if ($openSession->clock_in_time->copy()->timezone($timezone)->toDateString()
+            === $beforePunchTime->copy()->timezone($timezone)->toDateString()) {
+            return;
+        }
+
         $cutoff = $this->autoClockOutCutoff($user, $openSession->clock_in_time);
 
         if (!$cutoff || $beforePunchTime->lessThanOrEqualTo($cutoff)) {
@@ -308,9 +319,31 @@ class ImportAttendanceJob implements ShouldQueue
      * null if no assignment exists, since none of Auto Clock Out / late / half-day / max
      * check-ins can be safely enforced without knowing which shift's config applies.
      */
+    /**
+     * The shift that applied: the employee's roster for the day, or the company's
+     * default shift when there is no roster row. Without the fallback nobody was
+     * ever marked late or half-day and no session was ever auto-closed, because
+     * the roster is empty for everyone — while payroll was already falling back
+     * to the default shift, so attendance and payroll judged days differently.
+     */
     private function getShiftForDate(User $user, string $localDate)
     {
-        return EmployeeShiftSchedule::where('user_id', $user->id)->where('date', $localDate)->first()?->shift;
+        return EmployeeShiftSchedule::where('user_id', $user->id)->where('date', $localDate)->first()?->shift
+            ?? $this->defaultShift();
+    }
+
+    private $defaultShiftCache = false;
+
+    private function defaultShift()
+    {
+        if ($this->defaultShiftCache === false) {
+            $shiftId = \App\Models\AttendanceSetting::withoutGlobalScopes()
+                ->when($this->company?->id, fn ($q, $id) => $q->where('company_id', $id))
+                ->value('default_employee_shift');
+            $this->defaultShiftCache = $shiftId ? \App\Models\EmployeeShift::withoutGlobalScopes()->find($shiftId) : null;
+        }
+
+        return $this->defaultShiftCache;
     }
 
     /**

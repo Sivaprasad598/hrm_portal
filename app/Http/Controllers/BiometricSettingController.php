@@ -81,7 +81,7 @@ class BiometricSettingController extends AccountBaseController
             'location_code' => 'nullable|max:5',
             'employee_match_field' => 'required|in:' . implode(',', array_keys(IappSetting::MATCH_FIELDS)),
             'resync_days' => 'required|integer|min:0|max:60',
-            'sync_interval_minutes' => 'required|integer|min:5|max:1440',
+            'daily_pull_time' => ['required', 'regex:/^([01][0-9]|2[0-3]):[0-5][0-9]$/'],
             // Held below the server's real 20-minute token lifetime.
             'token_cache_minutes' => 'required|integer|min:1|max:19',
         ]);
@@ -97,11 +97,14 @@ class BiometricSettingController extends AccountBaseController
             'location_code' => $request->location_code,
             'employee_match_field' => $request->employee_match_field,
             'resync_days' => (int) $request->resync_days,
-            'sync_interval_minutes' => (int) $request->sync_interval_minutes,
+            'daily_pull_time' => $request->daily_pull_time,
             'token_cache_minutes' => (int) $request->token_cache_minutes,
             'verify_ssl' => $request->boolean('verify_ssl'),
             'status' => $request->boolean('status'),
             'sync_enabled' => $request->boolean('sync_enabled'),
+            'auto_promote' => $request->boolean('auto_promote'),
+            'auto_generate_payslips' => $request->boolean('auto_generate_payslips'),
+            'notify_employees' => $request->boolean('notify_employees'),
         ]);
 
         // Secrets are only overwritten when a new value is actually typed, so

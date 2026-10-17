@@ -215,6 +215,8 @@ return array(
         'attendanceProfile' => 'Employee 360',
         'attendanceExceptions' => 'Exceptions',
         'biometricShifts' => 'Shifts',
+        'biometricOverview' => 'Overview',
+        'dailyReview' => 'Daily Review',
         'biometricDevices' => 'Devices',
         'biometricEmployees' => 'Employee Mapping',
         'employeeComparison' => 'Employee Comparison',

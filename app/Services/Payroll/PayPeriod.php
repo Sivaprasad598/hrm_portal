@@ -49,6 +49,32 @@ class PayPeriod
     }
 
     /** The day of the month a cycle starts on; 1 for calendar months. */
+    /** The pay cycle a date falls in (with a 21st start, 17 Oct is in "October": 21 Sep – 20 Oct). */
+    public static function containing(Carbon $date): self
+    {
+        $date = $date->copy()->startOfDay();
+        $anchor = $date->copy()->startOfMonth();
+
+        foreach ([0, 1, -1] as $offset) {
+            $month = $anchor->copy()->addMonthsNoOverflow($offset);
+            $cycle = static::forMonth((int) $month->month, (int) $month->year);
+
+            if ($date->betweenIncluded($cycle->start->copy()->startOfDay(), $cycle->end->copy()->startOfDay())) {
+                return $cycle;
+            }
+        }
+
+        return static::forMonth((int) $date->month, (int) $date->year);
+    }
+
+    /** The cycle before this one. */
+    public function previous(): self
+    {
+        $month = Carbon::create($this->year, $this->month, 1)->subMonthNoOverflow();
+
+        return static::forMonth((int) $month->month, (int) $month->year);
+    }
+
     public static function configuredStartDay(): int
     {
         try {

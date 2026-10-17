@@ -132,9 +132,16 @@
 
         @if ($isCurrentMonth)
             <div class="alert alert-warning f-13">
-                <strong>{{ $monthName }} is still running.</strong>
-                These figures cover the days so far, so anything that happens in the rest of the month
-                is not counted yet. Issue payslips once the month has ended, or revoke and reissue then.
+                <strong>{{ $monthName }} is still running</strong> (until {{ $cycle->end->format('d M') }}).
+                The figures below are an estimate from the days so far. Payslips can be issued from
+                {{ $cycle->end->copy()->addDay()->format('d M') }}{{ $autoPayslips ? ', when drafts are also made automatically' : '' }} —
+                a payslip issued now would leave the rest of the cycle unpaid once it is locked.
+            </div>
+        @elseif ($deviceBehind)
+            <div class="alert alert-warning f-13">
+                <strong>Device attendance only reaches {{ $deviceThrough ? $deviceThrough->format('d M') : 'no date' }}.</strong>
+                Employees on the biometric device cannot be paid for {{ $monthName }} until it reaches
+                {{ $cycle->end->format('d M') }}. <a href="{{ route('biometric.overview') }}">Pull now on Biometric → Overview</a>.
             </div>
         @endif
 
@@ -214,7 +221,8 @@
                 </a>
 
                 <button type="button" class="btn btn-sm btn-primary" id="generate-all"
-                        @disabled($totals['payable'] - $totals['generated'] < 1)>
+                        @if ($isCurrentMonth) title="Available from {{ $cycle->end->copy()->addDay()->format('d M') }}" @endif
+                        @disabled($isCurrentMonth || $totals['payable'] - $totals['generated'] < 1)>
                     <i class="fa fa-bolt mr-1"></i>
                     Generate {{ max(0, $totals['payable'] - $totals['generated']) }} payslip(s)
                 </button>

@@ -57,6 +57,8 @@ class Kernel extends ConsoleKernel
      */
     protected $commands = [
         IappSyncPunches::class,
+        \App\Console\Commands\GenerateDuePayslips::class,
+        \App\Console\Commands\RunDailyAttendance::class,
         IappSyncDevices::class,
         IappSyncEmployees::class,
         AutoClockOut::class,
@@ -173,7 +175,20 @@ class Kernel extends ConsoleKernel
         // Punches every 30 minutes: the feed returns 100 rows per request and
         // ignores page size, so a frequent small pull is cheaper than a rare
         // large one. withoutOverlapping() stops a slow run stacking up.
-        $schedule->command('iapp:sync-punches')->everyThirtyMinutes()->withoutOverlapping();
+        // The daily attendance routine (attendance:daily): at the daily time
+        // (Biometric Settings, 11:00) pull yesterday from the device, write ERP
+        // attendance, review every employee and notify. Asked every 15 minutes so
+        // a failed pull is retried through the day; it does nothing before the
+        // daily time and nothing once the day is done. "Scheduled sync" in
+        // Settings switches it off.
+        $schedule->command('attendance:daily --scheduled')->everyFifteenMinutes();
+        // Draft payslips once a pay cycle has ended. attendance:daily also runs
+        // this straight after each review; this is the fallback.
+        $schedule->command('payroll:generate-due')->dailyAt('13:00')->timezone('Asia/Kolkata');
+        // Lets Biometric → Overview show whether the scheduler is actually running.
+        $schedule->call(fn () => \Illuminate\Support\Facades\Cache::store('file')->forever(
+            \App\Services\Iapp\Pipeline\PipelineStatus::HEARTBEAT_KEY, now()->toIso8601String()
+        ))->everyMinute()->name('scheduler-heartbeat');
         // The device list changes rarely.
         $schedule->command('iapp:sync-devices')->dailyAt('02:10');
         // Picks up employees newly enrolled on a device.

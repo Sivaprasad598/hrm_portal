@@ -911,6 +911,10 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account'], function () {
     Route::post('change-qr-code-status', [AttendanceController::class, 'qrCodeStatus'])->name('settings.change-qr-code-status');
 
     // Biometric & Access Control (iApp device data)
+    Route::get('biometric/overview', [App\Http\Controllers\BiometricController::class, 'overview'])->name('biometric.overview');
+    Route::get('biometric/review', [App\Http\Controllers\BiometricController::class, 'review'])->name('biometric.review');
+    Route::post('biometric/review/resolve', [App\Http\Controllers\BiometricController::class, 'resolveReview'])->name('biometric.review.resolve');
+    Route::post('biometric/review/run', [App\Http\Controllers\BiometricController::class, 'runReview'])->name('biometric.review.run');
     Route::get('biometric/attendance-sync', [App\Http\Controllers\BiometricController::class, 'attendanceSync'])->name('biometric.attendance-sync');
     Route::post('biometric/attendance-sync/preview', [App\Http\Controllers\BiometricController::class, 'previewAttendanceSync'])->name('biometric.attendance-sync.preview');
     Route::post('biometric/attendance-sync/run', [App\Http\Controllers\BiometricController::class, 'runAttendanceSync'])->name('biometric.attendance-sync.run');

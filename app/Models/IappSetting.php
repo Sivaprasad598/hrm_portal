@@ -28,6 +28,8 @@ class IappSetting extends BaseModel
         'verify_ssl' => 'boolean',
         'sync_enabled' => 'boolean',
         'auto_promote' => 'boolean',
+        'auto_generate_payslips' => 'boolean',
+        'notify_employees' => 'boolean',
         'last_sync_at' => 'datetime',
     ];
 

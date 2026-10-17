@@ -37,7 +37,10 @@ class PunchAggregator
      *
      * @return array{days:int, employees:int, created:int, updated:int}
      */
-    public function build(Carbon $from, Carbon $to): array
+    /**
+     * @param  ?array  $empCodes  only these device codes (a one-employee pull); null builds everybody
+     */
+    public function build(Carbon $from, Carbon $to, ?array $empCodes = null): array
     {
         $companyId = $this->config->companyId();
         $timeline = new DayTimeline(DayTimeline::directionlessControllers($companyId));
@@ -59,6 +62,7 @@ class PunchAggregator
         while ($day->lte($last)) {
             $punches = IappDeviceTransaction::query()
                 ->when($companyId, fn ($q) => $q->where('company_id', $companyId))
+                ->when($empCodes, fn ($q) => $q->whereIn('emp_code', $empCodes))
                 ->whereBetween('punch_time', [$day->copy()->startOfDay(), $day->copy()->endOfDay()])
                 ->orderBy('punch_time')
                 ->get(['user_id', 'emp_code', 'controller_code', 'punch_time', 'punch_direction']);

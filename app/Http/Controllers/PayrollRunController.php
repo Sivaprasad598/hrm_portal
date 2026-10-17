@@ -51,6 +51,14 @@ class PayrollRunController extends AccountBaseController
         $this->monthName = $cycle->describe();
         // Still running: the period has not finished, so later days are not counted yet.
         $this->isCurrentMonth = $cycle->end->gte(now()->startOfDay());
+        // Where the biometric chain stands for this cycle: payslips open the day
+        // after it ends, and only once the device feed has been pulled that far.
+        $pipeline = new \App\Services\Iapp\Pipeline\PipelineStatus();
+        $this->deviceInUse = $pipeline->deviceInUse();
+        $this->deviceThrough = $pipeline->deviceDataThrough();
+        $this->autoPayslips = $pipeline->autoPayslips();
+        $this->deviceBehind = $this->deviceInUse && !$this->isCurrentMonth
+            && ($this->deviceThrough === null || $this->deviceThrough->lt($cycle->end->copy()->startOfDay()));
         $this->selectedEmployees = array_filter((array) $request->employees);
         $this->departmentId = $request->department;
 

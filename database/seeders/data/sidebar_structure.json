@@ -555,6 +555,32 @@
         },
         "items": [
             {
+                "label": "app.menu.biometricOverview",
+                "route": "biometric.overview",
+                "line": 165,
+                "condition": {
+                    "permission_key": "view_attendance",
+                    "permission_rule": "any",
+                    "role_rule": null,
+                    "module": "attendance",
+                    "raw": "@if (in_array('attendance', user_modules()) && $sidebarUserPermissions['view_attendance'] != 5 && $sidebarUserPermissions['view_attendance'] != 'none')",
+                    "complex": false
+                }
+            },
+            {
+                "label": "app.menu.dailyReview",
+                "route": "biometric.review",
+                "line": 165,
+                "condition": {
+                    "permission_key": "view_attendance",
+                    "permission_rule": "any",
+                    "role_rule": null,
+                    "module": "attendance",
+                    "raw": "@if (in_array('attendance', user_modules()) && $sidebarUserPermissions['view_attendance'] != 5 && $sidebarUserPermissions['view_attendance'] != 'none')",
+                    "complex": false
+                }
+            },
+            {
                 "label": "app.menu.syncCalendar",
                 "route": "biometric.calendar",
                 "line": 165,

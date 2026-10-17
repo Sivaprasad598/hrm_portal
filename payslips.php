@@ -117,6 +117,21 @@ if ($dbConn) {
             $postedComponents = (float) ($_POST['basic'] ?? 0) + (float) ($_POST['hra'] ?? 0)
                 + (float) ($_POST['ca'] ?? 0) + (float) ($_POST['others'] ?? 0);
 
+            // The cycle must be over and, for anyone on the biometric device, the
+            // feed pulled through its last day - the same rule Payroll Run applies.
+            $guardBlocker = null;
+
+            if ($periodStart && class_exists(\App\Services\Iapp\Pipeline\PipelineStatus::class)) {
+                $guardUserStmt = $pdo->prepare(
+                    'SELECT user_id FROM employee_details
+                      WHERE CAST(employee_card_id AS CHAR) = CAST(:card AS CHAR) LIMIT 1'
+                );
+                $guardUserStmt->execute([':card' => $_POST['emp_id'] ?? '']);
+                $guardCycle = \App\Services\Payroll\PayPeriod::forMonth((int) date('n', $periodStart), (int) date('Y', $periodStart));
+                $guardBlocker = (new \App\Services\Iapp\Pipeline\PipelineStatus())
+                    ->payslipBlocker((int) $guardUserStmt->fetchColumn(), $guardCycle);
+            }
+
             $figureError = match (true) {
                 $postedGross <= 0 => 'This employee has no salary on record, so a payslip cannot be valued. Add their CTC first.',
                 $postedWorking < 1 || $postedWorking > 31 => 'Working days must be between 1 and 31. Check the pay period and the attendance.',
@@ -132,6 +147,9 @@ if ($dbConn) {
                 $payslipBlockedMessage = htmlspecialchars($guardPeriod, ENT_QUOTES, 'UTF-8')
                     . ' has not started yet, so there is no attendance to pay against.'
                     . ' A payslip can only be issued for the current month or an earlier one.';
+                $id = 0;
+            } elseif ($guardBlocker) {
+                $payslipBlockedMessage = 'Not yet: ' . htmlspecialchars($guardBlocker, ENT_QUOTES, 'UTF-8');
                 $id = 0;
             } elseif ($existingSlipId) {
                 $payslipBlockedMessage = 'A payslip for '

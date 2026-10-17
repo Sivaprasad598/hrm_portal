@@ -41,6 +41,14 @@ class SidebarMenuSeeder extends Seeder
      * it before. Keyed by route name.
      */
     protected array $overrides = [
+        // Biometric screens reached from the in-page menus rather than the sidebar.
+        'biometric.devices' => ['is_active' => 0],
+        'biometric.shifts' => ['is_active' => 0],
+        'biometric.punch-log' => ['is_active' => 0],
+        'biometric.calendar' => ['is_active' => 0],
+        'biometric.sync-logs' => ['is_active' => 0],
+        'biometric.comparison' => ['is_active' => 0],
+        'biometric.actions' => ['is_active' => 0],
         // "(admin || client) && $gdpr->enable_gdpr == 1". GDPR is switched off
         // in settings, so nobody saw this. Seeded switched off rather than
         // pretending the role test alone is the gate; turn it on in Menu
@@ -154,19 +162,19 @@ class SidebarMenuSeeder extends Seeder
             'income-tax.index', 'statutory-returns.index', 'settlements.index',
         ],
         'biometric' => [
-            // set the devices up and say who is who
-            'biometric.devices', 'biometric.employees', 'biometric.comparison',
-            // pull what they recorded
-            'biometric.calendar', 'biometric.punch-log', 'biometric.attendance',
-            // read it before trusting it
-            'biometric.shifts', 'biometric.exceptions', 'biometric.profile',
-            // then put it into the ERP, and check what went
-            'biometric.attendance-sync', 'biometric.sync-logs', 'biometric.actions',
+            // the everyday flow: where it stands, what to look at, what the
+            // device saw, what went into the ERP, one person, who is who
+            'biometric.overview', 'biometric.review', 'biometric.exceptions', 'biometric.attendance',
+            'biometric.attendance-sync', 'biometric.profile', 'biometric.employees',
+            // switched off in the sidebar (see $overrides); reached from the
+            // Setup and History & tools menus on the biometric pages
+            'biometric.devices', 'biometric.shifts', 'biometric.punch-log',
+            'biometric.calendar', 'biometric.sync-logs', 'biometric.comparison', 'biometric.actions',
         ],
     ];
 
     protected array $deviceWideRoutes = [
-        'biometric.calendar', 'biometric.attendance', 'biometric.attendance-sync',
+        'biometric.overview', 'biometric.review', 'biometric.calendar', 'biometric.attendance', 'biometric.attendance-sync',
         'biometric.punch-log', 'biometric.profile', 'biometric.exceptions',
         'biometric.shifts', 'biometric.employees', 'biometric.comparison',
         'biometric.devices', 'biometric.sync-logs', 'biometric.actions',

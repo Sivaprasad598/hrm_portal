@@ -522,6 +522,8 @@ class AttendanceSync
             $job->applyPunch($user, $event['type'], $moment->timezone('UTC'));
         }
 
+        $this->closeDayEnd($user, $date, $tz, $events, $window);
+
         $after = Attendance::withoutGlobalScopes()
             ->where('user_id', $user->id)->whereBetween('clock_in_time', $window)->pluck('id')->all();
         $created = array_values(array_diff($after, $before));
@@ -542,6 +544,40 @@ class AttendanceSync
     }
 
     /**
+     * A session still open once a finished day has been replayed is a forgotten
+     * exit. Left open, the first "out" of the next morning closed it, so one
+     * evening became a session running past midnight and the next day lost its
+     * arrival. Close it at the last thing the device saw that day instead: the
+     * person was there at least until then, and no evidence says longer.
+     *
+     * Today is left alone: the person may simply still be at work, and the next
+     * pull rebuilds today from scratch anyway.
+     */
+    protected function closeDayEnd(User $user, string $date, string $tz, array $events, array $window): void
+    {
+        if ($events === [] || Carbon::parse($date, $tz)->gte(Carbon::now($tz)->startOfDay())) {
+            return;
+        }
+
+        $lastSeen = AttendanceImport::parsePunchTime($date . ' ' . end($events)['time'], $tz)?->timezone('UTC');
+
+        if (!$lastSeen) {
+            return;
+        }
+
+        Attendance::withoutGlobalScopes()
+            ->where('user_id', $user->id)
+            ->whereNull('clock_out_time')
+            ->whereBetween('clock_in_time', $window)
+            ->get()
+            ->each(function (Attendance $open) use ($lastSeen) {
+                $open->clock_out_time = $lastSeen->greaterThan($open->clock_in_time) ? $lastSeen : $open->clock_in_time;
+                $open->clock_out_ip = null;
+                $open->saveQuietly();
+            });
+    }
+
+    /**
      * One clean in/out event per real movement.
      *
      * The controllers report a single swipe once per gate, so the raw feed
@@ -552,8 +588,12 @@ class AttendanceSync
      * reconstruction every other biometric screen uses, so attendance written
      * here agrees with what those screens show.
      *
-     * Face-reader scans carry no usable direction and are dropped rather than
-     * guessed at — they would pair into sessions that never happened.
+     * Face-reader scans carry no usable direction, so they are not paired into
+     * sessions in the middle of the day — they would pair into sessions that
+     * never happened. At the edges of the day they are still evidence, though:
+     * a scan before the first door punch is the arrival, and one after the last
+     * is the departure. Dropping those lost real time — 30 Sep began at 09:56 on
+     * the face reader, but the ERP day started at the 13:03 door punch.
      *
      * @return array<int, array{time:string, type:string}>
      */
@@ -563,9 +603,12 @@ class AttendanceSync
         $day = $timeline->build($date, $punches);
 
         $events = [];
+        $scans = [];
 
         foreach ($day['events'] as $event) {
             if ($event['kind'] === DayTimeline::KIND_SCAN) {
+                $scans[] = $event['time'];
+
                 continue;
             }
 
@@ -574,6 +617,30 @@ class AttendanceSync
             }
 
             $events[] = ['time' => $event['time'], 'type' => $event['direction']];
+        }
+
+        if ($scans !== []) {
+            sort($scans);
+            $firstScan = $scans[0];
+            $lastScan = end($scans);
+
+            if ($events === []) {
+                // Only the face reader saw them: arrival and departure, if two scans apart.
+                $events[] = ['time' => $firstScan, 'type' => 'in'];
+
+                if ($lastScan !== $firstScan) {
+                    $events[] = ['time' => $lastScan, 'type' => 'out'];
+                }
+            }
+            else {
+                if ($firstScan < $events[0]['time']) {
+                    array_unshift($events, ['time' => $firstScan, 'type' => 'in']);
+                }
+
+                if ($lastScan > end($events)['time']) {
+                    $events[] = ['time' => $lastScan, 'type' => 'out'];
+                }
+            }
         }
 
         return $events;
