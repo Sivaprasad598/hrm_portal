@@ -45,7 +45,7 @@
                     <span class="f-12 mr-3">
                         @if (!$run)
                             <span class="badge badge-light border">Not reviewed yet</span>
-                            <span class="text-lightest">— runs automatically at {{ $setting?->daily_pull_time ?: '11:00' }} the next day</span>
+                            <span class="text-lightest">— runs automatically the next night ({{ $setting?->stepTime('pull_time') ?? '01:00' }}–{{ $setting?->stepTime('reconcile_time') ?? '03:00' }})</span>
                         @else
                             <span class="badge {{ $run->status === 'reviewed' ? 'badge-success' : 'badge-warning' }}">{{ ucfirst($run->status) }}</span>
                             @if ($run->device_complete)

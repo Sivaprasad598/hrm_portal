@@ -33,6 +33,8 @@ class MyPayslipsController extends AccountBaseController
         $this->payslips = $this->mine()
             ->orderByDesc('p.period_start')->orderByDesc('p.id')
             ->get(['p.id', 'p.payslip_number', 'p.period', 'p.period_start', 'p.period_end',
+                'p.basic', 'p.hra', 'p.ca', 'p.lta', 'p.cea', 'p.others', 'p.pf', 'p.esi', 'p.pt', 'p.tds',
+                'p.employer_pf', 'p.employer_esi',
                 'p.net_salary', 'p.attendance_net', 'p.leave_encashment', 'p.working_days',
                 'p.days_present', 'p.approval_status', 'p.generated_at', 'p.sent_at']);
 
@@ -48,9 +50,8 @@ class MyPayslipsController extends AccountBaseController
             $lines = $extras->where('payslip_id', $payslip->id);
             $payslip->extra_earnings = (float) $lines->where('kind', 'earning')->sum('total');
             $payslip->extra_deductions = (float) $lines->where('kind', 'deduction')->sum('total');
-            $payslip->take_home = (float) $payslip->attendance_net
-                + (float) $payslip->leave_encashment
-                + $payslip->extra_earnings - $payslip->extra_deductions;
+            $payslip->take_home = \App\Services\Payroll\NetPay::takeHome($payslip, $payslip->extra_earnings, $payslip->extra_deductions)
+                + (float) $payslip->leave_encashment;
         }
 
         return view('my-payslips.index', $this->data);

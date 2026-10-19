@@ -21,11 +21,12 @@
                     ['label' => 'Linked to ERP', 'value' => $counts['mapped'], 'color' => 'text-primary', 'key' => 'mapped'],
                     ['label' => 'Needs Linking', 'value' => $counts['unmapped'], 'color' => $counts['unmapped'] ? 'text-red' : 'text-dark-grey', 'key' => 'unmapped'],
                     ['label' => 'Ignored', 'value' => $counts['ignored'], 'color' => 'text-lightest', 'key' => 'ignored'],
+                    ['label' => 'Needs Attention', 'value' => $counts['attention'], 'color' => $counts['attention'] ? 'text-red' : 'text-dark-grey', 'key' => 'attention'],
                 ];
             @endphp
 
             @foreach ($tiles as $tile)
-                <div class="col-md-3 col-6 mb-2">
+                <div class="col mb-2" style="min-width:150px">
                     <a href="{{ route('biometric.employees', ['map_status' => $tile['key']]) }}" class="text-decoration-none">
                         <div class="card bg-white border-0 b-shadow-4 {{ $mapStatus === $tile['key'] ? 'border-primary' : '' }}">
                             <div class="card-body p-3">
@@ -276,7 +277,7 @@
                     <div class="col-md-2 mb-2">
                         <label class="f-12 text-dark-grey">@lang('app.status')</label>
                         <select name="map_status" class="form-control f-14">
-                            @foreach (['unmapped' => 'Needs Linking', 'mapped' => 'Linked', 'ignored' => 'Ignored', 'all' => 'All'] as $key => $label)
+                            @foreach (['unmapped' => 'Needs Linking', 'attention' => 'Needs Attention (ID conflicts)', 'mapped' => 'Linked', 'ignored' => 'Ignored', 'all' => 'All'] as $key => $label)
                                 <option value="{{ $key }}" @selected($mapStatus === $key)>{{ $label }}</option>
                             @endforeach
                         </select>
@@ -284,9 +285,15 @@
                     <div class="col-md-7 mb-2">
                         <button type="submit" class="btn btn-primary f-14 mr-2">@lang('app.apply')</button>
                         <a href="{{ route('biometric.employees') }}" class="btn btn-secondary f-14 mr-2">@lang('app.reset')</a>
-                        <button type="button" class="btn btn-outline-primary f-14" id="sync-employees">
-                            <i class="fa fa-refresh mr-1"></i> Sync from Devices
+                        <button type="button" class="btn btn-primary f-14" id="sync-employees"
+                                title="Link every device code to the employee with the same Employee ID, where the names agree">
+                            <i class="fa fa-refresh mr-1"></i> Sync all employees
                         </button>
+                        <button type="button" class="btn btn-secondary f-14 ml-2" id="upload-machine-list"
+                                title="The biometric software's Employee report: every enrolled person, whether they have punched or not">
+                            <i class="fa fa-upload mr-1"></i> Upload device employee list
+                        </button>
+                        <input type="file" id="machine-list-file" accept=".xlsx,.xls,.csv" class="d-none">
                     </div>
                 </div>
             </form>
@@ -335,6 +342,9 @@
                                 <td class="f-13 f-w-500">{{ $record->emp_code }}</td>
                                 <td class="f-13">
                                     {{ $record->employee_name ?: '--' }}
+                                    @if (isset($conflicts[$record->emp_code]) && !$record->user_id)
+                                        <div class="f-11 text-red mt-1"><i class="fa fa-exclamation-triangle"></i> {{ $conflicts[$record->emp_code] }}</div>
+                                    @endif
                                     @if ($record->location_name)
                                         <div class="f-11 text-lightest">{{ $record->location_name }}</div>
                                     @endif
@@ -412,7 +422,8 @@
                                     @if ($counts['total'] === 0)
                                         <p class="mb-1 f-15 text-dark-grey">@lang('messages.noRecordFound')</p>
                                         <p class="mb-0 f-13 text-lightest">
-                                            Use <strong>Sync from Devices</strong> to build the biometric employee list.
+                                            No device codes yet: click <strong>Upload device employee list</strong> (the biometric Employee report),
+                                            or pull punches under Setup &rarr; Sync Calendar, then <strong>Sync all employees</strong>.
                                         </p>
                                     @elseif ($search !== '')
                                         <p class="mb-1 f-15 text-dark-grey">No code matches “{{ $search }}”.</p>
@@ -857,10 +868,61 @@
             url: "{{ route('biometric.employees.sync') }}",
             type: 'POST',
             data: { _token: csrf },
-            success: function () { window.location.reload(); },
+            blockUI: true,
+            success: function (response) {
+                // A refusal (for example nothing on the device side yet): show it and give the button back.
+                if (response.status !== 'success') {
+                    button.prop('disabled', false).html('<i class="fa fa-refresh mr-1"></i> Sync all employees');
+                    Swal.fire({ icon: 'info', title: 'Nothing to sync yet', text: response.message });
+                    return;
+                }
+
+                var next = response.data ? response.data.next : response.next;
+
+                // Conflicts: say so, then go straight to them.
+                Swal.fire({
+                    icon: next ? 'warning' : 'success',
+                    title: next ? 'Some employees need you' : 'All employees synced',
+                    text: response.message,
+                    confirmButtonText: next ? 'Show the conflicts' : 'OK'
+                }).then(function () {
+                    window.location.href = next || window.location.href;
+                });
+            },
             error: function () {
-                button.prop('disabled', false).html('<i class="fa fa-refresh mr-1"></i> Sync from Devices');
+                button.prop('disabled', false).html('<i class="fa fa-refresh mr-1"></i> Sync all employees');
             }
+        });
+    });
+
+    // The machine's own employee list: every enrolled person is compared, not only those who punched.
+    $('#upload-machine-list').on('click', function () { $('#machine-list-file').val('').trigger('click'); });
+    $('#machine-list-file').on('change', function () {
+        if (!this.files.length) { return; }
+        var data = new FormData();
+        data.append('file', this.files[0]);
+        data.append('_token', csrf);
+        var button = $('#upload-machine-list');
+        button.prop('disabled', true).html('<i class="fa fa-spinner fa-spin mr-1"></i> Loading…');
+
+        $.ajax({
+            url: "{{ route('biometric.employees.machine-list') }}", type: 'POST', data: data, processData: false, contentType: false,
+            success: function (response) {
+                var conflicts = (response.data ? response.data.conflicts : response.conflicts) || [];
+                Swal.fire({
+                    icon: response.status === 'success' ? (conflicts.length ? 'warning' : 'success') : 'error',
+                    title: response.status === 'success' ? 'Device employee list loaded' : 'Not loaded',
+                    html: $('<div>').text(response.message).html()
+                        + (conflicts.length ? '<div class="text-left f-12 mt-3"><strong>Set aside: the machine has another person under these codes</strong><br>'
+                            + conflicts.map(function (c) { return $('<div>').text(c).html(); }).join('<br>') + '</div>' : ''),
+                    width: 640
+                }).then(function () { if (response.status === 'success') { window.location.reload(); } });
+            },
+            error: function (xhr) {
+                var r = xhr.responseJSON || {};
+                Swal.fire({ icon: 'error', text: r.message || 'The file could not be loaded.' });
+            },
+            complete: function () { button.prop('disabled', false).html('<i class="fa fa-upload mr-1"></i> Upload device employee list'); }
         });
     });
 

@@ -89,7 +89,9 @@ class EmployeeResolver
                 fn ($code) => !isset($this->map[(string) $code])
             ));
 
-            if ($unbridged === []) {
+            // "Nothing" (the default): device codes are not the employee
+            // numbers here, so a code only belongs to whoever it is linked to.
+            if ($unbridged === [] || $column === 'none') {
                 continue;
             }
 
@@ -103,7 +105,13 @@ class EmployeeResolver
             }
         }
 
-        $this->unmatched = array_values(array_diff($codes, array_keys($this->map)));
+        // Codes marked Ignored on Employee Mapping (visitors, contractors, people
+        // not employed here) are expected to match nobody. Counting them made
+        // every pull "partial", which hid a real matching failure among them.
+        $ignored = DB::table('iapp_employees')->where('map_status', 'ignored')
+            ->whereIn('emp_code', $codes)->pluck('emp_code')->map(fn ($c) => (string) $c)->all();
+
+        $this->unmatched = array_values(array_diff($codes, array_keys($this->map), $ignored));
         $this->loaded = true;
 
         return $this;

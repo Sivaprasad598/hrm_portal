@@ -101,6 +101,10 @@ class EmployeeComparison
         }
 
         $deviceOnly = [];
+        // Who a device-only code probably is: the code is not an Employee ID,
+        // but the name may well be an employee already on record (old card
+        // numbers were enrolled for people who have an HR number now).
+        $matcher = (new \App\Services\Iapp\Sync\EmployeeMatcher($this->config))->loadEmployees($companyId);
 
         foreach ($devices as $device) {
             if ($device->user_id !== null) {
@@ -109,6 +113,10 @@ class EmployeeComparison
 
             $code = (string) $device->emp_code;
             $name = trim((string) $device->employee_name);
+            $candidates = $device->map_status === IappEmployee::STATUS_IGNORED ? [] : $matcher->candidatesFor($device, 2);
+            $best = $candidates[0] ?? null;
+            $clear = $best && (!isset($candidates[1]) || $best['score'] - $candidates[1]['score'] >= \App\Services\Iapp\Sync\EmployeeMatcher::AMBIGUITY_MARGIN);
+            $probably = $best && $best['score'] >= \App\Services\Iapp\Sync\EmployeeMatcher::OFFER_THRESHOLD && $clear ? $best : null;
 
             $deviceOnly[] = [
                 'device_id' => (int) $device->id,
@@ -122,7 +130,10 @@ class EmployeeComparison
                 // A shared door account or a test enrolment should be ignored,
                 // not turned into an employee.
                 'looks_shared' => $name === '' || $name === $code || preg_match(self::SHARED_PATTERNS, $name) === 1,
-                'creatable' => $name !== '' && $device->map_status !== IappEmployee::STATUS_IGNORED,
+                // Not when the name is an employee already: that would be a duplicate.
+                'creatable' => $name !== '' && $device->map_status !== IappEmployee::STATUS_IGNORED && !$probably,
+                'probably' => $probably,
+                'possible' => !$probably && $best ? array_slice($candidates, 0, 2) : [],
             ];
         }
 

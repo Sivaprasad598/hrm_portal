@@ -59,6 +59,7 @@ class DesignationController extends AccountBaseController
         $group = new Designation();
         $group->name = $request->name;
         $group->parent_id = $request->parent_id ? $request->parent_id : null;
+        $group->role_id = $request->role_id ?: \App\Services\Employee\EmployeeDefaults::guessRoleId((string) $request->name);
         $group->save();
 
         $redirectUrl = urldecode($request->redirect_url);
@@ -139,7 +140,16 @@ class DesignationController extends AccountBaseController
 
         $group->name = strip_tags($request->designation_name);
         $group->parent_id = $request->parent_id ? $request->parent_id : null;
+        $roleChanged = (int) $group->role_id !== (int) $request->role_id;
+        $group->role_id = $request->role_id ?: null;
         $group->save();
+
+        // A new role for the designation is the role of everybody who holds it.
+        if ($roleChanged) {
+            foreach (EmployeeDetails::where('designation_id', $group->id)->pluck('user_id') as $userId) {
+                \App\Services\Employee\EmployeeDefaults::applyRole((int) $userId, $group->id);
+            }
+        }
 
         $redirectUrl = route('designations.index');
         return Reply::successWithData(__('messages.updateSuccess'), ['redirectUrl' => $redirectUrl]);

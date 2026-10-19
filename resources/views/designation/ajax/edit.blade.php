@@ -26,6 +26,19 @@
                                 </select>
                             </x-forms.input-group>
                         </div>
+                    <div class="col-md-6">
+                        <x-forms.label class="mt-3" fieldId="role_label" fieldLabel="Access role" fieldName="role_label"
+                                       popover="Given to every employee with this designation, on top of the base Employee role. Empty = Employee only.">
+                        </x-forms.label>
+                        <x-forms.input-group>
+                            <select class="form-control select-picker" name="role_id" id="role_id">
+                                <option value="">Employee only</option>
+                                @foreach (\App\Models\Role::whereNotIn('name', ['admin', 'employee', 'client'])->orderBy('display_name')->get() as $accessRole)
+                                    <option value="{{ $accessRole->id }}" @selected((int) ($designation->role_id ?? 0) === $accessRole->id)>{{ $accessRole->display_name }}</option>
+                                @endforeach
+                            </select>
+                        </x-forms.input-group>
+                    </div>
                     </div>
 
                 <x-form-actions>

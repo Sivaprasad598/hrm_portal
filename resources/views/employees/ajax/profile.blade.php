@@ -68,6 +68,10 @@ $viewAppreciationPermission = user()->permission('view_appreciation');
                                                 aria-labelledby="dropdownMenuLink" tabindex="0">
                                                 <a class="dropdown-item openRightModal"
                                                     href="{{ route('employees.edit', $employee->id) }}">@lang('app.edit')</a>
+                                                @if ($employee->employeeDetail?->last_date && $employee->employeeDetail->last_date->lt(now()->startOfDay())
+                                                    && user()->permission('edit_employees') === 'all')
+                                                    <a class="dropdown-item" href="{{ route('employees.rejoin.create', $employee->id) }}">Rejoin</a>
+                                                @endif
                                                     @if (module_enabled('Onboarding'))
                                                          @include('onboarding::start-onboarding')
                                                     @endif
@@ -136,6 +140,29 @@ $viewAppreciationPermission = user()->permission('view_appreciation');
                             </x-cards.data>
                         @endif
 
+
+                        {{-- Joined, left, rejoined: every employment --}}
+                        @php
+                            $employmentPeriods = app(\App\Services\Employment\EmploymentPeriods::class)->all($employee->id);
+                            $hasLeft = $employee->employeeDetail?->last_date && $employee->employeeDetail->last_date->lt(now()->startOfDay());
+                        @endphp
+                        @if ($employmentPeriods->count() > 1 || $hasLeft)
+                            <x-cards.data title="Employment History" class="mt-4">
+                                @if ($hasLeft && user()->permission('edit_employees') === 'all')
+                                    <x-slot name="action">
+                                        <a href="{{ route('employees.rejoin.create', $employee->id) }}" class="btn btn-sm btn-primary">
+                                            <i class="fa fa-user-plus mr-1"></i> Rejoin
+                                        </a>
+                                    </x-slot>
+                                @endif
+                                <style>
+                                    .timeline-period { border-left: 3px solid #c7d2fe; padding: 4px 0 12px 14px; position: relative; }
+                                    .timeline-period.current { border-left-color: #4f46e5; }
+                                    .timeline-period::before { content: ''; position: absolute; left: -7px; top: 6px; width: 11px; height: 11px; border-radius: 50%; background: #4f46e5; }
+                                </style>
+                                @include('employees.partials.employment-history', ['periods' => $employmentPeriods, 'employeeId' => $employee->id])
+                            </x-cards.data>
+                        @endif
 
                         <x-cards.data :title="__('modules.client.profileInfo')" class=" mt-4">
                             <x-slot name="action">

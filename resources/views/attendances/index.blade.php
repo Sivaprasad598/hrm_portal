@@ -29,7 +29,7 @@
                         <option value="all">@lang('app.all')</option>
                     @endif
                     @forelse ($employees as $item)
-                        <x-user-option :user="$item" :selected="request('employee_id') == $item->id"></x-user-option>
+                        <x-user-option :user="$item" :selected="request('employee_id') == $item->id || $selectedEmployee == $item->id"></x-user-option>
                     @empty
                         <x-user-option :user="user()"></x-user-option>
                     @endforelse
@@ -72,7 +72,7 @@
             <div class="select-status">
                 <select class="form-control select-picker" name="month" id="month" data-live-search="true"
                         data-size="8">
-                    <x-forms.months :selectedMonth="$month" fieldRequired="true"/>
+                    <x-forms.months :selectedMonth="$selectedMonth" fieldRequired="true"/>
                 </select>
             </div>
         </div>
@@ -82,8 +82,19 @@
             <div class="select-status">
                 <select class="form-control select-picker" name="year" id="year" data-live-search="true" data-size="8">
                     @for ($i = $year; $i >= $year - 4; $i--)
-                        <option @if ($i == $year) selected @endif value="{{ $i }}">{{ $i }}</option>
+                        <option @if ($i == $selectedYear) selected @endif value="{{ $i }}">{{ $i }}</option>
                     @endfor
+                </select>
+            </div>
+        </div>
+
+        <!-- PERIOD: the calendar month, or the salary month payroll pays (the pay cycle) -->
+        <div class="select-box d-flex py-2 px-lg-2 px-md-2 px-0 border-right-grey border-right-grey-sm-0">
+            <p class="mb-0 pr-2 f-14 text-dark-grey d-flex align-items-center">Period</p>
+            <div class="select-status">
+                <select class="form-control select-picker" name="period" id="period" data-size="8">
+                    <option value="month" @selected($period === 'month')>Calendar month</option>
+                    <option value="cycle" @selected($period === 'cycle')>Salary month (pay cycle)</option>
                 </select>
             </div>
         </div>
@@ -232,7 +243,7 @@
 
     <script>
 
-        $('#user_id, #department, #designation, #month, #year').on('change', function () {
+        $('#user_id, #department, #designation, #month, #year, #period').on('change', function () {
             if ($('#user_id').val() != "all") {
                 $('#reset-filters').removeClass('d-none');
                 showTable();
@@ -261,7 +272,15 @@
             showTable();
         });
 
-        function showTable(loading = true) {
+        var attendancePage = 1;
+
+        $('#attendance-data').on('click', '.attendance-page:not(.disabled)', function () {
+            attendancePage = parseInt($(this).data('page'), 10) || 1;
+            showTable(true, attendancePage);
+        });
+
+        function showTable(loading = true, page = 1) {
+            attendancePage = page;
 
             var year = $('#year').val();
             var month = $('#month').val();
@@ -282,7 +301,9 @@
                     month: month,
                     department: department,
                     designation: designation,
-                    userId: userId
+                    userId: userId,
+                    period: $('#period').val(),
+                    page: attendancePage
                 },
                 url: url,
                 cache: false,

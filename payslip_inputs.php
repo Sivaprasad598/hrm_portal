@@ -30,19 +30,36 @@ function fmt($value)
 $dbConfig = @include __DIR__ . '/config/database.php';
 $dbConn = $dbConfig['connections']['mysql'] ?? null;
 
+// Every calendar day of the salary period is paid (week offs and holidays
+// included), so the example attendance is the whole current salary period:
+// 30 or 31 days, as on the calculation sheet, never a count of shift days.
+$salaryPeriodDays = 30;
+try {
+    if (class_exists(\App\Services\Payroll\PayPeriod::class)) {
+        $salaryPeriodDays = \App\Services\Payroll\PayPeriod::containing(\Carbon\Carbon::now())->days();
+    }
+} catch (Throwable $periodError) {
+    // Fall back to 30.
+}
+
 $DEFAULTS = [
     'gross'        => 37500,
-    'basicPct'     => 30,
-    'hraPct'       => 50,
+    'basicPct'     => 40,
+    'hraPct'       => 40,
+    'caBasis'      => 'basic',
     'caThreshold'  => 20000,
     'caHigh'       => 1600,
     'caLow'        => 800,
+    'ltaPct'       => 10,
+    'ceaThreshold' => 15000,
+    'ceaLow'       => 1200,
+    'ceaHigh'      => 2400,
     'pt'           => 200,
-    'esiThreshold' => 20000,
-    'esiPct'       => 0.4,
+    'esiThreshold' => 21000,
+    'esiPct'       => 0.75,
     'pfPct'        => 12,
-    'workingDays'  => 22,
-    'daysPresent'  => 22,
+    'workingDays'  => $salaryPeriodDays,
+    'daysPresent'  => $salaryPeriodDays,
 ];
 
 $latestRecordId = null;
@@ -63,32 +80,40 @@ if ($dbConn) {
 }
 
 // ---------------------------------------------------------------------------
-// Fetch the record being edited (?id=), if any — pre-fill + gross/attendance
-// carried forward from it. No ?id= means Add New: blank/default, and Save
-// inserts a new row.
+// The record being edited (?id=). Without one, Add New starts from the
+// settings in force (the newest row), because the newest row is what payroll
+// uses: a new row holding only this form's fields would leave the PF ceiling,
+// the employer rates, the PT bands and the pay cycle empty.
 // ---------------------------------------------------------------------------
 $latestRecord = null;
 $editId = isset($_GET['id']) ? (int) $_GET['id'] : null;
+$inForce = null;
 
-if ($pdo && $editId) {
-    $stmt = $pdo->prepare("SELECT * FROM payroll_calculations WHERE id = :id LIMIT 1");
-    $stmt->execute([':id' => $editId]);
-    $latestRecord = $stmt->fetch() ?: null;
-    $latestRecordId = $latestRecord['id'] ?? null;
+if ($pdo) {
+    $inForce = $pdo->query("SELECT * FROM payroll_calculations ORDER BY id DESC LIMIT 1")->fetch() ?: null;
+
+    if ($editId) {
+        $stmt = $pdo->prepare("SELECT * FROM payroll_calculations WHERE id = :id LIMIT 1");
+        $stmt->execute([':id' => $editId]);
+        $latestRecord = $stmt->fetch() ?: null;
+        $latestRecordId = $latestRecord['id'] ?? null;
+    }
 }
 
+$base = $latestRecord ?? $inForce ?? [];
+
 $carry = [
-    'gross'       => (float) ($latestRecord['gross'] ?? $DEFAULTS['gross']),
-    'workingDays' => (float) ($latestRecord['working_days'] ?? $DEFAULTS['workingDays']),
-    'daysPresent' => (float) ($latestRecord['days_present'] ?? $DEFAULTS['daysPresent']),
+    'gross'       => (float) ($base['gross'] ?? $DEFAULTS['gross']),
+    'workingDays' => (float) $DEFAULTS['workingDays'],
+    'daysPresent' => (float) $DEFAULTS['daysPresent'],
     // Basic % has no field on this lean form — carry forward whatever was
     // last saved (via this form or the full calculator) instead of exposing
     // it here.
-    'basicPct'    => (float) ($latestRecord['basic_pct'] ?? $DEFAULTS['basicPct']),
+    'basicPct'    => (float) ($base['basic_pct'] ?? $DEFAULTS['basicPct']),
 ];
 
 // ---------------------------------------------------------------------------
-// Input (POSTed values win on save; otherwise pre-fill from latest record)
+// Input (POSTed values win on save; otherwise pre-fill from the record)
 // ---------------------------------------------------------------------------
 $isPost = $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_payroll']);
 
@@ -97,32 +122,53 @@ function field($post, $key, $default)
     return isset($post[$key]) && $post[$key] !== '' ? (float) $post[$key] : (float) $default;
 }
 
+$pick = fn ($post, $col, $default) => $isPost ? field($_POST, $post, $base[$col] ?? $default) : (float) ($base[$col] ?? $default);
+
 $in = [
-    'hraPct'       => $isPost ? field($_POST, 'hraPct', $DEFAULTS['hraPct']) : (float) ($latestRecord['hra_pct'] ?? $DEFAULTS['hraPct']),
-    'caThreshold'  => $isPost ? field($_POST, 'caThreshold', $DEFAULTS['caThreshold']) : (float) ($latestRecord['ca_threshold'] ?? $DEFAULTS['caThreshold']),
-    'caHigh'       => $isPost ? field($_POST, 'caHigh', $DEFAULTS['caHigh']) : (float) ($latestRecord['ca_high'] ?? $DEFAULTS['caHigh']),
-    'caLow'        => $isPost ? field($_POST, 'caLow', $DEFAULTS['caLow']) : (float) ($latestRecord['ca_low'] ?? $DEFAULTS['caLow']),
-    'pt'           => $isPost ? field($_POST, 'pt', $DEFAULTS['pt']) : (float) ($latestRecord['pt'] ?? $DEFAULTS['pt']),
-    'esiThreshold' => $isPost ? field($_POST, 'esiThreshold', $DEFAULTS['esiThreshold']) : (float) ($latestRecord['esi_threshold'] ?? $DEFAULTS['esiThreshold']),
-    'esiPct'       => $isPost ? field($_POST, 'esiPct', $DEFAULTS['esiPct']) : (float) ($latestRecord['esi_pct'] ?? $DEFAULTS['esiPct']),
-    'pfPct'        => $isPost ? field($_POST, 'pfPct', $DEFAULTS['pfPct']) : (float) ($latestRecord['pf_pct'] ?? $DEFAULTS['pfPct']),
+    'hraPct'       => $pick('hraPct', 'hra_pct', $DEFAULTS['hraPct']),
+    'caBasis'      => $isPost ? (($_POST['caBasis'] ?? 'basic') === 'gross' ? 'gross' : 'basic') : (($base['ca_basis'] ?? 'basic') === 'gross' ? 'gross' : 'basic'),
+    'caThreshold'  => $pick('caThreshold', 'ca_threshold', $DEFAULTS['caThreshold']),
+    'caHigh'       => $pick('caHigh', 'ca_high', $DEFAULTS['caHigh']),
+    'caLow'        => $pick('caLow', 'ca_low', $DEFAULTS['caLow']),
+    'ltaPct'       => $pick('ltaPct', 'lta_pct', $DEFAULTS['ltaPct']),
+    'ceaThreshold' => $pick('ceaThreshold', 'cea_threshold', $DEFAULTS['ceaThreshold']),
+    'ceaLow'       => $pick('ceaLow', 'cea_low', $DEFAULTS['ceaLow']),
+    'ceaHigh'      => $pick('ceaHigh', 'cea_high', $DEFAULTS['ceaHigh']),
+    'pt'           => $pick('pt', 'pt', $DEFAULTS['pt']),
+    'esiThreshold' => $pick('esiThreshold', 'esi_threshold', $DEFAULTS['esiThreshold']),
+    'esiPct'       => $pick('esiPct', 'esi_pct', $DEFAULTS['esiPct']),
+    'pfPct'        => $pick('pfPct', 'pf_pct', $DEFAULTS['pfPct']),
 ];
 
 $gross = $carry['gross'];
 
 // ---------------------------------------------------------------------------
-// Calculation (mirrors payslip_inputs.html's JS formulas)
+// Calculation: the payroll formula itself (SalaryCalculator), so this preview,
+// the calculator page, the payroll run and the payslips agree.
 // ---------------------------------------------------------------------------
-$basic = $gross * ($carry['basicPct'] / 100);
-$hra = $basic * ($in['hraPct'] / 100);
-$ca = $gross >= $in['caThreshold'] ? $in['caHigh'] : $in['caLow'];
-$others = $gross - $basic - $hra - $ca;
-$esi = $gross < $in['esiThreshold'] ? $gross * ($in['esiPct'] / 100) : 0.0;
-$pf = $basic * ($in['pfPct'] / 100);
-$totalDeductions = $in['pt'] + $esi + $pf;
-$netSalary = $gross - $totalDeductions;
-$perDay = $carry['workingDays'] > 0 ? $netSalary / $carry['workingDays'] : 0.0;
-$attendanceNet = $perDay * $carry['daysPresent'];
+$settings = array_merge($base, [
+    'basic_pct' => $carry['basicPct'], 'hra_pct' => $in['hraPct'],
+    'ca_basis' => $in['caBasis'], 'ca_threshold' => $in['caThreshold'], 'ca_high' => $in['caHigh'], 'ca_low' => $in['caLow'],
+    'lta_pct' => $in['ltaPct'], 'cea_threshold' => $in['ceaThreshold'], 'cea_low' => $in['ceaLow'], 'cea_high' => $in['ceaHigh'],
+    'pt' => $in['pt'], 'esi_threshold' => $in['esiThreshold'], 'esi_pct' => $in['esiPct'], 'pf_pct' => $in['pfPct'],
+]);
+$settings += ['esi_employer_pct' => 3.25, 'pf_employer_pct' => $in['pfPct'], 'pf_wage_ceiling' => 25000, 'prorate_statutory' => 1, 'round_net' => 1, 'pt_slabs' => null];
+$pay = (new \App\Services\Payroll\SalaryCalculator((object) $settings))
+    ->forEmployee($gross * 12, $carry['basicPct'], (int) round($carry['workingDays']), $carry['daysPresent'], 0.0);
+
+$basic = $pay['basic'];
+$hra = $pay['hra'];
+$ca = $pay['ca'];
+$lta = $pay['lta'];
+$cea = $pay['cea'];
+$others = $pay['other'];          // the Special Allowance
+$esi = $pay['esi'];
+$pf = $pay['pf'];
+$caOn = $in['caBasis'] === 'gross' ? $gross : $basic;
+$totalDeductions = $pay['pf'] + $pay['esi'] + $pay['pt'];
+$netSalary = $pay['net'];
+$perDay = $pay['per_day'];
+$attendanceNet = $pay['final_net'];
 
 // ---------------------------------------------------------------------------
 // Save (insert first time, update the same row after that)
@@ -135,9 +181,14 @@ if ($isPost && $pdo && $error === null) {
             ':gross'           => $gross,
             ':basicPct'        => $carry['basicPct'],
             ':hraPct'          => $in['hraPct'],
+            ':caBasis'         => $in['caBasis'],
             ':caThreshold'     => $in['caThreshold'],
             ':caHigh'          => $in['caHigh'],
             ':caLow'           => $in['caLow'],
+            ':ltaPct'          => $in['ltaPct'],
+            ':ceaThreshold'    => $in['ceaThreshold'],
+            ':ceaLow'          => $in['ceaLow'],
+            ':ceaHigh'         => $in['ceaHigh'],
             ':pt'              => $in['pt'],
             ':esiThreshold'    => $in['esiThreshold'],
             ':esiPct'          => $in['esiPct'],
@@ -147,6 +198,8 @@ if ($isPost && $pdo && $error === null) {
             ':basic'           => $basic,
             ':hra'             => $hra,
             ':ca'              => $ca,
+            ':lta'             => $lta,
+            ':cea'             => $cea,
             ':others'          => $others,
             ':esi'             => $esi,
             ':pf'              => $pf,
@@ -160,10 +213,11 @@ if ($isPost && $pdo && $error === null) {
             $stmt = $pdo->prepare("
                 UPDATE payroll_calculations SET
                     gross = :gross, basic_pct = :basicPct, hra_pct = :hraPct,
-                    ca_threshold = :caThreshold, ca_high = :caHigh, ca_low = :caLow,
+                    ca_basis = :caBasis, ca_threshold = :caThreshold, ca_high = :caHigh, ca_low = :caLow,
+                    lta_pct = :ltaPct, cea_threshold = :ceaThreshold, cea_low = :ceaLow, cea_high = :ceaHigh,
                     pt = :pt, esi_threshold = :esiThreshold, esi_pct = :esiPct, pf_pct = :pfPct,
                     working_days = :workingDays, days_present = :daysPresent,
-                    basic = :basic, hra = :hra, ca = :ca, others = :others, esi = :esi, pf = :pf,
+                    basic = :basic, hra = :hra, ca = :ca, lta = :lta, cea = :cea, others = :others, esi = :esi, pf = :pf,
                     total_deductions = :totalDeductions, net_salary = :netSalary,
                     per_day = :perDay, attendance_net = :attendanceNet
                 WHERE id = :id
@@ -172,17 +226,31 @@ if ($isPost && $pdo && $error === null) {
             $stmt->execute($params);
             $latestRecordId = $editingId;
         } else {
+            // A new row carries over everything this form does not show.
+            $params += [
+                ':pfEmployerPct' => $inForce['pf_employer_pct'] ?? $in['pfPct'],
+                ':pfWageCeiling' => $inForce['pf_wage_ceiling'] ?? 25000,
+                ':esiEmployerPct' => $inForce['esi_employer_pct'] ?? 3.25,
+                ':ptSlabs' => $inForce['pt_slabs'] ?? null,
+                ':periodStartDay' => $inForce['period_start_day'] ?? 1,
+                ':prorate' => $inForce['prorate_statutory'] ?? 1,
+                ':roundNet' => $inForce['round_net'] ?? 1,
+            ];
             $stmt = $pdo->prepare("
                 INSERT INTO payroll_calculations (
-                    gross, basic_pct, hra_pct, ca_threshold, ca_high, ca_low,
+                    gross, basic_pct, hra_pct, ca_basis, ca_threshold, ca_high, ca_low,
+                    lta_pct, cea_threshold, cea_low, cea_high,
                     pt, esi_threshold, esi_pct, pf_pct, working_days, days_present,
-                    basic, hra, ca, others, esi, pf,
-                    total_deductions, net_salary, per_day, attendance_net
+                    basic, hra, ca, lta, cea, others, esi, pf,
+                    total_deductions, net_salary, per_day, attendance_net,
+                    pf_employer_pct, pf_wage_ceiling, esi_employer_pct, pt_slabs, period_start_day, prorate_statutory, round_net
                 ) VALUES (
-                    :gross, :basicPct, :hraPct, :caThreshold, :caHigh, :caLow,
+                    :gross, :basicPct, :hraPct, :caBasis, :caThreshold, :caHigh, :caLow,
+                    :ltaPct, :ceaThreshold, :ceaLow, :ceaHigh,
                     :pt, :esiThreshold, :esiPct, :pfPct, :workingDays, :daysPresent,
-                    :basic, :hra, :ca, :others, :esi, :pf,
-                    :totalDeductions, :netSalary, :perDay, :attendanceNet
+                    :basic, :hra, :ca, :lta, :cea, :others, :esi, :pf,
+                    :totalDeductions, :netSalary, :perDay, :attendanceNet,
+                    :pfEmployerPct, :pfWageCeiling, :esiEmployerPct, :ptSlabs, :periodStartDay, :prorate, :roundNet
                 )
             ");
             $stmt->execute($params);
@@ -412,24 +480,30 @@ button {
         <div class="section">
             <div class="section-title">CA (Conveyance Allowance)</div>
             <div class="field">
+                <label>CA judged on</label>
+                <select name="caBasis" id="caBasis" class="input">
+                    <option value="basic" <?= $in['caBasis'] === 'basic' ? 'selected' : '' ?>>Basic — IF(Basic &gt; threshold, high, low), as on the sheet</option>
+                    <option value="gross" <?= $in['caBasis'] === 'gross' ? 'selected' : '' ?>>Gross</option>
+                </select>
+            </div>
+            <div class="field">
                 <label>CA threshold salary (₹)</label>
                 <input type="number" name="caThreshold" id="caThreshold" class="input" value="<?= e($in['caThreshold']) ?>">
-                <div class="calculation">Gross at or above this → high slab &nbsp; below this → low slab</div>
+                <div class="calculation"><span class="ca-on"><?= $in['caBasis'] === 'gross' ? 'Gross' : 'Basic' ?></span> above this → high slab &nbsp; at or below this → low slab</div>
             </div>
             <div class="two-column">
                 <div class="field">
-                    <label>CA if Gross ≥ threshold (₹)</label>
+                    <label>CA if <span class="ca-on"><?= $in['caBasis'] === 'gross' ? 'Gross' : 'Basic' ?></span> &gt; threshold (₹)</label>
                     <input type="number" name="caHigh" id="caHigh" class="input" value="<?= e($in['caHigh']) ?>">
                 </div>
                 <div class="field">
-                    <label>CA if Gross &lt; threshold (₹)</label>
+                    <label>CA if <span class="ca-on"><?= $in['caBasis'] === 'gross' ? 'Gross' : 'Basic' ?></span> ≤ threshold (₹)</label>
                     <input type="number" name="caLow" id="caLow" class="input" value="<?= e($in['caLow']) ?>">
                 </div>
             </div>
             <div class="calculation-result">
-                <?= $gross >= $in['caThreshold'] ? '✓' : '✗' ?>
-                Gross ₹<span id="grossDisplay"><?= e(fmt($gross)) ?></span>
-                <?= $gross >= $in['caThreshold'] ? '≥' : '&lt;' ?>
+                <span class="ca-on"><?= $in['caBasis'] === 'gross' ? 'Gross' : 'Basic' ?></span> ₹<span id="grossDisplay"><?= e(fmt($caOn)) ?></span>
+                <?= $caOn > $in['caThreshold'] ? '&gt;' : '≤' ?>
                 ₹<span id="thresholdDisplay"><?= e(fmt($in['caThreshold'])) ?></span>
                 → CA ₹<strong id="caResult"><?= e(fmt($ca)) ?></strong>
             </div>
@@ -448,9 +522,29 @@ button {
         <div class="section">
             <div class="section-title">Others</div>
             <div class="field">
-                <label>Others <span class="formula">(auto-calculated)</span></label>
+                <label>LTA % <span class="formula">(Leave Travel Allowance, of Basic — rounded up)</span></label>
+                <input type="number" name="ltaPct" id="ltaPct" class="input" value="<?= e($in['ltaPct']) ?>" min="0" max="100" step="0.01">
+                <div class="calculation">→ LTA = ₹<span id="ltaAmount"><?= e(fmt($lta)) ?></span></div>
+            </div>
+            <div class="field">
+                <label>CEA threshold — Basic (₹) <span class="formula">(Children Education Allowance)</span></label>
+                <input type="number" name="ceaThreshold" id="ceaThreshold" class="input" value="<?= e($in['ceaThreshold']) ?>">
+            </div>
+            <div class="two-column">
+                <div class="field">
+                    <label>CEA if Basic &lt; threshold (₹)</label>
+                    <input type="number" name="ceaLow" id="ceaLow" class="input" value="<?= e($in['ceaLow']) ?>">
+                </div>
+                <div class="field">
+                    <label>CEA if Basic ≥ threshold (₹)</label>
+                    <input type="number" name="ceaHigh" id="ceaHigh" class="input" value="<?= e($in['ceaHigh']) ?>">
+                </div>
+            </div>
+            <div class="calculation-result">→ CEA ₹<strong id="ceaAmount"><?= e(fmt($cea)) ?></strong></div>
+            <div class="field">
+                <label>Special Allowance <span class="formula">(auto-calculated)</span></label>
                 <input type="text" id="others" class="input readonly" value="₹ <?= e(fmt($others)) ?>" readonly>
-                <div class="calculation">Gross − (Basic + HRA + CA)</div>
+                <div class="calculation">Gross − (Basic + HRA + CA + LTA + CEA)</div>
             </div>
         </div>
 
@@ -459,17 +553,17 @@ button {
             <div class="section-title">ESI (Employee State Insurance)</div>
             <div class="two-column">
                 <div class="field">
-                    <label>ESI Threshold (Gross below ₹)</label>
+                    <label>ESI Threshold (Gross up to ₹)</label>
                     <input type="number" name="esiThreshold" id="esiThreshold" class="input" value="<?= e($in['esiThreshold']) ?>">
                 </div>
                 <div class="field">
                     <label>ESI % <span class="formula">(of Gross)</span></label>
                     <input type="number" name="esiPct" id="esiPercent" class="input" value="<?= e($in['esiPct']) ?>" step="0.01">
-                    <div class="calculation">applies if Gross &lt; threshold</div>
+                    <div class="calculation">employee share; applies if Gross ≤ threshold</div>
                 </div>
             </div>
             <div class="calculation-result">
-                ESI = <strong id="esiAmount">₹<?= e(fmt($esi)) ?></strong>
+                ESI (employee + employer) = <strong id="esiAmount">₹<?= e(fmt($esi)) ?></strong>
             </div>
         </div>
 
@@ -479,7 +573,7 @@ button {
             <div class="field">
                 <label>PF % of Basic <span class="formula">— employee contribution</span></label>
                 <input type="number" name="pfPct" id="pfPercent" class="input" value="<?= e($in['pfPct']) ?>" min="0" max="100" step="0.01">
-                <div class="calculation">→ PF = ₹<span id="pfAmount"><?= e(fmt($pf)) ?></span></div>
+                <div class="calculation">→ PF (employee + employer, on Basic up to the ceiling) = ₹<span id="pfAmount"><?= e(fmt($pf)) ?></span></div>
             </div>
         </div>
 
@@ -505,6 +599,14 @@ const pt = document.getElementById("pt");
 const esiThreshold = document.getElementById("esiThreshold");
 const esiPercent = document.getElementById("esiPercent");
 const pfPercent = document.getElementById("pfPercent");
+const caBasis = document.getElementById("caBasis");
+const ltaPct = document.getElementById("ltaPct");
+const ceaThreshold = document.getElementById("ceaThreshold");
+const ceaLow = document.getElementById("ceaLow");
+const ceaHigh = document.getElementById("ceaHigh");
+const ESI_EMPLOYER = <?= json_encode((float) ($settings['esi_employer_pct'] ?? 3.25)) ?>;
+const PF_EMPLOYER = <?= json_encode((float) ($settings['pf_employer_pct'] ?? 12)) ?>;
+const PF_CEILING = <?= json_encode((float) ($settings['pf_wage_ceiling'] ?? 0)) ?>;
 
 const DEFAULTS = {
     hraPercent: <?= json_encode($DEFAULTS['hraPct']) ?>,
@@ -515,6 +617,11 @@ const DEFAULTS = {
     esiThreshold: <?= json_encode($DEFAULTS['esiThreshold']) ?>,
     esiPercent: <?= json_encode($DEFAULTS['esiPct']) ?>,
     pfPercent: <?= json_encode($DEFAULTS['pfPct']) ?>,
+    caBasis: <?= json_encode($DEFAULTS['caBasis']) ?>,
+    ltaPct: <?= json_encode($DEFAULTS['ltaPct']) ?>,
+    ceaThreshold: <?= json_encode($DEFAULTS['ceaThreshold']) ?>,
+    ceaLow: <?= json_encode($DEFAULTS['ceaLow']) ?>,
+    ceaHigh: <?= json_encode($DEFAULTS['ceaHigh']) ?>,
 };
 
 function formatNumber(value) {
@@ -526,27 +633,37 @@ function calculatePayroll() {
     document.getElementById("hraAmount").textContent = formatNumber(hra);
 
     const threshold = Number(caThreshold.value);
-    const isHigh = GROSS >= threshold;
-    const ca = isHigh ? Number(caHigh.value) : Number(caLow.value);
+    const onGross = caBasis.value === "gross";
+    const caOn = onGross ? GROSS : BASIC;
+    const ca = caOn > threshold ? Number(caHigh.value) : Number(caLow.value);
+    document.querySelectorAll(".ca-on").forEach(function (el) { el.textContent = onGross ? "Gross" : "Basic"; });
 
-    document.getElementById("grossDisplay").textContent = formatNumber(GROSS);
+    document.getElementById("grossDisplay").textContent = formatNumber(caOn);
     document.getElementById("thresholdDisplay").textContent = formatNumber(threshold);
     document.getElementById("caResult").textContent = formatNumber(ca);
 
-    const others = GROSS - BASIC - hra - ca;
+    const lta = Math.ceil(Math.round(BASIC * Number(ltaPct.value) / 100 * 1e6) / 1e6);
+    const cea = BASIC < Number(ceaThreshold.value) ? Number(ceaLow.value) : Number(ceaHigh.value);
+    document.getElementById("ltaAmount").textContent = formatNumber(lta);
+    document.getElementById("ceaAmount").textContent = formatNumber(cea);
+
+    const others = GROSS - BASIC - hra - ca - lta - cea;
     document.getElementById("others").value = "₹ " + formatNumber(others);
 
+    // Both shares, as on the sheet and in payroll
     const esiLimit = Number(esiThreshold.value);
-    const esi = GROSS < esiLimit ? GROSS * (Number(esiPercent.value) / 100) : 0;
-    document.getElementById("esiAmount").textContent = "₹" + formatNumber(esi);
+    const esi = GROSS <= esiLimit ? GROSS * ((Number(esiPercent.value) + ESI_EMPLOYER) / 100) : 0;
+    document.getElementById("esiAmount").textContent = "₹" + formatNumber(Math.round(esi));
 
-    const pf = BASIC * (Number(pfPercent.value) / 100);
-    document.getElementById("pfAmount").textContent = formatNumber(pf);
+    const pfOn = PF_CEILING > 0 ? Math.min(BASIC, PF_CEILING) : BASIC;
+    const pf = pfOn * ((Number(pfPercent.value) + PF_EMPLOYER) / 100);
+    document.getElementById("pfAmount").textContent = formatNumber(Math.round(pf));
 }
 
 document.querySelectorAll(".input:not(.readonly)").forEach(function (input) {
     input.addEventListener("input", calculatePayroll);
 });
+caBasis.addEventListener("change", calculatePayroll);
 
 document.getElementById("resetBtn").addEventListener("click", function () {
     hraPercent.value = DEFAULTS.hraPercent;
@@ -557,6 +674,11 @@ document.getElementById("resetBtn").addEventListener("click", function () {
     esiThreshold.value = DEFAULTS.esiThreshold;
     esiPercent.value = DEFAULTS.esiPercent;
     pfPercent.value = DEFAULTS.pfPercent;
+    caBasis.value = DEFAULTS.caBasis;
+    ltaPct.value = DEFAULTS.ltaPct;
+    ceaThreshold.value = DEFAULTS.ceaThreshold;
+    ceaLow.value = DEFAULTS.ceaLow;
+    ceaHigh.value = DEFAULTS.ceaHigh;
 
     calculatePayroll();
 

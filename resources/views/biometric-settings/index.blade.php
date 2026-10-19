@@ -132,15 +132,6 @@
                         </div>
 
                         <div class="col-lg-3 col-md-6">
-                            <label class="f-14 text-dark-grey mb-12 mt-3 d-block" for="daily_pull_time">Daily run at</label>
-                            <input type="time" id="daily_pull_time" name="daily_pull_time" class="form-control height-35 f-14"
-                                   value="{{ $setting->daily_pull_time ?? '11:00' }}" required>
-                            <p class="f-11 text-lightest mt-1">
-                                Pulls the previous day from the device, writes attendance and reviews it. Retried until 19:00 if the device cannot be reached.
-                            </p>
-                        </div>
-
-                        <div class="col-lg-3 col-md-6">
                             <x-forms.number fieldId="token_cache_minutes" :fieldLabel="__('Token cache (minutes)')"
                                             fieldName="token_cache_minutes" :fieldValue="$setting->token_cache_minutes ?? $effective['token_cache_minutes']"
                                             fieldRequired="true" />
@@ -148,6 +139,68 @@
                                 Max 19 — the server issues 20-minute tokens.
                             </p>
                         </div>
+                    </div>
+
+                    {{-- Which devices the nightly pull reads. --}}
+                    <hr>
+                    <h6 class="f-15 mb-1">Devices to pull</h6>
+                    <p class="f-12 text-lightest mb-2">
+                        Punches on a device that is not pulled never reach attendance, so somebody who uses only that
+                        device will look absent. To bring in a device's history later, tick it here, then pull its dates on
+                        Setup → Sync Calendar.
+                    </p>
+                    @php $scope = $setting->device_scope ?? 'all'; $picked = array_map('strval', (array) ($setting->pull_devices ?? [])); @endphp
+                    <div class="d-flex flex-wrap mb-2">
+                        <label class="f-14 mr-4"><input type="radio" name="device_scope" value="all" class="mr-1" @checked($scope === 'all')> All devices</label>
+                        <label class="f-14"><input type="radio" name="device_scope" value="selected" class="mr-1" @checked($scope === 'selected')> Selected devices</label>
+                    </div>
+                    <div id="pull-device-list" class="d-flex flex-wrap mb-2" @if ($scope !== 'selected') style="display:none !important" @endif>
+                        @forelse ($deviceOptions as $code => $label)
+                            <label class="f-13 mr-4 mb-1 d-inline-flex align-items-center">
+                                <input type="checkbox" name="pull_devices[]" value="{{ $code }}" class="mr-1" @checked(in_array((string) $code, $picked, true))>
+                                {{ $label }} <span class="text-lightest ml-1">{{ $code }}</span>
+                            </label>
+                        @empty
+                            <span class="f-12 text-lightest">No devices known yet: run Test Connection, then Setup → Devices.</span>
+                        @endforelse
+                    </div>
+
+                    <h6 class="f-15 mb-1 mt-3">Whose data comes in</h6>
+                    <div class="row">
+                        <div class="col-lg-6">
+                            <x-forms.checkbox fieldId="only_known_employees" fieldName="only_known_employees"
+                                              :fieldLabel="__('Only employees in this system')"
+                                              :checked="$setting->only_known_employees ?? true" fieldValue="1" />
+                            <p class="f-11 text-lightest">Punches and device-list entries are kept only for codes that belong to an employee here.
+                                Temporary staff, leavers and the machine's own entries are left out.</p>
+                        </div>
+                        <div class="col-lg-6">
+                            <x-forms.text fieldId="register_locations" fieldName="register_locations" :fieldLabel="__('Locations read from the machine\'s employee list')"
+                                          :fieldValue="implode(', ', (array) ($setting->register_locations ?? []))" fieldPlaceholder="e.g. Visakhapatnam" />
+                            <p class="f-11 text-lightest">As written in the biometric Employee report's Location column, comma separated. Empty = every location.</p>
+                        </div>
+                    </div>
+
+                    {{-- The night, step by step. --}}
+                    <h6 class="f-15 mb-1 mt-3">Nightly schedule</h6>
+                    <p class="f-12 text-lightest mb-2">
+                        Each step waits for the one before it; a pull that cannot reach the device is retried every 15 minutes.
+                        If the server was off at these times, the steps run as soon as it is back.
+                    </p>
+                    <div class="row">
+                        @foreach ([
+                            ['pull_time', 'Pull', 'The previous day from the selected devices.'],
+                            ['build_time', 'Build Device Attendance', 'Turns the punches into one day per person.'],
+                            ['reconcile_time', 'Write ERP & cross-check', 'Writes ERP attendance, reviews every employee, and lists whatever device and ERP disagree on under Exceptions.'],
+                            ['notify_time', 'Notify', 'HR summary and each employee\'s own exceptions, in working hours.'],
+                        ] as [$field, $label, $help])
+                            <div class="col-lg-3 col-md-6">
+                                <label class="f-14 text-dark-grey mb-12 mt-2 d-block" for="{{ $field }}">{{ $label }}</label>
+                                <input type="time" id="{{ $field }}" name="{{ $field }}" class="form-control height-35 f-14"
+                                       value="{{ $setting->{$field} ?: \App\Models\IappSetting::DEFAULT_TIMES[$field] }}" required>
+                                <p class="f-11 text-lightest mt-1">{{ $help }}</p>
+                            </div>
+                        @endforeach
                     </div>
 
                     <div class="row mt-2">
@@ -158,7 +211,7 @@
                         </div>
                         <div class="col-lg-3 col-md-6">
                             <x-forms.checkbox fieldId="sync_enabled" fieldName="sync_enabled"
-                                              :fieldLabel="__('Daily automatic run')"
+                                              :fieldLabel="__('Nightly automatic run')"
                                               :checked="$setting->sync_enabled ?? false" fieldValue="1" />
                         </div>
                         <div class="col-lg-3 col-md-6">
@@ -181,13 +234,13 @@
                             <x-forms.checkbox fieldId="auto_promote" fieldName="auto_promote"
                                               :fieldLabel="__('Write device days into ERP attendance automatically')"
                                               :checked="$setting->auto_promote ?? false" fieldValue="1" />
-                            <p class="f-11 text-lightest">After every pull. A day that already has attendance from elsewhere is left alone.</p>
+                            <p class="f-11 text-lightest">At the write &amp; cross-check time. A day that already has attendance from elsewhere is left alone, and so is a day already in an approved payslip.</p>
                         </div>
                         <div class="col-lg-4 col-md-6">
                             <x-forms.checkbox fieldId="auto_generate_payslips" fieldName="auto_generate_payslips"
                                               :fieldLabel="__('Generate draft payslips when a pay cycle ends')"
                                               :checked="$setting->auto_generate_payslips ?? false" fieldValue="1" />
-                            <p class="f-11 text-lightest">After the daily run, for the cycle just ended. Admins are notified to approve.</p>
+                            <p class="f-11 text-lightest">After the nightly run, for the cycle just ended. Admins are notified to approve.</p>
                         </div>
                         <div class="col-lg-4 col-md-6">
                             <x-forms.checkbox fieldId="notify_employees" fieldName="notify_employees"
@@ -226,6 +279,10 @@
 
 @push('scripts')
 <script>
+    $('input[name="device_scope"]').on('change', function () {
+        $('#pull-device-list').attr('style', this.value === 'selected' ? '' : 'display:none !important');
+    });
+
     $('#save-biometric-settings').on('click', function () {
         $.easyAjax({
             url: "{{ route('biometric-settings.update') }}",

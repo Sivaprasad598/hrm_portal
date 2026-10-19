@@ -165,6 +165,42 @@ $addDepartmentPermission = user()->permission('add_department');
     margin-top: 28px !important;
 }
 
+/* Onboarding additions: steps that still need something, fields the AI filled */
+.wizard-step-item { cursor: pointer !important; }
+.wizard-step-item.has-error .step-circle { border-color: #ef4444 !important; background: #fee2e2 !important; color: #dc2626 !important; }
+.wizard-step-item.has-error .step-label { color: #dc2626 !important; }
+.ai-filled, .ai-filled + .bootstrap-select .btn { background: #fffbeb !important; }
+.onboard-box { border: 1px dashed #c7d2fe; background: #f8faff; border-radius: 8px; }
+.checklist-item { border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; margin: 8px 0; }
+.checklist-item.is-ticked { border-color: #a7f3d0; background: #f0fdf4; }
+.checklist-item .doc-chip, .doc-chip { display: inline-flex; align-items: center; gap: 4px; background: #eef2ff; color: #3730a3;
+    border-radius: 12px; padding: 2px 8px; margin: 2px 4px 2px 0; font-size: 12px; }
+.doc-chip.is-removed { text-decoration: line-through; opacity: .5; }
+.salary-breakdown table td { padding: 3px 8px; }
+#ifsc-result.ok { color: #047857; }
+#ifsc-result.bad { color: #dc2626; }
+
+/* One rhythm for every field: each label 16px below the row above and 8px
+   above its box, whichever component drew it (text, select, datepicker, or a
+   bare label with my-3 / mt-3) - they used to differ by 4px, so boxes in one
+   row did not line up. */
+.wizard-pane .form-group.my-3,
+.wizard-pane .form-group.mb-0 { margin-top: 0 !important; margin-bottom: 0 !important; }
+.wizard-pane .row > [class*="col-"] > label.f-14,
+.wizard-pane .row > [class*="col-"] .form-group > label.f-14 {
+    display: block; margin-top: 16px !important; margin-bottom: 8px !important;
+    line-height: 20px; min-height: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.wizard-pane label.f-14 sup { top: -.1em; font-size: 13px !important; margin-left: 2px; color: #dc2626; }
+.wizard-pane .form-text, .wizard-pane .invalid-feedback { margin-top: 6px; }
+.wizard-pane .input-group > .form-control.height-35 { height: 39px !important; }
+/* A dropdown inside an input group (the +91 code beside Mobile) draws its own
+   empty label and form-group; inside the group they only push the box out of line */
+.wizard-pane .input-group > label { display: none !important; }
+.wizard-pane .input-group > .form-group { margin: 0 !important; }
+/* Text areas reach the same right edge as the fields above them */
+.wizard-pane .form-group.mr-lg-2, .wizard-pane .form-group.mr-md-2 { margin-right: 0 !important; }
+
 /* Review rows */
 .review-section-title {
     font-size: 11px !important;
@@ -229,8 +265,8 @@ $addDepartmentPermission = user()->permission('add_department');
                         [3, 'briefcase',      'Employment'],
                         [4, 'passport',       'Passport'],
                         [5, 'clipboard-list', 'Checklist'],
-                        [6, 'file-signature', 'Declaration'],
-                        [7, 'check-circle',   'Review'],
+                        [6, 'check-circle',   'Review'],
+                        [7, 'file-signature', 'Declaration'],
                     ] as [$n, $ico, $lbl])
                         <div class="wizard-step-item {{ $n === 1 ? 'active' : '' }}" data-step="{{ $n }}">
                             <div class="step-circle"><i class="fa fa-{{ $ico }}"></i></div>
@@ -257,372 +293,11 @@ $addDepartmentPermission = user()->permission('add_department');
                         </div>
                     </div>
 
-                    <div class="row">
-                        <div class="col-lg-9">
-                            <div class="row">
-                                <div class="col-md-5 col-sm-6">
-                                    <x-forms.text fieldId="employee_id" :fieldLabel="__('modules.employees.employeeId')"
-                                        fieldName="employee_id"
-                                        :fieldValue="((!$checkifExistEmployeeId) ? ($lastEmployeeID+1) : '')"
-                                        fieldRequired="true"
-                                        :fieldPlaceholder="__('modules.employees.employeeIdInfo')"
-                                        :popover="__('modules.employees.employeeIdHelp')">
-                                    </x-forms.text>
-                                </div>
-                                <div class="col-md-4 col-sm-6">
-                                    <x-forms.select fieldId="salutation" fieldName="salutation"
-                                        :fieldLabel="__('modules.client.salutation')">
-                                        <option value="">--</option>
-                                        @foreach ($salutations as $salutation)
-                                            <option value="{{ $salutation->value }}">{{ $salutation->label() }}</option>
-                                        @endforeach
-                                    </x-forms.select>
-                                </div>
-                                <div class="w-100"></div>
-                                <div class="col-md-4 col-sm-12">
-                                    <x-forms.text fieldId="first_name" fieldLabel="First Name"
-                                        fieldName="first_name" fieldRequired="true" fieldPlaceholder="First Name">
-                                    </x-forms.text>
-                                </div>
-                                <div class="col-md-4 col-sm-12">
-                                    <x-forms.text fieldId="middle_name" fieldLabel="Middle Name"
-                                        fieldName="middle_name" fieldPlaceholder="Middle Name (Optional)">
-                                    </x-forms.text>
-                                </div>
-                                <div class="col-md-4 col-sm-12">
-                                    <x-forms.text fieldId="last_name" fieldLabel="Last Name"
-                                        fieldName="last_name" fieldRequired="true" fieldPlaceholder="Last Name">
-                                    </x-forms.text>
-                                </div>
-                                <div class="col-lg-3 col-md-6">
-                                    <x-forms.text fieldId="email" :fieldLabel="__('modules.employees.employeeEmail')"
-                                        fieldName="email" fieldRequired="true" :fieldPlaceholder="__('placeholders.email')">
-                                    </x-forms.text>
-                                </div>
-                                <div class="col-lg-3 col-md-6">
-                                    <x-forms.text fieldId="personal_email" fieldLabel="Personal Email"
-                                        fieldName="personal_email" fieldType="email" fieldPlaceholder="Personal Email (Optional)">
-                                    </x-forms.text>
-                                </div>
-                                <div class="col-lg-3 col-md-6">
-                                    <x-forms.datepicker fieldId="date_of_birth"
-                                        :fieldLabel="__('modules.employees.dateOfBirth')"
-                                        fieldName="date_of_birth" :fieldPlaceholder="__('placeholders.date')" />
-                                </div>
-                                <div class="col-lg-4 col-md-6">
-                                    <x-forms.label class="mt-3" fieldId="password"
-                                        :fieldLabel="__('app.password')" fieldRequired="true">
-                                    </x-forms.label>
-                                    <x-forms.input-group>
-                                        <input type="password" name="password" id="password"
-                                            class="form-control height-35 f-14">
-                                        <x-slot name="preappend">
-                                            <button type="button" data-toggle="tooltip"
-                                                data-original-title="@lang('app.viewPassword')"
-                                                class="btn btn-outline-secondary border-grey height-35 toggle-password">
-                                                <i class="fa fa-eye"></i>
-                                            </button>
-                                        </x-slot>
-                                        <x-slot name="append">
-                                            <button id="random_password" type="button" data-toggle="tooltip"
-                                                data-original-title="@lang('modules.client.generateRandomPassword')"
-                                                class="btn btn-outline-secondary border-grey height-35">
-                                                <i class="fa fa-random"></i>
-                                            </button>
-                                        </x-slot>
-                                    </x-forms.input-group>
-                                    <small class="form-text text-muted">Auto-generated from first 4 letters of name + date of birth. You can change it.</small>
-                                </div>
-                                <div class="col-lg-4 col-md-6">
-                                    <x-forms.label class="my-3" fieldId="category_id"
-                                        :fieldLabel="__('app.designation')" fieldRequired="true">
-                                    </x-forms.label>
-                                    <x-forms.input-group>
-                                        <select class="form-control select-picker" name="designation"
-                                            id="employee_designation" data-live-search="true">
-                                            <option value="">--</option>
-                                            @foreach ($designations as $designation)
-                                                <option value="{{ $designation->id }}">{{ $designation->name }}</option>
-                                            @endforeach
-                                        </select>
-                                        @if ($addDesignationPermission == 'all')
-                                            <x-slot name="append">
-                                                <button id="designation-setting-add" type="button"
-                                                    class="btn btn-outline-secondary border-grey">@lang('app.add')</button>
-                                            </x-slot>
-                                        @endif
-                                    </x-forms.input-group>
-                                </div>
-                                <div class="col-lg-4 col-md-6">
-                                    <x-forms.label class="my-3" fieldId="category_id"
-                                        :fieldLabel="__('app.department')" fieldRequired="true">
-                                    </x-forms.label>
-                                    <x-forms.input-group>
-                                        <select class="form-control select-picker" name="department"
-                                            id="employee_department" data-live-search="true">
-                                            <option value="">--</option>
-                                            @foreach ($teams as $team)
-                                                <option value="{{ $team->id }}">{{ $team->team_name }}</option>
-                                            @endforeach
-                                        </select>
-                                        @if ($addDepartmentPermission == 'all')
-                                            <x-slot name="append">
-                                                <button id="department-add" type="button"
-                                                    class="btn btn-outline-secondary border-grey">@lang('app.add')</button>
-                                            </x-slot>
-                                        @endif
-                                    </x-forms.input-group>
-                                </div>
-                                <div class="col-lg-4 col-md-6">
-                                    <x-forms.label class="my-3" fieldId="branch" :fieldLabel="__('app.branch')">
-                                    </x-forms.label>
-                                    <x-forms.input-group>
-                                        <select class="form-control select-picker" name="branch"
-                                            id="employee_branch" data-live-search="true">
-                                            <option value="">--</option>
-                                            @foreach ($branches as $branch)
-                                                <option value="{{ $branch->id }}">{{ $branch->branch_name }}</option>
-                                            @endforeach
-                                        </select>
-                                        <x-slot name="append">
-                                            <button id="branch-add" type="button"
-                                                class="btn btn-outline-secondary border-grey">@lang('app.add')</button>
-                                        </x-slot>
-                                    </x-forms.input-group>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-lg-3">
-                            <x-forms.file allowedFileExtensions="png jpg jpeg svg bmp"
-                                class="mr-0 mr-lg-2 mr-md-2 cropper"
-                                :fieldLabel="__('modules.profile.profilePicture')" fieldName="image" fieldId="image"
-                                fieldHeight="119" :popover="__('messages.fileFormat.ImageFile')" />
-                        </div>
+                    @include('employees.ajax.partials.onboarding-resume', ['onboardingDocs' => null])
 
-                        <div class="form-group my-3 col-lg-3 col-md-6">
-                            <x-forms.label fieldId="employee_card_id"
-                                :fieldLabel="__('modules.employees.employeeCardId')"
-                                fieldRequired="true"></x-forms.label>
-                            <input type="text" class="form-control height-35 f-14" id="employee_card_id"
-                                name="employee_card_id"
-                                placeholder="{{ __('placeholders.employeeCardId') }}"
-                                inputmode="numeric" maxlength="10"
-                                oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 10)">
-                        </div>
-                        <div class="col-lg-3 col-md-6">
-                            <x-forms.label class="my-3" fieldId="employee_ctc"
-                                :fieldLabel="__('modules.employees.employeeCtc')"></x-forms.label>
-                            <x-forms.input-group>
-                                <x-slot name="prepend">
-                                    <span class="input-group-text f-14 bg-white-shade">{{ company()->currency->currency_symbol }}</span>
-                                </x-slot>
-                                <input type="number" step="0.01" min="0" class="form-control height-35 f-14"
-                                    name="employee_ctc" id="employee_ctc">
-                            </x-forms.input-group>
-                        </div>
-                        <div class="col-lg-3 col-md-6">
-                            <x-forms.label class="my-3" fieldId="basic_for_payroll"
-                                :fieldLabel="__('modules.employees.basicForPayroll')"></x-forms.label>
-                            <x-forms.input-group>
-                                <x-slot name="prepend">
-                                    <span class="input-group-text f-14 bg-white-shade">%</span>
-                                </x-slot>
-                                <input type="number" step="1" min="0" max="999" class="form-control height-35 f-14"
-                                    name="basic_for_payroll" id="basic_for_payroll"
-                                    placeholder="Enter the Basic percentage %"
-                                    oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 3)">
-                            </x-forms.input-group>
-                            <small class="form-text text-muted">Whole numbers only, up to 3 digits (max 999).</small>
-                        </div>
-                        <div class="col-lg-3 col-md-6">
-                            <x-forms.text fieldId="pan_number" :fieldLabel="__('PAN Card Number')"
-                                fieldName="pan_number" :fieldPlaceholder="__('ABCDE1234F')"
-                                fieldRequired="true" required maxlength="10"
-                                pattern="[A-Z]{5}[0-9]{4}[A-Z]" autocomplete="off"
-                                oninput="this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);">
-                            </x-forms.text>
-                        </div>
-                        <div class="col-lg-3 col-md-6">
-                            <x-forms.text fieldId="aadhar_card_number"
-                                :fieldLabel="__('modules.employees.aadharCardNumber')"
-                                fieldName="aadhar_card_number"
-                                :fieldPlaceholder="__('modules.employees.aadharCardNumber')" maxlength="12">
-                            </x-forms.text>
-                        </div>
-                        <div class="col-lg-3 col-md-6">
-                            <x-forms.text fieldId="father_or_husband_name"
-                                :fieldLabel="__('modules.employees.fatherOrHusbandName')"
-                                fieldName="father_or_husband_name"
-                                :fieldPlaceholder="__('modules.employees.fatherOrHusbandName')">
-                            </x-forms.text>
-                        </div>
-                        <div class="col-lg-3 col-md-6">
-                            <x-forms.text fieldId="qualification"
-                                :fieldLabel="__('modules.employees.qualification')"
-                                fieldName="qualification"
-                                :fieldPlaceholder="__('modules.employees.qualification')">
-                            </x-forms.text>
-                        </div>
-                        <div class="col-lg-3 col-md-6">
-                            <x-forms.select fieldId="blood_group"
-                                :fieldLabel="__('modules.employees.bloodGroup')" fieldName="blood_group">
-                                <option value="">-- {{ __('app.select') }} --</option>
-                                @foreach (['A+','A-','B+','B-','AB+','AB-','O+','O-'] as $bg)
-                                    <option value="{{ $bg }}">{{ $bg }}</option>
-                                @endforeach
-                            </x-forms.select>
-                        </div>
-                        <div class="col-lg-3 col-md-6">
-                            <x-forms.select fieldId="country" :fieldLabel="__('app.country')"
-                                fieldName="country" search="true">
-                                @foreach ($countries as $item)
-                                    <option data-tokens="{{ $item->iso3 }}"
-                                        data-phonecode="{{ $item->phonecode }}"
-                                        data-iso="{{ $item->iso }}"
-                                        data-content="<span class='flag-icon flag-icon-{{ strtolower($item->iso) }} flag-icon-squared'></span> {{ $item->nicename }}"
-                                        value="{{ $item->id }}"
-                                        {{ strtoupper($item->iso) == 'IN' ? 'selected' : '' }}>{{ $item->nicename }}</option>
-                                @endforeach
-                            </x-forms.select>
-                        </div>
-                        <div class="col-lg-3 col-md-6">
-                            <x-forms.label class="my-3" fieldId="mobile"
-                                :fieldLabel="__('app.mobile')"></x-forms.label>
-                            <x-forms.input-group style="margin-top:-4px">
-                                <x-forms.select fieldId="country_phonecode" fieldName="country_phonecode"
-                                    search="true">
-                                    @foreach ($countries as $item)
-                                        <option data-tokens="{{ $item->name }}"
-                                            data-country-iso="{{ $item->iso }}"
-                                            data-content="{{ $item->flagSpanCountryCode() }}"
-                                            value="{{ $item->phonecode }}"
-                                            {{ strtoupper($item->iso) == 'IN' ? 'selected' : '' }}>{{ $item->phonecode }}
-                                        </option>
-                                    @endforeach
-                                </x-forms.select>
-                                <input type="tel" class="form-control height-35 f-14"
-                                    placeholder="@lang('placeholders.mobile')" name="mobile" id="mobile">
-                            </x-forms.input-group>
-                        </div>
-                        <div class="col-lg-3 col-md-6">
-                            <x-forms.select fieldId="gender" :fieldLabel="__('modules.employees.gender')"
-                                fieldName="gender">
-                                <option value="male">@lang('app.male')</option>
-                                <option value="female">@lang('app.female')</option>
-                                <option value="others">@lang('app.others')</option>
-                            </x-forms.select>
-                        </div>
-                        <div class="col-lg-3 col-md-6">
-                            <x-forms.datepicker fieldId="joining_date"
-                                :fieldLabel="__('modules.employees.joiningDate')"
-                                fieldName="joining_date" :fieldPlaceholder="__('placeholders.date')"
-                                fieldRequired="true"
-                                :fieldValue="now(company()->timezone)->format(company()->date_format)" />
-                        </div>
-                        <div class="col-lg-3 col-md-6">
-                            <x-forms.select fieldId="reporting_to"
-                                :fieldLabel="__('modules.employees.reportingTo')"
-                                fieldName="reporting_to" search="true">
-                                <option value="">--</option>
-                                @foreach ($employees as $item)
-                                    <x-user-option :user="$item" />
-                                @endforeach
-                            </x-forms.select>
-                        </div>
-                        <div class="col-lg-3 col-md-6">
-                            <x-forms.select fieldId="locale" :fieldLabel="__('app.language')"
-                                fieldName="locale" search="true">
-                                @foreach ($languages as $language)
-                                    <option {{ user()->locale == $language->language_code ? 'selected' : '' }}
-                                        data-content="<span class='flag-icon flag-icon-{{ ($language->flag_code == 'en') ? 'gb' : $language->flag_code }} flag-icon-squared'></span> {{ $language->language_name }}"
-                                        value="{{ $language->language_code }}">{{ $language->language_name }}</option>
-                                @endforeach
-                            </x-forms.select>
-                        </div>
-                        <div class="col-lg-3 col-md-6">
-                            <x-forms.select fieldId="role" :fieldLabel="__('app.role')" fieldName="role">
-                                @foreach ($roles as $role)
-                                    <option {{ ($role->name == 'employee') ? 'selected' : '' }}
-                                        value="{{ $role->id }}">{{ $role->display_name }}</option>
-                                @endforeach
-                            </x-forms.select>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="my-3 form-group">
-                                <x-forms.textarea class="mr-0 mr-lg-2 mr-md-2"
-                                    fieldLabel="Communication Address" fieldName="address" fieldId="address"
-                                    :fieldPlaceholder="__('placeholders.address')">
-                                </x-forms.textarea>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="my-3 form-group">
-                                <x-forms.textarea class="mr-0 mr-lg-2 mr-md-2"
-                                    fieldLabel="Permanent Address" fieldName="permanent_address" fieldId="permanent_address"
-                                    :fieldPlaceholder="__('placeholders.address')">
-                                </x-forms.textarea>
-                            </div>
-                        </div>
-                        <div class="col-md-12">
-                            <div class="my-3 form-group">
-                                <x-forms.textarea class="mr-0 mr-lg-2 mr-md-2"
-                                    :fieldLabel="__('app.about')" fieldName="about_me"
-                                    fieldId="about_me" fieldPlaceholder="">
-                                </x-forms.textarea>
-                            </div>
-                        </div>
-                    </div>{{-- /account details row --}}
-
-                    {{-- Emergency Contacts --}}
-                    <div class="wizard-section-header mt-4 mb-3">
-                        <div class="wizard-section-icon"><i class="fa fa-phone-alt"></i></div>
-                        <div>
-                            <h5>Emergency Contact Details</h5>
-                            <p>Two persons to contact in case of emergency</p>
-                        </div>
-                    </div>
-                    <label class="f-14 text-dark-grey mb-2 d-block">Add one or more persons to contact in case of emergency</label>
-                    <div class="table-responsive">
-                        <table class="table table-bordered mb-0" id="emergencyContactTable">
-                            <thead>
-                                <tr>
-                                    <th style="width:50px">S.No</th>
-                                    <th>Name <span class="text-danger">*</span></th>
-                                    <th>Relation <span class="text-danger">*</span></th>
-                                    <th>Contact Number <span class="text-danger">*</span></th>
-                                    <th style="width:50px"></th>
-                                </tr>
-                            </thead>
-                            <tbody id="emergencyContactRows">
-                                <tr>
-                                    <td class="align-middle text-center ec-serial">1.</td>
-                                    <td><input type="text" name="emergency_name[]" class="form-control ec-name" maxlength="100"></td>
-                                    <td>
-                                        <select name="emergency_relation[]" class="form-control ec-relation">
-                                            <option value="">-- Select --</option>
-                                            <option value="Spouse">Spouse</option>
-                                            <option value="Father">Father</option>
-                                            <option value="Mother">Mother</option>
-                                            <option value="Brother">Brother</option>
-                                            <option value="Sister">Sister</option>
-                                            <option value="Friend">Friend</option>
-                                            <option value="Colleague">Colleague</option>
-                                            <option value="Other">Other</option>
-                                        </select>
-                                    </td>
-                                    <td><input type="text" name="emergency_number[]" class="form-control ec-number" maxlength="20"></td>
-                                    <td class="align-middle text-center">
-                                        <button type="button" class="btn btn-sm btn-outline-danger ec-remove-row" title="Remove row">
-                                            <i class="fa fa-trash"></i>
-                                        </button>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="ecAddRow">
-                        <i class="fa fa-plus mr-1"></i> Add Contact
-                    </button>
+                    {{-- Identity, job, pay, personal details, shift, addresses, emergency contacts:
+                         the same partial on Add and Edit --}}
+                    @include('employees.ajax.partials.account-details', ['e' => null])
 
                     <div class="wizard-nav-bar">
                         <div></div>
@@ -657,6 +332,7 @@ $addDepartmentPermission = user()->permission('add_department');
                                 :fieldPlaceholder="__('placeholders.accountNumber')">
                             </x-forms.text>
                         </div>
+                        @include('employees.ajax.partials.onboarding-bank', ['part' => 'confirm'])
                         <div class="col-lg-3 col-md-6">
                             <x-forms.text fieldId="ifsc_code"
                                 :fieldLabel="__('modules.employees.ifscCode')"
@@ -666,6 +342,7 @@ $addDepartmentPermission = user()->permission('add_department');
                                 oninput="this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 11);">
                             </x-forms.text>
                         </div>
+                        @include('employees.ajax.partials.onboarding-bank', ['part' => 'branch'])
                         <div class="col-lg-3 col-md-6">
                             <x-forms.text fieldId="pf_account_number"
                                 :fieldLabel="__('modules.employees.pfAccountNumber')"
@@ -909,29 +586,28 @@ $addDepartmentPermission = user()->permission('add_department');
                         <div class="wizard-section-icon"><i class="fa fa-passport"></i></div>
                         <div>
                             <h5>Passport Details</h5>
-                            <p>Passport number, issue date, place and expiry</p>
+                            <p>Optional — fill it in when the employee has a passport</p>
                         </div>
                     </div>
                     <div class="row">
                         <div class="col-lg-3 col-md-6">
                             <x-forms.text fieldId="passport_number"
                                 :fieldLabel="__('modules.employees.passportNumber')"
-                                fieldName="passport_number" fieldRequired="true" required maxlength="8"
+                                fieldName="passport_number" maxlength="8"
                                 pattern="[A-Z][0-9]{7}"
                                 oninput="this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);"
-                                :fieldPlaceholder="__('placeholders.passportNumber')">
+                                fieldPlaceholder="e.g. A1234567">
                             </x-forms.text>
                         </div>
                         <div class="col-lg-3 col-md-6">
                             <x-forms.datepicker fieldId="passport_date_of_issue"
                                 :fieldLabel="__('modules.employees.passportDateOfIssue')"
-                                fieldName="passport_date_of_issue" :fieldPlaceholder="__('placeholders.date')"
-                                fieldRequired="true" required />
+                                fieldName="passport_date_of_issue" :fieldPlaceholder="__('placeholders.date')" />
                         </div>
                         <div class="col-lg-3 col-md-6">
                             <x-forms.text fieldId="passport_place_of_issue"
                                 :fieldLabel="__('modules.employees.passportPlaceOfIssue')"
-                                fieldName="passport_place_of_issue" fieldRequired="true" required maxlength="100"
+                                fieldName="passport_place_of_issue" maxlength="100"
                                 pattern="[A-Za-z,.\-\s]+"
                                 oninput="this.value = this.value.replace(/[^A-Za-z,.\-\s]/g, '');"
                                 :fieldPlaceholder="__('placeholders.location')">
@@ -940,8 +616,7 @@ $addDepartmentPermission = user()->permission('add_department');
                         <div class="col-lg-3 col-md-6">
                             <x-forms.datepicker fieldId="passport_valid_up_to"
                                 :fieldLabel="__('modules.employees.passportValidUpTo')"
-                                fieldName="passport_valid_up_to" :fieldPlaceholder="__('placeholders.date')"
-                                fieldRequired="true" required />
+                                fieldName="passport_valid_up_to" :fieldPlaceholder="__('placeholders.date')" />
                         </div>
                     </div>
 
@@ -967,43 +642,17 @@ $addDepartmentPermission = user()->permission('add_department');
                         <div class="wizard-section-icon"><i class="fa fa-clipboard-list"></i></div>
                         <div>
                             <h5>@lang('modules.employees.joiningChecklist')</h5>
-                            <p>Documents received from the employee at joining</p>
+                            <p>Documents received from the employee at joining — each ticked item needs its document</p>
                         </div>
                     </div>
-                    <div class="row">
-                        @foreach ([
-                            ['educational_testimonials', 'modules.employees.educationalTestimonials'],
-                            ['experience_letter',        'modules.employees.experienceLetter'],
-                            ['relieving_letter',         'modules.employees.relievingLetter'],
-                            ['two_references',           'modules.employees.twoReferences'],
-                            ['salary_certificate',       'modules.employees.salaryCertificate'],
-                            ['bank_statement',           'modules.employees.bankStatement'],
-                            ['passport_copy',            'modules.employees.passportCopy'],
-                            ['form_16',                  'modules.employees.form16'],
-                            ['passport_photographs',     'modules.employees.passportPhotographs'],
-                            ['offer_letter',             'modules.employees.offerLetter'],
-                            ['resume_copy',              'modules.employees.resumeCopy'],
-                            ['nda',                      'modules.employees.nda'],
-                        ] as [$id, $langKey])
-                            <div class="col-lg-6 col-md-6">
-                                <div class="my-3 form-group d-flex justify-content-between align-items-center">
-                                    <label class="mb-0 f-14 text-dark-grey">@lang($langKey)</label>
-                                    <div class="custom-control custom-switch">
-                                        <input type="checkbox" class="custom-control-input"
-                                            id="{{ $id }}" name="{{ $id }}" value="1">
-                                        <label class="custom-control-label" for="{{ $id }}"></label>
-                                    </div>
-                                </div>
-                            </div>
-                        @endforeach
-                    </div>
+                    @include('employees.ajax.partials.onboarding-checklist', ['joiningChecklist' => null, 'onboardingDocs' => null])
 
                     <div class="wizard-nav-bar">
                         <button type="button" class="btn btn-outline-secondary wizardPrev" data-to="4">
                             <i class="fa fa-chevron-left"></i>&nbsp; Back
                         </button>
                         <button type="button" class="btn btn-primary wizardNext" data-to="6">
-                            Next: Declaration &nbsp;<i class="fa fa-chevron-right"></i>
+                            Next: Review &nbsp;<i class="fa fa-chevron-right"></i>
                         </button>
                     </div>
 
@@ -1011,16 +660,46 @@ $addDepartmentPermission = user()->permission('add_department');
             </div>{{-- /step 5 --}}
 
             {{-- ═══════════════════════════════════════════════════
-                 STEP 5 — Final Declaration
+                 STEP 6 — Review
                  ═══════════════════════════════════════════════════ --}}
             <div class="wizard-pane d-none" id="wizardStep6">
+                <div class="bg-white rounded p-20">
+
+                    <div class="wizard-section-header mb-4">
+                        <div class="wizard-section-icon"><i class="fa fa-check-circle"></i></div>
+                        <div>
+                            <h5>Review</h5>
+                            <p>Check every detail and document; the declaration and Save come next</p>
+                        </div>
+                    </div>
+
+                    <div class="border rounded overflow-hidden" id="wizardReviewContent">
+                        {{-- populated by buildWizardReview() --}}
+                    </div>
+
+                    <div class="wizard-nav-bar">
+                        <button type="button" class="btn btn-outline-secondary wizardPrev" data-to="5">
+                            <i class="fa fa-chevron-left"></i>&nbsp; Back
+                        </button>
+                        <button type="button" class="btn btn-primary wizardNext" data-to="7">
+                            Next: Declaration &nbsp;<i class="fa fa-chevron-right"></i>
+                        </button>
+                    </div>
+
+                </div>
+            </div>{{-- /step 6 --}}
+
+            {{-- ═══════════════════════════════════════════════════
+                 STEP 7 — Final Declaration (last step: Save)
+                 ═══════════════════════════════════════════════════ --}}
+            <div class="wizard-pane d-none" id="wizardStep7">
                 <div class="bg-white rounded p-20">
 
                     <div class="wizard-section-header mb-4">
                         <div class="wizard-section-icon"><i class="fa fa-file-signature"></i></div>
                         <div>
                             <h5>@lang('modules.employees.finalDeclaration')</h5>
-                            <p>Reported duty date and authorized signatures</p>
+                            <p>Reported duty date, signatures and the signed copies — then Save</p>
                         </div>
                     </div>
                     <div class="row">
@@ -1084,36 +763,7 @@ $addDepartmentPermission = user()->permission('add_department');
                                 oninput="this.value = this.value.replace(/[^A-Za-z0-9 ,.\-()\r\n]/g, '').slice(0, 500);">
                             </x-forms.textarea>
                         </div>
-                    </div>
-
-                    <div class="wizard-nav-bar">
-                        <button type="button" class="btn btn-outline-secondary wizardPrev" data-to="5">
-                            <i class="fa fa-chevron-left"></i>&nbsp; Back
-                        </button>
-                        <button type="button" class="btn btn-primary wizardNext" data-to="7">
-                            Review &amp; Submit &nbsp;<i class="fa fa-chevron-right"></i>
-                        </button>
-                    </div>
-
-                </div>
-            </div>{{-- /step 6 --}}
-
-            {{-- ═══════════════════════════════════════════════════
-                 STEP 6 — Review & Submit
-                 ═══════════════════════════════════════════════════ --}}
-            <div class="wizard-pane d-none" id="wizardStep7">
-                <div class="bg-white rounded p-20">
-
-                    <div class="wizard-section-header mb-4">
-                        <div class="wizard-section-icon"><i class="fa fa-check-circle"></i></div>
-                        <div>
-                            <h5>Review &amp; Submit</h5>
-                            <p>Please verify all details before saving the employee</p>
-                        </div>
-                    </div>
-
-                    <div class="border rounded overflow-hidden" id="wizardReviewContent">
-                        {{-- populated by buildWizardReview() --}}
+                        @include('employees.ajax.partials.onboarding-declaration-files', ['onboardingDocs' => null])
                     </div>
 
                     <div class="wizard-nav-bar">
@@ -1154,7 +804,7 @@ $(document).ready(function () {
         '#joining_date',
         '#probation_end_date', '#notice_period_start_date', '#notice_period_end_date',
         '#marriage_anniversary_date', '#internship_end_date', '#contract_end_date',
-        '#passport_date_of_issue', '#passport_valid_up_to'
+        '#passport_date_of_issue', '#passport_valid_up_to', '#shift_effective_from'
     ];
     dpFields.forEach(function (sel) { datepicker(sel, dpConfig); });
 
@@ -1259,39 +909,13 @@ $(document).ready(function () {
             $('html, body').animate({ scrollTop: header.offset().top - 80 }, 200);
         }
 
-        if (target === 7) { buildWizardReview(); }
+        if (target === 6) { buildWizardReview(); }
     }
 
-    // Next button
-    $(document).on('click', '.wizardNext', function () {
-        var to   = parseInt($(this).data('to'));
-        var ok   = true;
-
-        if (wizardStep === 1) {
-            ok = validateAccountDetailsSection() && validateEmergencySection();
-        } else if (wizardStep === 2) {
-            ok = validateBankSection();
-        } else if (wizardStep === 3) {
-            ok = validateExperienceSection();
-        } else if (wizardStep === 4) {
-            ok = validatePassportSection();
-        } else if (wizardStep === 5) {
-            ok = true; // checklist — no required fields
-        } else if (wizardStep === 6) {
-            ok = validateFinalDeclarationSection();
-        }
-
-        if (ok) { wizardGoTo(to); }
-    });
-
-    // Back button
+    // Next, Back and the step circles: Back is here; Next and the circles are in
+    // onboarding-script, which lets every step open and marks unfinished ones.
     $(document).on('click', '.wizardPrev', function () {
         wizardGoTo(parseInt($(this).data('to')));
-    });
-
-    // Click on a completed step indicator to jump back
-    $(document).on('click', '.wizard-step-item.completed', function () {
-        wizardGoTo(parseInt($(this).data('step')));
     });
 
     // ── Build Review tab ─────────────────────────────────────
@@ -1343,6 +967,7 @@ $(document).ready(function () {
         h += r('Employee Card ID',  val('employee_card_id'));
         h += r('CTC',               val('employee_ctc'));
         h += r('Role',                 selText('role'));
+        h += r('Work Shift',           selText('employee_shift_id') + (val('shift_effective_from') ? ' — from ' + val('shift_effective_from') : ''));
         h += r('Communication Address', val('address'));
         h += r('Permanent Address',     val('permanent_address'));
 
@@ -1388,26 +1013,10 @@ $(document).ready(function () {
         h += r('Place of Issue', val('passport_place_of_issue'));
         h += r('Valid Until',    val('passport_valid_up_to'));
 
-        h += '<p class="review-section-title"><i class="fa fa-clipboard-list mr-2"></i>Joining Checklist</p>';
-        h += chk('Educational Testimonials', 'educational_testimonials');
-        h += chk('Experience Letter',        'experience_letter');
-        h += chk('Relieving Letter',         'relieving_letter');
-        h += chk('Two References',           'two_references');
-        h += chk('Salary Certificate',       'salary_certificate');
-        h += chk('Bank Statement',           'bank_statement');
-        h += chk('Passport Copy',            'passport_copy');
-        h += chk('Form 16',                  'form_16');
-        h += chk('Passport Photographs',     'passport_photographs');
-        h += chk('Offer Letter',             'offer_letter');
-        h += chk('Resume Copy',              'resume_copy');
-        h += chk('NDA',                      'nda');
+        // The joining checklist is listed once, with its documents, by onboardingReviewHtml()
 
-        h += '<p class="review-section-title"><i class="fa fa-file-signature mr-2"></i>Final Declaration</p>';
-        var dutyDate = [val('reported_duty_day'), selText('reported_duty_month'), val('reported_duty_year')].filter(Boolean).join(' ');
-        h += r('Reported to Duty',     dutyDate);
-        h += r('Candidate Signature',  val('candidate_signature'));
-        h += r('HR Signature',         val('hr_signature'));
-        h += r('HR Comments',          val('hr_comments'));
+        // Salary, bank and every document (onboarding-script)
+        h += onboardingReviewHtml();
 
         $('#wizardReviewContent').html(h);
     }
@@ -1440,7 +1049,7 @@ $(document).ready(function () {
         if (!firstName.value.trim())                                               { setFieldState(firstName, false, 'First Name is required.');                               isValid = false; } else { setFieldState(firstName, true); }
         if (!lastName.value.trim())                                                { setFieldState(lastName, false, 'Last Name is required.');                                 isValid = false; } else { setFieldState(lastName, true); }
         if (!employeeEmail.value.trim() || !emailRegex.test(employeeEmail.value)) { setFieldState(employeeEmail, false, 'Please enter a valid email address.');                isValid = false; } else { setFieldState(employeeEmail, true); }
-        if (!employeePassword.value || employeePassword.value.length < 6)         { setFieldState(employeePassword, false, 'Password must be at least 6 characters.');         isValid = false; } else { setFieldState(employeePassword, true); }
+        if (!employeePassword.value || employeePassword.value.length < 8)         { setFieldState(employeePassword, false, 'Password must be at least 8 characters.');         isValid = false; } else { setFieldState(employeePassword, true); }
         if (!designation.value)                                                    { setFieldState(designation, false, 'Designation is required.');                             isValid = false; } else { setFieldState(designation, true); }
         if (!department.value)                                                     { setFieldState(department, false, 'Department is required.');                               isValid = false; } else { setFieldState(department, true); }
         if (!cardId.value || !cardIdRegex.test(cardId.value.trim()))               { setFieldState(cardId, false, 'Employee Card ID may use letters, numbers, hyphens and underscores (max 50).');         isValid = false; } else { setFieldState(cardId, true); }
@@ -1451,8 +1060,8 @@ $(document).ready(function () {
             setFieldState(employeeCtc, false, 'CTC must be a valid positive number.'); isValid = false;
         } else { setFieldState(employeeCtc, true); }
 
-        if (basicForPayroll.value && (!Number.isInteger(Number(basicForPayroll.value)) || Number(basicForPayroll.value) < 0 || Number(basicForPayroll.value) > 999)) {
-            setFieldState(basicForPayroll, false, 'Basic % must be a whole number 0–999.'); isValid = false;
+        if (basicForPayroll.value && (!Number.isInteger(Number(basicForPayroll.value)) || Number(basicForPayroll.value) < 0 || Number(basicForPayroll.value) > 100)) {
+            setFieldState(basicForPayroll, false, 'Basic % must be a whole number 0–100.'); isValid = false;
         } else { setFieldState(basicForPayroll, true); }
 
         if (dateOfBirth.value && typeof moment !== 'undefined') {
@@ -1466,60 +1075,7 @@ $(document).ready(function () {
         return isValid;
     }
 
-    function validateEmergencySection() {
-        var rows    = $('#emergencyContactRows tr');
-        var isValid = true;
-        rows.each(function (i) {
-            var row   = $(this);
-            var label = 'Contact ' + (i + 1);
-            var name  = row.find('.ec-name')[0];
-            var rel   = row.find('.ec-relation')[0];
-            var num   = row.find('.ec-number')[0];
-            if (!name || !name.value.trim()) { setFieldState(name, false, label + ' Name is required.');     isValid = false; } else { setFieldState(name, true); }
-            if (!rel  || !rel.value)         { setFieldState(rel,  false, label + ' Relation is required.'); isValid = false; } else { setFieldState(rel,  true); }
-            if (!num  || !num.value.trim())  { setFieldState(num,  false, label + ' Number is required.');   isValid = false; } else { setFieldState(num,  true); }
-        });
-        return isValid;
-    }
-
-    // ── Dynamic Emergency Contact rows ───────────────────────
-    var ecRelationOptions =
-        '<option value="">-- Select --</option>' +
-        '<option value="Spouse">Spouse</option>' +
-        '<option value="Father">Father</option>' +
-        '<option value="Mother">Mother</option>' +
-        '<option value="Brother">Brother</option>' +
-        '<option value="Sister">Sister</option>' +
-        '<option value="Friend">Friend</option>' +
-        '<option value="Colleague">Colleague</option>' +
-        '<option value="Other">Other</option>';
-
-    function renumberEcRows() {
-        $('#emergencyContactRows tr').each(function (i) {
-            $(this).find('.ec-serial').text((i + 1) + '.');
-        });
-    }
-
-    $('#ecAddRow').on('click', function () {
-        var row = '<tr>' +
-            '<td class="align-middle text-center ec-serial"></td>' +
-            '<td><input type="text" name="emergency_name[]" class="form-control ec-name" maxlength="100"></td>' +
-            '<td><select name="emergency_relation[]" class="form-control ec-relation">' + ecRelationOptions + '</select></td>' +
-            '<td><input type="text" name="emergency_number[]" class="form-control ec-number" maxlength="20"></td>' +
-            '<td class="align-middle text-center"><button type="button" class="btn btn-sm btn-outline-danger ec-remove-row" title="Remove row"><i class="fa fa-trash"></i></button></td>' +
-            '</tr>';
-        $('#emergencyContactRows').append(row);
-        renumberEcRows();
-    });
-
-    $(document).on('click', '.ec-remove-row', function () {
-        if ($('#emergencyContactRows tr').length <= 1) {
-            alert('At least one emergency contact is required.');
-            return;
-        }
-        $(this).closest('tr').remove();
-        renumberEcRows();
-    });
+    @include('employees.ajax.partials.emergency-script')
 
     // ── Dynamic Experience Cards ─────────────────────────────
     var expCardCount = 0;
@@ -1689,10 +1245,10 @@ $(document).ready(function () {
         var fmts    = ['YYYY-MM-DD','DD-MM-YYYY','MM-DD-YYYY','DD/MM/YYYY','MM/DD/YYYY'];
         if (typeof company !== 'undefined' && company.moment_date_format) fmts.unshift(company.moment_date_format);
 
-        if (!passNum.value || !numRe.test(passNum.value.toUpperCase()))   { setFieldState(passNum, false, 'Passport No.: one uppercase letter followed by 7 digits (e.g. A1234567).');   isValid = false; } else { passNum.value = passNum.value.toUpperCase(); setFieldState(passNum, true); }
-        if (!passIssue.value)                                              { setFieldState(passIssue, false, 'Passport Date of Issue is required.');                                       isValid = false; } else { setFieldState(passIssue, true); }
-        if (!passPlace.value || !placeRe.test(passPlace.value.trim()))     { setFieldState(passPlace, false, 'Place of Issue: alphabets, spaces, commas, hyphens and periods only.');     isValid = false; } else { setFieldState(passPlace, true); }
-        if (!passValid.value)                                              { setFieldState(passValid, false, 'Passport Valid Up To is required.');                                         isValid = false; } else { setFieldState(passValid, true); }
+        // Passport details are optional: only what has been filled in is checked.
+        [passNum, passIssue, passPlace, passValid].forEach(function (el) { clearFieldState(el); });
+        if (passNum.value && !numRe.test(passNum.value.toUpperCase()))     { setFieldState(passNum, false, 'Passport No.: one uppercase letter followed by 7 digits (e.g. A1234567).');   isValid = false; } else if (passNum.value) { passNum.value = passNum.value.toUpperCase(); setFieldState(passNum, true); }
+        if (passPlace.value && !placeRe.test(passPlace.value.trim()))      { setFieldState(passPlace, false, 'Place of Issue: alphabets, spaces, commas, hyphens and periods only.');     isValid = false; } else if (passPlace.value) { setFieldState(passPlace, true); }
 
         if (passIssue.value && passValid.value && typeof moment !== 'undefined') {
             var d1 = moment(passIssue.value, fmts, true);
@@ -1800,63 +1356,47 @@ $(document).ready(function () {
     });
 
 
-    // ── Save functions ───────────────────────────────────────
-    function saveEmployee(data, url, buttonSelector) {
-        $.easyAjax({
-            url: url,
-            container: '#save-employee-data-form',
-            type: 'POST',
-            disableButton: true,
-            blockUI: true,
-            buttonSelector: buttonSelector,
-            file: true,
-            data: data,
-            success: function (response) {
-                if (response.status === 'success') {
-                    if ($(MODAL_XL).hasClass('show')) {
-                        $(MODAL_XL).modal('hide');
-                        window.location.reload();
-                    } else if (response.add_more === true) {
-                        var content = $.trim($(RIGHT_MODAL_CONTENT).html());
-                        if (content.length) {
-                            $(RIGHT_MODAL_CONTENT).html(response.html.html);
-                            $('#add_more').val(false);
-                        } else {
-                            $('.content-wrapper').html(response.html.html);
-                            init('.content-wrapper');
-                            $('#add_more').val(false);
-                        }
-                    } else {
-                        window.location.href = response.redirectUrl;
-                    }
-                    if (typeof showTable === 'function') { showTable(); }
-                }
+    // ── Save ─────────────────────────────────────────────────
+    function afterEmployeeSaved(response) {
+        if ($(MODAL_XL).hasClass('show')) {
+            $(MODAL_XL).modal('hide');
+            window.location.reload();
+        } else if (response.add_more === true) {
+            var content = $.trim($(RIGHT_MODAL_CONTENT).html());
+            if (content.length) {
+                $(RIGHT_MODAL_CONTENT).html(response.html.html);
+                $('#add_more').val(false);
+            } else {
+                $('.content-wrapper').html(response.html.html);
+                init('.content-wrapper');
+                $('#add_more').val(false);
             }
-        });
+        } else {
+            window.location.href = response.redirectUrl;
+        }
+        if (typeof showTable === 'function') { showTable(); }
     }
 
     $('#save-employee-form').click(function () {
-        var url  = "{{ route('employees.store') }}";
-        var data = $('#save-employee-data-form').serialize();
-        if (!validateAccountDetailsSection() || !validateEmergencySection()) { wizardGoTo(1); return; }
-        if (!validateBankSection())                                           { wizardGoTo(2); return; }
-        if (!validateExperienceSection())                                     { wizardGoTo(3); return; }
-        if (!validatePassportSection())                                       { wizardGoTo(4); return; }
-        if (!validateFinalDeclarationSection())                               { wizardGoTo(6); return; }
-        saveEmployee(data, url, '#save-employee-form');
+        $('#add_more').val(false);
+        onboardingSubmit("{{ route('employees.store') }}", '#save-employee-form', afterEmployeeSaved);
     });
 
     $('#save-more-employee-form').click(function () {
         $('#add_more').val(true);
-        var url  = "{{ route('employees.store') }}";
-        var data = $('#save-employee-data-form').serialize();
-        if (!validateAccountDetailsSection() || !validateEmergencySection()) { wizardGoTo(1); return; }
-        if (!validateBankSection())                                           { wizardGoTo(2); return; }
-        if (!validateExperienceSection())                                     { wizardGoTo(3); return; }
-        if (!validatePassportSection())                                       { wizardGoTo(4); return; }
-        if (!validateFinalDeclarationSection())                               { wizardGoTo(6); return; }
-        saveEmployee(data, url, '#save-more-employee-form');
+        onboardingSubmit("{{ route('employees.store') }}", '#save-more-employee-form', afterEmployeeSaved);
     });
+
+    // ── Onboarding: open navigation, documents, resume, bank, salary ──
+    var onboardingForm = '#save-employee-data-form';
+    var onboardingStepChecks = {
+        1: function () { var account = validateAccountDetailsSection(); var emergency = validateEmergencySection(); return account && emergency; },
+        2: validateBankSection,
+        3: validateExperienceSection,
+        4: validatePassportSection,
+        7: validateFinalDeclarationSection
+    };
+    @include('employees.ajax.partials.onboarding-script', ['onboardingMode' => 'create'])
 
     init(RIGHT_MODAL);
 });

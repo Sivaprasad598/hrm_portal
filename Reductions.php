@@ -334,6 +334,29 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'lookup_attendance' && !empty($_GE
                 $daysPresent += min(1.0, $paidLeave + $worked);
             }
 
+            // The payroll count itself over the salary period (the 21st to the 20th),
+            // so the calculator, the payroll run, the payslip and the attendance
+            // page all give the same days. The calendar-month count above stays
+            // only for a copy without it.
+            $periodInfo = [];
+
+            try {
+                if (class_exists(\App\Services\Payroll\AttendanceDays::class) && class_exists(\App\Services\Payroll\PayPeriod::class)) {
+                    $payCycle = \App\Services\Payroll\PayPeriod::forMonth($month, $year);
+                    $count = (new \App\Services\Payroll\AttendanceDays($timezone))->forRange($userId, $payCycle->start, $payCycle->end);
+                    $workingDays = $count['working_days'];
+                    $daysPresent = $count['days_present'];
+                    $breakdown = $count['breakdown'];
+                    $periodInfo = [
+                        'period_start' => $payCycle->start->toDateString(),
+                        'period_end' => $payCycle->end->toDateString(),
+                        'period_days' => $payCycle->days(),
+                    ];
+                }
+            } catch (Throwable $countError) {
+                // Keep the calendar-month count.
+            }
+
             // Overtime, a bonus, an advance being recovered: what is held for
             // this month on the Pay Elements screen. Read only — an instalment
             // is drawn when the payslip is actually issued, not by looking.
@@ -378,7 +401,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'lookup_attendance' && !empty($_GE
                 'breakdown' => $breakdown,
                 'extras' => $extras,
                 'extra_rows' => $rich,
-            ];
+            ] + $periodInfo;
         } catch (Exception $e) {
             $response['message'] = 'Attendance lookup failed';
         }
@@ -399,25 +422,49 @@ $compactMode = isset($_GET['compact']) && $_GET['compact'] == '1';
 // ---------------------------------------------------------------------------
 // Defaults
 // ---------------------------------------------------------------------------
+// Every calendar day of the salary period is paid (week offs and holidays
+// included), so the example attendance is the whole current salary period:
+// 30 or 31 days, as on the calculation sheet, never a count of shift days.
+$salaryPeriodDays = 30;
+try {
+    if (class_exists(\App\Services\Payroll\PayPeriod::class)) {
+        $salaryPeriodDays = \App\Services\Payroll\PayPeriod::containing(\Carbon\Carbon::now())->days();
+    }
+} catch (Throwable $periodError) {
+    // Fall back to 30.
+}
+
 $DEFAULTS = [
     'gross'        => 60000,
-    'basicPct'     => 30,
-    'hraPct'       => 50,
+    'basicPct'     => 40,
+    'hraPct'       => 40,
     'caThreshold'  => 20000,
     'caHigh'       => 1600,
     'caLow'        => 800,
+    // The calculation sheet: CA judged on Basic; LTA = ROUNDUP(Basic x 10%);
+    // CEA = IF(Basic < 15000, 1200, 2400); the rest is the Special Allowance.
+    'caBasis'      => 'basic',
+    'ltaPct'       => 10,
+    'ceaThreshold' => 15000,
+    'ceaLow'       => 1200,
+    'ceaHigh'      => 2400,
     'pt'           => 200,
-    'esiThreshold' => 20000,
-    'esiPct'       => 0.4,
+    'esiThreshold' => 21000,
+    'esiPct'       => 0.75,
     'pfPct'        => 12,
     // Statutory settings: PF is taken on basic up to this ceiling (0 = all of
     // basic), the employer's ESI share is larger than the employee's, and
     // professional tax follows salary bands where they are configured.
-    'pfWageCeiling' => 15000,
+    'pfWageCeiling' => 25000,
     'esiEmployerPct' => 3.25,
+    // The calculation sheet: the employer's PF %, PF and ESI charged on the
+    // days paid, and the final net rounded to the rupee.
+    'pfEmployerPct' => 12,
+    'prorateStatutory' => 1,
+    'roundNet' => 1,
     'ptSlabs'      => null,
-    'workingDays'  => 22,
-    'daysPresent'  => 22,
+    'workingDays'  => $salaryPeriodDays,
+    'daysPresent'  => $salaryPeriodDays,
 ];
 
 // ---------------------------------------------------------------------------
@@ -514,12 +561,20 @@ if ($dbConn) {
                 'caThreshold'  => (float) ($latestRecord['ca_threshold'] ?? $DEFAULTS['caThreshold']),
                 'caHigh'       => (float) ($latestRecord['ca_high'] ?? $DEFAULTS['caHigh']),
                 'caLow'        => (float) ($latestRecord['ca_low'] ?? $DEFAULTS['caLow']),
+                'caBasis'      => ($latestRecord['ca_basis'] ?? $DEFAULTS['caBasis']) === 'gross' ? 'gross' : 'basic',
+                'ltaPct'       => (float) ($latestRecord['lta_pct'] ?? $DEFAULTS['ltaPct']),
+                'ceaThreshold' => (float) ($latestRecord['cea_threshold'] ?? $DEFAULTS['ceaThreshold']),
+                'ceaLow'       => (float) ($latestRecord['cea_low'] ?? $DEFAULTS['ceaLow']),
+                'ceaHigh'      => (float) ($latestRecord['cea_high'] ?? $DEFAULTS['ceaHigh']),
                 'pt'           => (float) ($latestRecord['pt'] ?? $DEFAULTS['pt']),
                 'esiThreshold' => (float) ($latestRecord['esi_threshold'] ?? $DEFAULTS['esiThreshold']),
                 'esiPct'       => (float) ($latestRecord['esi_pct'] ?? $DEFAULTS['esiPct']),
                 'pfPct'        => (float) ($latestRecord['pf_pct'] ?? $DEFAULTS['pfPct']),
                 'pfWageCeiling' => (float) ($latestRecord['pf_wage_ceiling'] ?? $DEFAULTS['pfWageCeiling']),
                 'esiEmployerPct' => (float) ($latestRecord['esi_employer_pct'] ?? $DEFAULTS['esiEmployerPct']),
+                'pfEmployerPct' => (float) ($latestRecord['pf_employer_pct'] ?? $latestRecord['pf_pct'] ?? $DEFAULTS['pfEmployerPct']),
+                'prorateStatutory' => (int) ($latestRecord['prorate_statutory'] ?? $DEFAULTS['prorateStatutory']),
+                'roundNet'     => (int) ($latestRecord['round_net'] ?? $DEFAULTS['roundNet']),
                 'ptSlabs'      => $latestRecord['pt_slabs'] ?? $DEFAULTS['ptSlabs'],
                 // Working Days / Days Present are attendance for whichever employee +
                 // month the last save happened to be for (or 0/0, when nobody was
@@ -550,12 +605,21 @@ $in = [
     'caThreshold'  => field('caThreshold', $DB_DEFAULTS['caThreshold'], $useDefaults),
     'caHigh'       => field('caHigh', $DB_DEFAULTS['caHigh'], $useDefaults),
     'caLow'        => field('caLow', $DB_DEFAULTS['caLow'], $useDefaults),
+    'caBasis'      => (!$useDefaults && in_array($_POST['caBasis'] ?? '', ['basic', 'gross'], true))
+        ? $_POST['caBasis'] : ($DB_DEFAULTS['caBasis'] ?? 'basic'),
+    'ltaPct'       => field('ltaPct', $DB_DEFAULTS['ltaPct'] ?? $DEFAULTS['ltaPct'], $useDefaults),
+    'ceaThreshold' => field('ceaThreshold', $DB_DEFAULTS['ceaThreshold'] ?? $DEFAULTS['ceaThreshold'], $useDefaults),
+    'ceaLow'       => field('ceaLow', $DB_DEFAULTS['ceaLow'] ?? $DEFAULTS['ceaLow'], $useDefaults),
+    'ceaHigh'      => field('ceaHigh', $DB_DEFAULTS['ceaHigh'] ?? $DEFAULTS['ceaHigh'], $useDefaults),
     'pt'           => field('pt', $DB_DEFAULTS['pt'], $useDefaults),
     'esiThreshold' => field('esiThreshold', $DB_DEFAULTS['esiThreshold'], $useDefaults),
     'esiPct'       => field('esiPct', $DB_DEFAULTS['esiPct'], $useDefaults),
     'pfPct'        => field('pfPct', $DB_DEFAULTS['pfPct'], $useDefaults),
     'pfWageCeiling' => field('pfWageCeiling', $DB_DEFAULTS['pfWageCeiling'], $useDefaults),
     'esiEmployerPct' => field('esiEmployerPct', $DB_DEFAULTS['esiEmployerPct'], $useDefaults),
+    'pfEmployerPct' => field('pfEmployerPct', $DB_DEFAULTS['pfEmployerPct'] ?? $DEFAULTS['pfEmployerPct'], $useDefaults),
+    'prorateStatutory' => (int) field('prorateStatutory', $DB_DEFAULTS['prorateStatutory'] ?? 1, $useDefaults),
+    'roundNet'     => (int) field('roundNet', $DB_DEFAULTS['roundNet'] ?? 1, $useDefaults),
     'ptSlabs'      => $DB_DEFAULTS['ptSlabs'],
     'workingDays'  => field('workingDays', $DB_DEFAULTS['workingDays'], $useDefaults),
     'daysPresent'  => field('daysPresent', $DB_DEFAULTS['daysPresent'], $useDefaults),
@@ -569,7 +633,7 @@ $error = null;
 if ($in['gross'] <= 0) {
     $error = '⚠️ Enter a valid positive Gross salary';
 } elseif ($in['workingDays'] < 1 || $in['workingDays'] > 31) {
-    $error = '⚠️ Working days must be 1‑31';
+    $error = '⚠️ Days in the salary period must be 1‑31';
 } elseif ($in['daysPresent'] < 0 || $in['daysPresent'] > 31) {
     $error = '⚠️ Days present must be 0‑31';
 }
@@ -608,85 +672,87 @@ function pt_for_salary(float $gross, $slabs, float $flat): float
 
 function calculate_payroll(array $in)
 {
-    $gross = $in['gross'];
-    $basic = $gross * ($in['basicPct'] / 100);
-    $hra   = $basic * ($in['hraPct'] / 100);
-    // Above the threshold, not at it: the formula sheet reads IF(Gross > 20000, ...).
-    $ca    = $gross > $in['caThreshold'] ? $in['caHigh'] : $in['caLow'];
+    // The formula lives in SalaryCalculator, the same one the payroll run and
+    // the payslips use; this page passes it the rates on screen. It is the
+    // calculation sheet: PF and ESI after LOP, Net = Gross - PF - ESI - PT,
+    // per day = Net / days, final = ROUND(Net - LOP days x per day).
+    $calculator = new \App\Services\Payroll\SalaryCalculator((object) [
+        'basic_pct' => $in['basicPct'], 'hra_pct' => $in['hraPct'],
+        'ca_threshold' => $in['caThreshold'], 'ca_high' => $in['caHigh'], 'ca_low' => $in['caLow'],
+        'ca_basis' => $in['caBasis'] ?? 'basic',
+        'lta_pct' => $in['ltaPct'] ?? 0, 'cea_threshold' => $in['ceaThreshold'] ?? 0,
+        'cea_low' => $in['ceaLow'] ?? 0, 'cea_high' => $in['ceaHigh'] ?? 0,
+        'pt' => $in['pt'], 'pt_slabs' => $in['ptSlabs'] ?? null,
+        'esi_threshold' => $in['esiThreshold'], 'esi_pct' => $in['esiPct'],
+        'esi_employer_pct' => $in['esiEmployerPct'] ?? $in['esiPct'],
+        'pf_pct' => $in['pfPct'], 'pf_employer_pct' => $in['pfEmployerPct'] ?? $in['pfPct'],
+        'pf_wage_ceiling' => $in['pfWageCeiling'] ?? 0,
+        'prorate_statutory' => $in['prorateStatutory'] ?? 1, 'round_net' => $in['roundNet'] ?? 1,
+    ]);
+    $p = $calculator->forEmployee($in['gross'] * 12, $in['basicPct'], (int) $in['workingDays'], (float) $in['daysPresent'], 0.0);
 
-    $others = $gross - ($basic + $hra + $ca);
-    // At or below the threshold: IF(Gross <= 21000, ...).
-    $esi    = $gross <= $in['esiThreshold'] ? $gross * ($in['esiPct'] / 100) : 0.0;
-
-    // Provident fund is taken on basic up to the wage ceiling (15,000 by the
-    // usual rule); a ceiling of 0 means the whole of basic, as before.
-    $ceiling = (float) ($in['pfWageCeiling'] ?? 0);
-    $pfWages = $ceiling > 0 ? min($basic, $ceiling) : $basic;
-    $pf      = $pfWages * ($in['pfPct'] / 100);
-
-    // The employer pays its own, larger, share of ESI; its PF matches the
-    // employee's. Both are part of CTC, not deductions from pay.
-    $employerEsi = $esi > 0 ? $gross * ((float) ($in['esiEmployerPct'] ?? $in['esiPct']) / 100) : 0.0;
-    $employerPf  = $pf;
-
-    // Professional tax by salary band, where bands are configured.
-    $pt = pt_for_salary($gross, $in['ptSlabs'] ?? null, $in['pt']);
-
-    $in['pt'] = $pt;
-    $totalDeductions = $pt + $esi + $pf;
-    $netSalary       = $gross - $totalDeductions;
-    $perDay          = $in['workingDays'] > 0 ? $netSalary / $in['workingDays'] : 0.0;
-    $attendanceNet   = $perDay * $in['daysPresent'];
+    $gross = $p['gross'];
 
     // Running balance, stepped in the order the deduction sections appear on
-    // the slip (ESI → PT → PF). The last step equals the net salary.
-    $afterEsi = $gross - $esi;
-    $afterPt  = $afterEsi - $in['pt'];
-    $afterPf  = $afterPt - $pf;
+    // the slip (ESI -> PT -> PF), both shares of PF and ESI as on the sheet.
+    // The last step equals the net salary.
+    $afterEsi = $gross - $p['esi'];
+    $afterPt  = $afterEsi - $p['pt'];
+    $afterPf  = $afterPt - $p['pf'];
 
     // Second, independent chain: how gross is carved up into its components.
-    // What remains after CA is exactly Others, the balancing figure.
-    $allocAfterBasic = $gross - $basic;
-    $allocAfterHra   = $allocAfterBasic - $hra;
-    $allocAfterCa    = $allocAfterHra - $ca;
+    // What remains after CEA is exactly the Special Allowance, the balancing figure.
+    $allocAfterBasic = $gross - $p['basic'];
+    $allocAfterHra   = $allocAfterBasic - $p['hra'];
+    $allocAfterCa    = $allocAfterHra - $p['ca'];
+    $allocAfterLta   = $allocAfterCa - $p['lta'];
+    $allocAfterCea   = $allocAfterLta - $p['cea'];
 
-    // Basic + HRA + CA before the balancing figure. If this already exceeds
-    // gross, Others turns negative and the percentages need lowering.
-    $fixedComponents = $basic + $hra + $ca;
-    $overAllocated   = $fixedComponents - $gross;
-
-    // Attendance pro-rating. Negative unpaid days mean extra days worked.
-    $unpaidDays   = $in['workingDays'] - $in['daysPresent'];
-    $unpaidAmount = $perDay * $unpaidDays;
+    $fixedComponents = $p['basic'] + $p['hra'] + $p['ca'] + $p['lta'] + $p['cea'];
+    $caOn = ($in['caBasis'] ?? 'basic') === 'gross' ? $gross : $p['basic'];
 
     return [
         'gross'           => $gross,
-        'basic'           => $basic,
-        'hra'             => $hra,
-        'ca'              => $ca,
-        'others'          => $others,
-        'pt'              => $pt,
-        'esi'             => $esi,
-        'pf'              => $pf,
-        'pfWages'         => $pfWages,
-        'employerPf'      => $employerPf,
-        'employerEsi'     => $employerEsi,
-        'totalDeductions' => $totalDeductions,
-        'netSalary'       => $netSalary,
-        'perDay'          => $perDay,
-        'attendanceNet'   => $attendanceNet,
-        'esiApplies'      => $gross <= $in['esiThreshold'],
-        'caIsHigh'        => $gross > $in['caThreshold'],
+        'basic'           => $p['basic'],
+        'hra'             => $p['hra'],
+        'ca'              => $p['ca'],
+        'lta'             => $p['lta'],
+        'cea'             => $p['cea'],
+        'others'          => $p['other'],   // the Special Allowance
+        'pt'              => $p['pt'],
+        // the employee's shares, as the payslip lists them
+        'esi'             => $p['esi_employee'],
+        'pf'              => $p['pf_employee'],
+        'pfWages'         => $p['pf_wages'],
+        'employerPf'      => $p['pf_employer'],
+        'employerEsi'     => $p['esi_employer'],
+        // the sheet's columns
+        'pfFull'          => $p['pf_full'],
+        'pfAfterLop'      => $p['pf'],
+        'esiFull'         => $p['esi_full'],
+        'esiAfterLop'     => $p['esi'],
+        'totalDeductions' => $p['pf'] + $p['esi'] + $p['pt'],
+        'netSalary'       => $p['net'],
+        'perDay'          => $p['per_day'],
+        'afterLop'        => $p['after_lop'],
+        'attendanceNet'   => $p['final_net'],
+        'esiApplies'      => $p['esi_full'] > 0,
+        'caIsHigh'        => $caOn > $in['caThreshold'],
+        'caOn'            => $caOn,
+        'ceaIsLow'        => $p['basic'] < ($in['ceaThreshold'] ?? 0),
         'afterEsi'        => $afterEsi,
         'afterPf'         => $afterPf,
         'afterPt'         => $afterPt,
         'allocAfterBasic' => $allocAfterBasic,
         'allocAfterHra'   => $allocAfterHra,
         'allocAfterCa'    => $allocAfterCa,
+        'allocAfterLta'   => $allocAfterLta,
+        'allocAfterCea'   => $allocAfterCea,
         'fixedComponents' => $fixedComponents,
-        'overAllocated'   => $overAllocated,
-        'unpaidDays'      => $unpaidDays,
-        'unpaidAmount'    => $unpaidAmount,
+        'overAllocated'   => $fixedComponents - $gross,
+        // Negative unpaid days mean extra days worked.
+        'unpaidDays'      => $in['workingDays'] - $in['daysPresent'],
+        'unpaidAmount'    => $p['lop_amount'],
     ];
 }
 
@@ -728,12 +794,20 @@ if ($error === null && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset
                 ':caThreshold'     => $in['caThreshold'],
                 ':caHigh'          => $in['caHigh'],
                 ':caLow'           => $in['caLow'],
+                ':caBasis'         => $in['caBasis'],
+                ':ltaPct'          => $in['ltaPct'],
+                ':ceaThreshold'    => $in['ceaThreshold'],
+                ':ceaLow'          => $in['ceaLow'],
+                ':ceaHigh'         => $in['ceaHigh'],
                 ':pt'              => $in['pt'],
                 ':esiThreshold'    => $in['esiThreshold'],
                 ':esiPct'          => $in['esiPct'],
                 ':pfPct'           => $in['pfPct'],
                 ':pfWageCeiling'   => $in['pfWageCeiling'],
                 ':esiEmployerPct'  => $in['esiEmployerPct'],
+                ':pfEmployerPct'   => $in['pfEmployerPct'],
+                ':prorateStatutory' => $in['prorateStatutory'] ? 1 : 0,
+                ':roundNet'        => $in['roundNet'] ? 1 : 0,
                 ':ptSlabs'         => is_array($in['ptSlabs']) ? json_encode($in['ptSlabs']) : $in['ptSlabs'],
                 ':periodStartDay'  => max(1, min(28, (int) ($_POST['periodStartDay'] ?? ($latestRecord['period_start_day'] ?? 1)))),
                 ':workingDays'     => $in['workingDays'],
@@ -741,6 +815,8 @@ if ($error === null && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset
                 ':basic'           => $d['basic'],
                 ':hra'             => $d['hra'],
                 ':ca'              => $d['ca'],
+                ':lta'             => $d['lta'],
+                ':cea'             => $d['cea'],
                 ':others'          => $d['others'],
                 ':esi'             => $d['esi'],
                 ':pf'              => $d['pf'],
@@ -755,11 +831,14 @@ if ($error === null && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset
                     UPDATE payroll_calculations SET
                         gross = :gross, basic_pct = :basicPct, hra_pct = :hraPct,
                         ca_threshold = :caThreshold, ca_high = :caHigh, ca_low = :caLow,
+                        ca_basis = :caBasis, lta_pct = :ltaPct, cea_threshold = :ceaThreshold,
+                        cea_low = :ceaLow, cea_high = :ceaHigh,
                         pt = :pt, esi_threshold = :esiThreshold, esi_pct = :esiPct, pf_pct = :pfPct,
                         pf_wage_ceiling = :pfWageCeiling, esi_employer_pct = :esiEmployerPct,
+                        pf_employer_pct = :pfEmployerPct, prorate_statutory = :prorateStatutory, round_net = :roundNet,
                         pt_slabs = :ptSlabs, period_start_day = :periodStartDay,
                         working_days = :workingDays, days_present = :daysPresent,
-                        basic = :basic, hra = :hra, ca = :ca, others = :others, esi = :esi, pf = :pf,
+                        basic = :basic, hra = :hra, ca = :ca, lta = :lta, cea = :cea, others = :others, esi = :esi, pf = :pf,
                         total_deductions = :totalDeductions, net_salary = :netSalary,
                         per_day = :perDay, attendance_net = :attendanceNet
                     WHERE id = :id
@@ -772,17 +851,21 @@ if ($error === null && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset
                 $stmt = $pdo->prepare("
                     INSERT INTO payroll_calculations (
                         gross, basic_pct, hra_pct, ca_threshold, ca_high, ca_low,
+                        ca_basis, lta_pct, cea_threshold, cea_low, cea_high,
                         pt, esi_threshold, esi_pct, pf_pct,
                         pf_wage_ceiling, esi_employer_pct, pt_slabs, period_start_day,
+                        pf_employer_pct, prorate_statutory, round_net,
                         working_days, days_present,
-                        basic, hra, ca, others, esi, pf,
+                        basic, hra, ca, lta, cea, others, esi, pf,
                         total_deductions, net_salary, per_day, attendance_net
                     ) VALUES (
                         :gross, :basicPct, :hraPct, :caThreshold, :caHigh, :caLow,
+                        :caBasis, :ltaPct, :ceaThreshold, :ceaLow, :ceaHigh,
                         :pt, :esiThreshold, :esiPct, :pfPct,
                         :pfWageCeiling, :esiEmployerPct, :ptSlabs, :periodStartDay,
+                        :pfEmployerPct, :prorateStatutory, :roundNet,
                         :workingDays, :daysPresent,
-                        :basic, :hra, :ca, :others, :esi, :pf,
+                        :basic, :hra, :ca, :lta, :cea, :others, :esi, :pf,
                         :totalDeductions, :netSalary, :perDay, :attendanceNet
                     )
                 ");
@@ -1418,6 +1501,10 @@ function allocation_footer($label, $opening, $amount)
                 <select id="payslip_year" name="year"></select>
             </div>
         </div>
+        <!-- The salary period's attendance, day by day, once an employee and month are picked. -->
+        <div id="periodAttendanceLink" style="display:none; font-size:0.8rem; margin:-0.25rem 0 0.6rem;">
+            <a href="#" target="_blank" title="Every day of this salary period, as payroll counts it">📅 View attendance for this salary period</a>
+        </div>
         <input type="hidden" id="employee_joining_date" name="joining_date" value="" />
         <input type="hidden" id="period" name="period" value="<?= e(isset($_POST['period']) && $_POST['period'] !== '' ? $_POST['period'] : date('F - Y')) ?>" />
 
@@ -1427,6 +1514,10 @@ function allocation_footer($label, $opening, $amount)
         <input type="hidden" name="ca_threshold" id="hf_ca_threshold" value="<?= e($in['caThreshold']) ?>" />
         <input type="hidden" name="ca_high" id="hf_ca_high" value="<?= e($in['caHigh']) ?>" />
         <input type="hidden" name="ca_low" id="hf_ca_low" value="<?= e($in['caLow']) ?>" />
+        <input type="hidden" name="lta_pct" id="hf_lta_pct" value="<?= e($in['ltaPct']) ?>" />
+        <input type="hidden" name="cea_threshold" id="hf_cea_threshold" value="<?= e($in['ceaThreshold']) ?>" />
+        <input type="hidden" name="cea_low" id="hf_cea_low" value="<?= e($in['ceaLow']) ?>" />
+        <input type="hidden" name="cea_high" id="hf_cea_high" value="<?= e($in['ceaHigh']) ?>" />
         <input type="hidden" name="esi_threshold" id="hf_esi_threshold" value="<?= e($in['esiThreshold']) ?>" />
         <input type="hidden" name="esi_pct" id="hf_esi_pct" value="<?= e($in['esiPct']) ?>" />
         <input type="hidden" name="pf_pct" id="hf_pf_pct" value="<?= e($in['pfPct']) ?>" />
@@ -1438,6 +1529,8 @@ function allocation_footer($label, $opening, $amount)
         <input type="hidden" name="basic" id="hf_basic" value="<?= e($d['basic']) ?>" />
         <input type="hidden" name="hra" id="hf_hra" value="<?= e($d['hra']) ?>" />
         <input type="hidden" name="ca" id="hf_ca" value="<?= e($d['ca']) ?>" />
+        <input type="hidden" name="lta" id="hf_lta" value="<?= e($d['lta']) ?>" />
+        <input type="hidden" name="cea" id="hf_cea" value="<?= e($d['cea']) ?>" />
         <input type="hidden" name="others" id="hf_others" value="<?= e($d['others']) ?>" />
         <input type="hidden" name="pf" id="hf_pf" value="<?= e($d['pf']) ?>" />
         <input type="hidden" name="esi" id="hf_esi" value="<?= e($d['esi']) ?>" />
@@ -1458,7 +1551,7 @@ function allocation_footer($label, $opening, $amount)
             🧾 Generate Payslip →
         </button>
         <div class="inline-hint" style="text-align:center;">
-            Saves and opens payslips.php with Basic, HRA, CA, Others as earnings and PF, ESI, PT, Lop as deductions
+            Saves and opens payslips.php with Basic, HRA, CA, LTA, CEA, Special Allowance as earnings and PF, ESI, PT, Lop as deductions
         </div>
     </form>
 
@@ -1467,24 +1560,24 @@ function allocation_footer($label, $opening, $amount)
 <div class="card">
     <div style="max-width:640px; margin:0 auto;">
         <div class="slip-head">📅 Attendance</div>
-        <div class="slip-row"><span class="label">Working days in month</span><span class="value"><?= e($in['workingDays']) ?></span></div>
+        <div class="slip-row"><span class="label">Days in salary period</span><span class="value"><?= e($in['workingDays']) ?></span></div>
         <div class="slip-row"><span class="label">Days present</span><span class="value"><?= e($in['daysPresent']) ?></span></div>
         <div class="calc-line"><?= e(inr($d['netSalary'])) ?> ÷ <?= e($in['workingDays']) ?> days = <strong><?= e(inr($d['perDay'])) ?></strong> per day</div>
-        <div class="slip-row"><span class="label">Per‑day <span class="sub">Net ÷ working days</span></span><span class="value"><?= e(inr($d['perDay'])) ?></span></div>
+        <div class="slip-row"><span class="label">Per‑day <span class="sub">Net ÷ days in period</span></span><span class="value"><?= e(inr($d['perDay'])) ?></span></div>
         <div class="calc-line"><?= e(inr($d['perDay'])) ?> × <?= e($in['daysPresent']) ?> days present = <strong><?= e(inr($d['attendanceNet'])) ?></strong></div>
         <?php
         $absDays = abs($d['unpaidDays']);
         section_footer(
             'Net salary (full month)', $d['netSalary'],
             ($d['unpaidDays'] >= 0 ? 'Less: ' : 'Add: ') . $absDays . ' ' . ($absDays === 1 ? 'day' : 'days')
-                . ($d['unpaidDays'] >= 0 ? ' not present' : ' beyond working days'),
+                . ($d['unpaidDays'] >= 0 ? ' not present' : ' beyond the days in the period'),
             $d['unpaidAmount'],
             'Net payable (attendance)', 'net'
         );
         ?>
 
         <div class="attendance-box">
-            <span>📅 <?= e($in['workingDays']) ?> working days · ✅ <?= e($in['daysPresent']) ?> present</span>
+            <span>📅 <?= e($in['workingDays']) ?> days in period · ✅ <?= e($in['daysPresent']) ?> present</span>
             <span class="per-day-tag">💵 Per‑day: <?= e(inr($d['perDay'])) ?></span>
             <?= $warning ?>
         </div>
@@ -1507,7 +1600,7 @@ function allocation_footer($label, $opening, $amount)
 <div class="card" <?= $compactMode ? 'style="display:none;"' : '' ?>>
     <h1>
         🧾 Payroll · All Input Fields
-        <small>basic % · HRA % · CA slabs · ESI % · PF %</small>
+        <small>basic % · HRA % · CA slabs · LTA · CEA · ESI % · PF %</small>
     </h1>
     <div class="grid-2">
         <!-- LEFT: ALL INPUTS -->
@@ -1520,44 +1613,52 @@ function allocation_footer($label, $opening, $amount)
 
             <div class="input-group">
                 <label>Gross Salary (₹) <span class="hint">(monthly)</span></label>
-                <input type="number" name="gross" id="grossInput" class="payroll-field" value="<?= e($in['gross']) ?>" step="100" />
+                <input type="number" name="gross" id="grossInput" class="payroll-field" value="<?= e($in['gross']) ?>" step="1" />
             </div>
 
             <div class="section-title">🔹 Basic</div>
             <div class="input-group">
                 <label>Basic % <span class="hint">(of Gross)</span></label>
-                <input type="number" name="basicPct" id="basicPct" class="payroll-field" value="<?= e($in['basicPct']) ?>" step="0.5" min="0" max="100" />
+                <input type="number" name="basicPct" id="basicPct" class="payroll-field" value="<?= e($in['basicPct']) ?>" step="0.01" min="0" max="100" />
                 <span class="inline-hint">→ Basic = ₹<span id="basicPreview"><?= e(round($d['basic'])) ?></span></span>
             </div>
 
             <div class="section-title">🔹 HRA (House Rent Allowance)</div>
             <div class="input-group">
                 <label>HRA % <span class="hint">(of Basic)</span></label>
-                <input type="number" name="hraPct" id="hraPct" class="payroll-field" value="<?= e($in['hraPct']) ?>" step="0.5" min="0" max="100" />
+                <input type="number" name="hraPct" id="hraPct" class="payroll-field" value="<?= e($in['hraPct']) ?>" step="0.01" min="0" max="100" />
                 <span class="inline-hint">→ HRA = ₹<span id="hraPreview"><?= e(round($d['hra'])) ?></span></span>
             </div>
 
             <div class="section-title">🔹 CA (Conveyance Allowance)</div>
             <div class="input-group">
+                <label>CA judged on</label>
+                <select name="caBasis" id="caBasis" class="payroll-field">
+                    <option value="basic" <?= $in['caBasis'] === 'basic' ? 'selected' : '' ?>>Basic — IF(Basic &gt; threshold, high, low), as on the sheet</option>
+                    <option value="gross" <?= $in['caBasis'] === 'gross' ? 'selected' : '' ?>>Gross</option>
+                </select>
+            </div>
+            <?php $caOnLabel = $in['caBasis'] === 'gross' ? 'Gross' : 'Basic'; ?>
+            <div class="input-group">
                 <label>CA threshold salary (₹)</label>
-                <input type="number" name="caThreshold" id="caThreshold" class="payroll-field" value="<?= e($in['caThreshold']) ?>" step="1000" />
-                <span class="inline-hint">Gross <strong>above</strong> this → high slab &nbsp;·&nbsp; <strong>at or below</strong> this → low slab</span>
+                <input type="number" name="caThreshold" id="caThreshold" class="payroll-field" value="<?= e($in['caThreshold']) ?>" step="1" />
+                <span class="inline-hint"><span class="ca-on"><?= $caOnLabel ?></span> <strong>above</strong> this → high slab &nbsp;·&nbsp; <strong>at or below</strong> this → low slab</span>
             </div>
             <div class="input-row-2">
                 <div class="input-group">
-                    <label>CA if Gross &gt; threshold (₹) <span class="hint">high slab</span></label>
-                    <input type="number" name="caHigh" id="caHigh" class="payroll-field" value="<?= e($in['caHigh']) ?>" step="100" />
+                    <label>CA if <span class="ca-on"><?= $caOnLabel ?></span> &gt; threshold (₹) <span class="hint">high slab</span></label>
+                    <input type="number" name="caHigh" id="caHigh" class="payroll-field" value="<?= e($in['caHigh']) ?>" step="1" />
                 </div>
                 <div class="input-group">
-                    <label>CA if Gross &le; threshold (₹) <span class="hint">low slab</span></label>
-                    <input type="number" name="caLow" id="caLow" class="payroll-field" value="<?= e($in['caLow']) ?>" step="100" />
+                    <label>CA if <span class="ca-on"><?= $caOnLabel ?></span> &le; threshold (₹) <span class="hint">low slab</span></label>
+                    <input type="number" name="caLow" id="caLow" class="payroll-field" value="<?= e($in['caLow']) ?>" step="1" />
                 </div>
             </div>
             <div class="slab-note" id="caSlabNote">
                 <?php if ($d['caIsHigh']): ?>
-                    ✅ Gross <?= e(inr($in['gross'])) ?> &gt; <?= e(inr($in['caThreshold'])) ?> → CA <strong><?= e(inr($in['caHigh'])) ?></strong>
+                    ✅ <?= $caOnLabel ?> <?= e(inr($d['caOn'])) ?> &gt; <?= e(inr($in['caThreshold'])) ?> → CA <strong><?= e(inr($in['caHigh'])) ?></strong>
                 <?php else: ?>
-                    ✅ Gross <?= e(inr($in['gross'])) ?> &lt; <?= e(inr($in['caThreshold'])) ?> → CA <strong><?= e(inr($in['caLow'])) ?></strong>
+                    ✅ <?= $caOnLabel ?> <?= e(inr($d['caOn'])) ?> &le; <?= e(inr($in['caThreshold'])) ?> → CA <strong><?= e(inr($in['caLow'])) ?></strong>
                 <?php endif; ?>
             </div>
 
@@ -1570,7 +1671,7 @@ function allocation_footer($label, $opening, $amount)
             ?>
             <div class="input-group">
                 <label>PT ₹ <span class="hint"><?= $ptSlabs ? 'used only when no band matches' : 'fixed' ?></span></label>
-                <input type="number" name="pt" id="ptInput" class="payroll-field" value="<?= e($in['pt']) ?>" step="10" />
+                <input type="number" name="pt" id="ptInput" class="payroll-field" value="<?= e($in['pt']) ?>" step="1" />
             </div>
             <?php if ($ptSlabs): ?>
             <div class="slab-note" id="ptSlabNote">
@@ -1591,34 +1692,80 @@ function allocation_footer($label, $opening, $amount)
 
             <div class="section-title">🔹 Others</div>
             <div class="input-group">
-                <label>Others <span class="hint">(auto-calculated)</span></label>
+                <label>LTA % <span class="hint">(Leave Travel Allowance, of Basic — rounded up to the rupee)</span></label>
+                <input type="number" name="ltaPct" id="ltaPct" class="payroll-field" value="<?= e($in['ltaPct']) ?>" step="0.01" min="0" max="100" />
+                <span class="inline-hint">→ LTA = ROUNDUP(Basic × <?= e(pct($in['ltaPct'])) ?>%) = ₹<span id="ltaPreview"><?= e(round($d['lta'])) ?></span></span>
+            </div>
+            <div class="input-group">
+                <label>CEA threshold — Basic (₹) <span class="hint">(Children Education Allowance)</span></label>
+                <input type="number" name="ceaThreshold" id="ceaThreshold" class="payroll-field" value="<?= e($in['ceaThreshold']) ?>" step="1" />
+                <span class="inline-hint">Basic <strong>below</strong> this → lower amount &nbsp;·&nbsp; <strong>at or above</strong> this → higher amount</span>
+            </div>
+            <div class="input-row-2">
+                <div class="input-group">
+                    <label>CEA if Basic &lt; threshold (₹)</label>
+                    <input type="number" name="ceaLow" id="ceaLow" class="payroll-field" value="<?= e($in['ceaLow']) ?>" step="1" />
+                </div>
+                <div class="input-group">
+                    <label>CEA if Basic &ge; threshold (₹)</label>
+                    <input type="number" name="ceaHigh" id="ceaHigh" class="payroll-field" value="<?= e($in['ceaHigh']) ?>" step="1" />
+                </div>
+            </div>
+            <div class="slab-note" id="ceaSlabNote">
+                ✅ Basic <?= e(inr($d['basic'])) ?> <?= $d['ceaIsLow'] ? '&lt;' : '&ge;' ?> <?= e(inr($in['ceaThreshold'])) ?> → CEA <strong><?= e(inr($d['cea'])) ?></strong>
+            </div>
+            <div class="input-group">
+                <label>Special Allowance <span class="hint">(auto-calculated)</span></label>
                 <input type="text" id="othersDisplay" value="<?= e(inr($d['others'])) ?>" disabled style="background:#eef3f8; color:#1d3b57; font-weight:600;" />
-                <span class="inline-hint">Gross − (Basic + HRA + CA)</span>
+                <span class="inline-hint">Gross − (Basic + HRA + CA + LTA + CEA)</span>
             </div>
 
             <div class="section-title">🔹 ESI (Employee State Insurance)</div>
             <div class="input-row-2">
                 <div class="input-group">
                     <label>ESI threshold (Gross below ₹)</label>
-                    <input type="number" name="esiThreshold" id="esiThreshold" class="payroll-field" value="<?= e($in['esiThreshold']) ?>" step="1000" />
+                    <input type="number" name="esiThreshold" id="esiThreshold" class="payroll-field" value="<?= e($in['esiThreshold']) ?>" step="1" />
                 </div>
                 <div class="input-group">
                     <label>ESI % <span class="hint">(employee, of Gross)</span></label>
-                    <input type="number" name="esiPct" id="esiPct" class="payroll-field" value="<?= e($in['esiPct']) ?>" step="0.1" min="0" max="5" />
+                    <input type="number" name="esiPct" id="esiPct" class="payroll-field" value="<?= e($in['esiPct']) ?>" step="0.01" min="0" max="5" />
                     <span class="inline-hint">applies if Gross &lt; threshold</span>
                 </div>
             </div>
             <div class="input-group">
                 <label>Employer ESI % <span class="hint">(of Gross)</span></label>
-                <input type="number" name="esiEmployerPct" id="esiEmployerPct" class="payroll-field" value="<?= e($in['esiEmployerPct']) ?>" step="0.05" min="0" max="10" />
+                <input type="number" name="esiEmployerPct" id="esiEmployerPct" class="payroll-field" value="<?= e($in['esiEmployerPct']) ?>" step="0.01" min="0" max="10" />
                 <span class="inline-hint">the employer's share is larger than the employee's (3.25% against 0.75% by the usual rule)</span>
             </div>
 
             <div class="section-title">🔹 PF (Provident Fund)</div>
             <div class="input-group">
                 <label>PF % <span class="hint">(of Basic — employee contribution)</span></label>
-                <input type="number" name="pfPct" id="pfPct" class="payroll-field" value="<?= e($in['pfPct']) ?>" step="0.5" min="0" max="20" />
-                <span class="inline-hint">→ PF = ₹<span id="pfPreview"><?= e(round($d['pf'])) ?></span></span>
+                <input type="number" name="pfPct" id="pfPct" class="payroll-field" value="<?= e($in['pfPct']) ?>" step="0.01" min="0" max="20" />
+                <span class="inline-hint">→ PF (both shares) = ₹<span id="pfPreview"><?= e(round($d['pfFull'])) ?></span></span>
+            </div>
+            <div class="input-group">
+                <label>Employer PF % <span class="hint">(of Basic — employer contribution)</span></label>
+                <input type="number" name="pfEmployerPct" id="pfEmployerPct" class="payroll-field" value="<?= e($in['pfEmployerPct']) ?>" step="0.01" min="0" max="20" />
+                <span class="inline-hint">PF on the sheet is both shares together: employee % + employer %</span>
+            </div>
+            <div class="input-row-2">
+                <div class="input-group">
+                    <label>PF &amp; ESI on days paid</label>
+                    <select name="prorateStatutory" id="prorateStatutory" class="payroll-field">
+                        <option value="1" <?= $in['prorateStatutory'] ? 'selected' : '' ?>>Yes — PF / ESI after LOP</option>
+                        <option value="0" <?= $in['prorateStatutory'] ? '' : 'selected' ?>>No — full month</option>
+                    </select>
+                    <span class="inline-hint">PF after LOP = PF × present ÷ days, and the same for ESI</span>
+                </div>
+                <div class="input-group">
+                    <label>Round to the rupee</label>
+                    <select name="roundNet" id="roundNet" class="payroll-field">
+                        <option value="1" <?= $in['roundNet'] ? 'selected' : '' ?>>Yes</option>
+                        <option value="0" <?= $in['roundNet'] ? '' : 'selected' ?>>No — keep paise</option>
+                    </select>
+                    <span class="inline-hint">PF / ESI after LOP and the final net salary</span>
+                </div>
             </div>
             <div class="input-group">
                 <?php
@@ -1649,9 +1796,9 @@ function allocation_footer($label, $opening, $amount)
 
             <div class="input-group">
                 <label>PF wage ceiling (₹) <span class="hint">0 = the whole of Basic</span></label>
-                <input type="number" name="pfWageCeiling" id="pfWageCeiling" class="payroll-field" value="<?= e($in['pfWageCeiling']) ?>" step="500" min="0" />
+                <input type="number" name="pfWageCeiling" id="pfWageCeiling" class="payroll-field" value="<?= e($in['pfWageCeiling']) ?>" step="1" min="0" />
                 <span class="inline-hint">
-                    PF is taken on Basic up to this figure — ₹15,000 by the usual rule.
+                    PF is taken on Basic up to this figure — ₹25,000 on the calculation sheet.
                     This salary contributes on <strong>₹<?= e(indian_number($d['pfWages'])) ?></strong>
                     <?= $d['pfWages'] < $d['basic'] ? 'of ₹' . e(indian_number($d['basic'])) . ' Basic' : '(all of Basic)' ?>.
                 </span>
@@ -1660,7 +1807,7 @@ function allocation_footer($label, $opening, $amount)
             <div class="section-title">📅 Attendance</div>
             <div class="input-row-2">
                 <div class="input-group">
-                    <label>Working days in month</label>
+                    <label>Days in salary period</label>
                     <input type="number" name="workingDays" id="workingDays" class="payroll-field" value="<?= e($in['workingDays']) ?>" step="0.5" min="1" max="31" />
                 </div>
                 <div class="input-group">
@@ -1668,6 +1815,7 @@ function allocation_footer($label, $opening, $amount)
                     <input type="number" name="daysPresent" id="daysPresent" class="payroll-field" value="<?= e($in['daysPresent']) ?>" step="0.5" min="0" max="31" />
                 </div>
             </div>
+            <div style="font-size:0.75rem; color:#6b7280; margin:-0.25rem 0 0.4rem;">Every calendar day of the salary period counts (30 / 31), week offs and holidays included.</div>
             <div id="attendanceBreakdown" style="font-size:0.75rem; color:#6b7280; margin:-0.25rem 0 0.75rem;"></div>
             <div id="periodWarning" style="display:none; font-size:0.78rem; color:#92400e; background:#fef3c7; border:1px solid #fcd34d; border-radius:6px; padding:0.5rem 0.65rem; margin:0 0 0.75rem;"></div>
 
@@ -1720,16 +1868,19 @@ function allocation_footer($label, $opening, $amount)
 
                         <div class="slip-head">🔹 ESI (Employee State Insurance)</div>
                         <div class="slip-row"><span class="label">ESI threshold</span><span class="value"><?= e(inr($in['esiThreshold'])) ?></span></div>
-                        <div class="slip-row"><span class="label">ESI % <span class="sub">of Gross</span></span><span class="value"><?= $d['esiApplies'] ? e(pct($in['esiPct'])) . '%' : '— not applicable' ?></span></div>
+                        <div class="slip-row"><span class="label">ESI % <span class="sub">of Gross, employee + employer</span></span><span class="value"><?= $d['esiApplies'] ? e(pct($in['esiPct'])) . '% + ' . e(pct($in['esiEmployerPct'])) . '% = ' . e(pct($in['esiPct'] + $in['esiEmployerPct'])) . '%' : '— not applicable' ?></span></div>
                         <div class="calc-line">
                             <?php if ($d['esiApplies']): ?>
-                                <?= e(inr($d['gross'])) ?> × <?= e(pct($in['esiPct'])) ?>% = <strong><?= e(inr($d['esi'])) ?></strong>
+                                <?= e(inr($d['gross'])) ?> × <?= e(pct($in['esiPct'] + $in['esiEmployerPct'])) ?>% = <strong><?= e(inr($d['esiFull'])) ?></strong>
+                                <?php if (abs($d['esiAfterLop'] - $d['esiFull']) >= 0.01): ?>
+                                    <br>after LOP: <?= e(inr($d['esiFull'])) ?> × <?= e($in['daysPresent']) ?> ÷ <?= e($in['workingDays']) ?> = <strong><?= e(inr($d['esiAfterLop'])) ?></strong>
+                                <?php endif; ?>
                             <?php else: ?>
                                 Gross <?= e(inr($d['gross'])) ?> &gt; threshold <?= e(inr($in['esiThreshold'])) ?> → <strong>₹ 0</strong>
                             <?php endif; ?>
                         </div>
-                        <div class="slip-row"><span class="label">ESI amount</span><span class="value"><?= e(inr($d['esi'])) ?></span></div>
-                        <?php deduction_footer('ESI', $d['gross'], $d['esi']); ?>
+                        <div class="slip-row"><span class="label">ESI amount <span class="sub">employee <?= e(inr($d['esi'])) ?> + employer <?= e(inr($d['employerEsi'])) ?></span></span><span class="value"><?= e(inr($d['esiAfterLop'])) ?></span></div>
+                        <?php deduction_footer('ESI', $d['gross'], $d['esiAfterLop']); ?>
 
                         <div class="slip-head">🔹 Basic</div>
                         <div class="slip-row"><span class="label">Basic % <span class="sub">of Gross</span></span><span class="value"><?= e(pct($in['basicPct'])) ?>%</span></div>
@@ -1745,29 +1896,42 @@ function allocation_footer($label, $opening, $amount)
 
                         <div class="slip-head">🔹 CA (Conveyance Allowance)</div>
                         <div class="slip-row"><span class="label">CA threshold salary</span><span class="value"><?= e(inr($in['caThreshold'])) ?></span></div>
-                        <div class="slip-row"><span class="label">Slab applied</span><span class="value"><?= $d['caIsHigh'] ? 'Gross &gt; threshold' : 'Gross &le; threshold' ?></span></div>
-                        <div class="calc-line">Gross <?= e(inr($d['gross'])) ?> <?= $d['caIsHigh'] ? '&ge;' : '&lt;' ?> <?= e(inr($in['caThreshold'])) ?> → <?= $d['caIsHigh'] ? 'high' : 'low' ?> slab = <strong><?= e(inr($d['ca'])) ?></strong></div>
+                        <div class="slip-row"><span class="label">Slab applied</span><span class="value"><?= $caOnLabel ?> <?= $d['caIsHigh'] ? '&gt; threshold' : '&le; threshold' ?></span></div>
+                        <div class="calc-line"><?= $caOnLabel ?> <?= e(inr($d['caOn'])) ?> <?= $d['caIsHigh'] ? '&gt;' : '&le;' ?> <?= e(inr($in['caThreshold'])) ?> → <?= $d['caIsHigh'] ? 'high' : 'low' ?> slab = <strong><?= e(inr($d['ca'])) ?></strong></div>
                         <div class="slip-row"><span class="label"><?= e($caLabel) ?></span><span class="value"><?= e(inr($d['ca'])) ?></span></div>
                         <?php allocation_footer('CA', $d['allocAfterHra'], $d['ca']); ?>
-                        <div class="carry-note">↳ Nothing left to allocate after this — the remaining <strong><?= e(inr($d['allocAfterCa'])) ?></strong> becomes <strong>Others</strong> below</div>
 
-                        <div class="slip-head">🔹 Others</div>
-                        <div class="slip-row"><span class="label">Formula</span><span class="value" style="font-weight:500;">Gross − (Basic + HRA + CA)</span></div>
+                        <div class="slip-head">🔹 LTA (Leave Travel Allowance)</div>
+                        <div class="slip-row"><span class="label">LTA % <span class="sub">of Basic, rounded up</span></span><span class="value"><?= e(pct($in['ltaPct'])) ?>%</span></div>
+                        <div class="calc-line">ROUNDUP(<?= e(inr($d['basic'])) ?> × <?= e(pct($in['ltaPct'])) ?>%) = <strong><?= e(inr($d['lta'])) ?></strong></div>
+                        <div class="slip-row"><span class="label">LTA amount</span><span class="value"><?= e(inr($d['lta'])) ?></span></div>
+                        <?php allocation_footer('LTA', $d['allocAfterCa'], $d['lta']); ?>
+
+                        <div class="slip-head">🔹 CEA (Children Education Allowance)</div>
+                        <div class="slip-row"><span class="label">CEA threshold <span class="sub">on Basic</span></span><span class="value"><?= e(inr($in['ceaThreshold'])) ?></span></div>
+                        <div class="calc-line">Basic <?= e(inr($d['basic'])) ?> <?= $d['ceaIsLow'] ? '&lt;' : '&ge;' ?> <?= e(inr($in['ceaThreshold'])) ?> → <strong><?= e(inr($d['cea'])) ?></strong></div>
+                        <div class="slip-row"><span class="label">CEA amount</span><span class="value"><?= e(inr($d['cea'])) ?></span></div>
+                        <?php allocation_footer('CEA', $d['allocAfterLta'], $d['cea']); ?>
+                        <div class="carry-note">↳ Nothing left to allocate after this — the remaining <strong><?= e(inr($d['allocAfterCea'])) ?></strong> becomes the <strong>Special Allowance</strong> below</div>
+
+                        <div class="slip-head">🔹 Special Allowance</div>
+                        <div class="slip-row"><span class="label">Formula</span><span class="value" style="font-weight:500;">Gross − (Basic + HRA + CA + LTA + CEA)</span></div>
                         <div class="calc-line">
                             <div class="step">Gross <strong><?= e(inr($d['gross'])) ?></strong></div>
                             <div class="step">− Basic <?= e(inr($d['basic'])) ?></div>
                             <div class="step">− HRA <?= e(inr($d['hra'])) ?></div>
                             <div class="step">− CA <?= e(inr($d['ca'])) ?></div>
+                            <div class="step">− LTA <?= e(inr($d['lta'])) ?></div>
+                            <div class="step">− CEA <?= e(inr($d['cea'])) ?></div>
                             <div class="step">(deducted together: <?= e(inr($d['fixedComponents'])) ?>)</div>
-                            <div class="step result">Others = <strong><?= e(inr($d['others'])) ?></strong></div>
+                            <div class="step result">Special Allowance = <strong><?= e(inr($d['others'])) ?></strong></div>
                         </div>
-                        <div class="carry-note">↳ Same figure as “Unallocated gross after CA” above — carried down from the CA section</div>
-                        <div class="slip-row"><span class="label">Others amount</span><span class="value"><?= e(inr($d['others'])) ?></span></div>
+                        <div class="slip-row"><span class="label">Special Allowance amount</span><span class="value"><?= e(inr($d['others'])) ?></span></div>
 
                         <?php if ($d['overAllocated'] > 0): ?>
                             <div class="alloc-warn">
-                                ⚠️ Basic + HRA + CA come to <?= e(inr($d['fixedComponents'])) ?>, which exceeds the
-                                <?= e(inr($d['gross'])) ?> gross by <?= e(inr($d['overAllocated'])) ?> — so Others is negative.
+                                ⚠️ Basic + HRA + CA + LTA + CEA come to <?= e(inr($d['fixedComponents'])) ?>, which exceeds the
+                                <?= e(inr($d['gross'])) ?> gross by <?= e(inr($d['overAllocated'])) ?> — so the allowances were cut back.
                                 Lower the Basic % or HRA %.
                             </div>
                         <?php endif; ?>
@@ -1778,10 +1942,16 @@ function allocation_footer($label, $opening, $amount)
                         <?php deduction_footer('PT', $d['afterEsi'], $d['pt']); ?>
 
                         <div class="slip-head">🔹 PF (Provident Fund)</div>
-                        <div class="slip-row"><span class="label">PF % <span class="sub">of Basic</span></span><span class="value"><?= e(pct($in['pfPct'])) ?>%</span></div>
-                        <div class="calc-line"><?= e(inr($d['basic'])) ?> × <?= e(pct($in['pfPct'])) ?>% = <strong><?= e(inr($d['pf'])) ?></strong></div>
-                        <div class="slip-row"><span class="label">PF amount</span><span class="value"><?= e(inr($d['pf'])) ?></span></div>
-                        <?php deduction_footer('PF', $d['afterPt'], $d['pf']); ?>
+                        <div class="slip-row"><span class="label">PF % <span class="sub">of Basic, employee + employer</span></span><span class="value"><?= e(pct($in['pfPct'])) ?>% + <?= e(pct($in['pfEmployerPct'])) ?>% = <?= e(pct($in['pfPct'] + $in['pfEmployerPct'])) ?>%</span></div>
+                        <div class="calc-line">
+                            <?php if ($d['pfWages'] < $d['basic']): ?>Basic <?= e(inr($d['basic'])) ?> capped at <?= e(inr($d['pfWages'])) ?> · <?php endif; ?>
+                            <?= e(inr($d['pfWages'])) ?> × <?= e(pct($in['pfPct'] + $in['pfEmployerPct'])) ?>% = <strong><?= e(inr($d['pfFull'])) ?></strong>
+                            <?php if (abs($d['pfAfterLop'] - $d['pfFull']) >= 0.01): ?>
+                                <br>after LOP: <?= e(inr($d['pfFull'])) ?> × <?= e($in['daysPresent']) ?> ÷ <?= e($in['workingDays']) ?> = <strong><?= e(inr($d['pfAfterLop'])) ?></strong>
+                            <?php endif; ?>
+                        </div>
+                        <div class="slip-row"><span class="label">PF amount <span class="sub">employee <?= e(inr($d['pf'])) ?> + employer <?= e(inr($d['employerPf'])) ?></span></span><span class="value"><?= e(inr($d['pfAfterLop'])) ?></span></div>
+                        <?php deduction_footer('PF', $d['afterPt'], $d['pfAfterLop']); ?>
 
                         <div class="grand-summary">
                             <div class="slip-row"><span class="label">Gross Salary</span><span class="value"><?= e(inr($d['gross'])) ?></span></div>
@@ -1833,7 +2003,7 @@ function allocation_footer($label, $opening, $amount)
             <?php endif; ?>
 
             <div class="footnote">
-                <strong>Per‑day salary</strong> = Net Salary ÷ Working days &nbsp;·&nbsp;
+                <strong>Per‑day salary</strong> = Net Salary ÷ days in the salary period &nbsp;·&nbsp;
                 <strong>Net payable</strong> = Per‑day × Days present
             </div>
         </div>
@@ -1851,6 +2021,7 @@ function allocation_footer($label, $opening, $amount)
         // This page's own address, for its AJAX lookups: served through the
         // application's authenticated route it is not "Reductions.php".
         const SELF_URL = <?= json_encode($selfUrl) ?>;
+        const ATTENDANCE_URL = <?= json_encode(function_exists('route') ? route('payroll.attendance', ['userId' => '__USER__']) : null) ?>;
 
         // DOM refs for employee form
         const employeeCardId = byId('employee_card_id');
@@ -1899,6 +2070,12 @@ function allocation_footer($label, $opening, $amount)
             ca_threshold: byId('hf_ca_threshold'),
             ca_high: byId('hf_ca_high'),
             ca_low: byId('hf_ca_low'),
+            lta_pct: byId('hf_lta_pct'),
+            cea_threshold: byId('hf_cea_threshold'),
+            cea_low: byId('hf_cea_low'),
+            cea_high: byId('hf_cea_high'),
+            lta: byId('hf_lta'),
+            cea: byId('hf_cea'),
             esi_threshold: byId('hf_esi_threshold'),
             esi_pct: byId('hf_esi_pct'),
             pf_pct: byId('hf_pf_pct'),
@@ -1982,6 +2159,13 @@ function allocation_footer($label, $opening, $amount)
         // for any employee.
         // -------------------------------------------------------------------
         function refreshAttendance(userId, month, year) {
+            const attendanceLink = byId('periodAttendanceLink');
+            if (attendanceLink && ATTENDANCE_URL) {
+                attendanceLink.querySelector('a').href = ATTENDANCE_URL.replace('__USER__', encodeURIComponent(userId))
+                    + '?month=' + encodeURIComponent(month) + '&year=' + encodeURIComponent(year);
+                attendanceLink.style.display = 'block';
+            }
+
             return fetch(SELF_URL + '?ajax=lookup_attendance&user_id=' + encodeURIComponent(userId)
                 + '&month=' + encodeURIComponent(month) + '&year=' + encodeURIComponent(year))
                 .then((res) => res.json())
@@ -2002,12 +2186,16 @@ function allocation_footer($label, $opening, $amount)
                     const warn = byId('periodWarning');
                     if (warn) {
                         const now = new Date();
-                        const running = parseInt(year, 10) === now.getFullYear() && parseInt(month, 10) === now.getMonth() + 1;
+                        // With the pay cycle known, the period is running until all its days are counted.
+                        const running = data.period_days
+                            ? data.working_days < data.period_days
+                            : parseInt(year, 10) === now.getFullYear() && parseInt(month, 10) === now.getMonth() + 1;
                         warn.style.display = running ? 'block' : 'none';
                         warn.textContent = running
-                            ? '⚠ ' + monthNames[month - 1] + ' is still running. This payslip covers the '
-                                + data.working_days + ' days so far; anything that happens in the rest of the month '
-                                + 'will not be counted. Generate after the month ends, or revoke and reissue then.'
+                            ? '⚠ The ' + monthNames[month - 1] + ' salary period'
+                                + (data.period_end ? ' (to ' + data.period_end + ')' : '') + ' is still running. This payslip covers the '
+                                + data.working_days + ' days so far; anything that happens in the rest of the period '
+                                + 'will not be counted. Generate after the period ends, or revoke and reissue then.'
                             : '';
                     }
                     if (note && b) {
@@ -2322,32 +2510,62 @@ function allocation_footer($label, $opening, $amount)
             const wDays = parseFloat(workingDays.value) || 0;
             const dPresent = parseFloat(daysPresent.value) || 0;
 
-            // Compute components
-            const basic = monthlyGross * (pBasic / 100);
-            const hra = basic * (pHra / 100);
-            const ca = monthlyGross > thresh ? caHighVal : caLowVal;
-            const others = monthlyGross - (basic + hra + ca);
-            const esi = (monthlyGross <= esiThresh) ? monthlyGross * (esiPctVal / 100) : 0;
+            // The calculation sheet, as SalaryCalculator works it on the server
+            // (which recalculates on Generate, so this is the preview of it):
+            // PF and ESI after LOP, Net = Gross - PF - ESI - PT - TDS,
+            // per day = Net / days, final = ROUND(Net - LOP days x per day).
+            const pfEmployerPctVal = byId('pfEmployerPct') ? (parseFloat(byId('pfEmployerPct').value) || 0) : pfPctVal;
+            const prorate = byId('prorateStatutory') ? byId('prorateStatutory').value === '1' : true;
+            const roundNet = byId('roundNet') ? byId('roundNet').value === '1' : true;
+            const money = function (v) { return roundNet ? Math.round(v) : Math.round(v * 100) / 100; };
+            const paise = function (v) { return Math.round(v * 100) / 100; };
 
-            // Same statutory rules the server applies: PF on basic up to the
-            // wage ceiling, a larger employer ESI share, and PT by salary band.
+            const basic = monthlyGross * (pBasic / 100);
+            let hra = basic * (pHra / 100);
+            const caOn = (byId('caBasis') && byId('caBasis').value === 'gross') ? monthlyGross : basic;
+            let ca = caOn > thresh ? caHighVal : caLowVal;
+            const ltaPctVal = byId('ltaPct') ? (parseFloat(byId('ltaPct').value) || 0) : 0;
+            let lta = Math.ceil(Math.round(basic * ltaPctVal / 100 * 1e6) / 1e6);
+            const ceaThresh = byId('ceaThreshold') ? (parseFloat(byId('ceaThreshold').value) || 0) : 0;
+            let cea = basic < ceaThresh ? (parseFloat(byId('ceaLow').value) || 0) : (parseFloat(byId('ceaHigh') ? byId('ceaHigh').value : 0) || 0);
+            // the allowances give way, in order, rather than the Special Allowance going negative
+            hra = Math.min(hra, Math.max(0, monthlyGross - basic));
+            ca = Math.min(ca, Math.max(0, monthlyGross - basic - hra));
+            lta = Math.min(lta, Math.max(0, monthlyGross - basic - hra - ca));
+            cea = Math.min(cea, Math.max(0, monthlyGross - basic - hra - ca - lta));
+            const others = Math.max(0, monthlyGross - (basic + hra + ca + lta + cea));
+
+            const present = Math.min(wDays, Math.max(0, dPresent));
+            const share = prorate && wDays > 0 ? present / wDays : 1;
+
             const ceiling = parseFloat(byId('pfWageCeiling') ? byId('pfWageCeiling').value : 0) || 0;
             const pfWages = ceiling > 0 ? Math.min(basic, ceiling) : basic;
-            const pf = pfWages * (pfPctVal / 100);
+            const pfRates = pfPctVal + pfEmployerPctVal;
+            const pfFull = pfWages * pfRates / 100;
+            const pfAll = prorate ? money(pfFull * share) : pfFull;
+            const pf = pfRates > 0 ? paise(pfAll * pfPctVal / pfRates) : 0;
+            const employerPf = paise(pfAll - pf);
+
             const employerEsiPct = parseFloat(byId('esiEmployerPct') ? byId('esiEmployerPct').value : 0) || esiPctVal;
-            const employerEsi = esi > 0 ? monthlyGross * (employerEsiPct / 100) : 0;
-            const employerPf = pf;
+            const esiRates = esiPctVal + employerEsiPct;
+            const esiFull = monthlyGross <= esiThresh ? monthlyGross * esiRates / 100 : 0;
+            const esiAll = prorate ? money(esiFull * share) : esiFull;
+            const esi = esiRates > 0 ? paise(esiAll * esiPctVal / esiRates) : 0;
+            const employerEsi = paise(esiAll - esi);
+
             const ptDue = ptForSalary(monthlyGross, ptVal);
-            // Income tax comes off with the statutory deductions, so the daily
-            // rate and any unpaid day are worked out on the taxed figure — the
-            // same order the payroll screen and the calculation sheet use.
             const tds = Math.max(0, parseFloat(employeeData.monthly_tds) || 0);
-            const totalDeductions = ptDue + esi + pf + tds;
+
+            const sheetNet = monthlyGross - pfAll - esiAll - ptDue - tds;
+            const lopDays = Math.max(0, wDays - present);
+            const perDay = wDays > 0 ? sheetNet / wDays : 0;
+            const finalNet = lopDays > 0 ? Math.max(0, money(sheetNet - lopDays * perDay)) : sheetNet;
+            const lop = sheetNet - finalNet;
+
+            // what the payslip stores: the employee's side, then attendance
+            const totalDeductions = pf + esi + ptDue + tds;
             const netSalary = monthlyGross - totalDeductions;
-            const perDay = wDays > 0 ? netSalary / wDays : 0;
-            const attendanceNet = perDay * dPresent;
-            const lop = Math.max(0, netSalary - attendanceNet);
-            const lopDays = Math.max(0, wDays - dPresent);
+            const attendanceNet = netSalary - lop;
 
             // Update employee details in preview
             previewName.textContent = employeeData.employee_name || '—';
@@ -2372,7 +2590,9 @@ function allocation_footer($label, $opening, $amount)
                 ['Basic', basic],
                 ['HRA', hra],
                 ['Conveyance Allowance', ca],
-                ['Others', others]
+                ['Leave Travel Allowance', lta],
+                ['Children Education Allowance', cea],
+                ['Special Allowance', others]
             ];
             earnings.forEach(row => {
                 html += `<div class="slip-row"><span class="label">${row[0]}</span><span class="value">${fmtInr(row[1])}</span></div>`;
@@ -2386,12 +2606,14 @@ function allocation_footer($label, $opening, $amount)
                 ['Employee ESI', esi],
                 ['Professional Tax', ptDue],
                 ['Income Tax (TDS)', tds],
-                ['Lop', lop]
+                ['Lop', lop],
+                ['Employer PF (part of CTC)', employerPf],
+                ['Employer ESI (part of CTC)', employerEsi]
             ];
             deductions.forEach(row => {
                 html += `<div class="slip-row"><span class="label">${row[0]}</span><span class="value">${fmtInr(row[1])}</span></div>`;
             });
-            const totalDed = pf + esi + ptDue + tds + lop;
+            const totalDed = pf + esi + ptDue + tds + lop + employerPf + employerEsi;
             html += `<div class="slip-row total"><span class="label">Total Deductions</span><span class="value">${fmtInr(totalDed)}</span></div>`;
 
             // Net Payable
@@ -2403,7 +2625,7 @@ function allocation_footer($label, $opening, $amount)
 
             // Attendance details
             html += `<div style="margin-top:0.4rem; font-size:0.8rem; color:#3a5c78; display:flex; justify-content:space-between; flex-wrap:wrap; background:#eef4fa; padding:0.2rem 0.8rem; border-radius:0.6rem;">
-                <span>📅 ${wDays} working days · ✅ ${dPresent} present · LOP ${lopDays} days</span>
+                <span>📅 ${wDays} days in period · ✅ ${dPresent} present · LOP ${lopDays} days</span>
                 <span>💵 Per-day: ${fmtInr(perDay)}</span>
             </div>`;
 
@@ -2436,6 +2658,12 @@ function allocation_footer($label, $opening, $amount)
             hf.basic.value = basic;
             hf.hra.value = hra;
             hf.ca.value = ca;
+            if (hf.lta) { hf.lta.value = lta; }
+            if (hf.cea) { hf.cea.value = cea; }
+            if (hf.lta_pct) { hf.lta_pct.value = ltaPctVal; }
+            if (hf.cea_threshold) { hf.cea_threshold.value = ceaThresh; }
+            if (hf.cea_low && byId('ceaLow')) { hf.cea_low.value = byId('ceaLow').value; }
+            if (hf.cea_high && byId('ceaHigh')) { hf.cea_high.value = byId('ceaHigh').value; }
             hf.others.value = others;
             hf.pf.value = pf;
             hf.esi.value = esi;
@@ -2445,7 +2673,7 @@ function allocation_footer($label, $opening, $amount)
             hf.employer_pf.value = employerPf;
             hf.employer_esi.value = employerEsi;
             hf.lop.value = lop;
-            hf.per_day.value = perDay;
+            hf.per_day.value = paise(perDay);
             hf.net_payable.value = attendanceNet;
             hf.working_days.value = wDays;
             hf.days_present.value = dPresent;
@@ -2539,7 +2767,8 @@ function allocation_footer($label, $opening, $amount)
         // Add real-time numeric validation
         const numericFields = [
             'grossInput', 'basicPct', 'hraPct', 'caThreshold', 'caHigh', 'caLow',
-            'ptInput', 'esiThreshold', 'esiPct', 'pfPct', 'workingDays', 'daysPresent'
+            'ptInput', 'esiThreshold', 'esiPct', 'pfPct', 'workingDays', 'daysPresent',
+            'ltaPct', 'ceaThreshold', 'ceaLow', 'ceaHigh'
         ];
 
         numericFields.forEach(fieldId => {
@@ -2636,22 +2865,36 @@ function allocation_footer($label, $opening, $amount)
             const basic = gross * (num(basicPct) / 100);
             const hra = basic * (num(hraPct) / 100);
             const threshold = num(caThreshold);
-            const isHighSlab = gross > threshold;
+            const onGross = byId('caBasis') && byId('caBasis').value === 'gross';
+            const caOn = onGross ? gross : basic;
+            const isHighSlab = caOn > threshold;
             const ca = isHighSlab ? num(caHigh) : num(caLow);
+            const lta = Math.ceil(Math.round(basic * (parseFloat(byId('ltaPct').value) || 0) / 100 * 1e6) / 1e6);
+            const ceaThresh = parseFloat(byId('ceaThreshold').value) || 0;
+            const ceaLowSlab = basic < ceaThresh;
+            const cea = ceaLowSlab ? (parseFloat(byId('ceaLow').value) || 0) : (parseFloat(byId('ceaHigh').value) || 0);
 
             basicPreviewSpan.textContent = Math.round(basic);
             hraPreviewSpan.textContent = Math.round(hra);
-            pfPreviewSpan.textContent = Math.round(basic * (num(pfPct) / 100));
-            othersDisplay.value = fmtCurrency(Math.round(gross - (basic + hra + ca)));
+            const pfCeiling = parseFloat(byId('pfWageCeiling') ? byId('pfWageCeiling').value : 0) || 0;
+            const pfOn = pfCeiling > 0 ? Math.min(basic, pfCeiling) : basic;
+            const pfEmployer = byId('pfEmployerPct') ? (parseFloat(byId('pfEmployerPct').value) || 0) : num(pfPct);
+            pfPreviewSpan.textContent = Math.round(pfOn * ((num(pfPct) + pfEmployer) / 100));
+            othersDisplay.value = fmtCurrency(Math.round(gross - (basic + hra + ca + lta + cea)));
+            byId('ltaPreview').textContent = lta;
+            byId('ceaSlabNote').innerHTML = '✅ Basic ' + fmtCurrency(basic) + (ceaLowSlab ? ' &lt; ' : ' &ge; ')
+                + fmtCurrency(ceaThresh) + ' → CEA <strong>' + fmtCurrency(cea) + '</strong>';
+            document.querySelectorAll('.ca-on').forEach((el) => { el.textContent = onGross ? 'Gross' : 'Basic'; });
 
-            caSlabNote.innerHTML = '✅ Gross ' + fmtCurrency(gross)
-                + (isHighSlab ? ' &ge; ' : ' &lt; ') + fmtCurrency(threshold)
+            caSlabNote.innerHTML = '✅ ' + (onGross ? 'Gross ' : 'Basic ') + fmtCurrency(caOn)
+                + (isHighSlab ? ' &gt; ' : ' &le; ') + fmtCurrency(threshold)
                 + ' → CA <strong>' + fmtCurrency(ca) + '</strong>';
         }
 
         document.querySelectorAll('input').forEach((inp) => {
             inp.addEventListener('input', updatePreviews);
         });
+        if (byId('caBasis')) { byId('caBasis').addEventListener('change', updatePreviews); }
     })();
 
     // -----------------------------------------------------------------------

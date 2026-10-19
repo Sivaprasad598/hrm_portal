@@ -259,9 +259,19 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account/settings'], function 
     Route::resource('business-address', BusinessAddressController::class);
 
     // Payslip Settings (branch info shown on payslips)
+    // Data Clean: empty the application for a fresh test (Super Admin only, backup first).
+    Route::get('data-clean', [App\Http\Controllers\DataCleanController::class, 'index'])->name('data-clean.index');
+    Route::post('data-clean', [App\Http\Controllers\DataCleanController::class, 'clean'])->name('data-clean.run');
+
     Route::get('biometric-settings', [App\Http\Controllers\BiometricSettingController::class, 'index'])->name('biometric-settings.index');
     Route::post('biometric-settings', [App\Http\Controllers\BiometricSettingController::class, 'update'])->name('biometric-settings.update');
     Route::post('biometric-settings/test', [App\Http\Controllers\BiometricSettingController::class, 'testConnection'])->name('biometric-settings.test');
+
+    // AI Settings: the provider and key that resume auto-fill uses
+    Route::get('ai-settings', [App\Http\Controllers\AiSettingController::class, 'index'])->name('ai-settings.index');
+    Route::post('ai-settings', [App\Http\Controllers\AiSettingController::class, 'update'])->name('ai-settings.update');
+    Route::post('ai-settings/test', [App\Http\Controllers\AiSettingController::class, 'test'])->name('ai-settings.test');
+    Route::post('ai-settings/toggle', [App\Http\Controllers\AiSettingController::class, 'toggle'])->name('ai-settings.toggle');
 
     Route::resource('payslip-settings', PayslipSettingController::class);
     Route::delete('payslip-settings-payroll-calculations/{id}', [PayslipSettingController::class, 'destroyPayrollCalculation'])->name('payslip-settings.payroll-calculations.destroy');

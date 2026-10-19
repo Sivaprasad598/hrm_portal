@@ -240,6 +240,14 @@ class LeaveController extends AccountBaseController
             return Reply::error(__('messages.leaveTypeNotAllowed'));
         }
 
+        // Earned Leave accrues from joining but is used only after the years of
+        // service in Leave Settings.
+        $earnedLeave = new \App\Services\Leaves\EarnedLeavePolicy($employee->company_id);
+
+        if ($earnedLeave->isEarnedLeave((int) $leaveType->id) && !$earnedLeave->canUse((int) $employee->id)) {
+            return Reply::error($earnedLeave->refusal((int) $employee->id));
+        }
+
         
 
         $duration = match ($request->duration) {
@@ -549,6 +557,14 @@ class LeaveController extends AccountBaseController
 
         if ($leaveType && !$leaveType->leaveTypeCondition($leaveType, $employee)) {
             return Reply::error(__('messages.leaveTypeNotAllowed'));
+        }
+
+        // Earned Leave accrues from joining but is used only after the years of
+        // service in Leave Settings.
+        $earnedLeave = new \App\Services\Leaves\EarnedLeavePolicy($employee->company_id);
+
+        if ($earnedLeave->isEarnedLeave((int) $leaveType->id) && !$earnedLeave->canUse((int) $employee->id)) {
+            return Reply::error($earnedLeave->refusal((int) $employee->id));
         }
 
         $leaveDate = Carbon::createFromFormat($this->company->date_format, $request->leave_date);

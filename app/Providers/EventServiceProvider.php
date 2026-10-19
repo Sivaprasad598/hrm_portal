@@ -597,7 +597,7 @@ class EventServiceProvider extends ServiceProvider
     ];
 
     protected $observers = [
-        Attendance::class => [AttendanceObserver::class],
+        Attendance::class => [AttendanceObserver::class, \App\Observers\AttendanceReviewRefresher::class],
         ClientContact::class => [ClientContactObserver::class],
         ClientDetails::class => [ClientDetailsObserver::class],
         ClientDocument::class => [ClientDocumentObserver::class],
@@ -636,7 +636,7 @@ class EventServiceProvider extends ServiceProvider
         DealNote::class => [DealNoteObserver::class],
         LeadSource::class => [LeadSourceObserver::class],
         LeadStatus::class => [LeadStatusObserver::class],
-        Leave::class => [LeaveObserver::class],
+        Leave::class => [LeaveObserver::class, \App\Observers\AttendanceReviewRefresher::class],
         LeaveSetting::class => [LeaveSettingObserver::class],
         LeaveType::class => [LeaveTypeObserver::class],
         Notice::class => [NoticeObserver::class],

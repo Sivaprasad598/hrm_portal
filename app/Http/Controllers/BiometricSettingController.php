@@ -64,6 +64,7 @@ class BiometricSettingController extends AccountBaseController
         ];
 
         $this->matchFields = IappSetting::MATCH_FIELDS;
+        $this->deviceOptions = BiometricController::deviceOptions()->all();
         $this->authMethods = IappSetting::AUTH_METHODS;
 
         return view('biometric-settings.index', $this->data);
@@ -81,10 +82,31 @@ class BiometricSettingController extends AccountBaseController
             'location_code' => 'nullable|max:5',
             'employee_match_field' => 'required|in:' . implode(',', array_keys(IappSetting::MATCH_FIELDS)),
             'resync_days' => 'required|integer|min:0|max:60',
-            'daily_pull_time' => ['required', 'regex:/^([01][0-9]|2[0-3]):[0-5][0-9]$/'],
+            'device_scope' => 'required|in:all,selected',
+            'pull_devices' => 'nullable|array',
+            'pull_devices.*' => 'string|max:30',
+            'register_locations' => 'nullable|string|max:191',
+            'pull_time' => ['required', 'regex:/^([01][0-9]|2[0-3]):[0-5][0-9]$/'],
+            'build_time' => ['required', 'regex:/^([01][0-9]|2[0-3]):[0-5][0-9]$/'],
+            'reconcile_time' => ['required', 'regex:/^([01][0-9]|2[0-3]):[0-5][0-9]$/'],
+            'notify_time' => ['required', 'regex:/^([01][0-9]|2[0-3]):[0-5][0-9]$/'],
             // Held below the server's real 20-minute token lifetime.
             'token_cache_minutes' => 'required|integer|min:1|max:19',
         ]);
+
+        $devices = array_values(array_intersect(
+            array_map('strval', (array) $request->pull_devices),
+            array_map('strval', BiometricController::deviceOptions()->keys()->all())
+        ));
+
+        if ($request->device_scope === IappSetting::SCOPE_SELECTED && $devices === []) {
+            return Reply::error('Tick at least one device to pull from, or choose All devices.');
+        }
+
+        // Each step needs the one before it to have finished.
+        if (!($request->pull_time < $request->build_time && $request->build_time < $request->reconcile_time)) {
+            return Reply::error('The times must run in order: pull, then build, then write & cross-check.');
+        }
 
         $setting = IappSetting::firstOrNew(['company_id' => company()->id]);
 
@@ -97,7 +119,14 @@ class BiometricSettingController extends AccountBaseController
             'location_code' => $request->location_code,
             'employee_match_field' => $request->employee_match_field,
             'resync_days' => (int) $request->resync_days,
-            'daily_pull_time' => $request->daily_pull_time,
+            'device_scope' => $request->device_scope,
+            'pull_devices' => $devices,
+            'only_known_employees' => $request->boolean('only_known_employees'),
+            'register_locations' => array_values(array_filter(array_map('trim', explode(',', (string) $request->register_locations)))),
+            'pull_time' => $request->pull_time,
+            'build_time' => $request->build_time,
+            'reconcile_time' => $request->reconcile_time,
+            'notify_time' => $request->notify_time,
             'token_cache_minutes' => (int) $request->token_cache_minutes,
             'verify_ssl' => $request->boolean('verify_ssl'),
             'status' => $request->boolean('status'),

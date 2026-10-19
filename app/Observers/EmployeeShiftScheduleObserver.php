@@ -15,6 +15,12 @@ class EmployeeShiftScheduleObserver
 
     public function saving(EmployeeShiftSchedule $employeeShiftSchedule)
     {
+        // A day written from the employee's shift assignment that HR then changes
+        // by hand becomes a hand-made entry: a later reassignment leaves it alone.
+        if ($employeeShiftSchedule->exists && $employeeShiftSchedule->isDirty('employee_shift_id')) {
+            $employeeShiftSchedule->assignment_id = null;
+        }
+
         if (user()) {
             $employeeShiftSchedule->last_updated_by = user()->id;
             $employeeShiftSchedule->remarks = request()->remarks;

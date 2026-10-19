@@ -65,6 +65,12 @@ class AttendanceSync
      *
      * @return array{codes: array<string,int>, employees: array, unmapped: array, mapped_users: array}
      */
+    /** Which shift, and which hours, belong to each employee's day. */
+    protected function shifts(): \App\Services\Attendance\ShiftResolver
+    {
+        return \App\Services\Attendance\ShiftResolver::shared($this->config->companyId());
+    }
+
     public function mapping(): array
     {
         $companyId = $this->config->companyId();
@@ -147,9 +153,15 @@ class AttendanceSync
         $punches = DB::table('iapp_device_transactions')
             ->when($this->config->companyId(), fn ($q, $id) => $q->where('company_id', $id))
             ->whereIn('emp_code', array_keys($codes))
-            ->whereBetween('punch_time', [$from->copy()->startOfDay(), $to->copy()->endOfDay()])
+            // A day past the end: an overnight shift on the last day runs into it.
+            ->whereBetween('punch_time', [$from->copy()->startOfDay(), $to->copy()->addDay()->endOfDay()])
             ->orderBy('punch_time')
             ->get(['emp_code', 'punch_time', 'punch_direction']);
+
+        $tz = $this->company()?->timezone ?? 'UTC';
+        $resolver = $this->shifts();
+        $fromKey = $from->toDateString();
+        $toKey = $to->toDateString();
 
         // Group by the employee the code points at, so two enrolments for one
         // person land on the same attendance day rather than fighting over it.
@@ -162,7 +174,13 @@ class AttendanceSync
                 continue;
             }
 
-            $date = substr((string) $punch->punch_time, 0, 10);
+            // The shift's day: the morning tail of an overnight shift belongs to
+            // the day it started. Everyone else, the calendar day.
+            $date = $resolver->shiftDayOf($userId, Carbon::parse((string) $punch->punch_time, $tz), $tz);
+
+            if ($date < $fromKey || $date > $toKey) {
+                continue;
+            }
 
             $byUserDate[$userId][$date]['punches'][] = $punch;
             $byUserDate[$userId][$date]['codes'][(string) $punch->emp_code] = true;
@@ -237,13 +255,22 @@ class AttendanceSync
             ->whereIn('user_id', $userIds)
             ->whereBetween('clock_in_time', [
                 $from->copy()->startOfDay()->shiftTimezone($tz)->setTimezone('UTC'),
-                $to->copy()->endOfDay()->shiftTimezone($tz)->setTimezone('UTC'),
+                $to->copy()->addDay()->endOfDay()->shiftTimezone($tz)->setTimezone('UTC'),
             ])
             ->get(['id', 'user_id', 'clock_in_time']);
 
+        $resolver = $this->shifts();
+        $fromKey = $from->toDateString();
+        $toKey = $to->toDateString();
+
         foreach ($rows as $row) {
-            $date = Carbon::parse($row->clock_in_time)->setTimezone($tz)->toDateString();
-            $index[$row->user_id][$date][] = (int) $row->id;
+            // The day the session belongs to - an overnight shift's after-midnight
+            // session counts toward the day the shift started.
+            $date = $resolver->shiftDayOf((int) $row->user_id, Carbon::parse($row->clock_in_time, 'UTC'), $tz);
+
+            if ($date >= $fromKey && $date <= $toKey) {
+                $index[$row->user_id][$date][] = (int) $row->id;
+            }
         }
 
         return $index;
@@ -336,6 +363,10 @@ class AttendanceSync
         ?array $only = null,
         bool $collapse = true
     ): IappAttendanceSyncRun {
+        // Shifts, assignments or the roster may have changed since this process
+        // last looked (a queue worker lives across many runs).
+        \App\Services\Attendance\ShiftResolver::reset();
+
         $preview = $this->preview($from, $to, $userIds);
 
         $run = IappAttendanceSyncRun::create([
@@ -354,9 +385,11 @@ class AttendanceSync
 
         $users = User::whereIn('id', array_column($preview['rows'], 'user_id'))->get()->keyBy('id');
 
-        $counts = ['employees' => 0, 'days' => 0, 'punches' => 0, 'created' => 0, 'replaced' => 0, 'skipped' => 0];
+        $counts = ['employees' => 0, 'days' => 0, 'punches' => 0, 'created' => 0, 'replaced' => 0, 'skipped' => 0, 'locked' => 0];
         $seenUsers = [];
         $skipped = [];
+        $locked = [];
+        $locks = self::payslipLocks(array_keys($users->all()));
 
         foreach ($preview['rows'] as $row) {
             if ($only !== null && !in_array($row['user_id'] . '|' . $row['date'], $only, true)) {
@@ -366,6 +399,15 @@ class AttendanceSync
             $user = $users->get($row['user_id']);
 
             if (!$user) {
+                continue;
+            }
+
+            // Already paid: a day an approved payslip counted is not rewritten
+            // underneath it. The cross-check reports any difference instead.
+            if (self::isLocked($locks, (int) $row['user_id'], $row['date'])) {
+                $counts['locked']++;
+                $locked[] = ['user' => $row['name'], 'date' => $row['date']];
+
                 continue;
             }
 
@@ -396,19 +438,71 @@ class AttendanceSync
             'days_skipped' => $counts['skipped'],
             // Capped: a wide range with many conflicts would otherwise put
             // thousands of entries into one JSON column.
-            'summary' => ['skipped' => array_slice($skipped, 0, 200)],
+            'summary' => ['skipped' => array_slice($skipped, 0, 200), 'locked' => array_slice($locked, 0, 200)],
             'message' => sprintf(
-                '%d attendance row(s) created for %d employee(s) across %d day(s). %d replaced, %d day(s) skipped.',
+                '%d attendance row(s) created for %d employee(s) across %d day(s). %d replaced, %d day(s) skipped%s.',
                 $counts['created'],
                 $counts['employees'],
                 $counts['days'],
                 $counts['replaced'],
-                $counts['skipped']
+                $counts['skipped'],
+                $counts['locked'] ? ', ' . $counts['locked'] . ' day(s) left as paid (in an approved payslip)' : ''
             ),
             'finished_at' => now(),
         ])->save();
 
         return $run;
+    }
+
+    /**
+     * Days each employee's approved or paid payslips have already counted.
+     *
+     * A payslip locks its cycle only up to the day it was approved: payslips
+     * here have been approved mid-cycle, and the days after that were not yet
+     * worked, so freezing them would stop real attendance being recorded.
+     *
+     * @param  int[]  $userIds
+     * @return array<int, array<int, array{0: string, 1: string}>>  user => [[from, to], ...]
+     */
+    public static function payslipLocks(array $userIds): array
+    {
+        if ($userIds === [] || !\Illuminate\Support\Facades\Schema::hasColumn('payslips', 'approval_status')) {
+            return [];
+        }
+
+        $locks = [];
+
+        $rows = DB::table('payslips')
+            ->whereIn('user_id', $userIds)
+            ->whereNull('deleted_at')
+            ->where('status', 'active')
+            ->whereIn('approval_status', ['approved', 'paid'])
+            ->whereNotNull('period_start')->whereNotNull('period_end')
+            ->get(['user_id', 'period_start', 'period_end', 'approved_at', 'paid_at']);
+
+        foreach ($rows as $p) {
+            $signed = $p->approved_at ?: $p->paid_at;
+            $until = substr((string) $p->period_end, 0, 10);
+
+            if ($signed && substr((string) $signed, 0, 10) < $until) {
+                $until = substr((string) $signed, 0, 10);
+            }
+
+            $locks[(int) $p->user_id][] = [substr((string) $p->period_start, 0, 10), $until];
+        }
+
+        return $locks;
+    }
+
+    public static function isLocked(array $locks, int $userId, string $date): bool
+    {
+        foreach ($locks[$userId] ?? [] as [$from, $to]) {
+            if ($date >= $from && $date <= $to) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -428,10 +522,14 @@ class AttendanceSync
         $date = $row['date'];
         $replaced = 0;
 
+        // The hours that belong to this day: the calendar day, or for an overnight
+        // shift from its start to the next morning (ShiftResolver::dayWindow).
+        [$localStart, $localEnd] = $this->shifts()->dayWindow($user->id, $date, $tz);
+
         $punches = DB::table('iapp_device_transactions')
             ->when($this->config->companyId(), fn ($q, $id) => $q->where('company_id', $id))
             ->whereIn('emp_code', $row['codes'])
-            ->whereBetween('punch_time', [$date . ' 00:00:00', $date . ' 23:59:59'])
+            ->whereBetween('punch_time', [$localStart->format('Y-m-d H:i:s'), $localEnd->format('Y-m-d H:i:s')])
             ->orderBy('punch_time')
             ->get(['emp_code', 'punch_time', 'punch_direction', 'controller_code']);
 
@@ -503,16 +601,13 @@ class AttendanceSync
 
         // Bounded to the day being written: plucking every attendance id the
         // employee has ever had would be two whole-history scans per day synced.
-        $window = [
-            Carbon::parse($date)->startOfDay()->shiftTimezone($tz)->setTimezone('UTC'),
-            Carbon::parse($date)->endOfDay()->shiftTimezone($tz)->setTimezone('UTC'),
-        ];
+        $window = [$localStart->copy()->setTimezone('UTC'), $localEnd->copy()->setTimezone('UTC')];
 
         $before = Attendance::withoutGlobalScopes()
             ->where('user_id', $user->id)->whereBetween('clock_in_time', $window)->pluck('id')->all();
 
         foreach ($events as $event) {
-            $moment = AttendanceImport::parsePunchTime($date . ' ' . $event['time'], $tz);
+            $moment = AttendanceImport::parsePunchTime($this->eventMoment($date, $event['time']), $tz);
 
             if (!$moment) {
                 continue;
@@ -555,11 +650,13 @@ class AttendanceSync
      */
     protected function closeDayEnd(User $user, string $date, string $tz, array $events, array $window): void
     {
-        if ($events === [] || Carbon::parse($date, $tz)->gte(Carbon::now($tz)->startOfDay())) {
+        // Not while the day is still running - for an overnight shift, until its
+        // window ends the next morning.
+        if ($events === [] || Carbon::now('UTC')->lte($window[1])) {
             return;
         }
 
-        $lastSeen = AttendanceImport::parsePunchTime($date . ' ' . end($events)['time'], $tz)?->timezone('UTC');
+        $lastSeen = AttendanceImport::parsePunchTime($this->eventMoment($date, end($events)['time']), $tz)?->timezone('UTC');
 
         if (!$lastSeen) {
             return;
@@ -607,7 +704,7 @@ class AttendanceSync
 
         foreach ($day['events'] as $event) {
             if ($event['kind'] === DayTimeline::KIND_SCAN) {
-                $scans[] = $event['time'];
+                $scans[] = $event['at']->format('Y-m-d H:i:s');
 
                 continue;
             }
@@ -616,7 +713,7 @@ class AttendanceSync
                 continue;
             }
 
-            $events[] = ['time' => $event['time'], 'type' => $event['direction']];
+            $events[] = ['time' => $event['at']->format('Y-m-d H:i:s'), 'type' => $event['direction']];
         }
 
         if ($scans !== []) {
@@ -643,7 +740,31 @@ class AttendanceSync
             }
         }
 
+        // A gate (or face-reader) repeat is collapsed to its first swipe, which is
+        // right for an arrival but cut the day's last exit short by up to a minute
+        // and a half (19:22:00 instead of 19:22:18). The day ends at the last
+        // punch: the final event takes its time, or - when the whole day was one
+        // burst of swipes - the burst gets its end as an exit instead of losing
+        // its start.
+        $rawLast = substr((string) $punches->max('punch_time'), 0, 19);
+
+        if ($events !== [] && $rawLast > end($events)['time']
+            && strtotime($rawLast) - strtotime(end($events)['time']) <= DayTimeline::COLLAPSE_SECONDS) {
+            if (count($events) === 1) {
+                $events[] = ['time' => $rawLast, 'type' => 'out'];
+            }
+            else {
+                $events[array_key_last($events)]['time'] = $rawLast;
+            }
+        }
+
         return $events;
+    }
+
+    /** An event's moment: events carry the full date and time; a bare time is on the day itself. */
+    protected function eventMoment(string $date, string $time): string
+    {
+        return strlen($time) > 8 ? $time : $date . ' ' . $time;
     }
 
     /**
@@ -658,7 +779,7 @@ class AttendanceSync
 
         foreach ($punches as $punch) {
             $events[] = [
-                'time' => substr((string) $punch->punch_time, 11, 8),
+                'time' => substr((string) $punch->punch_time, 0, 19),
                 'type' => $punch->punch_direction === 'out' ? 'out' : 'in',
             ];
         }

@@ -26,7 +26,7 @@ class SettlementController extends AccountBaseController
         $this->pageTitle = 'Full & Final Settlement';
 
         $this->middleware(function ($request, $next) {
-            abort_403(!in_array('admin', user_roles()));
+            abort_403(!in_array('admin', user_roles()) && user()->permission('manage_payroll') !== 'all');
 
             return $next($request);
         });
@@ -43,7 +43,9 @@ class SettlementController extends AccountBaseController
             ->all();
 
         // Anybody who has resigned or been off-boarded and has no settlement yet.
-        $settled = DB::table('settlements')->whereIn('status', ['draft', 'agreed', 'paid'])->pluck('user_id');
+        // Settled means settled for the employment that is current: someone who
+        // rejoined and left again needs a settlement for the new employment.
+        $settled = $this->settledForCurrentPeriod(['draft', 'agreed', 'paid']);
 
         $this->awaiting = DB::table('resignations as r')
             ->join('users as u', 'u.id', '=', 'r.user_id')
@@ -107,7 +109,9 @@ class SettlementController extends AccountBaseController
             'note' => 'nullable|string|max:500',
         ]);
 
+        $period = app(\App\Services\Employment\EmploymentPeriods::class)->ensure((int) $request->user_id);
         $existing = DB::table('settlements')->where('user_id', $request->user_id)
+            ->where(fn ($q) => $q->where('employment_period_id', $period->id)->orWhereNull('employment_period_id'))
             ->whereIn('status', ['agreed', 'paid'])->first(['id', 'status']);
 
         if ($existing) {
@@ -131,7 +135,8 @@ class SettlementController extends AccountBaseController
             'company_id' => DB::table('employee_details')->where('user_id', $request->user_id)->value('company_id'),
             'user_id' => $request->user_id,
             'resignation_id' => DB::table('resignations')->where('user_id', $request->user_id)
-                ->orderByDesc('id')->value('id'),
+                ->whereNull('closed_by_rejoin_id')->orderByDesc('id')->value('id'),
+            'employment_period_id' => $period->id,
             'last_working_day' => $draft['last_working_day'],
             'joined_on' => $draft['joined_on'],
             'years_served' => $draft['years_served'],
@@ -156,6 +161,7 @@ class SettlementController extends AccountBaseController
         ];
 
         $draftId = DB::table('settlements')->where('user_id', $request->user_id)
+            ->where(fn ($q) => $q->where('employment_period_id', $period->id)->orWhereNull('employment_period_id'))
             ->where('status', 'draft')->value('id');
 
         if ($draftId) {
@@ -205,6 +211,12 @@ class SettlementController extends AccountBaseController
             DB::table('settlements')->where('id', $request->id)
                 ->update(['status' => 'paid', 'paid_at' => now(), 'paid_by' => user()->id,
                     'payment_reference' => $request->payment_reference, 'updated_at' => now()]);
+
+            // The employment it closed records it.
+            if ($settlement->employment_period_id) {
+                DB::table('employment_periods')->where('id', $settlement->employment_period_id)
+                    ->update(['settlement_id' => $settlement->id, 'updated_at' => now()]);
+            }
 
             // The settlement recovered whatever was still owed, so the standing
             // arrangements are finished. Left running they would draw another
@@ -274,4 +286,19 @@ class SettlementController extends AccountBaseController
         );
     }
 
+
+    /**
+     * Employees with a settlement (in these statuses) for their current
+     * employment. A settlement from an earlier employment does not count.
+     */
+    protected function settledForCurrentPeriod(array $statuses)
+    {
+        $current = DB::table('employment_periods as p')
+            ->whereRaw('p.period_no = (select max(p2.period_no) from employment_periods p2 where p2.user_id = p.user_id)')
+            ->pluck('p.id', 'p.user_id');
+
+        return DB::table('settlements')->whereIn('status', $statuses)->get(['user_id', 'employment_period_id'])
+            ->filter(fn ($s) => !$s->employment_period_id || (int) ($current[$s->user_id] ?? 0) === (int) $s->employment_period_id)
+            ->pluck('user_id')->unique()->values();
+    }
 }

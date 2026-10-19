@@ -212,12 +212,29 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account'], function () {
     Route::get('employees/import', [EmployeeController::class, 'importMember'])->name('employees.import');
     Route::post('employees/import', [EmployeeController::class, 'importStore'])->name('employees.import.store');
     Route::post('employees/import/process', [EmployeeController::class, 'importProcess'])->name('employees.import.process');
+    // The HR master sheet: upload, review, then import (EmployeeMasterImportController).
+    Route::get('employees/import/sample', [App\Http\Controllers\EmployeeMasterImportController::class, 'sample'])->name('employees.import.sample');
+    Route::post('employees/import/review', [App\Http\Controllers\EmployeeMasterImportController::class, 'review'])->name('employees.import.review');
+    Route::post('employees/import/apply', [App\Http\Controllers\EmployeeMasterImportController::class, 'apply'])->name('employees.import.apply');
+    Route::get('employees/import/report', [App\Http\Controllers\EmployeeMasterImportController::class, 'report'])->name('employees.import.report');
     Route::get('import/process/{name}/{id}', [ImportController::class, 'getImportProgress'])->name('import.process.progress');
 
     Route::get('employees/import/exception/{name}', [ImportController::class, 'getQueueException'])->name('import.process.exception');
     Route::post('employees/send-invite', [EmployeeController::class, 'sendInvite'])->name('employees.send_invite');
     Route::post('employees/create-link', [EmployeeController::class, 'createLink'])->name('employees.create_link');
     Route::post('/get-exit-date-message', [EmployeeController::class, 'getExitDateMessage'])->name('getExitDateMessage');
+
+    // Helpers the Add / Edit Employee form calls while it is filled in
+    Route::post('employees/onboarding/resume', [App\Http\Controllers\EmployeeOnboardingController::class, 'resume'])->name('employees.onboarding.resume');
+    Route::get('employees/onboarding/ifsc/{code}', [App\Http\Controllers\EmployeeOnboardingController::class, 'ifsc'])->name('employees.onboarding.ifsc');
+    Route::get('employees/onboarding/salary', [App\Http\Controllers\EmployeeOnboardingController::class, 'salary'])->name('employees.onboarding.salary');
+
+    // Rejoin: a former employee comes back as the same employee
+    Route::get('employees/{id}/rejoin', [App\Http\Controllers\EmployeeRejoinController::class, 'create'])->name('employees.rejoin.create');
+    Route::post('employees/{id}/rejoin', [App\Http\Controllers\EmployeeRejoinController::class, 'store'])->name('employees.rejoin.store');
+    Route::post('employee-rejoins/{rejoin}/cancel', [App\Http\Controllers\EmployeeRejoinController::class, 'cancel'])->name('employees.rejoin.cancel');
+    Route::post('employment-periods/{period}/eligibility', [App\Http\Controllers\EmployeeRejoinController::class, 'eligibility'])->name('employees.rejoin.eligibility');
+
     Route::resource('employees', EmployeeController::class);
 
     // Employee Exit Management
@@ -937,8 +954,11 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account'], function () {
     Route::get('biometric/employees', [App\Http\Controllers\BiometricController::class, 'employees'])->name('biometric.employees');
     Route::get('biometric/profile', [App\Http\Controllers\BiometricController::class, 'profile'])->name('biometric.profile');
     Route::get('biometric/exceptions', [App\Http\Controllers\BiometricController::class, 'exceptions'])->name('biometric.exceptions');
+    Route::post('biometric/exceptions/action', [App\Http\Controllers\BiometricController::class, 'exceptionAction'])->name('biometric.exceptions.action');
+    Route::post('biometric/exceptions/resync', [App\Http\Controllers\BiometricController::class, 'resyncDay'])->name('biometric.exceptions.resync');
     Route::get('biometric/shifts', [App\Http\Controllers\BiometricController::class, 'shifts'])->name('biometric.shifts');
     Route::post('biometric/employees/sync', [App\Http\Controllers\BiometricController::class, 'syncEmployees'])->name('biometric.employees.sync');
+    Route::post('biometric/employees/machine-list', [App\Http\Controllers\BiometricController::class, 'uploadMachineList'])->name('biometric.employees.machine-list');
     Route::post('biometric/employees/{id}/map', [App\Http\Controllers\BiometricController::class, 'mapEmployee'])->name('biometric.employees.map');
     Route::post('biometric/employees/bulk-map', [App\Http\Controllers\BiometricController::class, 'bulkMapEmployees'])->name('biometric.employees.bulk-map');
 
@@ -1146,6 +1166,8 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account'], function () {
     Route::get('statutory-returns/pf', [App\Http\Controllers\StatutoryReturnsController::class, 'providentFund'])->name('statutory-returns.pf');
     Route::get('statutory-returns/sheet', [App\Http\Controllers\StatutoryReturnsController::class, 'spreadsheet'])->name('statutory-returns.spreadsheet');
     // What is owed when somebody leaves.
+    // One employee's attendance for one salary period, as payroll counts it.
+    Route::get('payroll/attendance/{userId}', [App\Http\Controllers\PayrollAttendanceController::class, 'show'])->name('payroll.attendance');
     Route::get('settlements', [App\Http\Controllers\SettlementController::class, 'index'])->name('settlements.index');
     Route::get('settlements/draft', [App\Http\Controllers\SettlementController::class, 'draft'])->name('settlements.draft');
     Route::post('settlements', [App\Http\Controllers\SettlementController::class, 'store'])->name('settlements.store');
@@ -1170,28 +1192,5 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account'], function () {
     Route::post('leave-year-end/apply', [App\Http\Controllers\LeaveYearEndController::class, 'apply'])->name('leave-year-end.apply');
 });
 
-// Test broadcasting
-Route::get('/test-broadcast', function() {
-    try {
-        event(new \Modules\Chat\Events\MessageSent(\Modules\Chat\Entities\ChatMessage::first()));
-        return response()->json(['success' => true, 'message' => 'Event broadcasted successfully']);
-    } catch (\Exception $e) {
-        return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
-    }
-})->name('test-broadcast');
 
-// Debug broadcasting configuration
-Route::get('/debug-broadcast', function() {
-    return response()->json([
-        'broadcast_driver' => config('broadcasting.default'),
-        'pusher_key' => config('broadcasting.connections.pusher.key'),
-        'pusher_cluster' => config('broadcasting.connections.pusher.options.host'),
-        'app_env' => config('app.env'),
-        'queue_connection' => config('queue.default')
-    ]);
-})->name('debug-broadcast');
 
-// iApp attendance integration
-Route::get('/iapp/test', [App\Http\Controllers\IappController::class, 'test'])->name('iapp.test');
-Route::get('/iapp/attendance/sync', [App\Http\Controllers\IappController::class, 'syncAttendance'])->name('iapp.attendance.sync');
-Route::get('/iapp/device-trans/sync', [App\Http\Controllers\IappController::class, 'syncDeviceTrans'])->name('iapp.device-trans.sync');

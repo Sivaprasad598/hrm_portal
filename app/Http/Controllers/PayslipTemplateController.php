@@ -37,8 +37,9 @@ class PayslipTemplateController extends AccountBaseController
             return $next($request);
         })->only('preview');
 
+        // Payroll (HR / Admin) chooses the payslip's look too.
         $this->middleware(function ($request, $next) {
-            abort_403(user()->permission('manage_company_setting') !== 'all');
+            abort_403(user()->permission('manage_company_setting') !== 'all' && user()->permission('manage_payroll') !== 'all');
 
             return $next($request);
         })->only('update');

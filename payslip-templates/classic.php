@@ -88,6 +88,9 @@
     <a href="<?= e($calculatorUrl) ?>" style="opacity: 0.5; cursor: not-allowed; pointer-events: none;" title="Locked for employees">🔒 ← Back to calculator (Locked)</a>
   <?php else: ?>
     <a href="<?= e($calculatorUrl) ?>">← Back to calculator</a>
+    <?php if (!empty($attendanceUrl)): ?>
+      <a href="<?= e($attendanceUrl) ?>" target="_blank" title="Every day of this salary period, as it was counted">📅 Attendance for this period</a>
+    <?php endif; ?>
   <?php endif; ?>
   <button type="button" onclick="window.print()">🖨 Print</button>
 </div>

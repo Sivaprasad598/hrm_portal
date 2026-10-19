@@ -7,34 +7,45 @@ require_once __DIR__ . '/config/database.php';
 $conn = $GLOBALS['legacyMysqli'] ?? ($conn ?? null);
 
 // --- Populate dropdowns ---
+// Active employees only (not clients, not deactivated accounts), with their
+// employee ID and designation, so the list is the people an ID card is for.
 $users = [];
-$userResult = safeQuery($conn, "SELECT id, name, email FROM users");
+$userResult = safeQuery($conn,
+    "SELECT u.id, u.name, ed.employee_id, ed.designation_id
+       FROM users u
+       JOIN employee_details ed ON ed.user_id = u.id
+      WHERE u.status = 'active'
+        AND EXISTS (SELECT 1 FROM role_user ru JOIN roles r ON r.id = ru.role_id
+                     WHERE ru.user_id = u.id AND r.name = 'employee')
+      ORDER BY u.name");
 if ($userResult && $userResult->num_rows > 0) {
     while ($row = $userResult->fetch_assoc()) {
         $users[] = $row;
     }
 }
 
-// Get user-designation mappings from employee_details
-$userDesignationMap = []; // Format: [user_id => designation_id]
-$edResult = safeQuery($conn, "SELECT user_id, designation_id FROM employee_details WHERE user_id IS NOT NULL AND designation_id IS NOT NULL");
-if ($edResult && $edResult->num_rows > 0) {
-    while ($row = $edResult->fetch_assoc()) {
-        $userDesignationMap[$row['user_id']] = $row['designation_id'];
+// Designations that active employees hold, with how many, so no choice
+// leads to an empty list.
+$designationCounts = [];
+foreach ($users as $u) {
+    if (!empty($u['designation_id'])) {
+        $designationCounts[$u['designation_id']] = ($designationCounts[$u['designation_id']] ?? 0) + 1;
     }
 }
 
 $designations = [];
-$designResult = safeQuery($conn, "SELECT id, name FROM designations");
+$designResult = safeQuery($conn, "SELECT id, name FROM designations ORDER BY name");
 if ($designResult && $designResult->num_rows > 0) {
     while ($row = $designResult->fetch_assoc()) {
-        $designations[] = $row;
+        if (isset($designationCounts[$row['id']])) {
+            $row['count'] = $designationCounts[$row['id']];
+            $designations[] = $row;
+        }
     }
 }
 $conn->close();
 
-// Convert userDesignationMap to JSON for JavaScript
-$userDesignationJson = json_encode($userDesignationMap);
+$cardUrl = function_exists('route') ? route('legacy.page', 'identity_card') : 'identity_card.php';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -182,22 +193,22 @@ $userDesignationJson = json_encode($userDesignationMap);
     <?php endif; ?>
 
     <?php if (empty($users)): ?>
-        <div class="error-msg">⚠️ No users found in the database.</div>
+        <div class="error-msg">⚠️ No active employees found.</div>
     <?php endif; ?>
     <?php if (empty($designations)): ?>
         <div class="error-msg">⚠️ No designations found in the database.</div>
     <?php endif; ?>
 
     <!-- Form now uses GET so parameters appear in URL -->
-    <form action="identity_card.php" method="GET">
+    <form action="<?php echo htmlspecialchars($cardUrl); ?>" method="GET">
         <!-- DESIGNATION DROPDOWN ON TOP -->
         <div class="form-group">
             <label for="designationSelect">Select Designation</label>
-            <select id="designationSelect" name="designation_id" required>
-                <option value="all">All</option>
+            <select id="designationSelect">
+                <option value="all">All designations (<?php echo count($users); ?>)</option>
                 <?php foreach ($designations as $d): ?>
                     <option value="<?php echo $d['id']; ?>">
-                        <?php echo htmlspecialchars($d['name']); ?>
+                        <?php echo htmlspecialchars($d['name']) . ' (' . $d['count'] . ')'; ?>
                     </option>
                 <?php endforeach; ?>
             </select>
@@ -207,12 +218,7 @@ $userDesignationJson = json_encode($userDesignationMap);
         <div class="form-group">
             <label for="userSelect">Select User</label>
             <select id="userSelect" name="id" required>
-                <option value="">— Choose a user —</option>
-                <?php foreach ($users as $u): ?>
-                    <option value="<?php echo $u['id']; ?>" data-designation="<?php echo isset($userDesignationMap[$u['id']]) ? $userDesignationMap[$u['id']] : ''; ?>">
-                        <?php echo htmlspecialchars($u['name']) . ' (' . htmlspecialchars($u['email']) . ')'; ?>
-                    </option>
-                <?php endforeach; ?>
+                <option value="">— Choose an employee —</option>
             </select>
         </div>
 
@@ -221,49 +227,28 @@ $userDesignationJson = json_encode($userDesignationMap);
         </button>
     </form>
 
-    <div class="test-link">
-        Or <a href="identity_card.php?id=1&designation_id=2">test with a direct link</a> (replace IDs with valid ones).
-    </div>
 </div>
 
 <script>
-    // User-Designation mapping from PHP
-    const userDesignationMap = <?php echo $userDesignationJson; ?>;
+    // Active employees: id, name, employee ID, designation.
+    const employees = <?php echo json_encode(array_map(fn ($u) => [
+        'id' => (int) $u['id'], 'name' => $u['name'], 'code' => $u['employee_id'], 'designation' => (string) $u['designation_id'],
+    ], $users)); ?>;
 
     const designationSelect = document.getElementById('designationSelect');
     const userSelect = document.getElementById('userSelect');
-    const allUserOptions = Array.from(userSelect.querySelectorAll('option'));
 
-    // Filter users when designation changes
-    designationSelect.addEventListener('change', function() {
-        const selectedDesignation = this.value;
+    function fillEmployees() {
+        const chosen = designationSelect.value;
+        const list = employees.filter(e => chosen === 'all' || e.designation === chosen);
 
-        // Show all non-placeholder options, then filter
-        allUserOptions.forEach(option => {
-            if (option.value === '') {
-                option.style.display = 'block'; // Always show placeholder
-                return;
-            }
+        userSelect.innerHTML = '';
+        const placeholder = new Option(list.length ? '— Choose an employee (' + list.length + ') —' : 'No active employees with this designation', '');
+        userSelect.add(placeholder);
+        list.forEach(e => userSelect.add(new Option(e.name + (e.code ? ' (' + e.code + ')' : ''), e.id)));
+        userSelect.disabled = list.length === 0;
+    }
 
-            const userDesignation = option.getAttribute('data-designation');
-
-            if (selectedDesignation === '' || selectedDesignation === 'all') {
-                // If 'All' or no designation selected, show all users
-                option.style.display = 'block';
-            } else {
-                // Show only users with matching designation
-                option.style.display = (userDesignation === selectedDesignation) ? 'block' : 'none';
-            }
-        });
-
-        // Reset user selection when designation changes
-        userSelect.value = '';
-    });
-
-    // Clear user selection if 'All' is selected
-    designationSelect.addEventListener('change', function() {
-        if (this.value === 'all' || this.value === '') {
-            userSelect.value = '';
-        }
-    });
+    designationSelect.addEventListener('change', fillEmployees);
+    fillEmployees();
 </script>

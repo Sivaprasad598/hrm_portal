@@ -87,6 +87,9 @@ class LeaveSettingController extends AccountBaseController
             'encashment_divisor' => 'required|numeric|min:1|max:31',
             'encashment_salary_source' => 'required|in:ctc,last_payslip',
             'encashment_basic_pct' => 'nullable|numeric|min:1|max:100',
+            'earned_leave_type_id' => 'nullable|integer|exists:leave_types,id',
+            'earned_leave_min_service_years' => 'nullable|numeric|min:0|max:40',
+            'earned_leave_encash_max_days' => 'nullable|numeric|min:0|max:999',
         ]);
 
         $setting = LeaveSetting::first();
@@ -94,6 +97,14 @@ class LeaveSettingController extends AccountBaseController
         $setting->encashment_divisor = $request->encashment_divisor;
         $setting->encashment_salary_source = $request->encashment_salary_source;
         $setting->encashment_basic_pct = $request->encashment_basic_pct ?: 50;
+
+        if (\Illuminate\Support\Facades\Schema::hasColumn('leave_settings', 'earned_leave_type_id')) {
+            $setting->earned_leave_type_id = $request->earned_leave_type_id ?: null;
+            $setting->earned_leave_min_service_years = (float) ($request->earned_leave_min_service_years ?: 0);
+            $setting->earned_leave_encash_max_days = $request->earned_leave_encash_max_days === null || $request->earned_leave_encash_max_days === ''
+                ? null : (float) $request->earned_leave_encash_max_days;
+        }
+
         $setting->save();
 
         return Reply::success(__('messages.updateSuccess'));

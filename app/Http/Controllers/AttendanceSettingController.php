@@ -71,8 +71,11 @@ class AttendanceSettingController extends AccountBaseController
         case 'qrcode':
 
 
-            $this->qr = Builder::create()
-                ->writer(new PngWriter())
+            // PNG needs PHP's GD extension, which many hosts leave out - without
+            // it this tab was a "Server Error". SVG needs nothing and shows the
+            // same code; the page only uses the image as a data URI.
+            $qrBuilder = fn ($writer) => Builder::create()
+                ->writer($writer)
                 ->encoding(new Encoding('UTF-8'))
                 ->data((route('settings.qr-login', ['hash' => company()->hash])))
                 ->errorCorrectionLevel(ErrorCorrectionLevel::High)
@@ -81,6 +84,15 @@ class AttendanceSettingController extends AccountBaseController
                 ->roundBlockSizeMode(RoundBlockSizeMode::Margin)
                 ->validateResult(false)
                 ->build();
+
+            try {
+                $this->qr = (extension_loaded('gd') && function_exists('imagecreatetruecolor') && function_exists('imagepng'))
+                    ? $qrBuilder(new PngWriter())
+                    : $qrBuilder(new \Endroid\QrCode\Writer\SvgWriter());
+            } catch (\Throwable $e) {
+                report($e);
+                $this->qr = $qrBuilder(new \Endroid\QrCode\Writer\SvgWriter());
+            }
 
 
 

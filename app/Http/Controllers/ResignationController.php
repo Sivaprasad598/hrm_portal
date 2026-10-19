@@ -74,8 +74,12 @@ class ResignationController extends AccountBaseController
     {
         abort_403(in_array('client', user_roles()));
 
-        if (Resignation::where('user_id', user()->id)->where('status', 'pending')->exists()) {
-            return Reply::error('You already have a resignation request pending HR review.');
+        $open = Resignation::openFor(user()->id);
+
+        if ($open) {
+            return Reply::error($open->status === 'pending'
+                ? 'You already have a resignation request pending HR review.'
+                : 'Your resignation has already been approved. Contact HR to change it.');
         }
 
         $request->validate([

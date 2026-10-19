@@ -85,10 +85,14 @@ class IappClient
             ];
         }
 
+        $this->authProblem = null;
+
         try {
             $response = $this->http(30)->post($this->config->baseUrl() . '/' . $path, $payload);
         } catch (\Throwable $e) {
             Log::error('iApp authentication transport error', ['message' => $e->getMessage()]);
+            // The server never answered: a network problem, not the login details.
+            $this->authProblem = 'Could not reach the iApp server.';
 
             return null;
         }
@@ -96,6 +100,7 @@ class IappClient
         $token = IappResponse::fromResponse($response)->token();
 
         if (!$token) {
+            $this->authProblem = 'The iApp server refused the login (HTTP ' . $response->status() . ') - check the username and password on Biometric Settings.';
             Log::error('iApp authentication failed', [
                 'status' => $response->status(),
                 'method' => $this->config->authMethod(),
@@ -113,6 +118,9 @@ class IappClient
      *                            one on a GET, which is unusual but is what the
      *                            server accepts (query params return HTTP 400).
      */
+    /** Why the last login attempt produced no token: unreachable, or refused. */
+    protected ?string $authProblem = null;
+
     public function get(string $path, array $query = [], ?array $body = null): IappResponse
     {
         $this->guard($path);
@@ -120,7 +128,7 @@ class IappClient
         $token = $this->token();
 
         if (!$token) {
-            return IappResponse::fromError('Could not authenticate with iApp.');
+            return IappResponse::fromError($this->authProblem ?? 'Could not authenticate with iApp.');
         }
 
         $response = $this->send($path, $query, $body, $token);
@@ -130,7 +138,7 @@ class IappClient
             $token = $this->token(true);
 
             if (!$token) {
-                return IappResponse::fromError('Could not re-authenticate with iApp.');
+                return IappResponse::fromError($this->authProblem ?? 'Could not re-authenticate with iApp.');
             }
 
             $response = $this->send($path, $query, $body, $token);

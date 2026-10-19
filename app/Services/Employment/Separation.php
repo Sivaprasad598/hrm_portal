@@ -54,7 +54,10 @@ class Separation
                 'date' => substr((string) $details->notice_period_end_date, 0, 10)];
         }
 
+        // A resignation from an employment that has since ended in a rejoin no
+        // longer closes the account.
         $resignation = DB::table('resignations')->where('user_id', $userId)
+            ->when($this->hasColumn('resignations', 'closed_by_rejoin_id'), fn ($q) => $q->whereNull('closed_by_rejoin_id'))
             ->where('status', 'approved')->whereNotNull('last_working_date')
             ->whereDate('last_working_date', '<', $asOf)
             ->orderByDesc('last_working_date')->value('last_working_date');
@@ -119,6 +122,7 @@ class Separation
         }
 
         $row = DB::table('terminations')->where('user_id', $userId)
+            ->when($this->hasColumn('terminations', 'closed_by_rejoin_id'), fn ($q) => $q->whereNull('closed_by_rejoin_id'))
             ->orderByDesc('id')
             ->first(['termination_date', 'last_working_date']);
 
@@ -135,6 +139,15 @@ class Separation
         $date = substr((string) $date, 0, 10);
 
         return $date < $asOf ? $date : null;
+    }
+
+    protected function hasColumn(string $table, string $column): bool
+    {
+        try {
+            return \Illuminate\Support\Facades\Schema::hasColumn($table, $column);
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     protected function tableExists(string $table): bool

@@ -573,7 +573,11 @@ if (isset($_GET['deleted'])) {
     <?php if (empty($terminations)): ?>
       <div class="empty-state">
         <div class="empty-icon">⏻</div>
-        <p>No terminations recorded yet.</p>
+        <?php if ($filterDept !== '' || $filterName !== ''): ?>
+          <p>No terminations match this filter. It searches recorded terminations only — to terminate someone, use + Add Employee Termination.</p>
+        <?php else: ?>
+          <p>No terminations recorded yet.</p>
+        <?php endif; ?>
       </div>
     <?php else: ?>
       <div class="table-wrap">
@@ -645,6 +649,26 @@ if (isset($_GET['deleted'])) {
   </section>
 
   <script>
+    // Narrow the history as a name is typed; Search still runs the full
+    // filter on the server, and the department list submits on change.
+    (function () {
+      var input = document.getElementById('name');
+      var rows = document.querySelectorAll('.table-wrap tbody tr');
+
+      if (!input || !rows.length) {
+        return;
+      }
+
+      input.addEventListener('input', function () {
+        var term = input.value.trim().toLowerCase();
+
+        rows.forEach(function (row) {
+          var name = (row.cells[0] ? row.cells[0].textContent : '').toLowerCase();
+          row.style.display = term === '' || name.indexOf(term) !== -1 ? '' : 'none';
+        });
+      });
+    })();
+
     // The tabs live in the parent Laravel page (this dashboard is just one
     // of its iframes), and both are same-origin, so switch tabs there directly
     // rather than navigating this iframe away.

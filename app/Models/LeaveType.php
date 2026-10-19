@@ -174,20 +174,23 @@ class LeaveType extends BaseModel
             $effectiveDate = $leave->effective_type == 'days' ? $user->employeeDetail->joining_date->addDays($leave->effective_after) : $user->employeeDetail->joining_date->addMonths($leave->effective_after);
         }
 
-        $probation = Carbon::parse($leave->probation_end_date);
-        $noticePeriod = Carbon::parse($leave->notice_period_start_date);
+        // On probation or on notice: the employee's own record says so. (This
+        // read the leave type's dates, which it has none of, so neither rule
+        // ever applied.)
+        $detail = $user->employeeDetail;
+        $status = $detail->employment_status ?? null;
+        $probationEnd = $detail?->probation_end_date ? Carbon::parse($detail->probation_end_date) : null;
+        $noticeStart = $detail?->notice_period_start_date ? Carbon::parse($detail->notice_period_start_date) : null;
+        $noticeEnd = $detail?->notice_period_end_date ? Carbon::parse($detail->notice_period_end_date) : null;
+
+        $onProbation = $status === 'probation'
+            || (!in_array($status, ['confirmed', 'notice_period', 'off_boarded'], true) && $probationEnd && $probationEnd->gt($currentDate));
+        $onNotice = $status === 'notice_period'
+            || ($noticeStart && $noticeStart->lte($currentDate) && (!$noticeEnd || $noticeEnd->gte($currentDate->copy()->startOfDay())));
 
         if(
-            (
-                is_null($leave->probation_end_date)
-                || ($leave->allowed_probation == 0 && $probation->lt($currentDate))
-                || $leave->allowed_probation == 1
-            )
-            && (
-                is_null($leave->notice_period_start_date)
-                || ($leave->allowed_notice == 0 && $noticePeriod->gt($currentDate))
-                || $leave->allowed_notice == 1
-            )
+            (!$onProbation || $leave->allowed_probation == 1)
+            && (!$onNotice || $leave->allowed_notice == 1)
             && (
                 !is_null($leave->gender)
                 && in_array($user->gender, json_decode($leave->gender))

@@ -39,7 +39,12 @@ class AttendanceDays
     }
 
     /**
-     * @return array{working_days: int, days_present: float, breakdown: array<string, float>}
+     * @return array{working_days: int, days_present: float, breakdown: array<string, float>, days: array<int, array>}
+     *
+     * "days" is the same count day by day: what each date was taken as, the
+     * share of a day it was paid for, the shift, and the first and last punch.
+     * The attendance screens explain a payslip from it, so what they show is
+     * exactly what was counted.
      */
     public function forRange(int $userId, Carbon $from, Carbon $to): array
     {
@@ -53,64 +58,94 @@ class AttendanceDays
         $joinedOn = $employee?->joining_date ? substr((string) $employee->joining_date, 0, 10) : null;
         $leftOn = $employee?->last_date ? substr((string) $employee->last_date, 0, 10) : null;
 
-        $roster = $this->roster($userId, $from, $to);
-        $defaultShift = $this->defaultShift($employee?->company_id);
+        // The shift that applied each day - the roster, the employee's own
+        // assignment, or the company default (ShiftResolver) - which decides
+        // whether the day is worked (its working days), how long counts as a
+        // full day, and which hours belong to the day for an overnight shift.
+        $resolver = \App\Services\Attendance\ShiftResolver::shared($employee?->company_id);
         $holidays = $this->holidays($employee?->company_id, $from, $to);
         $leaveByDay = $this->leave($userId, $from, $to);
-        // The shift that applied each day, so presence can be capped at its
-        // length: the roster where there is one, the company default otherwise.
         $shiftByDay = [];
         $cursor = $from->copy();
 
         while ($cursor->lte($to)) {
             $key = $cursor->toDateString();
-            $shiftByDay[$key] = $roster[$key]->shift ?? $roster[$key] ?? $defaultShift;
+            $shiftByDay[$key] = $resolver->shiftOn($userId, $key);
             $cursor->addDay();
         }
 
-        $worked = $this->workedSeconds($userId, $from, $to, $tz, $shiftByDay);
+        $worked = $this->workedSeconds($userId, $from, $to, $tz, $shiftByDay, $resolver);
 
-        $openDays = $defaultShift
-            ? array_map('intval', json_decode((string) ($defaultShift->office_open_days ?? ''), true) ?: [])
-            : [];
+        // Someone who left and rejoined: the days between their employments are
+        // not employed, and days of an earlier employment already paid in its
+        // final settlement are not paid again. Null for one employment only.
+        $payable = app(\App\Services\Employment\EmploymentPeriods::class)
+            ->payableDays($userId, $from->toDateString(), $to->toDateString());
 
         $breakdown = ['worked' => 0.0, 'week_off' => 0, 'holiday' => 0, 'paid_leave' => 0.0,
             'lop_leave' => 0.0, 'absent' => 0.0, 'not_employed' => 0];
         $workingDays = 0;
         $daysPresent = 0.0;
+        $days = [];
+
+        // One line per date, for the screens that explain the count.
+        $day = function (string $key, string $status, float $paid, ?object $shift, array $extra = []) use (&$days, $worked) {
+            $edge = $this->bounds[$key] ?? null;
+            $days[] = $extra + [
+                'date' => $key,
+                'status' => $status,
+                'paid' => $paid,
+                'shift' => $shift->shift_name ?? null,
+                'shift_hours' => $shift && $shift->office_start_time
+                    ? substr((string) $shift->office_start_time, 0, 5) . '–' . substr((string) $shift->office_end_time, 0, 5) : null,
+                'first_in' => $edge ? Carbon::createFromTimestamp($edge['first'], 'UTC')->setTimezone($this->timezone)->format('Y-m-d H:i') : null,
+                'last_out' => $edge && $edge['last'] > $edge['first'] ? Carbon::createFromTimestamp($edge['last'], 'UTC')->setTimezone($this->timezone)->format('Y-m-d H:i') : null,
+                'seconds' => (int) ($worked[$key] ?? 0),
+            ];
+        };
 
         for ($date = $from->copy(); $date->lte($to); $date->addDay()) {
             if ($date->gt($today)) {
+                $day($date->toDateString(), 'upcoming', 0.0, $shiftByDay[$date->toDateString()] ?? null);
+
                 continue;   // A day that has not happened yet is not paid for.
             }
 
             $workingDays++;
             $key = $date->toDateString();
-            $shift = $roster[$key] ?? $defaultShift;
+            $shift = $shiftByDay[$key];
 
-            if (($joinedOn && $key < $joinedOn) || ($leftOn && $key > $leftOn)) {
+            $outside = $payable !== null
+                ? !($payable[$key] ?? false)
+                : (($joinedOn && $key < $joinedOn) || ($leftOn && $key > $leftOn));
+
+            if ($outside) {
                 // Outside employment only time actually punched is paid: attendance
-                // before the joining date usually means the date is wrong.
-                $credit = $this->attendanceCredit($worked[$key] ?? 0, $shift);
+                // before the joining date usually means the date is wrong. Between
+                // two employments nothing is: those days were either not worked or
+                // already paid in the earlier employment's settlement.
+                $credit = $payable !== null ? 0.0 : $this->attendanceCredit($worked[$key] ?? 0, $shift);
                 $breakdown['worked'] += $credit;
                 $breakdown['not_employed'] += 1 - $credit;
                 $daysPresent += $credit;
+                $day($key, 'not_employed', $credit, $shift);
                 continue;
             }
 
-            $weekOff = isset($roster[$key])
-                ? $roster[$key]->shift_name === 'Day Off'
-                : ($defaultShift !== null && !in_array((int) $date->format('N'), $openDays, true));
+            // Off by the shift's own working days ("Day Off" is never worked).
+            $weekOff = !\App\Services\Attendance\ShiftResolver::worksOn($shift, $key);
 
             if ($weekOff) {
                 $breakdown['week_off']++;
                 $daysPresent++;
+                $day($key, 'week_off', 1.0, $shift);
                 continue;
             }
 
             if (in_array($key, $holidays, true)) {
                 $breakdown['holiday']++;
                 $daysPresent++;
+                $day($key, 'holiday', 1.0, $shift, ['note' => $this->holidayNames[$key] ?? null]);
                 continue;
             }
 
@@ -122,10 +157,24 @@ class AttendanceDays
             $breakdown['lop_leave'] += (float) ($leave['unpaid'] ?? 0);
             $breakdown['worked'] += $credit;
             $breakdown['absent'] += max(0.0, 1.0 - $leave['covered'] - $credit);
-            $daysPresent += min(1.0, $paidLeave + $credit);
+            $paid = min(1.0, $paidLeave + $credit);
+            $daysPresent += $paid;
+
+            // What the day was, in one word, for the screens.
+            $unpaidLeave = (float) ($leave['unpaid'] ?? 0);
+            $status = match (true) {
+                $credit >= 1.0 => 'present',
+                $paidLeave >= 1.0 => 'paid_leave',
+                $unpaidLeave >= 1.0 => 'lop_leave',
+                $credit > 0 && $leave['covered'] > 0 => 'half_day_leave',
+                $credit > 0 => 'half_day',
+                $paidLeave > 0 || $unpaidLeave > 0 => 'half_leave',
+                default => 'absent',
+            };
+            $day($key, $status, $paid, $shift, ['leave_paid' => $paidLeave, 'leave_unpaid' => $unpaidLeave, 'credit' => $credit]);
         }
 
-        return ['working_days' => $workingDays, 'days_present' => $daysPresent, 'breakdown' => $breakdown];
+        return ['working_days' => $workingDays, 'days_present' => $daysPresent, 'breakdown' => $breakdown, 'days' => $days];
     }
 
     /** Credit for the time worked on a day: 1, 0.5 or nothing, by the shift's thresholds. */
@@ -155,39 +204,27 @@ class AttendanceDays
         return ($half !== null && $seconds >= $half) ? 0.5 : 0.0;
     }
 
-    /** @return array<string, object> keyed by date */
-    protected function roster(int $userId, Carbon $from, Carbon $to): array
-    {
-        return DB::table('employee_shift_schedules as ess')
-            ->join('employee_shifts as es', 'es.id', '=', 'ess.employee_shift_id')
-            ->where('ess.user_id', $userId)
-            ->whereBetween('ess.date', [$from->toDateString(), $to->toDateString()])
-            ->get(['ess.date', 'es.shift_name', 'es.office_open_days', 'es.min_working_hours_full_day',
-                'es.min_working_hours_full_day_grace', 'es.min_working_hours_half_day',
-                'es.min_working_hours_half_day_grace', 'es.office_start_time', 'es.office_end_time'])
-            ->keyBy(fn ($r) => substr((string) $r->date, 0, 10))
-            ->all();
-    }
+    /** Holiday names by date, from the last holidays() call. */
+    protected array $holidayNames = [];
 
-    protected function defaultShift(?int $companyId): ?object
-    {
-        return DB::table('attendance_settings as ats')
-            ->join('employee_shifts as es', 'es.id', '=', 'ats.default_employee_shift')
-            ->when($companyId, fn ($q) => $q->where('ats.company_id', $companyId))
-            ->first(['es.shift_name', 'es.office_open_days', 'es.min_working_hours_full_day',
-                'es.min_working_hours_full_day_grace', 'es.min_working_hours_half_day',
-                'es.min_working_hours_half_day_grace', 'es.office_start_time', 'es.office_end_time']);
-    }
+    /** First and last punch per day (unix seconds), from the last workedSeconds() call. */
+    protected array $bounds = [];
 
     /** @return array<int, string> dates */
     protected function holidays(?int $companyId, Carbon $from, Carbon $to): array
     {
-        return DB::table('holidays')
+        $rows = DB::table('holidays')
             ->when($companyId, fn ($q) => $q->where('company_id', $companyId))
             ->whereBetween('date', [$from->toDateString(), $to->toDateString()])
-            ->pluck('date')
-            ->map(fn ($d) => substr((string) $d, 0, 10))
-            ->unique()->values()->all();
+            ->get(['date', 'occassion']);
+
+        $this->holidayNames = [];
+
+        foreach ($rows as $row) {
+            $this->holidayNames[substr((string) $row->date, 0, 10)] = $row->occassion;
+        }
+
+        return array_keys($this->holidayNames);
     }
 
     /** @return array<string, array<string, float>> keyed by date */
@@ -241,17 +278,25 @@ class AttendanceDays
      *
      * @param  array<string, object>  $shifts  the shift that applied, keyed by date
      */
-    protected function workedSeconds(int $userId, Carbon $from, Carbon $to, string $tz, array $shifts = []): array
+    protected function workedSeconds(int $userId, Carbon $from, Carbon $to, string $tz, array $shifts = [],
+        ?\App\Services\Attendance\ShiftResolver $resolver = null): array
     {
-        $fromUtc = $from->copy()->startOfDay()->utc();
-        $toUtc = $to->copy()->endOfDay()->utc();
+        // A day either side: an overnight shift's morning tail falls on the next
+        // calendar day, and the first day's early hours may belong to the day before.
+        $fromUtc = $from->copy()->subDay()->startOfDay()->utc();
+        $toUtc = $to->copy()->addDay()->endOfDay()->utc();
         $bounds = [];
 
         foreach (DB::table('attendances')->where('user_id', $userId)
             ->whereBetween('clock_in_time', [$fromUtc, $toUtc])
             ->get(['clock_in_time', 'clock_out_time']) as $row) {
             $in = Carbon::parse($row->clock_in_time, 'UTC');
-            $key = $in->copy()->setTimezone($tz)->toDateString();
+            // The day the session belongs to: its shift's day, not just its calendar date.
+            $key = $resolver ? $resolver->shiftDayOf($userId, $in, $tz) : $in->copy()->setTimezone($tz)->toDateString();
+
+            if (!isset($shifts[$key]) && $resolver) {
+                continue;   // outside the range asked for
+            }
 
             // An open session still proves arrival, so it sets the start even
             // though it cannot set the end.
@@ -268,6 +313,7 @@ class AttendanceDays
         }
 
         $seconds = [];
+        $this->bounds = $bounds;
 
         foreach ($bounds as $date => $edge) {
             $span = max(0, $edge['last'] - $edge['first']);

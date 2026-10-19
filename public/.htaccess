@@ -4,7 +4,10 @@
     </IfModule>
 
     RewriteEngine On
-    RewriteBase /hrm_portal/public/
+    # No RewriteBase: the same file works wherever the app sits
+    # (/hrm_portal/public locally, /arowanauk/hrm/public on the server).
+    # Only if a host insists on one, set it to the URL path of this folder:
+    # RewriteBase /arowanauk/hrm/public/
 
     # Handle Authorization Header
     RewriteCond %{HTTP:Authorization} .

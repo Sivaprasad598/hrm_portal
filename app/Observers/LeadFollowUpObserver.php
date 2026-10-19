@@ -83,7 +83,7 @@ class LeadFollowUpObserver
         $google = new Google();
         $googleAccount = company();
 
-        if (company()->google_calendar_status == 'active' && $googleAccount->google_calendar_verification_status == 'verified' && $googleAccount->token) {
+        if (company() && company()->google_calendar_status == 'active' && $googleAccount->google_calendar_verification_status == 'verified' && $googleAccount->token) {
             $google->connectUsing($googleAccount->token);
             try {
                 if ($leadFollowUp->event_id) {
@@ -117,7 +117,7 @@ class LeadFollowUpObserver
         $googleAccount = company();
         $module = GoogleCalendarModule::first();
 
-        if (company()->google_calendar_status == 'active' && $googleAccount->google_calendar_verification_status == 'verified' && $googleAccount->token && $module->lead_status == 1) {
+        if (company() && company()->google_calendar_status == 'active' && $googleAccount->google_calendar_verification_status == 'verified' && $googleAccount->token && $module->lead_status == 1) {
             $google = new Google();
             $attendiesData = [];
 

@@ -47,3 +47,6 @@ public/monitor/installers/WorksuiteDemoSetup-1.0.0.exe
 # Biometric integration working notes (not a tracked artefact)
 BIOMETRIC_DB_CHANGES.md
 hrm_portal.sql
+
+# Database / upload backups hold personal data
+development_resourses/

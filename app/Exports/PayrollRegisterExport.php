@@ -68,7 +68,7 @@ class PayrollRegisterSheet implements FromArray, WithHeadings, WithTitle, WithEv
     public function headings(): array
     {
         return ['S.No', 'Payslip No', 'Employee', 'Code', 'Department', 'PAN',
-            'Gross', 'Basic', 'HRA', 'CA', 'Other',
+            'Gross', 'Basic', 'HRA', 'CA', 'LTA', 'CEA', 'Special Allowance',
             'Working Days', 'Days Paid', 'LOP Days',
             'PF (employee)', 'ESI (employee)', 'PT', 'TDS', 'Total Deductions',
             'Extra Paid', 'Extra Deducted', 'Leave Encashment',
@@ -93,6 +93,8 @@ class PayrollRegisterSheet implements FromArray, WithHeadings, WithTitle, WithEv
                 $round($row['basic']),
                 $round($row['hra']),
                 $round($row['ca']),
+                $round($row['lta'] ?? 0),
+                $round($row['cea'] ?? 0),
                 $round($row['others']),
                 $row['working_days'],
                 $round($row['days_present']),
@@ -125,23 +127,23 @@ class PayrollRegisterSheet implements FromArray, WithHeadings, WithTitle, WithEv
                 $sheet = $event->sheet->getDelegate();
                 $last = count($this->rows) + 1;
 
-                $sheet->getStyle('A1:AC1')->getFont()->setBold(true);
+                $sheet->getStyle('A1:AE1')->getFont()->setBold(true);
                 $sheet->freezePane('D2');
 
                 if ($this->rows === []) {
                     return;
                 }
 
-                $sheet->getStyle('G2:Z' . $last)->getNumberFormat()->setFormatCode('#,##0.00');
+                $sheet->getStyle('G2:AB' . $last)->getNumberFormat()->setFormatCode('#,##0.00');
 
                 $total = $last + 1;
                 $sheet->setCellValue('C' . $total, 'Total — ' . $this->cycle->describe());
 
-                foreach (['G', 'H', 'I', 'J', 'K', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'] as $column) {
+                foreach (['G', 'H', 'I', 'J', 'K', 'L', 'M', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'AA', 'AB'] as $column) {
                     $sheet->setCellValue($column . $total, '=SUM(' . $column . '2:' . $column . $last . ')');
                 }
 
-                $sheet->getStyle('A' . $total . ':AC' . $total)->getFont()->setBold(true);
+                $sheet->getStyle('A' . $total . ':AE' . $total)->getFont()->setBold(true);
                 $sheet->getStyle('G' . $total . ':Z' . $total)->getNumberFormat()->setFormatCode('#,##0.00');
             },
         ];

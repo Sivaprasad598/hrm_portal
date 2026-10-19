@@ -43,6 +43,8 @@ class IappEmployee extends BaseModel
     /** Where the biometric record came from. */
     public const SOURCE_PUNCH = 'punch_feed';
     public const SOURCE_API = 'api';
+    /** Loaded from the machine's own employee list (Employee Mapping -> Upload device employee list). */
+    public const SOURCE_LIST = 'machine_list';
 
     public function user(): BelongsTo
     {

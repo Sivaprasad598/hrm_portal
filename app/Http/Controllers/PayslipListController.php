@@ -100,7 +100,9 @@ class PayslipListController extends AccountBaseController
             'Basic' => $sum('basic'),
             'HRA' => $sum('hra'),
             'CA' => $sum('ca'),
-            'Others' => $sum('others'),
+            'LTA' => $sum('lta'),
+            'CEA' => $sum('cea'),
+            'Special Allowance' => $sum('others'),
         ];
 
         $heads = [
@@ -432,13 +434,14 @@ class PayslipListController extends AccountBaseController
             ->get();
 
         $latest = $this->latestKeys($rows);
+        $extras = \App\Services\Payroll\NetPay::extras($rows->pluck('id'));
 
         foreach ($rows as $row) {
             [$row->sort_key, $row->period_label] = $this->parsePeriod($row->period);
             $row->is_latest = isset($latest[$this->slipKey($row)]) && $latest[$this->slipKey($row)] === (int) $row->id;
             $row->warnings = $this->warningsFor($row);
 
-            [$row->lop_amount, $row->take_home] = $this->printedNet($row);
+            [$row->lop_amount, $row->take_home] = $this->printedNet($row, ...($extras[(int) $row->id] ?? [0.0, 0.0]));
         }
 
         return $rows;
@@ -455,22 +458,11 @@ class PayslipListController extends AccountBaseController
      *
      * @return array{0: float, 1: float} [lop, net]
      */
-    protected function printedNet($row): array
+    protected function printedNet($row, float $extraEarnings = 0.0, float $extraDeductions = 0.0): array
     {
-        [$esi, $pf] = [(float) $row->esi, (float) $row->pf];
-        // The employer's own contributions, where the payslip recorded them.
-        $employerPf = $row->employer_pf !== null ? (float) $row->employer_pf : $pf;
-        $employerEsi = $row->employer_esi !== null ? (float) $row->employer_esi : $esi;
-
-        // The attendance deduction, exactly as the slip works it out.
-        $lop = max(0.0, (float) $row->net_salary - (float) $row->attendance_net);
-
-        // Built from the components, which is what the slip totals — a handful
-        // of early payslips stored a net of zero while their components add up
-        // to the full salary, and the slip prints the components.
-        $earnings = (float) $row->basic + (float) $row->hra + (float) $row->ca + (float) $row->others;
-
-        return [$lop, $earnings - ($pf + $esi + (float) $row->pt + $lop) - ($employerPf + $employerEsi)];
+        // The same figure the slip prints, TDS and extra lines included.
+        return [\App\Services\Payroll\NetPay::lop($row),
+            \App\Services\Payroll\NetPay::takeHome($row, $extraEarnings, $extraDeductions)];
     }
 
     /**
@@ -578,10 +570,11 @@ class PayslipListController extends AccountBaseController
         }
 
         // Components should account for the whole of gross.
-        $components = (float) $row->basic + (float) $row->hra + (float) $row->ca + (float) $row->others;
+        $components = (float) $row->basic + (float) $row->hra + (float) $row->ca
+            + (float) ($row->lta ?? 0) + (float) ($row->cea ?? 0) + (float) $row->others;
 
         if ((float) $row->gross > 0 && abs($components - (float) $row->gross) > 0.01) {
-            $warnings[] = 'Basic, HRA, CA and Others do not add up to gross';
+            $warnings[] = 'Basic, HRA, CA, LTA, CEA and Special Allowance do not add up to gross';
         }
 
         if ($row->user_id === null) {

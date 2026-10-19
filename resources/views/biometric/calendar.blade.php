@@ -61,6 +61,23 @@
             </div>
         </div>
 
+        {{-- Re-sync: which devices the next pull from this page reads. --}}
+        <div class="card bg-white border-0 b-shadow-4 mb-3">
+            <div class="card-body p-3 d-flex flex-wrap align-items-center">
+                <span class="f-13 text-dark-grey mr-3 mb-1"><strong>Re-sync from</strong></span>
+                @foreach ($deviceOptions as $code => $label)
+                    <label class="f-13 mr-3 mb-1 d-inline-flex align-items-center">
+                        <input type="checkbox" class="resync-device mr-1" value="{{ $code }}" @checked(in_array((string) $code, $selectedDevices, true))>
+                        {{ $label }} <span class="text-lightest ml-1">{{ $code }}</span>
+                    </label>
+                @endforeach
+                <span class="f-11 text-lightest w-100">
+                    Ticked as on <a href="{{ route('biometric-settings.index') }}">Biometric Settings</a>. Tick another device and pick dates below
+                    to pull its history; the nightly pull keeps following Settings.
+                </span>
+            </div>
+        </div>
+
         {{-- Calendar --}}
         <div class="card bg-white border-0 b-shadow-4 mb-3">
             <div class="card-header bg-white border-bottom d-flex align-items-center flex-wrap p-3">
@@ -385,6 +402,12 @@
 
             function startRun(payload) {
                 payload._token = token;
+                payload.devices = $('.resync-device:checked').map(function () { return this.value; }).get();
+
+                if (!payload.devices.length) {
+                    Swal.fire({ icon: 'warning', title: 'Tick at least one device to pull from.' });
+                    return;
+                }
 
                 $.post(routes.start, payload, function (response) {
                     if (response.status !== 'success') {

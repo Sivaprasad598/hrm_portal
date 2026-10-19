@@ -16,9 +16,12 @@
                 </p>
                 </div>
                 {{-- The one tax document an employee actually needs for filing. --}}
-                <a href="{{ route('my-payslips.form-16') }}" class="btn btn-sm btn-outline-primary flex-shrink-0">
-                    <i class="fa fa-file-alt mr-1"></i> My Form 16
-                </a>
+                {{-- Only once a payslip has been issued: before that there is nothing to certify (the page is a 404). --}}
+                @if ($payslips->isNotEmpty())
+                    <a href="{{ route('my-payslips.form-16') }}" class="btn btn-sm btn-outline-primary flex-shrink-0">
+                        <i class="fa fa-file-alt mr-1"></i> My Form 16
+                    </a>
+                @endif
             </div>
 
             <div class="table-responsive">

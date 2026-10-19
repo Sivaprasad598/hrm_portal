@@ -9,6 +9,7 @@ use App\Traits\CustomFieldsRequestTrait;
 class UpdateRequest extends CoreRequest
 {
     use CustomFieldsRequestTrait;
+    use OnboardingRules;
 
     /**
      * Determine if the user is authorized to make this request.
@@ -51,9 +52,18 @@ class UpdateRequest extends CoreRequest
             'employee_card_id' => 'required|regex:/^[A-Za-z0-9_-]{1,50}$/',
             'pan_number' => 'nullable|regex:/^[A-Z]{5}[0-9]{4}[A-Z]$/',
             'employee_ctc' => 'nullable|numeric|min:0',
-            'basic_for_payroll' => 'nullable|integer|min:0|max:999',
+            'basic_for_payroll' => 'nullable|integer|min:0|max:100',
             'employee_image' => 'nullable|file|mimes:png,jpg,jpeg,svg,bmp|max:2048',
-            'name'  => 'required|max:50',
+            'first_name'     => 'required|max:50',
+            'middle_name'    => 'nullable|max:50',
+            'last_name'      => 'required|max:50',
+            'personal_email' => 'nullable|email:rfc,strict|max:100',
+            'emergency_name'       => 'required|array|min:1',
+            'emergency_name.*'     => 'required|max:100',
+            'emergency_relation'   => 'required|array|min:1',
+            'emergency_relation.*' => 'required|in:Spouse,Father,Mother,Brother,Sister,Friend,Colleague,Other',
+            'emergency_number'     => 'required|array|min:1',
+            'emergency_number.*'   => 'required|max:20',
             'hourly_rate' => 'nullable|numeric',
             'department' => 'required',
             'designation' => 'required',
@@ -98,6 +108,9 @@ class UpdateRequest extends CoreRequest
             $rules['telegram_user_id'] = 'nullable|unique:users,telegram_user_id,' . $detailID->user_id.',id,company_id,' . company()->id;
         }
 
+        // Documents, bank account checks, monthly salary
+        $rules = array_merge($rules, $this->onboardingRules(false, $detailID?->personal_account_number));
+
         $rules = $this->customFieldRules($rules);
 
         return $rules;
@@ -114,13 +127,13 @@ class UpdateRequest extends CoreRequest
 
     public function messages()
     {
-        return [
+        return $this->onboardingMessages() + [
             'employee_card_id.required' => __('messages.employeeCardIdNumericMax10'),
             'employee_card_id.regex' => __('messages.employeeCardIdNumericMax10'),
             'pan_number.regex' => __('Please enter a valid PAN Card Number in the format ABCDE1234F.'),
             'basic_for_payroll.integer' => __('Basic (For Payroll) must be a whole number.'),
             'basic_for_payroll.min' => __('Basic (For Payroll) cannot be negative.'),
-            'basic_for_payroll.max' => __('Basic (For Payroll) cannot be more than 999.'),
+            'basic_for_payroll.max' => __('Basic (For Payroll) cannot be more than 100%.'),
         ];
     }
 

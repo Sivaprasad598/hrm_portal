@@ -35,9 +35,17 @@ if (!$user) {
     die('<p style="font-family:Arial;text-align:center;margin-top:100px;color:red;">User not found.</p>');
 }
 
-// --- Fetch designation name (if provided) ---
+// --- Designation: the employee's own; an id passed in is only a fallback ---
 $designationName = null;
-if ($designation_id > 0) {
+$ownStmt = $conn->prepare("SELECT d.name, ed.employee_id FROM employee_details ed LEFT JOIN designations d ON d.id = ed.designation_id WHERE ed.user_id = ? LIMIT 1");
+$ownStmt->bind_param("i", $id);
+$ownStmt->execute();
+$ownRow = $ownStmt->get_result()->fetch_assoc();
+$ownStmt->close();
+if ($ownRow) {
+    $designationName = $ownRow['name'] ?: null;
+}
+if (!$designationName && $designation_id > 0) {
     $designQuery = "SELECT name FROM designations WHERE id = ?";
     $stmtDes = $conn->prepare($designQuery);
     $stmtDes->bind_param("i", $designation_id);
@@ -55,7 +63,7 @@ $conn->close();
 $role = $designationName ? ucfirst(htmlspecialchars($designationName)) : 'Employee';
 
 // --- Generate employee ID from user ID ---
-$empId = 'EMP' . str_pad($user['id'], 4, '0', STR_PAD_LEFT);
+$empId = !empty($ownRow['employee_id']) ? htmlspecialchars($ownRow['employee_id']) : 'EMP' . str_pad($user['id'], 4, '0', STR_PAD_LEFT);
 
 // --- Prepare display variables ---
 $name   = htmlspecialchars(ucwords(strtolower($user['name'] ?? '')));
@@ -66,7 +74,9 @@ $blood  = htmlspecialchars($user['blood_group'] ?? '');
 
 // --- Always use avatar fallback, but prefer stored user image ---
 if (!empty($user['image'])) {
-    $photoSrc = '/hrm/public/user-uploads/avatar/' . rawurlencode($user['image']);
+    $photoSrc = function_exists('asset_url_local_s3')
+        ? asset_url_local_s3('avatar/' . $user['image'])
+        : (function_exists('asset') ? asset('user-uploads/avatar/' . rawurlencode($user['image'])) : 'user-uploads/avatar/' . rawurlencode($user['image']));
 } else {
     $photoSrc = 'https://ui-avatars.com/api/?name=' . urlencode($user['name']) . '&size=150&background=b84cff&color=fff&bold=true';
 }
@@ -74,7 +84,7 @@ if (!empty($user['image'])) {
 $pdfName  = strtoupper(str_replace(' ', '_', $user['name']));
 
 // --- Logo path – absolute from document root ---
-$logoPath = '/hrm/public/img/arowana_logo_new.png';
+$logoPath = function_exists('asset') ? asset('img/arowana_logo_new.png') : 'img/arowana_logo_new.png';
 ?>
 <!DOCTYPE html>
 <html lang="en">

@@ -46,9 +46,19 @@
                                  :href="route('biometric-settings.index')" :text="__('app.menu.biometricSettings')"/>
         @endif
 
+        @if (in_array('admin', user_roles()))
+            <x-setting-menu-item :active="$activeMenu" menu="data_clean"
+                                 :href="route('data-clean.index')" text="Data Clean"/>
+        @endif
+
         @if (user()->permission('manage_company_setting') == 'all')
             <x-setting-menu-item :active="$activeMenu" menu="business_address" :href="route('business-address.index')"
                                  :text="__('app.menu.businessAddresses')"/>
+        @endif
+
+        @if (user()->permission('manage_company_setting') == 'all' || user()->permission('edit_employees') == 'all')
+            <x-setting-menu-item :active="$activeMenu" menu="ai_settings" :href="route('ai-settings.index')"
+                                 text="AI Settings"/>
         @endif
 
         @if (user()->permission('manage_company_setting') == 'all')
@@ -131,7 +141,7 @@
                                  :text="__('app.menu.moduleSettings')"/>
         @endif
 
-        @if (user()->permission('manage_company_setting') == 'all')
+        @if (user()->permission('manage_company_setting') == 'all' || user()->permission('edit_employees') == 'all')
             <x-setting-menu-item :active="$activeMenu" menu="notice_period_settings"
                                  :href="route('notice-period-settings.index')"
                                  :text="__('app.menu.noticePeriodSettings')"/>
@@ -148,7 +158,7 @@
                                  :text="__('app.menu.paymentGatewayCredential')"/>
         @endif
 
-        @if (user()->permission('manage_company_setting') == 'all')
+        @if (user()->permission('manage_company_setting') == 'all' || user()->permission('manage_payroll') == 'all')
             <x-setting-menu-item :active="$activeMenu" menu="payslip_settings" :href="route('payslip-settings.index')"
                                  :text="__('app.menu.payslipSettings')"/>
         @endif

@@ -8,6 +8,7 @@ use App\Traits\CustomFieldsRequestTrait;
 class StoreRequest extends CoreRequest
 {
     use CustomFieldsRequestTrait;
+    use OnboardingRules;
 
     /**
      * Determine if the user is authorized to make this request.
@@ -48,7 +49,7 @@ class StoreRequest extends CoreRequest
             'employee_card_id' => 'required|regex:/^[A-Za-z0-9_-]{1,50}$/',
             'pan_number' => 'required|regex:/^[A-Z]{5}[0-9]{4}[A-Z]$/',
             'employee_ctc' => 'nullable|numeric|min:0',
-            'basic_for_payroll' => 'nullable|integer|min:0|max:999',
+            'basic_for_payroll' => 'nullable|integer|min:0|max:100',
             'employee_image' => 'nullable|file|mimes:png,jpg,jpeg,svg,bmp|max:2048',
             'first_name'     => 'required|max:50',
             'middle_name'    => 'nullable|max:50',
@@ -79,10 +80,12 @@ class StoreRequest extends CoreRequest
             'esi_number' => ['nullable', 'regex:/^[0-9]+$/'],
             'personal_account_number' => ['required', 'regex:/^[0-9]{9,18}$/'],
             'ifsc_code' => ['required', 'regex:/^[A-Z]{4}0[A-Z0-9]{6}$/'],
-            'passport_number' => ['required', 'regex:/^[A-Z][0-9]{7}$/'],
-            'passport_date_of_issue' => 'required|date_format:"' . $setting->date_format . '"',
-            'passport_place_of_issue' => ['required', 'max:100', 'regex:/^[A-Za-z,.\- ]+$/'],
-            'passport_valid_up_to' => 'required|date_format:"' . $setting->date_format . '"|after:passport_date_of_issue',
+            // Passport details are optional; what is given must be valid.
+            'passport_number' => ['nullable', 'regex:/^[A-Z][0-9]{7}$/'],
+            'passport_date_of_issue' => 'nullable|date_format:"' . $setting->date_format . '"',
+            'passport_place_of_issue' => ['nullable', 'max:100', 'regex:/^[A-Za-z,.\- ]+$/'],
+            'passport_valid_up_to' => 'nullable|date_format:"' . $setting->date_format . '"'
+                . ($this->filled('passport_date_of_issue') ? '|after:passport_date_of_issue' : ''),
             'reported_duty_day' => ['required', 'integer', 'between:1,31'],
             'reported_duty_month' => ['required', 'regex:/^(?:[1-9]|1[0-2]|january|jan|february|feb|march|mar|april|apr|may|june|jun|july|jul|august|aug|september|sep|sept|october|oct|november|nov|december|dec)$/i'],
             'reported_duty_year' => ['required', 'digits:4', 'integer', 'between:1900,2100'],
@@ -107,6 +110,9 @@ class StoreRequest extends CoreRequest
             $rules['telegram_user_id'] = 'nullable|unique:users,telegram_user_id,null,id,company_id,' . company()->id;
         }
 
+        // Documents, bank account checks, monthly salary
+        $rules = array_merge($rules, $this->onboardingRules(true));
+
         $rules = $this->customFieldRules($rules);
 
         return $rules;
@@ -123,7 +129,7 @@ class StoreRequest extends CoreRequest
 
     public function messages()
     {
-        return [
+        return $this->onboardingMessages() + [
             'employee_id.required'      => __('Employee ID is required.'),
             'employee_id.unique'        => __('This Employee ID is already taken.'),
             'first_name.required'       => __('First Name is required.'),
@@ -146,7 +152,7 @@ class StoreRequest extends CoreRequest
             'employee_ctc.min' => __('Employee CTC cannot be negative.'),
             'basic_for_payroll.integer' => __('Basic (For Payroll) must be a whole number.'),
             'basic_for_payroll.min' => __('Basic (For Payroll) cannot be negative.'),
-            'basic_for_payroll.max' => __('Basic (For Payroll) cannot be more than 999.'),
+            'basic_for_payroll.max' => __('Basic (For Payroll) cannot be more than 100%.'),
             'pf_account_number.regex' => __('PF Account Number can only contain letters, numbers, / and -'),
             'esi_number.regex' => __('ESI (IP Number) must contain numbers only.'),
             'personal_account_number.required' => __('Personal Account Number is required.'),

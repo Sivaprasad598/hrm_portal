@@ -157,7 +157,7 @@ class IappConfig
 
         return in_array($field, array_keys(IappSetting::MATCH_FIELDS), true)
             ? $field
-            : 'employee_card_id';
+            : 'none';
     }
 
     public function isConfigured(): bool
@@ -169,6 +169,25 @@ class IappConfig
         return $this->usesClientSecret()
             ? !empty($this->clientSecret())
             : (!empty($this->username()) && !empty($this->password()));
+    }
+
+    /**
+     * The controller codes to pull, or null for every device.
+     *
+     * "Selected" with nothing ticked is treated as nothing to pull rather than
+     * everything, so unticking the last device never quietly widens the pull.
+     *
+     * @return string[]|null
+     */
+    public function pullDevices(): ?array
+    {
+        $setting = $this->setting();
+
+        if (!$setting || ($setting->device_scope ?? 'all') !== \App\Models\IappSetting::SCOPE_SELECTED) {
+            return null;
+        }
+
+        return array_values(array_filter(array_map('strval', (array) ($setting->pull_devices ?? []))));
     }
 
     /** Cache key is per base URL so several environments never share a token. */

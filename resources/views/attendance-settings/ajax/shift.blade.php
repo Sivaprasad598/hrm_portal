@@ -15,11 +15,21 @@ $manageShiftPermission = user()->permission('manage_employee_shifts');
             @endif
         </x-slot>
 
+        @php $shiftUsage = \App\Services\Attendance\ShiftAssignments::usage(); @endphp
         @forelse($employeeShifts as $shift)
             <tr class="row{{ $shift->id }}">
                 <td>
                     <span class="badge badge-info f-12 p-1" style="background-color: {{ $shift->color }}">
                         {{ $shift->shift_name }}</span>
+                    @if (\App\Services\Attendance\ShiftResolver::isOvernight($shift))
+                        <span class="badge badge-dark f-10 ml-1">overnight</span>
+                    @endif
+                    {{-- Employees given this shift as their own (Add / Edit Employee) --}}
+                    @if (!empty($shiftUsage[$shift->id]))
+                        <div class="f-11 text-dark-grey mt-1"><i class="fa fa-users mr-1"></i>{{ $shiftUsage[$shift->id] }} employee(s) assigned</div>
+                    @elseif ($shift->id == attendance_setting()->default_employee_shift)
+                        <div class="f-11 text-lightest mt-1">Everyone without their own shift</div>
+                    @endif
                 </td>
                 <td>
                     @if ($shift->shift_type == 'strict')

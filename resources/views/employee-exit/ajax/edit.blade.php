@@ -22,7 +22,8 @@
                     {{-- Resignation Date --}}
                     <div class="col-lg-6 col-md-6">
                         <x-forms.datepicker fieldId="edit_resignation_date" :fieldLabel="'Resignation / Exit Date'" fieldName="resignation_date"
-                            :fieldValue="$exit->resignation_date ? $exit->resignation_date->format(company()->date_format) : ''" :fieldRequired="true" />
+                            :fieldValue="$exit->resignation_date ? $exit->resignation_date->format(company()->date_format) : ''" :fieldRequired="true"
+                            :fieldPlaceholder="__('placeholders.date')" />
                     </div>
 
                     {{-- Notice Period Days --}}
@@ -34,7 +35,8 @@
                     {{-- Last Working Date --}}
                     <div class="col-lg-6 col-md-6">
                         <x-forms.datepicker fieldId="edit_last_working_date" :fieldLabel="'Last Working Date'" fieldName="last_working_date"
-                            :fieldValue="$exit->last_working_date ? $exit->last_working_date->format(company()->date_format) : ''" :fieldRequired="true" />
+                            :fieldValue="$exit->last_working_date ? $exit->last_working_date->format(company()->date_format) : ''" :fieldRequired="true"
+                            :fieldPlaceholder="__('placeholders.date')" />
                     </div>
 
                     {{-- Clearance Status --}}
@@ -105,6 +107,15 @@
 </div>
 
 <script>
+    // The side panel is closed with closeTaskDetail() (main.js), not as a
+    // Bootstrap modal; opened as a page of its own, go back to the list.
+    window.closeExitPanel = function () {
+        if ($(RIGHT_MODAL).hasClass('in') && typeof closeTaskDetail === 'function') {
+            closeTaskDetail();
+        } else {
+            window.location.href = '{{ route('employee-exit.index') }}';
+        }
+    };
     $(function () {
         $('#saveEditExitBtn').on('click', function () {
             var btn = $(this);
@@ -117,10 +128,10 @@
                 success: function (res) {
                     if (res.status === 'success') {
                         toastr.success(res.message);
-                        if (typeof window['employee-exit-table'] !== 'undefined') {
-                            window['employee-exit-table'].draw();
+                        if (window.LaravelDataTables && window.LaravelDataTables['employee-exit-table']) {
+                            window.LaravelDataTables['employee-exit-table'].draw(false);
                         }
-                        $(RIGHT_MODAL).modal('hide');
+                        closeExitPanel();
                     } else {
                         toastr.error(res.message);
                     }
@@ -140,7 +151,7 @@
         });
 
         $('#closeEditExitForm').on('click', function () {
-            $(RIGHT_MODAL).modal('hide');
+            closeExitPanel();
         });
     });
 </script>

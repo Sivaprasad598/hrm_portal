@@ -77,12 +77,20 @@
         $basic = $payslips->sum('basic');
         $hra = $payslips->sum('hra');
         $ca = $payslips->sum('ca');
+        $lta = $payslips->sum('lta');
+        $cea = $payslips->sum('cea');
         $others = $payslips->sum('others');
     @endphp
     <tr><td>(a) Salary as per section 17(1) — basic</td><td class="amount">{{ $money($basic) }}</td></tr>
     <tr><td>(b) House rent allowance</td><td class="amount">{{ $money($hra) }}</td></tr>
     <tr><td>(c) Conveyance allowance</td><td class="amount">{{ $money($ca) }}</td></tr>
-    <tr><td>(d) Other allowances</td><td class="amount">{{ $money($others) }}</td></tr>
+    @if ($lta > 0 || $cea > 0)
+        <tr><td>(d) Leave travel allowance</td><td class="amount">{{ $money($lta) }}</td></tr>
+        <tr><td>(e) Children education allowance</td><td class="amount">{{ $money($cea) }}</td></tr>
+        <tr><td>(f) Special allowance (and other allowances on earlier payslips)</td><td class="amount">{{ $money($others) }}</td></tr>
+    @else
+        <tr><td>(d) Other allowances</td><td class="amount">{{ $money($others) }}</td></tr>
+    @endif
     <tr class="total"><td>Total paid on {{ $payslips->count() }} payslip(s)</td><td class="amount">{{ $money($grossPaid) }}</td></tr>
     @if (($computation['projected_gross'] ?? 0) > $grossPaid)
         <tr><td>Expected for the rest of the year</td><td class="amount">{{ $money($computation['projected_gross'] - $grossPaid) }}</td></tr>

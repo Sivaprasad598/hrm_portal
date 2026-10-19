@@ -18,7 +18,7 @@ class PayslipSettingController extends AccountBaseController
         $this->pageTitle = 'app.menu.payslipSettings';
         $this->activeSettingMenu = 'payslip_settings';
         $this->middleware(function ($request, $next) {
-            abort_403(user()->permission('manage_company_setting') !== 'all');
+            abort_403(user()->permission('manage_company_setting') !== 'all' && user()->permission('manage_payroll') !== 'all');
 
             return $next($request);
         });

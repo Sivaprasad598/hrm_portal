@@ -20,7 +20,7 @@ $dbConn = $dbConfig['connections']['mysql'] ?? null;
 $userRole = isset($_GET['user_role']) ? trim($_GET['user_role']) : 'employee';
 
 if (function_exists('user_roles')) {
-    $userRole = in_array('admin', user_roles()) ? 'admin' : 'employee';
+    $userRole = in_array('admin', (array) user_roles()) ? 'admin' : 'employee';
 }
 
 // This page's links back to the calculator, which lives at /account/legacy/...
@@ -115,7 +115,8 @@ if ($dbConn) {
             $postedWorking = (float) ($_POST['working_days'] ?? 0);
             $postedPresent = (float) ($_POST['days_present'] ?? 0);
             $postedComponents = (float) ($_POST['basic'] ?? 0) + (float) ($_POST['hra'] ?? 0)
-                + (float) ($_POST['ca'] ?? 0) + (float) ($_POST['others'] ?? 0);
+                + (float) ($_POST['ca'] ?? 0) + (float) ($_POST['lta'] ?? 0) + (float) ($_POST['cea'] ?? 0)
+                + (float) ($_POST['others'] ?? 0);
 
             // The cycle must be over and, for anyone on the biometric device, the
             // feed pulled through its last day - the same rule Payroll Run applies.
@@ -136,7 +137,7 @@ if ($dbConn) {
                 $postedGross <= 0 => 'This employee has no salary on record, so a payslip cannot be valued. Add their CTC first.',
                 $postedWorking < 1 || $postedWorking > 31 => 'Working days must be between 1 and 31. Check the pay period and the attendance.',
                 $postedPresent < 0 || $postedPresent > $postedWorking => 'Days present cannot be negative or more than the working days.',
-                abs($postedComponents - $postedGross) > 1 => 'Basic, HRA, CA and Others do not add up to the gross salary. Check the percentages on the calculator.',
+                abs($postedComponents - $postedGross) > 1 => 'Basic, HRA, CA, LTA, CEA and Special Allowance do not add up to the gross salary. Check the percentages on the calculator.',
                 default => null,
             };
 
@@ -203,7 +204,7 @@ if ($dbConn) {
                         gross, basic_pct, hra_pct, ca_threshold, ca_high, ca_low,
                         pt, esi_threshold, esi_pct, pf_pct,
                         working_days, days_present,
-                        basic, hra, ca, others, esi, pf,
+                        basic, hra, ca, lta, cea, others, esi, pf,
                         total_deductions, net_salary, per_day, attendance_net,
                         tds, period_start, period_end,
                         emp_name, emp_id, emp_designation, emp_pan, period,
@@ -213,7 +214,7 @@ if ($dbConn) {
                         :gross, :basicPct, :hraPct, :caThreshold, :caHigh, :caLow,
                         :pt, :esiThreshold, :esiPct, :pfPct,
                         :workingDays, :daysPresent,
-                        :basic, :hra, :ca, :others, :esi, :pf,
+                        :basic, :hra, :ca, :lta, :cea, :others, :esi, :pf,
                         :totalDeductions, :netSalary, :perDay, :attendanceNet,
                         :tds, :periodStart, :periodEnd,
                         :empName, :empId, :empDesignation, :empPan, :period,
@@ -283,6 +284,8 @@ if ($dbConn) {
                     ':basic'           => $_POST['basic'] ?? 0,
                     ':hra'             => $_POST['hra'] ?? 0,
                     ':ca'              => $_POST['ca'] ?? 0,
+                    ':lta'             => $_POST['lta'] ?? 0,
+                    ':cea'             => $_POST['cea'] ?? 0,
                     ':others'          => $_POST['others'] ?? 0,
                     ':esi'             => $_POST['esi'] ?? 0,
                     ':pf'              => $_POST['pf'] ?? 0,
@@ -307,6 +310,50 @@ if ($dbConn) {
                     ':pfWageCeiling'   => $_POST['pf_wage_ceiling'] ?? null,
                     ':esiEmployerPct'  => $_POST['esi_employer_pct'] ?? null,
                 ];
+
+                // The amounts are worked out again here with the payroll formula
+                // (SalaryCalculator) and the rates the calculator page showed,
+                // rather than taken from the browser: a slip generated here then
+                // matches what Payroll Run would issue for the same days - PF and
+                // ESI on the days paid, the final figure rounded to the rupee.
+                if (class_exists(\App\Services\Payroll\SalaryCalculator::class) && $postedGross > 0) {
+                    $rates = (array) (new \App\Services\Payroll\SalaryCalculator())->settings();
+
+                    foreach (['basic_pct', 'hra_pct', 'ca_threshold', 'ca_high', 'ca_low', 'esi_threshold', 'esi_pct',
+                                 'pf_pct', 'pf_wage_ceiling', 'esi_employer_pct', 'lta_pct', 'cea_threshold', 'cea_low', 'cea_high'] as $rateKey) {
+                        if (isset($_POST[$rateKey]) && $_POST[$rateKey] !== '' && is_numeric($_POST[$rateKey])) {
+                            $rates[$rateKey] = (float) $_POST[$rateKey];
+                        }
+                    }
+
+                    $pay = (new \App\Services\Payroll\SalaryCalculator((object) $rates))->forEmployee(
+                        $postedGross * 12,
+                        isset($_POST['basic_pct']) && (float) $_POST['basic_pct'] > 0 ? (float) $_POST['basic_pct'] : null,
+                        (int) round($postedWorking),
+                        $postedPresent,
+                        $monthlyTds
+                    );
+                    $employeeNet = $pay['gross'] - ($pay['pf_employee'] + $pay['esi_employee'] + $pay['pt'] + $pay['tds']);
+
+                    $insertValues = array_merge($insertValues, [
+                        ':basicPct'        => $pay['basic_pct'],
+                        ':basic'           => round($pay['basic'], 2),
+                        ':hra'             => round($pay['hra'], 2),
+                        ':ca'              => round($pay['ca'], 2),
+                        ':lta'             => round($pay['lta'], 2),
+                        ':cea'             => round($pay['cea'], 2),
+                        ':others'          => round($pay['other'], 2),
+                        ':pf'              => $pay['pf_employee'],
+                        ':esi'             => $pay['esi_employee'],
+                        ':pt'              => $pay['pt'],
+                        ':employerPf'      => $pay['pf_employer'],
+                        ':employerEsi'     => $pay['esi_employer'],
+                        ':totalDeductions' => $pay['pf_employee'] + $pay['esi_employee'] + $pay['pt'] + $pay['tds'],
+                        ':netSalary'       => $employeeNet,
+                        ':perDay'          => round($pay['per_day'], 2),
+                        ':attendanceNet'   => $employeeNet - $pay['lop_amount'],
+                    ]);
+                }
 
                 // The payslip number is the highest so far plus one, so two
                 // people generating at the same moment can pick the same one.
@@ -570,8 +617,22 @@ if ($dbConn) {
                 ['Basic', (float) $row['basic']],
                 ['HRA', (float) $row['hra']],
                 ['Conveyance Allowance', (float) $row['ca']],
-                ['Others', (float) $row['others']],
             ];
+
+            // Leave Travel and Children Education Allowance, on slips issued
+            // since they became components; on older slips they are part of
+            // the last line, which was called Others then.
+            $splitOut = (float) ($row['lta'] ?? 0) > 0 || (float) ($row['cea'] ?? 0) > 0;
+
+            if ((float) ($row['lta'] ?? 0) > 0) {
+                $earnings[] = ['Leave Travel Allowance', (float) $row['lta']];
+            }
+
+            if ((float) ($row['cea'] ?? 0) > 0) {
+                $earnings[] = ['Children Education Allowance', (float) $row['cea']];
+            }
+
+            $earnings[] = [$splitOut ? 'Special Allowance' : 'Others', (float) $row['others']];
 
             // Pay outside the standard salary: overtime, a bonus, arrears, an
             // advance being recovered. Each keeps its own label on the slip, so
@@ -636,7 +697,7 @@ if ($dbConn) {
                     $fyLabel = $fyStartYear . '-' . substr((string) ($fyStartYear + 1), -2);
 
                     $ytdStmt = $pdo->prepare(
-                        "SELECT period, basic, hra, ca, others, pf, esi, pt, tds, employer_pf, employer_esi,
+                        "SELECT period, basic, hra, ca, lta, cea, others, pf, esi, pt, tds, employer_pf, employer_esi,
                                 net_salary, attendance_net, leave_encashment
                            FROM payslips
                           WHERE emp_id = :empId AND status = 'active' AND deleted_at IS NULL"
@@ -653,7 +714,8 @@ if ($dbConn) {
                             continue;
                         }
 
-                        $slipEarnings = (float) $slip['basic'] + (float) $slip['hra'] + (float) $slip['ca'] + (float) $slip['others'];
+                        $slipEarnings = (float) $slip['basic'] + (float) $slip['hra'] + (float) $slip['ca']
+                            + (float) $slip['lta'] + (float) $slip['cea'] + (float) $slip['others'];
                         $lop = max(0, (float) $slip['net_salary'] - (float) $slip['attendance_net']);
                         $slipEmployer = (float) ($slip['employer_pf'] ?? $slip['pf']) + (float) ($slip['employer_esi'] ?? $slip['esi']);
 
@@ -705,6 +767,13 @@ if ($dbConn) {
                           . implode(' Or ', array_map('e', $branchEmails));
                 }
             }
+
+            // The days this payslip paid for, as payroll counts them, for the
+            // people who check it. The payroll month is the one the period ends in.
+            $attendanceUrl = (function_exists('route') && !empty($row['user_id']) && !empty($row['period_end']))
+                ? route('payroll.attendance', ['userId' => $row['user_id'],
+                    'month' => (int) date('n', strtotime($row['period_end'])), 'year' => (int) date('Y', strtotime($row['period_end']))])
+                : null;
 
             // Build full structure
             $payslip = [

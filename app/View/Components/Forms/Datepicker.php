@@ -23,11 +23,12 @@ class Datepicker extends Component
      *
      * @return void
      */
-    public function __construct($fieldLabel, $fieldPlaceholder, $fieldName, $fieldId, $fieldRequired = false, $fieldValue = null, $fieldHelp = null, $custom = false, $popover = null)
+    public function __construct($fieldLabel, $fieldName, $fieldId, $fieldPlaceholder = null, $fieldRequired = false, $fieldValue = null, $fieldHelp = null, $custom = false, $popover = null)
     {
         $this->fieldLabel = $fieldLabel;
         $this->fieldRequired = $fieldRequired;
-        $this->fieldPlaceholder = $fieldPlaceholder;
+        // Optional: several pages leave it out, which used to stop the page loading.
+        $this->fieldPlaceholder = $fieldPlaceholder ?? __('placeholders.date');
         $this->fieldValue = $fieldValue;
         $this->fieldName = $fieldName;
         $this->fieldId = $fieldId;

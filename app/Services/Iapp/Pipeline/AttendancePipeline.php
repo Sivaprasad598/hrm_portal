@@ -52,7 +52,8 @@ class AttendancePipeline
 
         // Two pulls at once would race on the same rows, and the scheduler's own
         // overlap guard does not work here (its cache is per process).
-        $lock = Cache::store('file')->lock(self::LOCK . ($empCode ? '-' . $empCode : ''), 3600);
+        // One lock for every pull: a one-employee pull writes the same rows as a full one.
+        $lock = Cache::store('file')->lock(self::LOCK, 3600);
 
         if (!$lock->get()) {
             // Not recorded as the last run: the run in progress will record itself.

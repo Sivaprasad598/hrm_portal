@@ -238,8 +238,12 @@
                             <th class="text-right">Basic</th>
                             <th class="text-right">HRA</th>
                             <th class="text-right">CA</th>
-                            <th class="text-right">Other</th>
+                            <th class="text-right">LTA</th>
+                            <th class="text-right">CEA</th>
+                            <th class="text-right">Special Allowance</th>
                             <th class="text-right">PF</th>
+                            <th class="text-right">PF After LOP</th>
+                            <th class="text-right">ESI After LOP</th>
                             <th class="text-right">ESI</th>
                             <th class="text-right">PT</th>
                             <th class="text-right">TDS</th>
@@ -264,14 +268,24 @@
                                     <span class="f-11 text-lightest">
                                         {{ $row['card_id'] ?: 'no code' }}{{ $row['department'] ? ' · ' . $row['department'] : '' }}
                                     </span>
+                                    {{-- Day by day, as this row counts it: worked, week offs, holidays, leave, LOP. --}}
+                                    <br>
+                                    <a href="{{ route('payroll.attendance', ['userId' => $row['user_id'], 'month' => $month, 'year' => $year]) }}"
+                                       class="openRightModal f-11" title="Attendance for this salary period, day by day">
+                                        <i class="fa fa-calendar-alt mr-1"></i>Attendance
+                                    </a>
                                 </td>
                                 <td class="text-right">{{ number_format($row['gross'], 2) }}</td>
                                 <td class="text-right">{{ number_format($row['basic'], 2) }}</td>
                                 <td class="text-right">{{ number_format($row['hra'], 2) }}</td>
                                 <td class="text-right">{{ number_format($row['ca'], 2) }}</td>
+                                <td class="text-right">{{ number_format($row['lta'] ?? 0, 2) }}</td>
+                                <td class="text-right">{{ number_format($row['cea'] ?? 0, 2) }}</td>
                                 <td class="text-right">{{ number_format($row['other'], 2) }}</td>
+                                <td class="text-right">{{ number_format($row['pf_full'], 2) }}</td>
                                 <td class="text-right">{{ number_format($row['pf'], 2) }}</td>
                                 <td class="text-right">{{ number_format($row['esi'], 2) }}</td>
+                                <td class="text-right">{{ number_format($row['esi_full'], 2) }}</td>
                                 <td class="text-right">{{ number_format($row['pt'], 2) }}</td>
                                 <td class="text-right">
                                     {{-- A figure per employee, set by the accountant. --}}
@@ -287,7 +301,13 @@
                                 </td>
                                 <td class="text-right">{{ number_format($row['net'], 2) }}</td>
                                 <td class="text-center">{{ $num($row['lop_days']) }}</td>
-                                <td class="text-center">{{ $row['working_days'] }}</td>
+                                {{-- While the period is running only the days so far are counted. --}}
+                                <td class="text-center">
+                                    {{ $row['working_days'] }}
+                                    @if ($row['working_days'] < $cycle->days())
+                                        <div class="f-10 text-lightest text-nowrap" title="The period has {{ $cycle->days() }} days; the rest are counted as they happen">of {{ $cycle->days() }} so far</div>
+                                    @endif
+                                </td>
                                 <td class="text-center">{{ $num($row['days_present']) }}</td>
                                 <td class="text-right">{{ number_format($row['per_day'], 2) }}</td>
                                 <td class="text-right {{ $row['after_lop'] > 0 ? 'text-red' : '' }}">
@@ -331,7 +351,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="20" class="text-center text-lightest p-4">
+                                <td colspan="22" class="text-center text-lightest p-4">
                                     No employees match these filters.
                                 </td>
                             </tr>
@@ -344,8 +364,10 @@
                                 <td class="col-name">Total — {{ $monthName }}</td>
                                 <td class="text-right">{{ number_format($totals['gross'], 2) }}</td>
                                 <td colspan="4"></td>
+                                <td class="text-right">{{ number_format($totals['pf_full'], 2) }}</td>
                                 <td class="text-right">{{ number_format($totals['pf'], 2) }}</td>
                                 <td class="text-right">{{ number_format($totals['esi'], 2) }}</td>
+                                <td class="text-right">{{ number_format($totals['esi_full'], 2) }}</td>
                                 <td class="text-right">{{ number_format($totals['pt'], 2) }}</td>
                                 <td class="text-right">{{ number_format($totals['tds'], 2) }}</td>
                                 <td class="text-right">{{ number_format($totals['net'], 2) }}</td>

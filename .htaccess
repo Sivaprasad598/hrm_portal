@@ -1,0 +1,33 @@
+# Project root (e.g. public_html/arowanauk/hrm on the server, /hrm_portal locally).
+#
+# The application is served only from public/:
+#   https://<domain>/arowanauk/hrm/public/
+# Opening the folder itself goes there, and nothing else outside public/ is
+# ever served: .env (database password), storage/ and its backups, vendor/,
+# the source code, the HR Excel sheets in development_resourses/ and the
+# legacy PHP pages (those run only through the application, after sign-in).
+
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # The folder itself -> public/ (works under any path: no RewriteBase needed).
+    RewriteRule ^$ %{REQUEST_URI}public/ [R=302,L]
+
+    # Everything that is not under public/ is refused.
+    RewriteRule ^(?!public(/|$)) - [F,L]
+</IfModule>
+
+# Without mod_rewrite, refuse the dangerous files at least.
+<IfModule !mod_rewrite.c>
+    <FilesMatch "^(\.env.*|composer\.(json|lock)|artisan|.*\.sql|.*\.xlsx)$">
+        <IfModule mod_authz_core.c>
+            Require all denied
+        </IfModule>
+        <IfModule !mod_authz_core.c>
+            Order allow,deny
+            Deny from all
+        </IfModule>
+    </FilesMatch>
+</IfModule>

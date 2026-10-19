@@ -141,24 +141,28 @@ class ImportAttendanceJob implements ShouldQueue
             // every one as a new session fragments a single day's attendance into several
             // bogus partial sessions. If there's already an open session from earlier the
             // same day, this is a redundant swipe, not a new clock-in.
+            $timezone = $this->company?->timezone ?? 'UTC';
+            // The day this punch belongs to - for an overnight shift, the day it
+            // started - and the hours that make up that day.
+            $localDate = $this->shifts()->shiftDayOf($user->id, $punchTime, $timezone);
+            $dayWindow = $this->shifts()->dayWindowUtc($user->id, $localDate, $timezone);
+
             $alreadyClockedInToday = Attendance::where('user_id', $user->id)
                 ->where('company_id', $this->company?->id)
                 ->whereNull('clock_out_time')
-                ->whereDate('clock_in_time', $punchTime->toDateString())
+                ->whereBetween('clock_in_time', $dayWindow)
                 ->exists();
 
             if ($alreadyClockedInToday) {
                 return;
             }
 
-            $timezone = $this->company?->timezone ?? 'UTC';
-            $localDate = $punchTime->copy()->timezone($timezone)->toDateString();
             $clockInLocal = $punchTime->copy()->timezone($timezone);
             $shift = $this->getShiftForDate($user, $localDate);
 
             $todaysRows = Attendance::where('user_id', $user->id)
                 ->where('company_id', $this->company?->id)
-                ->whereDate('clock_in_time', $punchTime->toDateString())
+                ->whereBetween('clock_in_time', $dayWindow)
                 ->get(['clock_in_time', 'clock_out_time']);
 
             // Real sessions only — the zero-duration orphan-out rows below (clock_in_time ==
@@ -296,7 +300,7 @@ class ImportAttendanceJob implements ShouldQueue
     private function autoClockOutCutoff(User $user, Carbon $clockInTimeUTC): ?Carbon
     {
         $timezone = $this->company?->timezone ?? 'UTC';
-        $localDate = $clockInTimeUTC->copy()->timezone($timezone)->toDateString();
+        $localDate = $this->shifts()->shiftDayOf($user->id, $clockInTimeUTC, $timezone);
 
         $shift = $this->getShiftForDate($user, $localDate);
 
@@ -328,22 +332,13 @@ class ImportAttendanceJob implements ShouldQueue
      */
     private function getShiftForDate(User $user, string $localDate)
     {
-        return EmployeeShiftSchedule::where('user_id', $user->id)->where('date', $localDate)->first()?->shift
-            ?? $this->defaultShift();
+        // The roster, the employee's own shift, or the company default.
+        return $this->shifts()->shiftOn($user->id, $localDate);
     }
 
-    private $defaultShiftCache = false;
-
-    private function defaultShift()
+    private function shifts(): \App\Services\Attendance\ShiftResolver
     {
-        if ($this->defaultShiftCache === false) {
-            $shiftId = \App\Models\AttendanceSetting::withoutGlobalScopes()
-                ->when($this->company?->id, fn ($q, $id) => $q->where('company_id', $id))
-                ->value('default_employee_shift');
-            $this->defaultShiftCache = $shiftId ? \App\Models\EmployeeShift::withoutGlobalScopes()->find($shiftId) : null;
-        }
-
-        return $this->defaultShiftCache;
+        return \App\Services\Attendance\ShiftResolver::shared($this->company?->id);
     }
 
     /**
@@ -360,7 +355,9 @@ class ImportAttendanceJob implements ShouldQueue
         $lateAfter = Carbon::parse($localDate . ' ' . $shift->office_start_time, $timezone)
             ->addMinutes((int) $shift->late_mark_duration);
 
-        return $clockInLocal->greaterThan($lateAfter);
+        // Read to the minute, as attendance rules are: 09:50 with any seconds is
+        // still 09:50 and on time when the grace runs to 09:50.
+        return $clockInLocal->copy()->startOfMinute()->greaterThan($lateAfter);
     }
 
     /**
@@ -375,6 +372,13 @@ class ImportAttendanceJob implements ShouldQueue
         }
 
         $halfDayMark = Carbon::parse($localDate . ' ' . $shift->halfday_mark_time, $timezone);
+
+        // On a shift past midnight a mark earlier on the clock than the start
+        // (02:00 on a 22:00 shift) is the next morning.
+        if ($shift->office_start_time && $shift->halfday_mark_time < $shift->office_start_time
+            && \App\Services\Attendance\ShiftResolver::isOvernight($shift)) {
+            $halfDayMark->addDay();
+        }
 
         return $clockInLocal->greaterThan($halfDayMark);
     }

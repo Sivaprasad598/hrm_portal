@@ -35,7 +35,7 @@ class PayrollRunExport implements FromCollection, WithHeadings, WithMapping, Wit
 
     public function headings(): array
     {
-        return ['S.No', 'Employee Name', 'Gross', 'Basic', 'HRA', 'CA', 'Other', 'PF', 'ESI', 'PT', 'TDS',
+        return ['S.No', 'Employee Name', 'Gross', 'Basic', 'HRA', 'CA', 'LTA', 'CEA', 'Special Allowance', 'PF', 'PF After LOP', 'ESI After LOP', 'ESI', 'PT', 'TDS',
             'Net Salary', 'LOP', 'No.of. Days', 'Present Days', 'Per day', 'After LOP', 'Net Salary'];
     }
 
@@ -53,9 +53,13 @@ class PayrollRunExport implements FromCollection, WithHeadings, WithMapping, Wit
             $round($row['basic']),
             $round($row['hra']),
             $round($row['ca']),
+            $round($row['lta'] ?? 0),
+            $round($row['cea'] ?? 0),
             $round($row['other']),
+            $round($row['pf_full']),
             $round($row['pf']),
             $round($row['esi']),
+            $round($row['esi_full']),
             $round($row['pt']),
             $round($row['tds'] ?? 0),
             $round($row['net']),
@@ -75,22 +79,22 @@ class PayrollRunExport implements FromCollection, WithHeadings, WithMapping, Wit
                 $sheet = $event->sheet->getDelegate();
                 $lastRow = count($this->rows) + 1;
 
-                $sheet->getStyle('A1:R1')->getFont()->setBold(true);
-                $sheet->getStyle('A1:R' . $lastRow)->getBorders()->getAllBorders()
+                $sheet->getStyle('A1:V1')->getFont()->setBold(true);
+                $sheet->getStyle('A1:V' . $lastRow)->getBorders()->getAllBorders()
                     ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
-                $sheet->getStyle('C2:R' . $lastRow)->getNumberFormat()->setFormatCode('#,##0.00');
+                $sheet->getStyle('C2:V' . $lastRow)->getNumberFormat()->setFormatCode('#,##0.00');
 
                 // A totals line, which is the point of the whole screen.
                 if ($this->rows !== []) {
                     $total = $lastRow + 1;
                     $sheet->setCellValue('B' . $total, 'Total (' . $this->monthName . ')');
 
-                    foreach (['C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'Q', 'R'] as $column) {
+                    foreach (['C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'U', 'V'] as $column) {
                         $sheet->setCellValue($column . $total, '=SUM(' . $column . '2:' . $column . $lastRow . ')');
                     }
 
-                    $sheet->getStyle('A' . $total . ':R' . $total)->getFont()->setBold(true);
-                    $sheet->getStyle('C' . $total . ':R' . $total)->getNumberFormat()->setFormatCode('#,##0.00');
+                    $sheet->getStyle('A' . $total . ':V' . $total)->getFont()->setBold(true);
+                    $sheet->getStyle('C' . $total . ':V' . $total)->getNumberFormat()->setFormatCode('#,##0.00');
                 }
             },
         ];

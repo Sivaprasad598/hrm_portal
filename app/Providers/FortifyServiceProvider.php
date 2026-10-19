@@ -158,9 +158,9 @@ class FortifyServiceProvider extends ServiceProvider
             // Is arowana
             $company = Company::withCount('users')->first();
 
-            if (!$this->isLegal()) {
-                return redirect('verify-purchase');
-            }
+            // if (!$this->isLegal()) {
+            //     return redirect('verify-purchase');
+            // }
 
             App::setLocale($globalSetting->locale);
             Carbon::setLocale($globalSetting->locale);

@@ -347,6 +347,10 @@ class BiometricController extends AccountBaseController
         $this->activeRun = $runner->active();
         $this->earliest = $runner->earliestAvailable();
 
+        // Re-sync picks its own devices; ticked by default as Settings has them.
+        $this->deviceOptions = self::deviceOptions()->all();
+        $this->selectedDevices = (new \App\Services\Iapp\IappConfig())->pullDevices() ?? array_keys($this->deviceOptions);
+
         return view('biometric.calendar', $this->data);
     }
 
@@ -359,6 +363,9 @@ class BiometricController extends AccountBaseController
      */
     public function startBackfill(Request $request, BackfillRunner $runner)
     {
+        // It writes: punches, device days and, through them, attendance.
+        abort_403(!in_array(user()->permission('add_attendance'), ['all', 'added']));
+
         $scope = $request->scope ?: 'range';
 
         $dates = match ($scope) {
@@ -379,7 +386,18 @@ class BiometricController extends AccountBaseController
             return Reply::error('Select at least one date that is not in the future.');
         }
 
-        $run = $runner->start($dates, $scope, user()->id);
+        // Which devices this re-sync pulls. Every device ticked is the same as
+        // "all", so it is stored as such and follows devices added later.
+        $known = array_map('strval', self::deviceOptions()->keys()->all());
+        $devices = array_values(array_intersect(array_map('strval', (array) $request->devices), $known));
+
+        if ($request->has('devices') && $devices === []) {
+            return Reply::error('Tick at least one device to pull from.');
+        }
+
+        $devices = (!$request->has('devices') || count($devices) === count($known)) ? null : $devices;
+
+        $run = $runner->start($dates, $scope, user()->id, $devices);
 
         if (!$run) {
             return Reply::error('Nothing to sync for that selection.');
@@ -396,6 +414,9 @@ class BiometricController extends AccountBaseController
      */
     public function stepBackfill(Request $request, BackfillRunner $runner)
     {
+        // It writes: punches, device days and, through them, attendance.
+        abort_403(!in_array(user()->permission('add_attendance'), ['all', 'added']));
+
         $run = $this->findRun($request) ?? $runner->active();
 
         if (!$run) {
@@ -428,6 +449,9 @@ class BiometricController extends AccountBaseController
      */
     public function controlBackfill(Request $request, BackfillRunner $runner)
     {
+        // It writes: punches, device days and, through them, attendance.
+        abort_403(!in_array(user()->permission('add_attendance'), ['all', 'added']));
+
         $run = $this->findRun($request) ?? $runner->active();
 
         if (!$run) {
@@ -712,6 +736,16 @@ class BiometricController extends AccountBaseController
         // Blank means every previewed day; a list restricts to those chosen.
         $only = $request->filled('days') ? (array) $request->days : null;
 
+        // A month for every employee is thousands of days: PHP's 120-second
+        // web limit killed it part-way (status "done", nothing written). No
+        // limit for this one action, the session released so the rest of the
+        // app stays usable meanwhile, and it carries on to the end even if
+        // the browser stops waiting.
+        session()->save();
+        @set_time_limit(0);
+        @ignore_user_abort(true);
+        @ini_set('memory_limit', '1024M');
+
         $run = $sync->run(
             Carbon::parse($startDate),
             Carbon::parse($endDate),
@@ -891,9 +925,12 @@ class BiometricController extends AccountBaseController
 
         $query = IappEmployee::with(['user:id,name,image', 'mappedBy:id,name']);
 
+        $this->conflicts = \App\Services\Iapp\Sync\MappingSync::openConflicts();
+
         match ($this->mapStatus) {
             'mapped' => $query->mapped(),
             'ignored' => $query->ignored(),
+            'attention' => $query->whereIn('emp_code', array_keys($this->conflicts) ?: ['-']),
             'all' => null,
             default => $query->unmapped(),
         };
@@ -942,6 +979,7 @@ class BiometricController extends AccountBaseController
             'ignored' => IappEmployee::ignored()->count(),
         ];
         $counts['total'] = array_sum($counts);
+        $counts['attention'] = count($this->conflicts);
 
         $this->counts = $counts;
 
@@ -988,16 +1026,63 @@ class BiometricController extends AccountBaseController
     {
         abort_403(user()->permission('edit_employees') !== 'all');
 
-        $result = $employeeSync->sync(true, user()->id);
-        $employeeSync->applyMappings();
-        $employeeSync->logRun($result, 'manual', user()->id);
+        session()->save();
 
-        return Reply::success(sprintf(
-            '%d biometric employee(s) found. %d auto-mapped, %d still need mapping.',
-            $result['discovered'],
-            $result['matched'],
-            $result['unmapped']
-        ));
+        // Every device code linked to the employee with that Employee ID, where
+        // the names agree too (MappingSync). Conflicts become exceptions.
+        $result = (new \App\Services\Iapp\Sync\MappingSync())->run(user()->id);
+
+        // Nothing on the device side yet (a fresh start, or after Data Clean):
+        // say so, instead of "synced" with every count at zero.
+        if (!IappEmployee::withoutGlobalScopes()->exists()) {
+            return Reply::error('No device codes are known yet, so there is nothing to link. Click "Upload device employee list" and choose '
+                . 'the biometric Employee report (Employee.xlsx), or pull punches under Setup -> Sync Calendar; then Sync all employees.');
+        }
+
+        $message = sprintf(
+            '%d linked by Employee ID, %d moved to their Employee ID code, %d already linked. %d conflict(s) need you. %d device code(s) are not an Employee ID (see Employee Comparison). %d active employee(s) have no device code.',
+            $result['linked'], $result['moved'], $result['already'], $result['conflicts'], $result['device_only'], $result['employees_without_device']
+        );
+
+        return Reply::successWithData($message, [
+            'result' => $result,
+            // Conflicts: straight to them.
+            'next' => $result['conflicts'] > 0 ? route('biometric.employees', ['map_status' => 'attention']) : null,
+        ]);
+    }
+
+    /**
+     * The machine's own employee list (the biometric software's Employee report)
+     * as the device register, so every enrolled employee is compared, not only
+     * those who have punched.
+     */
+    public function uploadMachineList(Request $request)
+    {
+        abort_403(user()->permission('edit_employees') !== 'all');
+
+        $request->validate(['file' => 'required|file|mimes:xlsx,xls,csv|max:10240']);
+        session()->save();
+
+        $setting = IappSetting::where('company_id', company()->id)->first();
+        $result = (new \App\Services\Iapp\Sync\MachineListImport())->load(
+            $request->file('file')->getRealPath(),
+            (array) ($setting->register_locations ?? []),
+            (bool) ($setting->only_known_employees ?? true),
+            user()->id
+        );
+
+        if (!$result['ok']) {
+            return Reply::error($result['message']);
+        }
+
+        $sync = $result['sync'];
+        $message = sprintf(
+            '%d entries read: %d loaded, %d at other locations, %d not employees here. %d linked, %d already linked. %d name conflict(s) set aside. %d active employee(s) still have no device code.',
+            $result['read'], $result['loaded'], $result['other_location'], $result['not_employee'],
+            $sync['linked'] + $sync['moved'], $sync['already'], count($result['name_conflicts']), $sync['employees_without_device']
+        );
+
+        return Reply::successWithData($message, ['conflicts' => $result['name_conflicts']]);
     }
 
     /**
@@ -1165,38 +1250,128 @@ class BiometricController extends AccountBaseController
     /**
      * Attendance days that need review before they feed hours or payroll.
      */
+    /**
+     * What the nightly cross-check found: sync issues (device and ERP do not
+     * agree, or the data never arrived) and missing punches.
+     */
     public function exceptions(Request $request)
     {
         $this->pageTitle = 'app.menu.attendanceExceptions';
         $this->activeTab = 'exceptions';
 
-        [$startDate, $endDate] = $this->resolveDateRange($request);
-        $this->startDate = $startDate;
-        $this->endDate = $endDate;
+        $this->category = in_array($request->category, [\App\Models\BiometricException::SYNC, \App\Models\BiometricException::PUNCH], true)
+            ? $request->category : null;
+        $this->status = in_array($request->status, ['open', 'resolved', 'ignored', 'all'], true) ? $request->status : 'open';
+        $this->type = array_key_exists((string) $request->type, \App\Models\BiometricException::TYPES) ? $request->type : null;
+        $this->startDate = $request->start_date ?: null;
+        $this->endDate = $request->end_date ?: null;
+        $this->search = trim((string) $request->search);
 
-        $type = $request->type;
-        $this->type = array_key_exists((string) $type, AttendanceExceptions::LABELS) ? $type : AttendanceExceptions::TYPE_ALL;
-        $this->controllerCode = $request->controller_code;
+        $query = \App\Models\BiometricException::with(['user:id,name', 'resolver:id,name'])
+            ->when($this->category, fn ($q, $c) => $q->where('category', $c))
+            ->when($this->status !== 'all', fn ($q) => $q->where('status', $this->status))
+            ->when($this->type, fn ($q, $t) => $q->where('type', $t))
+            ->when($this->startDate, fn ($q, $d) => $q->whereDate('date', '>=', $d))
+            ->when($this->endDate, fn ($q, $d) => $q->whereDate('date', '<=', $d))
+            ->when($this->search !== '', fn ($q) => $q->where(fn ($w) => $w->where('title', 'like', '%' . $this->search . '%')
+                ->orWhere('emp_code', 'like', '%' . $this->search . '%')));
 
-        $report = new AttendanceExceptions(Carbon::parse($startDate), Carbon::parse($endDate));
+        $this->exceptionRows = $query->orderByDesc('date')->orderBy('category')->orderBy('type')->paginate(50)->withQueryString();
 
-        $rows = $report->query($this->type, $this->controllerCode)
-            ->with('user:id,name')
-            ->paginate(50)
-            ->withQueryString();
+        $open = \App\Models\BiometricException::where('status', 'open');
+        $this->tiles = [
+            'sync' => (clone $open)->where('category', 'sync')->count(),
+            'punch' => (clone $open)->where('category', 'punch')->count(),
+            'unlinked' => (clone $open)->where('type', 'unlinked_code')->count(),
+            'resolved_week' => \App\Models\BiometricException::where('status', 'resolved')->where('resolved_at', '>=', now()->subDays(7))->count(),
+        ];
 
-        $this->exceptionRows = $rows;
-        $this->summary = $report->summary();
-        $this->unidentified = $report->unidentifiedPunches($this->controllerCode);
+        $this->lastRun = \App\Models\AttendanceDailyRun::whereNotNull('reconciled_at')->orderByDesc('reconciled_at')->first();
+
+        // Punches with no employee code at all (a failed read, a tailgater): last 7 days.
+        $report = new AttendanceExceptions(now()->subDays(7)->startOfDay(), now()->endOfDay());
+        $this->unidentified = $report->unidentifiedPunches();
         $this->devices = $this->deviceOptions();
-
-        // Built locally and assigned once — see the note in employees() on
-        // writing into overloaded properties.
-        $this->employeeIds = IappEmployee::whereIn('emp_code', $rows->pluck('emp_id')->filter()->unique()->all())
-            ->pluck('id', 'emp_code')
-            ->all();
+        $this->profileIds = IappEmployee::whereIn('emp_code', $this->exceptionRows->pluck('emp_code')->filter()->unique()->all())
+            ->pluck('id', 'emp_code')->all();
+        $this->canAct = in_array(user()->permission('add_attendance'), ['all', 'added'], true);
 
         return view('biometric.exceptions', $this->data);
+    }
+
+    /** Resolve, ignore or reopen exceptions, one or many. */
+    public function exceptionAction(Request $request)
+    {
+        abort_403(!in_array(user()->permission('add_attendance'), ['all', 'added'], true));
+
+        $request->validate([
+            'ids' => 'required|array|min:1',
+            'ids.*' => 'integer',
+            'action' => 'required|in:resolve,ignore,reopen',
+            'note' => 'nullable|max:1000',
+        ]);
+
+        $rows = \App\Models\BiometricException::whereIn('id', $request->ids)->get();
+
+        foreach ($rows as $row) {
+            if ($request->action === 'reopen') {
+                $row->forceFill(['status' => 'open', 'resolution' => null, 'resolved_at' => null, 'resolved_by' => null])->save();
+
+                continue;
+            }
+
+            $row->forceFill([
+                'status' => $request->action === 'ignore' ? 'ignored' : 'resolved',
+                'resolution' => 'manual',
+                'resolved_at' => now(),
+                'resolved_by' => user()->id,
+                'note' => $request->note ?: $row->note,
+            ])->save();
+
+            // Ignoring an unlinked code ignores the code itself: it is somebody
+            // who is not employed here, and should stop being reported.
+            if ($request->action === 'ignore' && $row->type === 'unlinked_code' && $row->emp_code) {
+                IappEmployee::where('emp_code', $row->emp_code)->whereNull('user_id')->get()
+                    ->each(fn (IappEmployee $e) => $e->ignore(user()->id, $request->note ?: 'Ignored from Exceptions'));
+            }
+        }
+
+        return Reply::success(sprintf('%d exception(s) %s.', $rows->count(), match ($request->action) {
+            'ignore' => 'ignored', 'reopen' => 'reopened', default => 'resolved',
+        }));
+    }
+
+    /**
+     * Pull one day again from the device, rebuild it, write ERP attendance and
+     * cross-check it: what the night does, for one date, now.
+     */
+    public function resyncDay(Request $request)
+    {
+        abort_403(!in_array(user()->permission('add_attendance'), ['all', 'added'], true));
+
+        $request->validate(['date' => 'required|date|before_or_equal:today']);
+
+        session()->save();   // the pull can take a minute; do not hold the session lock
+
+        $tz = company()->timezone ?: 'Asia/Kolkata';
+        $date = Carbon::parse($request->date, $tz)->startOfDay();
+        $until = $date->copy()->addDay()->endOfDay();
+        $until = $until->isFuture() ? Carbon::now($tz) : $until;
+
+        $result = (new AttendancePipeline())->run($date, $until, 'manual', user()->id, null, true);
+
+        if (!$result['ok']) {
+            return Reply::error($result['message']);
+        }
+
+        $run = \App\Models\AttendanceDailyRun::where('date', $date->toDateString())->first();
+        (new \App\Services\Attendance\DailyAttendanceReview())->review($date, true, $until);
+        $checked = (new \App\Services\Iapp\Reconcile\BiometricReconciler(company()->id))->run($date, true, $until);
+
+        $run?->forceFill(['device_complete' => true, 'last_error' => null, 'reconciled_at' => now()])->save();
+
+        return Reply::success(sprintf('%s re-synced. %s Cross-check: %d sync issue(s), %d punch issue(s) remain; %d closed.',
+            $date->format('d M Y'), $result['message'], $checked['sync'], $checked['punch'], $checked['closed']));
     }
 
     /**
@@ -1247,9 +1422,11 @@ class BiometricController extends AccountBaseController
      * controller; a filter list built from it directly would repeat each
      * device once per door.
      *
+     * Also used by Biometric Settings for the devices-to-pull list.
+     *
      * @return \Illuminate\Support\Collection<string, string>
      */
-    private function deviceOptions()
+    public static function deviceOptions()
     {
         return IappDevice::orderBy('controller_name')
             ->get(['controller_code', 'controller_name', 'location_code'])

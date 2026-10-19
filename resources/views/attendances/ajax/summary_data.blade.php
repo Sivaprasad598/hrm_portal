@@ -153,4 +153,5 @@ $overrideCredit = ['present' => 1, 'wfh' => 1, 'late' => 1, 'halfday' => 0.5, 'c
             </tr>
         @endforeach
     </x-table>
+    @include('attendances.ajax.pager')
 </div>

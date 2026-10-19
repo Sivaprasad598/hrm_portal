@@ -81,7 +81,7 @@ class ContractObserver
         $google = new Google();
         $googleAccount = company();
 
-        if (company()->google_calendar_status == 'active' && $googleAccount->google_calendar_verification_status == 'verified' && $googleAccount->token) {
+        if (company() && company()->google_calendar_status == 'active' && $googleAccount->google_calendar_verification_status == 'verified' && $googleAccount->token) {
             $google->connectUsing($googleAccount->token);
             try {
                 if ($contract->event_id) {
@@ -107,7 +107,7 @@ class ContractObserver
         $module = GoogleCalendarModule::first();
         $googleAccount = company();
 
-        if (company()->google_calendar_status == 'active' && $googleAccount->google_calendar_verification_status == 'verified' && $googleAccount->token && $module->contract_status == 1) {
+        if (company() && company()->google_calendar_status == 'active' && $googleAccount->google_calendar_verification_status == 'verified' && $googleAccount->token && $module->contract_status == 1) {
 
             $google = new Google();
             $attendiesData = [];

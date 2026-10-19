@@ -16,6 +16,7 @@ use App\Notifications\EmployeeOffBoarded;
 use App\Notifications\EmployeeOffBoardedAdmin;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class EmployeeExitController extends AccountBaseController
 {
@@ -48,7 +49,7 @@ class EmployeeExitController extends AccountBaseController
     {
         abort_403(!in_array(user()->permission('edit_employees'), ['all']));
 
-        $this->employee = User::with('employeeDetail')->findOrFail($userId);
+        $this->employee = User::withoutGlobalScope(\App\Scopes\ActiveScope::class)->with('employeeDetail')->findOrFail($userId);
         $this->pageTitle = 'Initiate Exit — ' . $this->employee->name;
 
         $view = 'employee-exit.ajax.initiate';
@@ -73,6 +74,22 @@ class EmployeeExitController extends AccountBaseController
             'notice_period_days' => 'required|integer|min:0|max:365',
             'last_working_date'  => 'required|date|after_or_equal:resignation_date',
         ]);
+
+        if ($openExit = EmployeeExit::openFor((int) $request->user_id)) {
+            return Reply::error('An exit is already in progress for this employee (last working date '
+                . $openExit->last_working_date?->format(company()->date_format) . '). Use Edit Exit to change it.');
+        }
+
+        // Somebody who has already left cannot leave again: it would overwrite
+        // the end of the employment that is over. Rejoin them first.
+        $left = app(\App\Services\Employment\Separation::class)->reasonFor((int) $request->user_id);
+        $status = EmployeeDetails::where('user_id', $request->user_id)->value('employment_status');
+
+        if ($left || $status === 'off_boarded') {
+            return Reply::error('This employee has already left'
+                . ($left ? ' (' . strtolower($left['label']) . ', ' . Carbon::parse($left['date'])->format(company()->date_format) . ')' : '')
+                . '. To start a new exit, rejoin them first under Employees -> Rejoin.');
+        }
 
         $exit = EmployeeExit::create([
             'user_id'            => $request->user_id,
@@ -307,10 +324,12 @@ class EmployeeExitController extends AccountBaseController
 
         $request->validate([
             'interview_date'       => 'required|date',
-            'reason_for_leaving'   => 'required|max:2000',
-            'overall_experience'   => 'required|integer|between:1,5',
-            'job_satisfaction'     => 'required|integer|between:1,5',
-            'rehire_eligibility'   => 'required|in:eligible,not_eligible,review_required',
+            // Only the date is needed: an interview can be recorded with
+            // whatever the employee chose to share.
+            'reason_for_leaving'   => 'nullable|max:2000',
+            'overall_experience'   => 'nullable|integer|between:1,5',
+            'job_satisfaction'     => 'nullable|integer|between:1,5',
+            'rehire_eligibility'   => 'nullable|in:eligible,not_eligible,review_required',
         ]);
 
         EmployeeExitInterview::updateOrCreate(
@@ -340,7 +359,7 @@ class EmployeeExitController extends AccountBaseController
     {
         abort_403(!in_array(user()->permission('view_employees'), ['all', 'added', 'owned', 'both']));
 
-        $this->employee = User::findOrFail($userId);
+        $this->employee = User::withoutGlobalScope(\App\Scopes\ActiveScope::class)->findOrFail($userId);
         $this->histories = EmployeeExitHistory::with('changedByUser')
             ->where('user_id', $userId)
             ->orderByDesc('created_at')
@@ -396,6 +415,19 @@ class EmployeeExitController extends AccountBaseController
         $prevStatus = $employee->employment_status ?? 'notice_period';
         $employee->employment_status = 'off_boarded';
         $employee->save();
+
+        // The employment that ends here records how it ended, for the history.
+        $period = app(\App\Services\Employment\EmploymentPeriods::class)->current((int) $exit->user_id);
+
+        if ($period) {
+            $ended = ['resignation' => 'resigned', 'termination' => 'terminated'][$exit->exit_type] ?? $exit->exit_type;
+            DB::table('employment_periods')->where('id', $period->id)->update(array_filter([
+                'exit_type' => $period->exit_type ?: $ended,
+                'exit_reason' => $period->exit_reason ?: $exit->exit_reason,
+                'employee_exit_id' => $period->employee_exit_id ?: $exit->id,
+                'left_on' => $period->left_on ?: $exit->last_working_date?->toDateString(),
+            ], fn ($v) => $v !== null && $v !== '') + ['updated_at' => now()]);
+        }
 
         // Mark the user inactive
         User::where('id', $exit->user_id)->update(['status' => 'deactive']);

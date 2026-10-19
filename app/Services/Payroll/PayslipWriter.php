@@ -31,6 +31,8 @@ class PayslipWriter
     {
         $cycle = PayPeriod::forMonth($month, $year);
         $period = $cycle->label;
+        // Shift assignments may have changed since this process last looked.
+        \App\Services\Attendance\ShiftResolver::reset();
 
         if ($cycle->start->gt(now())) {
             return $this->refuse($cycle->describe() . ' has not started yet');
@@ -98,7 +100,13 @@ class PayslipWriter
             ->orderByDesc('last_working_day')
             ->value('last_working_day');
 
-        if ($settled && $cycle->start->gt(\Carbon\Carbon::parse($settled))) {
+        // Someone who rejoined after the settlement is paid again from the
+        // rejoining date; only the break itself is refused.
+        $rejoinedOn = $settled ? DB::table('employment_periods')->where('user_id', $userId)
+            ->where('joined_on', '>', substr((string) $settled, 0, 10))->min('joined_on') : null;
+
+        if ($settled && $cycle->start->gt(\Carbon\Carbon::parse($settled))
+            && (!$rejoinedOn || $cycle->end->lt(\Carbon\Carbon::parse($rejoinedOn)))) {
             return $this->refuse($employee->name . ' was settled on '
                 . \Carbon\Carbon::parse($settled)->format('d M Y')
                 . ', so this period is after they left');
@@ -110,17 +118,15 @@ class PayslipWriter
 
         $settings = $this->calculator->settings();
 
-        // Stored the way the payslip screens store it: net salary here is before
-        // the employer's contributions, which the printed slip deducts as well.
+        // Stored the way the payslip screens store it: net salary here is the
+        // employee's side only (gross less their PF, ESI, PT and TDS); the
+        // printed slip takes the employer's PF and ESI off as well, since CTC
+        // includes them. The attendance deduction is the one the calculation
+        // sheet arrives at — LOP days x per day, taken to the rounded final
+        // figure — so the slip prints exactly the sheet's Net Salary.
         $netStored = $pay['gross'] - ($pay['pf_employee'] + $pay['esi_employee'] + $pay['pt'] + $pay['tds']);
-
-        // The per-day rate follows the calculation sheet: Net (after PF, ESI and
-        // PT, both sides) divided by the days in the month, and unpaid days are
-        // charged at that rate. The printed slip works the deduction out as
-        // net salary less attendance pay, so that is what is stored here —
-        // which makes the slip come to exactly the figure estimated.
-        $perDay = $pay['per_day'];
-        $attendanceNet = $netStored - $pay['after_lop'];
+        $perDay = round($pay['per_day'], 2);
+        $attendanceNet = $netStored - $pay['lop_amount'];
 
         // The design this slip is printed in, fixed now. A payslip is a document
         // somebody was given: changing the setting later must not restyle what
@@ -135,11 +141,13 @@ class PayslipWriter
             'gross' => $pay['gross'], 'basic_pct' => $pay['basic_pct'], 'hra_pct' => $settings->hra_pct,
             'ca_threshold' => $settings->ca_threshold, 'ca_high' => $settings->ca_high, 'ca_low' => $settings->ca_low,
             'pt' => $pay['pt'], 'tds' => $pay['tds'], 'esi_threshold' => $settings->esi_threshold, 'esi_pct' => $settings->esi_pct,
-            'pf_pct' => $settings->pf_pct, 'pf_wage_ceiling' => $settings->pf_wage_ceiling,
+            'pf_pct' => $settings->pf_pct, 'pf_employer_pct' => $pay['pf_employer_pct'],
+            'pf_wage_ceiling' => $settings->pf_wage_ceiling, 'prorate_statutory' => $pay['prorated'],
             'esi_employer_pct' => $settings->esi_employer_pct ?? null,
             'working_days' => $pay['working_days'], 'days_present' => $pay['days_present'],
             'lop_days' => $pay['lop_days'],
-            'basic' => $pay['basic'], 'hra' => $pay['hra'], 'ca' => $pay['ca'], 'others' => $pay['other'],
+            'basic' => $pay['basic'], 'hra' => $pay['hra'], 'ca' => $pay['ca'],
+            'lta' => $pay['lta'], 'cea' => $pay['cea'], 'others' => $pay['other'],   // others = Special Allowance
             'esi' => $pay['esi_employee'], 'pf' => $pay['pf_employee'],
             'employer_pf' => $pay['pf_employer'], 'employer_esi' => $pay['esi_employer'],
             'total_deductions' => $pay['pf_employee'] + $pay['esi_employee'] + $pay['pt'] + $pay['tds'],

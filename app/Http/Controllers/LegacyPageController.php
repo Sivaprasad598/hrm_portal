@@ -38,7 +38,7 @@ class LegacyPageController extends AccountBaseController
         'reductions' => ['file' => 'Reductions.php', 'access' => 'admin', 'permission' => 'manage_payroll', 'title' => 'Payslip Calculation'],
         'payslips' => ['file' => 'payslips.php', 'access' => 'admin', 'permission' => 'manage_payroll', 'title' => 'Payslip'],
         'payslip_entry' => ['file' => 'payslip_entry.php', 'access' => 'admin', 'permission' => 'manage_payroll', 'title' => 'Payslip Entry'],
-        'payslip_inputs' => ['file' => 'payslip_inputs.php', 'access' => 'admin', 'title' => 'Payslip Settings'],
+        'payslip_inputs' => ['file' => 'payslip_inputs.php', 'access' => 'admin', 'permission' => 'manage_payroll', 'title' => 'Payslip Settings'],
         'offer_letter' => ['file' => 'offer-letter.php', 'access' => 'admin', 'permission' => 'edit_employees', 'title' => 'Offer Letter'],
         'termination' => ['file' => 'Termination.php', 'access' => 'admin', 'permission' => 'edit_employees', 'title' => 'Termination'],
         'termination_dashboard' => ['file' => 'TerminationDashboard.php', 'access' => 'admin', 'permission' => 'edit_employees', 'title' => 'Termination Dashboard'],
@@ -103,10 +103,63 @@ class LegacyPageController extends AccountBaseController
         // captured so it can be returned as an ordinary response; a page that
         // calls exit() (the attendance lookup does, after printing JSON) still
         // reaches the browser, because PHP flushes the buffer on shutdown.
-        ob_start();
+        // The pages link, post and redirect to themselves by file name
+        // ("Termination.php?added=1"). Served from /account/legacy/{page},
+        // that resolved to /account/legacy/Termination.php, which is not a
+        // page, so picking a department or saving a form failed. Both the
+        // printed links and the Location header are pointed back at the route.
+        // Pages that exit() mid-way (every save does, after its redirect) are
+        // covered too: shutdown functions run before PHP sends the headers,
+        // and the buffer is flushed through the callback after that.
+        register_shutdown_function(fn () => $this->fixLocationHeader());
+        ob_start(fn ($html) => $this->fixLinks((string) $html));
         include $file;
 
-        return response(ob_get_clean());
+        $html = ob_get_clean();
+        $this->fixLocationHeader();
+
+        return response($this->fixLinks($html));
+    }
+
+    /** Point "X.php" links at the route that serves X.php. */
+    protected function fixLinks(string $html): string
+    {
+        foreach (self::PAGES as $key => $definition) {
+            $html = preg_replace(
+                '/(?<=["\'])(?:\.\/)?' . preg_quote($definition['file'], '/') . '(?=[?#"\'])/',
+                route('legacy.page', $key),
+                $html
+            );
+        }
+
+        // Their forms predate CSRF protection; a POST without the token was
+        // refused and bounced to the login page (the dashboard, once signed in).
+        $token = '<input type="hidden" name="_token" value="' . e(csrf_token()) . '">';
+
+        return preg_replace('/<form\b[^>]*\bmethod\s*=\s*["\']?post\b[^>]*>/i', '$0' . $token, $html);
+    }
+
+    protected function fixLocationHeader(): void
+    {
+        if (headers_sent()) {
+            return;
+        }
+
+        foreach (headers_list() as $header) {
+            if (stripos($header, 'Location:') !== 0) {
+                continue;
+            }
+
+            $location = ltrim(trim(substr($header, 9)), './');
+
+            foreach (self::PAGES as $key => $definition) {
+                if (str_starts_with($location, $definition['file'])) {
+                    header('Location: ' . route('legacy.page', $key) . substr($location, strlen($definition['file'])), true);
+
+                    return;
+                }
+            }
+        }
     }
 
 }

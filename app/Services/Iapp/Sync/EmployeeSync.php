@@ -134,6 +134,12 @@ class EmployeeSync
     {
         $column = $this->config->matchField();
 
+        // "Nothing": codes are linked by a person (Employee Mapping, or the
+        // employee import's name matches), never by an ID that only looks equal.
+        if ($column === 'none') {
+            return 0;
+        }
+
         $unmapped = IappEmployee::withoutGlobalScopes()
             ->where('company_id', $companyId)
             ->unmapped()

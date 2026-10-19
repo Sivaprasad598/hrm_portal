@@ -43,7 +43,8 @@
                     {{-- Resignation Date --}}
                     <div class="col-lg-6 col-md-6">
                         <x-forms.datepicker fieldId="resignation_date" :fieldLabel="'Resignation / Exit Date'" fieldName="resignation_date"
-                            :fieldValue="now()->format(company()->date_format)" :fieldRequired="true" />
+                            :fieldValue="now()->format(company()->date_format)" :fieldRequired="true"
+                            :fieldPlaceholder="__('placeholders.date')" />
                     </div>
 
                     {{-- Notice Period Days --}}
@@ -55,7 +56,8 @@
                     {{-- Last Working Date (auto-calculated) --}}
                     <div class="col-lg-6 col-md-6">
                         <x-forms.datepicker fieldId="last_working_date" :fieldLabel="'Last Working Date'" fieldName="last_working_date"
-                            :fieldValue="now()->addDays(30)->format(company()->date_format)" :fieldRequired="true" />
+                            :fieldValue="now()->addDays(30)->format(company()->date_format)" :fieldRequired="true"
+                            :fieldPlaceholder="__('placeholders.date')" />
                     </div>
 
                     {{-- Exit Reason --}}
@@ -85,6 +87,15 @@
 </div>
 
 <script>
+    // The side panel is closed with closeTaskDetail() (main.js), not as a
+    // Bootstrap modal; opened as a page of its own, go back to the list.
+    window.closeExitPanel = function () {
+        if ($(RIGHT_MODAL).hasClass('in') && typeof closeTaskDetail === 'function') {
+            closeTaskDetail();
+        } else {
+            window.location.href = '{{ route('employee-exit.index') }}';
+        }
+    };
     $(function () {
         // Auto-calculate last working date when resignation date or notice days changes
         function recalcLastDate() {
@@ -121,7 +132,7 @@
                         if (window.LaravelDataTables && window.LaravelDataTables['employee-exit-table']) {
                             window.LaravelDataTables['employee-exit-table'].draw();
                         }
-                        $(RIGHT_MODAL).modal('hide');
+                        closeExitPanel();
                     } else {
                         toastr.error(res.message);
                     }
@@ -143,7 +154,7 @@
         });
 
         $('#closeInitiateForm').on('click', function () {
-            $(RIGHT_MODAL).modal('hide');
+            closeExitPanel();
         });
     });
 </script>

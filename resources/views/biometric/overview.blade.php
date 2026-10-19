@@ -61,7 +61,7 @@
                     @endif
                 </div>
                 <div>
-                    @foreach ([['Daily run at ' . ($setting?->daily_pull_time ?: '11:00'), $status->autoPull()], ['Write to ERP attendance', $status->autoPush()], ['Draft payslips', $status->autoPayslips()]] as [$label, $on])
+                    @foreach ([['Nightly run ' . ($setting?->stepTime('pull_time') ?? '01:00') . '–' . ($setting?->stepTime('reconcile_time') ?? '03:00'), $status->autoPull()], ['Write to ERP attendance', $status->autoPush()], ['Draft payslips', $status->autoPayslips()]] as [$label, $on])
                         <span class="bio-switch"><span class="bio-dot" style="background: {{ $on ? '#12b76a' : '#98a2b3' }}"></span>{{ $label }}: <strong>{{ $on ? 'On' : 'Off' }}</strong></span>
                     @endforeach
                     <a href="{{ route('biometric-settings.index') }}" class="f-12"><i class="fa fa-cog"></i> Settings</a>
@@ -204,7 +204,7 @@
                                 <div class="f-13">
                                     @if (!$dailyRun || $dailyRun->status !== 'reviewed')
                                         Yesterday ({{ $yesterday->format('D d M') }}) has not been reviewed yet{{ $dailyRun?->last_error ? ' — ' . \Illuminate\Support\Str::limit($dailyRun->last_error, 90) : '' }}.
-                                        It runs at {{ $setting?->daily_pull_time ?: '11:00' }} and is retried until 19:00.
+                                        The night runs from {{ $setting?->stepTime('pull_time') ?? '01:00' }}; a pull that fails is retried every 15 minutes until {{ $setting?->stepTime('notify_time') ?? '09:00' }}.
                                     @else
                                         {{ $openReviews }} attendance exception(s) from {{ $yesterday->format('D d M') }} still open.
                                         @unless ($dailyRun->device_complete)

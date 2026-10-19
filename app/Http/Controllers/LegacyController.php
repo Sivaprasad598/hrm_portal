@@ -10,8 +10,8 @@ class LegacyController extends AccountBaseController
     {
         $this->pageTitle = 'app.menu.identityCard';
 
-        // Only allow admin users to view the identity card page
-        if (!in_array('admin', user_roles())) {
+        // Admins and whoever manages employees (HR).
+        if (!in_array('admin', user_roles()) && user()->permission('edit_employees') !== 'all') {
             abort(403);
         }
 
@@ -48,7 +48,7 @@ class LegacyController extends AccountBaseController
         $this->pageTitle = 'app.menu.noticePeriodSettings';
         $this->activeSettingMenu = 'notice_period_settings';
 
-        abort_403(user()->permission('manage_company_setting') !== 'all');
+        abort_403(user()->permission('manage_company_setting') !== 'all' && user()->permission('edit_employees') !== 'all');
 
         return view('notice-period-settings.index', $this->data);
     }

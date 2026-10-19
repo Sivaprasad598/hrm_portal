@@ -26,7 +26,7 @@ class StatutoryReturnsController extends AccountBaseController
         $this->pageTitle = 'Statutory Returns';
 
         $this->middleware(function ($request, $next) {
-            abort_403(!in_array('admin', user_roles()));
+            abort_403(!in_array('admin', user_roles()) && user()->permission('manage_payroll') !== 'all');
 
             return $next($request);
         });

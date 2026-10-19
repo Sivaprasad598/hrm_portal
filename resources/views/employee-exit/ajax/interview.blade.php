@@ -19,7 +19,7 @@
 
                         {{-- Rehire Eligibility --}}
                         <div class="col-lg-6 col-md-6">
-                            <x-forms.select fieldId="rehire_eligibility" :fieldLabel="'Rehire Eligibility'" fieldName="rehire_eligibility" :fieldRequired="true">
+                            <x-forms.select fieldId="rehire_eligibility" :fieldLabel="'Rehire Eligibility'" fieldName="rehire_eligibility">
                                 <option value="">-- Select --</option>
                                 <option value="eligible"         {{ ($interview && $interview->rehire_eligibility === 'eligible')         ? 'selected' : '' }}>Eligible</option>
                                 <option value="not_eligible"     {{ ($interview && $interview->rehire_eligibility === 'not_eligible')     ? 'selected' : '' }}>Not Eligible</option>
@@ -30,7 +30,7 @@
                         {{-- Reason for Leaving --}}
                         <div class="col-12">
                             <x-forms.textarea fieldId="reason_for_leaving" :fieldLabel="'Primary Reason for Leaving'" fieldName="reason_for_leaving"
-                                :fieldValue="$interview?->reason_for_leaving" :fieldRequired="true"
+                                :fieldValue="$interview?->reason_for_leaving"
                                 fieldPlaceholder="Describe the primary reason..." />
                         </div>
 
@@ -41,7 +41,7 @@
 
                         <div class="col-lg-6 col-md-6">
                             <div class="form-group">
-                                <label class="f-14 text-dark-grey mb-12">Overall Experience <span class="text-danger">*</span></label>
+                                <label class="f-14 text-dark-grey mb-12">Overall Experience</label>
                                 <div class="star-rating d-flex" id="overall_exp_stars" data-field="overall_experience" data-value="{{ $interview?->overall_experience ?? 0 }}">
                                     @for($i=1;$i<=5;$i++)
                                         <i class="fa fa-star mr-1 f-20 star-btn" data-val="{{ $i }}"
@@ -54,7 +54,7 @@
 
                         <div class="col-lg-6 col-md-6">
                             <div class="form-group">
-                                <label class="f-14 text-dark-grey mb-12">Job Satisfaction <span class="text-danger">*</span></label>
+                                <label class="f-14 text-dark-grey mb-12">Job Satisfaction</label>
                                 <div class="star-rating d-flex" id="job_sat_stars" data-field="job_satisfaction" data-value="{{ $interview?->job_satisfaction ?? 0 }}">
                                     @for($i=1;$i<=5;$i++)
                                         <i class="fa fa-star mr-1 f-20 star-btn" data-val="{{ $i }}"
@@ -101,7 +101,7 @@
                         <button type="button" id="saveInterviewBtn" class="btn btn-primary mr-3">
                             <i class="fa fa-save mr-1"></i> Save Interview
                         </button>
-                        <button type="button" class="btn btn-secondary" onclick="$(RIGHT_MODAL).modal('hide')">
+                        <button type="button" class="btn btn-secondary" onclick="closeExitPanel()">
                             Cancel
                         </button>
                     </div>
@@ -112,33 +112,41 @@
 </div>
 
 <script>
+    // The side panel is closed with closeTaskDetail() (main.js), not as a
+    // Bootstrap modal; opened as a page of its own, go back to the list.
+    window.closeExitPanel = function () {
+        if ($(RIGHT_MODAL).hasClass('in') && typeof closeTaskDetail === 'function') {
+            closeTaskDetail();
+        } else {
+            window.location.href = '{{ route('employee-exit.index') }}';
+        }
+    };
     $(function () {
         // Star rating
         $('.star-rating').each(function () {
             var container = $(this);
-            var stars = container.find('.star-btn');
             var input = container.find('input[type="hidden"]');
 
-            stars.on('click', function () {
-                var val = parseInt($(this).data('val'));
+            // Font Awesome swaps each <i> for an <svg> after load, so handlers
+            // bound to the stars themselves are lost: listen on the container.
+            var paint = function (val) {
+                container.find('.star-btn').each(function () {
+                    $(this).css('color', parseInt($(this).attr('data-val')) <= val ? '#ffc107' : '#dee2e6');
+                });
+            };
+
+            container.on('click', '.star-btn', function () {
+                var val = parseInt($(this).attr('data-val'));
                 input.val(val);
-                stars.each(function (i) {
-                    $(this).css('color', i < val ? '#ffc107' : '#dee2e6');
-                });
+                paint(val);
             });
 
-            stars.on('mouseenter', function () {
-                var val = parseInt($(this).data('val'));
-                stars.each(function (i) {
-                    $(this).css('color', i < val ? '#ffc107' : '#dee2e6');
-                });
+            container.on('mouseenter', '.star-btn', function () {
+                paint(parseInt($(this).attr('data-val')));
             });
 
-            stars.on('mouseleave', function () {
-                var val = parseInt(input.val()) || 0;
-                stars.each(function (i) {
-                    $(this).css('color', i < val ? '#ffc107' : '#dee2e6');
-                });
+            container.on('mouseleave', function () {
+                paint(parseInt(input.val()) || 0);
             });
         });
 
@@ -153,10 +161,10 @@
                 success: function (res) {
                     if (res.status === 'success') {
                         toastr.success(res.message);
-                        if (typeof window['employee-exit-table'] !== 'undefined') {
-                            window['employee-exit-table'].draw();
+                        if (window.LaravelDataTables && window.LaravelDataTables['employee-exit-table']) {
+                            window.LaravelDataTables['employee-exit-table'].draw(false);
                         }
-                        $(RIGHT_MODAL).modal('hide');
+                        closeExitPanel();
                     } else {
                         toastr.error(res.message);
                     }

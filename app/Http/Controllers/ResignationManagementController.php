@@ -98,6 +98,25 @@ class ResignationManagementController extends AccountBaseController
             return Reply::error('This resignation has already been reviewed.');
         }
 
+        // One person leaves once: a second request is a duplicate to reject.
+        $alreadyApproved = Resignation::where('user_id', $resignation->user_id)->where('status', 'approved')
+            ->where('id', '<>', $resignation->id)
+            ->when(\Illuminate\Support\Facades\Schema::hasColumn('resignations', 'closed_by_rejoin_id'),
+                fn ($q) => $q->whereNull('closed_by_rejoin_id'))
+            ->first();
+
+        if ($alreadyApproved) {
+            return Reply::error('This employee already has an approved resignation (last working date '
+                . $alreadyApproved->last_working_date?->format(company()->date_format)
+                . '). Reject this one as a duplicate, or undo the other first.');
+        }
+
+        if ($openExit = EmployeeExit::openFor($resignation->user_id)) {
+            return Reply::error('An exit is already in progress for this employee (last working date '
+                . $openExit->last_working_date?->format(company()->date_format)
+                . '). Reject this resignation as a duplicate, or change that exit under Employee Exit.');
+        }
+
         // The notice period the resignation is approved with must be a duration
         // the admin explicitly picked from the company's Notice Period Settings —
         // it is no longer guessed from whatever setting was added most recently.
@@ -141,6 +160,7 @@ class ResignationManagementController extends AccountBaseController
         $exit = EmployeeExit::create([
             'user_id'             => $resignation->user_id,
             'company_id'          => company()->id,
+            'resignation_id'      => $resignation->id,
             'exit_type'           => $resignation->exit_type,
             'exit_reason'         => $resignation->reason,
             'resignation_date'    => $resignation->resignation_date,
@@ -239,6 +259,12 @@ class ResignationManagementController extends AccountBaseController
         // how an approved resignation moves them to notice_period below).
         $employee = EmployeeDetails::where('user_id', $resignation->user_id)->first();
 
+        // Rejecting a duplicate while another exit is running leaves the
+        // employee on notice.
+        if ($employee && EmployeeExit::openFor($resignation->user_id)) {
+            $employee = null;
+        }
+
         if ($employee) {
             $prevStatus = $employee->employment_status ?? 'confirmed';
             $employee->employment_status = 'confirmed';
@@ -281,10 +307,14 @@ class ResignationManagementController extends AccountBaseController
         if ($previousDecision === 'approved') {
             // Reverse the exit-management pipeline approve() created: the
             // EmployeeExit record, its checklist, and the notice_period move.
-            $exit = EmployeeExit::where('user_id', $resignation->user_id)
-                ->where('resignation_date', $resignation->resignation_date)
-                ->latest()
-                ->first();
+            // The exit this approval created. Older exits carry no link and are
+            // matched on date, as before.
+            $exit = EmployeeExit::where('resignation_id', $resignation->id)->first()
+                ?? EmployeeExit::where('user_id', $resignation->user_id)
+                    ->whereNull('resignation_id')
+                    ->where('resignation_date', $resignation->resignation_date)
+                    ->latest()
+                    ->first();
 
             $prevEmploymentStatus = 'confirmed';
 
@@ -301,6 +331,12 @@ class ResignationManagementController extends AccountBaseController
                 EmployeeExitChecklist::where('exit_id', $exit->id)->delete();
                 EmployeeExitHistory::where('exit_id', $exit->id)->delete();
                 $exit->delete();
+            }
+
+            // Another exit still running (a duplicate approval being undone):
+            // the employee is still leaving, so their notice dates stay.
+            if ($employee && EmployeeExit::openFor($resignation->user_id)) {
+                $employee = null;
             }
 
             if ($employee) {

@@ -85,7 +85,9 @@ class AttendanceController extends AccountBaseController
         }
 
         if (request()->ajax()) {
-            return $this->summaryData($request);
+            // The salary month (the pay cycle, 21st to 20th) is drawn from the
+            // payroll count itself; the calendar month keeps the usual grid.
+            return $request->period === 'cycle' ? $this->cycleData($request) : $this->summaryData($request);
         }
 
         if ($this->viewAttendancePermission == 'owned') {
@@ -117,7 +119,103 @@ class AttendanceController extends AccountBaseController
         $this->departments = Team::all();
         $this->designations = Designation::all();
 
+        // Opened from payroll for one salary period: period=cycle&month&year&employee.
+        $this->period = $request->period === 'cycle' ? 'cycle' : 'month';
+        $this->selectedMonth = (int) ($request->month ?: $now->month);
+        $this->selectedYear = (int) ($request->year ?: $now->year);
+        $this->selectedEmployee = $request->employee;
+
         return view('attendances.index', $this->data);
+    }
+
+    /** Employees per page in the attendance grids. */
+    public const GRID_PAGE_SIZE = 50;
+
+    /**
+     * One page of the grid's employees, with what the pager needs.
+     *
+     * A month for every employee in one response took 20 s and 5 MB, which a
+     * shared server's time limit turns into an error; a page is a few seconds.
+     */
+    protected function gridPage($query, $request)
+    {
+        $total = (clone $query)->get(['users.id'])->count();
+        $pages = max(1, (int) ceil($total / self::GRID_PAGE_SIZE));
+        $page = min($pages, max(1, (int) $request->page));
+
+        $this->pager = [
+            'page' => $page, 'pages' => $pages, 'total' => $total,
+            'from' => $total ? ($page - 1) * self::GRID_PAGE_SIZE + 1 : 0,
+            'to' => min($total, $page * self::GRID_PAGE_SIZE),
+        ];
+
+        return $query->forPage($page, self::GRID_PAGE_SIZE)->get();
+    }
+
+    /**
+     * The attendance grid for a salary month: the pay cycle the given payroll
+     * month ends in, day by day, as payroll counts it (AttendanceDays). Each
+     * cell is what the day was paid as, and the totals are the Working Days,
+     * Days Present and LOP that the payroll run and the payslip use.
+     */
+    public function cycleData(Request $request)
+    {
+        $cycle = \App\Services\Payroll\PayPeriod::forMonth((int) $request->month, (int) $request->year);
+        $viewEmployeePermission = user()->permission('view_employees');
+
+        $employees = User::join('role_user', 'role_user.user_id', '=', 'users.id')
+            ->join('roles', 'roles.id', '=', 'role_user.role_id')
+            ->leftJoin('employee_details', 'employee_details.user_id', '=', 'users.id')
+            ->leftJoin('designations', 'designations.id', '=', 'employee_details.designation_id')
+            ->select('users.id', 'users.name', 'users.image', 'employee_details.employee_id', 'designations.name as designation_name')
+            ->onlyEmployee()
+            ->withoutGlobalScope(ActiveScope::class)
+            ->where(function ($query) use ($cycle) {
+                $query->where('users.status', 'active')
+                    ->orWhereDate('users.inactive_date', '>=', $cycle->start->toDateString());
+            })
+            ->groupBy('users.id')
+            ->orderBy('users.name');
+
+        if ($request->department && $request->department != 'all') {
+            $employees->where('employee_details.department_id', $request->department);
+        }
+
+        if ($request->designation && $request->designation != 'all') {
+            $employees->where('employee_details.designation_id', $request->designation);
+        }
+
+        if ($request->userId && $request->userId != 'all') {
+            $employees->where('users.id', $request->userId);
+        }
+
+        if ($this->viewAttendancePermission == 'owned' || $viewEmployeePermission == 'owned') {
+            $employees->where('users.id', user()->id);
+        } elseif ($viewEmployeePermission == 'both') {
+            $employees->where(fn ($q) => $q->where('employee_details.user_id', user()->id)->orWhere('employee_details.added_by', user()->id));
+        } elseif ($viewEmployeePermission == 'added') {
+            $employees->where('employee_details.added_by', user()->id);
+        }
+
+        $counter = new \App\Services\Payroll\AttendanceDays(company()->timezone ?: 'Asia/Kolkata');
+        $rows = [];
+
+        foreach ($this->gridPage($employees, $request) as $employee) {
+            $rows[] = ['employee' => $employee, 'count' => $counter->forRange($employee->id, $cycle->start, $cycle->end)];
+        }
+
+        $this->cycle = $cycle;
+        $this->cycleRows = $rows;
+        $this->cycleDates = collect(CarbonPeriod::create($cycle->start->copy()->startOfDay(), $cycle->end->copy()->startOfDay()));
+        $this->statusMeta = PayrollAttendanceController::STATUSES;
+        $this->month = (int) $request->month;
+        $this->year = (int) $request->year;
+        $this->canOpenPayrollView = user()->permission('manage_payroll') === 'all'
+            || $this->viewAttendancePermission === 'all' || in_array('admin', user_roles());
+
+        $view = view('attendances.ajax.cycle_data', $this->data)->render();
+
+        return Reply::dataOnly(['status' => 'success', 'data' => $view]);
     }
 
     public function summaryData($request)
@@ -196,7 +294,7 @@ class AttendanceController extends AccountBaseController
             $employees = $employees->where('employee_details.added_by', user()->id);
         }
 
-        $employees = $employees->get();
+        $employees = $this->gridPage($employees->orderBy('users.name'), $request);
         $user = user();
         $this->holidays = Holiday::whereRaw('MONTH(holidays.date) = ?', [$request->month])->whereRaw('YEAR(holidays.date) = ?', [$request->year])->get();
 
@@ -245,14 +343,25 @@ class AttendanceController extends AccountBaseController
             // bulk-imported attendance never computes half_day the way self-clock-in does.
             $workedSecondsByDay = [];
 
-            foreach ($employee->attendance as $attendance) {
-                if (!$attendance->clock_out_time) {
-                    continue;
-                }
+            // From the first punch to the last, as payroll counts a day. The
+            // biometric sync stores every pair of gate swipes as its own row,
+            // often seconds long; adding those up made a 10:05-18:24 day 0.6 h
+            // and showed it Absent here while payroll paid it as Present.
+            $dayBounds = [];
 
+            foreach ($employee->attendance as $attendance) {
                 $localDateTimeString = $attendance->clock_in_time->timezone(company()->timezone)->toDateTimeString();
                 $dayKey = Carbon::createFromFormat('Y-m-d H:i:s', $localDateTimeString, 'UTC')->startOfDay()->toDateTimeString();
-                $workedSecondsByDay[$dayKey] = ($workedSecondsByDay[$dayKey] ?? 0) + abs($attendance->clock_out_time->diffInSeconds($attendance->clock_in_time));
+                $in = $attendance->clock_in_time->getTimestamp();
+                $out = $attendance->clock_out_time ? $attendance->clock_out_time->getTimestamp() : $in;
+                $dayBounds[$dayKey] = [
+                    min($dayBounds[$dayKey][0] ?? $in, $in),
+                    max($dayBounds[$dayKey][1] ?? $out, $out, $in),
+                ];
+            }
+
+            foreach ($dayBounds as $dayKey => [$first, $last]) {
+                $workedSecondsByDay[$dayKey] = max(0, $last - $first);
             }
 
             foreach ($employee->attendance as $attendance) {
@@ -445,6 +554,27 @@ class AttendanceController extends AccountBaseController
                         $final[$employee->id . '#' . $employee->name][$holiday->date->day] = 'Holiday';
                         $holidayOccasions[$holiday->date->day] = $holiday->occassion;
                     }
+                }
+            }
+        }
+
+        // A day the employee's shift does not work (Sunday on General Shift) is
+        // their week off, not an absence - as payroll pays it. Before the
+        // manual overrides, which still win.
+        $resolver = \App\Services\Attendance\ShiftResolver::shared(company()?->id);
+
+        foreach ($employees as $employee) {
+            $key = $employee->id . '#' . $employee->name;
+
+            for ($day = 1; $day <= (int) $this->daysInMonth; $day++) {
+                if (($final[$key][$day] ?? null) !== 'Absent') {
+                    continue;
+                }
+
+                $date = Carbon::create((int) $request->year, (int) $request->month, $day)->toDateString();
+
+                if (!\App\Services\Attendance\ShiftResolver::worksOn($resolver->shiftOn((int) $employee->id, $date), $date)) {
+                    $final[$key][$day] = 'Day Off';
                 }
             }
         }

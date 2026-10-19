@@ -38,6 +38,18 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot()
     {
+        // Outgoing HTTPS (IFSC lookup, AI providers) needs a CA certificate
+        // bundle. A PHP built without one configured (curl.cainfo /
+        // openssl.cafile empty, as on this WAMP install) fails every call with
+        // "unable to get local issuer certificate", so fall back to the bundle
+        // composer/ca-bundle ships. A request that sets its own 'verify' (the
+        // biometric client does) still decides for itself.
+        if (!ini_get('curl.cainfo') && !ini_get('openssl.cafile') && class_exists(\Composer\CaBundle\CaBundle::class)) {
+            \Illuminate\Support\Facades\Http::globalOptions([
+                'verify' => \Composer\CaBundle\CaBundle::getSystemCaRootBundlePath(),
+            ]);
+        }
+
         // Laravel paginates with its Tailwind view by default. This app loads
         // Bootstrap 4, so the Tailwind classes that size the prev/next arrows
         // do nothing and the inline SVG grows to fill whatever box it is in —

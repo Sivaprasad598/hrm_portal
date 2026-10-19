@@ -5,22 +5,18 @@
                 <h4 class="mb-0 p-20 f-21 font-weight-normal  border-bottom-grey">
                     @lang('app.importEmployee')</h4>
                 <div class="col-sm-12 pt-2">
-                    <div class="alert alert-warning" role="alert">
-                        @lang('app.importExcelInfo')
+                    <div class="alert alert-warning mb-0" role="alert">
+                        Upload the HR master sheet (<strong>Active Employees</strong> layout). Dates can be Excel dates or
+                        dd/mm/yyyy. Departments, parent departments, designations and branches that do not exist yet are
+                        created. <strong>Nothing is saved on upload</strong>: every row is shown for review first.
                     </div>
                 </div>
                 <div class="row py-20">
                     <div class="col-md-12">
-                        <x-forms.link-secondary :link="asset('sample-import/employees-sample.xlsx')" icon="download">@lang('app.downloadSampleImport')</x-forms.link-secondary>
+                        <x-forms.link-secondary :link="route('employees.import.sample')" icon="download">@lang('app.downloadSampleImport')</x-forms.link-secondary>
 
-                        <x-forms.file :fieldLabel="__('modules.import.file')" fieldName="import_file"
+                        <x-forms.file :fieldLabel="__('modules.import.file') . ' (xlsx, xls)'" fieldName="import_file"
                                       fieldId="employee_import"/>
-                    </div>
-                    <div class="col-md-12">
-                        <x-forms.toggle-switch class="mr-0 mr-lg-12"
-                                               :fieldLabel="__('modules.import.containsHeadings')"
-                                               fieldName="heading"
-                                               fieldId="heading"/>
                     </div>
                 </div>
                 <x-form-actions>
@@ -29,7 +25,6 @@
                     </x-forms.button-primary>
                     <x-forms.button-cancel :link="route('employees.index')" class="border-0">@lang('app.back')
                     </x-forms.button-cancel>
-
                 </x-form-actions>
             </div>
         </x-form>
@@ -45,11 +40,9 @@
             messages: dropifyMessages
         });
 
-        $('body').on('click', '#import-employee-form', function () {
-            const url = "{{ route('employees.import.store') }}";
-
+        $('body').off('click', '#import-employee-form').on('click', '#import-employee-form', function () {
             $.easyAjax({
-                url: url,
+                url: "{{ route('employees.import.review') }}",
                 container: '#import-employee-data-form',
                 type: "POST",
                 disableButton: true,

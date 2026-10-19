@@ -31,12 +31,33 @@ class IappSetting extends BaseModel
         'auto_generate_payslips' => 'boolean',
         'notify_employees' => 'boolean',
         'last_sync_at' => 'datetime',
+        'pull_devices' => 'array',
+        'register_locations' => 'array',
+        'only_known_employees' => 'boolean',
     ];
+
+    /** Pull every device, or only the ones ticked on Biometric Settings. */
+    public const SCOPE_ALL = 'all';
+    public const SCOPE_SELECTED = 'selected';
+
+    /** The night: pull, build Device Attendance, write ERP + cross-check; then tell people. */
+    public const DEFAULT_TIMES = [
+        'pull_time' => '01:00',
+        'build_time' => '02:00',
+        'reconcile_time' => '03:00',
+        'notify_time' => '09:00',
+    ];
+
+    public function stepTime(string $step): string
+    {
+        return $this->{$step} ?: self::DEFAULT_TIMES[$step];
+    }
 
     protected $hidden = ['client_secret', 'password'];
 
     /** Employee identity columns iApp's empId may map to. */
     public const MATCH_FIELDS = [
+        'none' => 'Nothing: only codes linked on Employee Mapping',
         'employee_card_id' => 'Employee Card ID',
         'employee_id' => 'Employee ID',
     ];
@@ -83,7 +104,7 @@ class IappSetting extends BaseModel
     {
         return array_key_exists((string) $this->employee_match_field, self::MATCH_FIELDS)
             ? $this->employee_match_field
-            : 'employee_card_id';
+            : 'none';
     }
 
     /**

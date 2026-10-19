@@ -52,8 +52,13 @@ class PunchSync
     /**
      * @param  ?string  $empCode  pull only this device code (one employee); null pulls everybody
      */
-    public function run(Carbon $from, ?Carbon $until = null, string $trigger = 'manual', ?int $userId = null, ?string $empCode = null): IappSyncLog
+    /**
+     * @param  ?array  $devices  controller codes to pull; null follows Biometric Settings
+     */
+    public function run(Carbon $from, ?Carbon $until = null, string $trigger = 'manual', ?int $userId = null, ?string $empCode = null, ?array $devices = null): IappSyncLog
     {
+        $devices ??= $this->config()->pullDevices();
+
         $startedAt = now();
         $timer = microtime(true);
 
@@ -79,7 +84,11 @@ class PunchSync
                 throw new \RuntimeException('iApp connection is not configured.');
             }
 
-            $result = $this->ingest($from, $until, $empCode);
+            if ($devices === []) {
+                throw new \RuntimeException('No device is selected to pull from (Biometric Settings → Devices to pull).');
+            }
+
+            $result = $this->ingest($from, $until, $empCode, $devices);
             $fetched = $result['fetched'];
             $unique = $result['unique'];
 
@@ -96,12 +105,14 @@ class PunchSync
                     ? IappSyncLog::STATUS_PARTIAL
                     : IappSyncLog::STATUS_SUCCESS,
                 'message' => sprintf(
-                    '%s%d punches (%d unique), %d matched, %d unmatched.',
+                    '%s%s%d punches (%d unique), %d matched, %d unmatched%s.',
                     $empCode ? $empCode . ': ' : '',
+                    $devices ? 'devices ' . implode(', ', $devices) . ': ' : '',
                     $fetched,
                     $unique,
                     $this->resolver->matchedCount(),
-                    $this->resolver->unmatchedCount()
+                    $this->resolver->unmatchedCount(),
+                    !empty($result['not_employees']) ? ', ' . $result['not_employees'] . ' left out (not employees here)' : ''
                 ),
             ]);
         } catch (\Throwable $e) {
@@ -169,25 +180,39 @@ class PunchSync
      *
      * @return array{fetched:int, unique:int, created:int, updated:int}
      */
-    public function ingest(Carbon $from, ?Carbon $until = null, ?string $empCode = null): array
+    public function ingest(Carbon $from, ?Carbon $until = null, ?string $empCode = null, ?array $devices = null): array
     {
         $fetched = 0;
         $unique = [];
 
-        // De-duplicated before writing: one controller reports each gate
-        // separately, so a single swipe arrives three or four times.
-        foreach ($this->endpoint->stream($from, $until, 20000, $empCode) as $rows) {
-            $fetched += count($rows);
+        // Every device in one walk, or the selected ones one after another.
+        foreach ($devices ?? [null] as $controllerCode) {
+            // De-duplicated before writing: one controller reports each gate
+            // separately, so a single swipe arrives three or four times.
+            foreach ($this->endpoint->stream($from, $until, 20000, $empCode, $controllerCode) as $rows) {
+                $fetched += count($rows);
 
-            foreach ($rows as $row) {
-                $normalised = DeviceTransEndpoint::normalise($row);
+                foreach ($rows as $row) {
+                    $normalised = DeviceTransEndpoint::normalise($row);
 
-                if ($normalised === null) {
-                    continue;
+                    if ($normalised === null) {
+                        continue;
+                    }
+
+                    $unique[$normalised['punch_hash']] = $normalised;
                 }
-
-                $unique[$normalised['punch_hash']] = $normalised;
             }
+        }
+
+        // Only this company's employees: a code nobody here holds (temporary
+        // staff, leavers, the machine's own test entries) is not stored at all.
+        $notEmployees = 0;
+
+        if ($this->config()->setting()?->only_known_employees) {
+            $known = KnownCodes::map($this->config()->companyId());
+            $kept = array_filter($unique, fn ($row) => isset($known[KnownCodes::key($row['emp_code'])]));
+            $notEmployees = count($unique) - count($kept);
+            $unique = $kept;
         }
 
         $this->resolver->load(array_column($unique, 'emp_code'));
@@ -196,7 +221,9 @@ class PunchSync
 
         return [
             'fetched' => $fetched,
-            'unique' => count($unique),
+            'unique' => count($unique) + $notEmployees,
+            'stored' => count($unique),
+            'not_employees' => $notEmployees,
             'created' => $result['created'],
             'updated' => $result['updated'],
         ];

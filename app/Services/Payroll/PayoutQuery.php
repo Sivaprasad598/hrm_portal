@@ -64,7 +64,7 @@ class PayoutQuery
             ->orderBy('p.emp_name')
             ->get([
                 'p.id', 'p.payslip_number', 'p.emp_name', 'p.emp_id', 'p.emp_pan', 'p.user_id',
-                'p.gross', 'p.basic', 'p.hra', 'p.ca', 'p.others',
+                'p.gross', 'p.basic', 'p.hra', 'p.ca', 'p.lta', 'p.cea', 'p.others',
                 'p.pf', 'p.employer_pf', 'p.esi', 'p.employer_esi', 'p.pt', 'p.tds',
                 'p.total_deductions', 'p.net_salary', 'p.attendance_net', 'p.leave_encashment',
                 'p.working_days', 'p.days_present', 'p.lop_days',
@@ -94,14 +94,11 @@ class PayoutQuery
                 'extra_earnings' => $earnings,
                 'extra_deductions' => $deductions,
                 'extras' => $lines->values()->all(),
-                // What the employee is actually paid: the attendance-adjusted
-                // figure, plus anything encashed and any extra line.
-                'paid' => (float) $payslip->attendance_net + (float) $payslip->leave_encashment
-                    + $earnings - $deductions,
+                // What the employee is actually paid: the slip's net salary,
+                // plus anything encashed.
+                'paid' => NetPay::takeHome($payslip, $earnings, $deductions) + (float) $payslip->leave_encashment,
                 // What the company parts with, its own contributions included.
-                'cost' => (float) $payslip->attendance_net + (float) $payslip->leave_encashment
-                    + $earnings - $deductions
-                    + (float) $payslip->employer_pf + (float) $payslip->employer_esi,
+                'cost' => NetPay::cost($payslip, $earnings, $deductions),
             ]);
         }
 
@@ -130,6 +127,8 @@ class PayoutQuery
             'basic' => $sum('basic'),
             'hra' => $sum('hra'),
             'ca' => $sum('ca'),
+            'lta' => $sum('lta'),
+            'cea' => $sum('cea'),
             'others' => $sum('others'),
             'pf_employee' => $pfEmployee,
             'pf_employer' => $pfEmployer,
@@ -289,7 +288,9 @@ class PayoutQuery
             'basic' => ['Basic', 'basic'],
             'hra' => ['House rent allowance', 'hra'],
             'ca' => ['Conveyance allowance', 'ca'],
-            'others' => ['Other allowances', 'others'],
+            'lta' => ['Leave travel allowance', 'lta'],
+            'cea' => ['Children education allowance', 'cea'],
+            'others' => ['Special allowance', 'others'],
             'encashment' => ['Leave encashment', 'leave_encashment'],
             'pf_employee' => ['Provident fund — employee share', 'pf'],
             'pf_employer' => ['Provident fund — employer share', 'employer_pf'],

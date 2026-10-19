@@ -6,6 +6,7 @@ use App\Models\IappAttendanceRecord;
 use App\Models\IappBackfillRun;
 use App\Models\IappDaySync;
 use App\Models\IappDeviceTransaction;
+use App\Models\IappSyncLog;
 use App\Services\Iapp\IappClient;
 use App\Services\Iapp\IappConfig;
 use Carbon\Carbon;
@@ -74,8 +75,9 @@ class BackfillRunner
      * always wins over a request for a new one.
      *
      * @param  array<int, string>  $dates  Y-m-d, in any order
+     * @param  ?array  $devices  controller codes to pull; null follows Biometric Settings
      */
-    public function start(array $dates, string $scope = 'range', ?int $userId = null): ?IappBackfillRun
+    public function start(array $dates, string $scope = 'range', ?int $userId = null, ?array $devices = null): ?IappBackfillRun
     {
         if ($existing = $this->active()) {
             return $existing;
@@ -94,6 +96,7 @@ class BackfillRunner
             'sync_dates' => $dates,
             'date_index' => 0,
             'scope' => $scope,
+            'devices' => $devices,
             'cursor_at' => null,
             'status' => IappBackfillRun::STATUS_RUNNING,
             'started_by' => $userId,
@@ -212,7 +215,7 @@ class BackfillRunner
                 }
 
                 $chunkTimer = microtime(true);
-                $result = $sync->ingest($from, $to);
+                $result = $sync->ingest($from, $to, null, $run->devices ?: $this->config->pullDevices());
 
                 $run->forceFill([
                     'cursor_at' => $to,
@@ -290,6 +293,29 @@ class BackfillRunner
         $built = (new PunchAggregator($this->config))->build($from, $to);
 
         $this->recordDay($date, $run->id, $run->started_by);
+
+        // The day counts as pulled, as a regular pull's log says: payroll
+        // refuses a payslip until the device feed has been pulled through the
+        // cycle's last day, and reads that from these logs. Without this a
+        // re-pull of past days still left every payslip blocked. Only when the
+        // run pulled every device the settings pull from.
+        $pulled = array_map('strval', (array) ($run->devices ?: $this->config->pullDevices()));
+        $wanted = array_map('strval', (array) $this->config->pullDevices());
+
+        if (!array_diff($wanted, $pulled)) {
+            IappSyncLog::create([
+                'company_id' => $this->config->companyId(),
+                'sync_type' => IappSyncLog::TYPE_DEVICE_TRANS,
+                'trigger' => 'backfill',
+                'triggered_by' => $run->started_by,
+                'from_date' => $from->toDateString(),
+                'to_date' => $to->toDateString(),
+                'status' => IappSyncLog::STATUS_SUCCESS,
+                'message' => 'Re-pulled ' . $from->format('d M Y') . ' (Sync Calendar run #' . $run->id . ').',
+                'started_at' => now(),
+                'finished_at' => now(),
+            ]);
+        }
 
         $run->forceFill(['days_built' => $run->days_built + $built['days']])->save();
     }

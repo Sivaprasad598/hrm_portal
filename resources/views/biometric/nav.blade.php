@@ -1,42 +1,46 @@
 {{-- Shared sub-navigation for the biometric screens.
 
-     The everyday flow comes first, in the order things happen: Overview (where
-     the device → attendance → payslip chain stands), Exceptions (days to look
-     at), Device Attendance (what the device saw), Attendance Sync (what went
-     into the ERP) and Employee 360 (one person, every source).
+     Four tabs for what is looked at every day: Overview (where the nightly run
+     stands), Daily Review (each employee's day), Exceptions (what the nightly
+     cross-check found) and Employee 360 (one person, every source).
 
-     Everything else is either set up once (Setup) or looked at when something
-     needs explaining (History & tools), so it sits in two menus instead of
-     eight more tabs.
+     Everything behind that - the data the run produces, the configuration and
+     the history - sits in one Setup menu, grouped.
 
      $outstanding is the number of departed people still enrolled; the badge is
      only drawn when there are any. --}}
 @php
     $outstanding = $outstanding ?? app(\App\Services\Iapp\Reports\DepartedEnrolments::class)->outstanding();
+    $openExceptions = \Illuminate\Support\Facades\Schema::hasTable('biometric_exceptions')
+        ? \App\Models\BiometricException::where('status', 'open')->count() : 0;
 
     $flow = [
         'overview' => ['biometric.overview', __('app.menu.biometricOverview'), 'bi-diagram-3'],
         'review' => ['biometric.review', __('app.menu.dailyReview'), 'bi-clipboard-check'],
         'exceptions' => ['biometric.exceptions', __('app.menu.attendanceExceptions'), 'bi-exclamation-diamond'],
-        'attendance' => ['biometric.attendance', __('app.menu.deviceAttendance'), 'bi-calendar-check'],
-        'attendance-sync' => ['biometric.attendance-sync', __('app.menu.attendanceSync'), 'bi-box-arrow-in-right'],
         'profile' => ['biometric.profile', __('app.menu.attendanceProfile'), 'bi-person-badge'],
     ];
 
     $setup = [
-        'employees' => ['biometric.employees', __('app.menu.biometricEmployees')],
-        'devices' => ['biometric.devices', __('app.menu.biometricDevices')],
-        'shifts' => ['biometric.shifts', __('app.menu.biometricShifts')],
-        'settings' => ['biometric-settings.index', __('app.menu.biometricSettings')],
+        'Data' => [
+            'attendance' => ['biometric.attendance', __('app.menu.deviceAttendance')],
+            'attendance-sync' => ['biometric.attendance-sync', __('app.menu.attendanceSync')],
+            'punch-log' => ['biometric.punch-log', __('app.menu.punchLog')],
+        ],
+        'Configure' => [
+            'settings' => ['biometric-settings.index', __('app.menu.biometricSettings')],
+            'devices' => ['biometric.devices', __('app.menu.biometricDevices')],
+            'employees' => ['biometric.employees', __('app.menu.biometricEmployees')],
+            'shifts' => ['biometric.shifts', __('app.menu.biometricShifts')],
+        ],
+        'History & tools' => [
+            'calendar' => ['biometric.calendar', 'Sync Calendar & re-sync'],
+            'sync' => ['biometric.sync-logs', __('app.menu.biometricSync')],
+            'comparison' => ['biometric.comparison', __('app.menu.employeeComparison')],
+            'actions' => ['biometric.actions', 'Departed enrolments'],
+        ],
     ];
-
-    $tools = [
-        'punch-log' => ['biometric.punch-log', __('app.menu.punchLog')],
-        'calendar' => ['biometric.calendar', __('app.menu.syncCalendar')],
-        'sync' => ['biometric.sync-logs', __('app.menu.biometricSync')],
-        'comparison' => ['biometric.comparison', __('app.menu.employeeComparison')],
-        'actions' => ['biometric.actions', __('app.menu.biometricActions')],
-    ];
+    $setupKeys = array_merge(...array_map('array_keys', array_values($setup)));
 @endphp
 
 <style>
@@ -74,7 +78,7 @@
        bordered, padded box round the real button - the oversized dropdown */
     .content-wrapper .bootstrap-select.form-control,
     .content-wrapper .bootstrap-select {
-        width: 100% !important;
+        width: 100%;
         height: auto !important;
         padding: 0 !important;
         border: 0 !important;
@@ -90,13 +94,44 @@
     }
 
     .content-wrapper .bootstrap-select > .dropdown-toggle:focus { border-color: #1d82f5 !important; outline: none !important; }
-    .content-wrapper .bootstrap-select .filter-option { display: flex; align-items: center; }
+    /* Text centred in the box whatever size class the select carried
+       (form-control-sm pushed it to the top of the taller field) */
+    .content-wrapper .bootstrap-select > .dropdown-toggle,
+    .content-wrapper .bootstrap-select.form-control-sm > .dropdown-toggle,
+    .content-wrapper .bootstrap-select > .btn-sm {
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+        line-height: normal !important;
+    }
+    /* bootstrap-select floats this box, and a float is always a plain block,
+       so it never centred - the text sat at the top of the field */
+    .content-wrapper .bootstrap-select .filter-option {
+        float: none !important;
+        display: flex !important; align-items: center; height: 100%;
+        position: static; padding: 0; top: 0; flex: 1 1 auto; min-width: 0;
+    }
+    .content-wrapper .bootstrap-select .filter-option-inner { width: 100%; padding: 0; }
+    .content-wrapper .bootstrap-select .filter-option-inner-inner { line-height: 1.4; }
     .content-wrapper .bootstrap-select .filter-option-inner-inner { overflow: hidden; text-overflow: ellipsis; }
     .bootstrap-select .bs-searchbox .form-control { height: 32px !important; font-size: 13px; }
     .bootstrap-select .dropdown-menu { font-size: 14px; z-index: 1060; }
 
     /* Buttons in a filter row are as tall as the fields beside them */
     .content-wrapper form .btn:not(.btn-xs):not(.btn-sm):not(.dropdown-toggle) {
+        height: var(--bio-field);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding-top: 0;
+        padding-bottom: 0;
+    }
+
+    /* A picker that sits in a row of buttons (a month switcher, say) keeps its
+       own width instead of taking the whole line and pushing the buttons off it */
+    .content-wrapper .bootstrap-select.bio-inline { width: auto !important; min-width: 180px; display: inline-block; }
+
+    /* Buttons in a card header line up with the fields beside them */
+    .content-wrapper .card-header .btn {
         height: var(--bio-field);
         display: inline-flex;
         align-items: center;
@@ -127,13 +162,19 @@
                 return;
             }
 
+            // A select that is not filling a form column (w-auto, or sitting in a
+            // flex row of buttons) stays as wide as its contents.
+            let inline = $select.hasClass('w-auto')
+                || ($select.parent().hasClass('d-flex') || $select.parent().hasClass('card-header'))
+                && !$select.closest('[class*="col-"]').length;
+
             let existing = $select.data('selectpicker');
             let options = $.extend({}, existing ? existing.options : {}, {
                 liveSearch: true,
                 liveSearchPlaceholder: 'Search…',
                 noneResultsText: 'Nothing matches {0}',
                 size: 8,
-                width: '100%',
+                width: inline ? 'fit' : '100%',
                 container: 'body'
             });
 
@@ -146,6 +187,10 @@
             }
 
             $select.addClass('select-picker').selectpicker(options);
+
+            if (inline) {
+                $select.closest('.bootstrap-select').addClass('bio-inline');
+            }
         });
     });
 </script>
@@ -155,38 +200,32 @@
         <li class="nav-item">
             <a class="nav-link {{ $active === $key ? 'active' : '' }}" href="{{ route($route) }}">
                 <i class="bi {{ $icon }}"></i>{{ $label }}
+                @if ($key === 'exceptions' && $openExceptions > 0)
+                    <span class="badge badge-danger f-10 ml-1">{{ $openExceptions }}</span>
+                @endif
             </a>
         </li>
     @endforeach
 
     <li class="nav-item dropdown ml-md-auto">
-        <a class="nav-link dropdown-toggle {{ array_key_exists($active, $setup) ? 'active' : '' }}" data-toggle="dropdown" href="#" role="button">
+        <a class="nav-link dropdown-toggle {{ in_array($active, $setupKeys, true) ? 'active' : '' }}" data-toggle="dropdown" href="#" role="button">
             <i class="bi bi-gear"></i>Setup
-        </a>
-        <div class="dropdown-menu dropdown-menu-right">
-            <h6 class="dropdown-header">Set up once</h6>
-            @foreach ($setup as $key => [$route, $label])
-                <a class="dropdown-item {{ $active === $key ? 'active' : '' }}" href="{{ route($route) }}">{{ $label }}</a>
-            @endforeach
-        </div>
-    </li>
-
-    <li class="nav-item dropdown">
-        <a class="nav-link dropdown-toggle {{ array_key_exists($active, $tools) ? 'active' : '' }}" data-toggle="dropdown" href="#" role="button">
-            <i class="bi bi-clock-history"></i>History &amp; tools
             @if ($outstanding > 0)
                 <span class="badge badge-danger f-10 ml-1">{{ $outstanding }}</span>
             @endif
         </a>
         <div class="dropdown-menu dropdown-menu-right">
-            <h6 class="dropdown-header">When something needs explaining</h6>
-            @foreach ($tools as $key => [$route, $label])
-                <a class="dropdown-item d-flex justify-content-between align-items-center {{ $active === $key ? 'active' : '' }}" href="{{ route($route) }}">
-                    {{ $label }}
-                    @if ($key === 'actions' && $outstanding > 0)
-                        <span class="badge badge-danger f-10 ml-2">{{ $outstanding }}</span>
-                    @endif
-                </a>
+            @foreach ($setup as $group => $items)
+                @if (!$loop->first)<div class="dropdown-divider"></div>@endif
+                <h6 class="dropdown-header">{{ $group }}</h6>
+                @foreach ($items as $key => [$route, $label])
+                    <a class="dropdown-item d-flex justify-content-between align-items-center {{ $active === $key ? 'active' : '' }}" href="{{ route($route) }}">
+                        {{ $label }}
+                        @if ($key === 'actions' && $outstanding > 0)
+                            <span class="badge badge-danger f-10 ml-2">{{ $outstanding }}</span>
+                        @endif
+                    </a>
+                @endforeach
             @endforeach
         </div>
     </li>

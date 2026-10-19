@@ -151,9 +151,11 @@ class LeaveObserver
     {
         /* Start of deleting event from google calendar */
         $google = new Google();
-        $googleAccount = company();
+        // company() is empty outside a web request (scheduler, commands, imports);
+        // fall back to the leave's own company, and skip the calendar if neither.
+        $googleAccount = company() ?: $leave->company;
 
-        if (company()->google_calendar_status == 'active' && $googleAccount->google_calendar_verification_status == 'verified' && $googleAccount->token) {
+        if ($googleAccount && $googleAccount->google_calendar_status == 'active' && $googleAccount->google_calendar_verification_status == 'verified' && $googleAccount->token) {
             $google->connectUsing($googleAccount->token);
             try {
                 if ($leave->event_id) {
@@ -205,9 +207,9 @@ class LeaveObserver
     protected function googleCalendarEvent($leave)
     {
         $module = GoogleCalendarModule::first();
-        $googleAccount = company();
+        $googleAccount = company() ?: $leave->company;
 
-        if (company()->google_calendar_status == 'active' && $googleAccount->google_calendar_verification_status == 'verified' && $googleAccount->token && $module->leave_status == 1) {
+        if ($googleAccount && $module && $googleAccount->google_calendar_status == 'active' && $googleAccount->google_calendar_verification_status == 'verified' && $googleAccount->token && $module->leave_status == 1) {
 
             $google = new Google();
             $attendiesData = [];

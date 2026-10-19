@@ -118,7 +118,9 @@
                         ['Basic', $totals['basic'], 'basic', 'indigo', '', 'wallet'],
                         ['House rent', $totals['hra'], 'hra', 'sky', '', 'home'],
                         ['Conveyance', $totals['ca'], 'ca', 'emerald', '', 'bus'],
-                        ['Other allowances', $totals['others'], 'others', 'violet', '', 'plus-circle'],
+                        ['Leave travel', $totals['lta'] ?? 0, 'lta', 'sky', '', 'plane'],
+                        ['Children education', $totals['cea'] ?? 0, 'cea', 'indigo', '', 'book'],
+                        ['Special allowance', $totals['others'], 'others', 'violet', '', 'plus-circle'],
                         ['Leave encashment', $totals['encashment'], 'encashment', 'amber', '', 'sun'],
                     ],
                     'Statutory' => [

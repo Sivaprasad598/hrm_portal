@@ -23,26 +23,26 @@ class DailyAttendanceReview
 
     protected string $tz;
 
-    protected ?object $defaultShift;
 
     public function __construct()
     {
         $this->tz = DB::table('companies')->value('timezone') ?: 'Asia/Kolkata';
-        $this->defaultShift = DB::table('attendance_settings as ats')
-            ->join('employee_shifts as es', 'es.id', '=', 'ats.default_employee_shift')
-            ->first(['es.*']);
     }
 
     /**
      * Review a date and store one row per employee.
      *
      * @param  bool  $deviceComplete  false when the device pull for this date failed
+     * @param  ?Carbon  $dataThrough  how far the device data reaches; a shift whose
+     *                                window ends after it is still running, and is
+     *                                not judged on its missing end (night shifts at 3 AM)
      * @return array<string, int>  status => count, plus 'exceptions'
      */
-    public function review(Carbon $date, bool $deviceComplete = true): array
+    public function review(Carbon $date, bool $deviceComplete = true, ?Carbon $dataThrough = null): array
     {
         $day = Carbon::parse($date->toDateString(), $this->tz)->startOfDay();
         $key = $day->toDateString();
+        ShiftResolver::reset();   // shifts or assignments may have changed since the last run
         $counter = new AttendanceDays($this->tz);
 
         $employees = DB::table('users as u')
@@ -59,7 +59,7 @@ class DailyAttendanceReview
         $summary = ['exceptions' => 0];
 
         foreach ($employees as $employee) {
-            $row = $this->judge((int) $employee->id, $day, $counter, $mapped[$employee->id] ?? null, $holiday, $deviceComplete);
+            $row = $this->judge((int) $employee->id, $day, $counter, $mapped[$employee->id] ?? null, $holiday, $deviceComplete, $dataThrough);
             $row['company_id'] = $employee->company_id;
 
             $existing = AttendanceReview::withoutGlobalScopes()->where('date', $key)->where('user_id', $employee->id)->first();
@@ -81,17 +81,48 @@ class DailyAttendanceReview
         return $summary;
     }
 
+    /**
+     * Re-judge one employee's day after something changed it - a leave approved,
+     * an attendance row corrected - so the Daily Review follows by itself instead
+     * of waiting for somebody to press "Review again". Only for a day that has
+     * already been reviewed; a day not yet reviewed is the daily run's job.
+     */
+    public function refresh(int $userId, Carbon $date): void
+    {
+        $key = Carbon::parse($date->toDateString(), $this->tz)->toDateString();
+        $existing = AttendanceReview::withoutGlobalScopes()->where('date', $key)->where('user_id', $userId)->first();
+
+        if (!$existing) {
+            return;
+        }
+
+        $run = DB::table('attendance_daily_runs')->where('date', $key)->first(['device_complete']);
+        $empCode = DB::table('iapp_employees')->where('user_id', $userId)->where('map_status', 'mapped')->value('emp_code');
+        $row = $this->judge($userId, Carbon::parse($key, $this->tz), new AttendanceDays($this->tz), $empCode,
+            DB::table('holidays')->whereDate('date', $key)->exists(), (bool) ($run->device_complete ?? true));
+
+        if ($existing->resolved_at && ($existing->status !== $row['status'] || $existing->flags != $row['flags'])) {
+            $row['resolved_at'] = null;
+            $row['resolved_by'] = null;
+        }
+
+        $existing->forceFill($row)->save();
+    }
+
     /** @return array<string, mixed> */
-    protected function judge(int $userId, Carbon $day, AttendanceDays $counter, ?string $empCode, bool $holiday, bool $deviceComplete): array
+    protected function judge(int $userId, Carbon $day, AttendanceDays $counter, ?string $empCode, bool $holiday, bool $deviceComplete, ?Carbon $dataThrough = null): array
     {
         $key = $day->toDateString();
         $count = $counter->forRange($userId, $day, $day);
         $breakdown = $count['breakdown'];
         $credit = (float) $count['days_present'];
 
-        // What was recorded: ERP attendance for the day, in local time.
+        // What was recorded: ERP attendance in the day's own window - the
+        // calendar day, or for an overnight shift the hours that belong to it.
+        $resolver = ShiftResolver::shared();
+        [$windowStart, $windowEnd] = $resolver->dayWindowUtc($userId, $key, $this->tz);
         $rows = DB::table('attendances')->where('user_id', $userId)
-            ->whereBetween('clock_in_time', [$day->copy()->utc(), $day->copy()->endOfDay()->utc()])
+            ->whereBetween('clock_in_time', [$windowStart, $windowEnd])
             ->get(['id', 'clock_in_time', 'clock_out_time']);
 
         $first = $last = null;
@@ -123,6 +154,13 @@ class DailyAttendanceReview
         $pending = $leave->where('status', 'pending')->isNotEmpty();
 
         $shift = $this->shiftFor($userId, $key);
+
+        // The device's summary is per calendar day, so for a shift that runs past
+        // midnight it holds only half the shift; the attendance rows read in the
+        // shift's own window above are the whole of it.
+        if ($shift && !empty($shift->overnight)) {
+            $device = null;
+        }
         $flags = [];
 
         if (!$empCode) {
@@ -139,28 +177,45 @@ class DailyAttendanceReview
             if ($presence === 0 || ($device && (int) $device->punch_count <= 1)) {
                 $flags[] = 'single_punch';
             }
-            elseif (($device && !$device->last_out) || $open
-                || ($last && $last->copy()->setTimezone($this->tz)->toDateString() !== $key)) {
-                // No exit, or a session only closed on a later day: a forgotten
-                // clock-out, which would otherwise pass for a full day.
+            elseif (($device && !$device->last_out) || $open || ($last && $last->greaterThan($windowEnd))) {
+                // No exit, or a session only closed after the day's window: a
+                // forgotten clock-out, which would otherwise pass for a full day.
                 $flags[] = 'missing_exit';
             }
         }
 
         if ($first && $shift && $shift->office_start_time && $shift->late_mark_duration !== null) {
-            $lateAfter = Carbon::parse($key . ' ' . $shift->office_start_time, $this->tz)->addMinutes((int) $shift->late_mark_duration);
+            $lateAfter = Carbon::parse($shift->day_start, $this->tz)->addMinutes((int) $shift->late_mark_duration);
 
-            if ($first->copy()->setTimezone($this->tz)->gt($lateAfter)) {
+            // To the minute, like ImportAttendanceJob::isLateArrival().
+            if ($first->copy()->setTimezone($this->tz)->startOfMinute()->gt($lateAfter)) {
                 $flags[] = 'late';
             }
         }
 
         if ($last && $presence > 0 && $shift && $shift->office_end_time) {
-            $earlyBefore = Carbon::parse($key . ' ' . $shift->office_end_time, $this->tz)->subMinutes((int) ($shift->late_mark_duration ?? 0));
+            // The shift's own end - the next morning, for an overnight shift.
+            $earlyBefore = Carbon::parse($shift->day_end, $this->tz)->subMinutes((int) ($shift->late_mark_duration ?? 0));
 
             if ($last->copy()->setTimezone($this->tz)->lt($earlyBefore)) {
                 $flags[] = 'left_early';
             }
+        }
+
+        // The data stops before this shift does (a night shift reviewed at 3 AM):
+        // its end is not known yet, so its missing end is not held against it.
+        // The day is judged again the following night, once the shift is over.
+        $inProgress = $dataThrough && $windowEnd->gt($dataThrough->copy()->setTimezone('UTC'));
+
+        if ($inProgress) {
+            $flags = array_values(array_diff($flags, ['missing_exit', 'single_punch', 'left_early']));
+            $flags[] = 'shift_in_progress';
+        }
+
+        // Half a day's approved leave covers the other half: arriving after a
+        // morning off is not late, and leaving for an afternoon off is not early.
+        if ($leave->where('status', 'approved')->where('duration', 'half day')->isNotEmpty()) {
+            $flags = array_values(array_diff($flags, ['late', 'left_early']));
         }
 
         // What the day was.
@@ -192,8 +247,13 @@ class DailyAttendanceReview
         }
 
         $quiet = [AttendanceReview::PRESENT, AttendanceReview::ON_LEAVE, AttendanceReview::WEEK_OFF, AttendanceReview::HOLIDAY];
-        $flagsThatMatter = array_diff($flags, ['not_on_device', 'device_incomplete']);
+        $flagsThatMatter = array_diff($flags, ['not_on_device', 'device_incomplete', 'shift_in_progress']);
         $isException = !in_array($status, $quiet, true) || $flagsThatMatter !== [];
+
+        // A running shift has only part of its hours yet; short or half is not a verdict.
+        if ($inProgress && $seen && in_array($status, [AttendanceReview::SHORT_HOURS, AttendanceReview::HALF_DAY], true)) {
+            $isException = $flagsThatMatter !== [];
+        }
 
         return [
             'status' => $status,
@@ -208,12 +268,10 @@ class DailyAttendanceReview
         ];
     }
 
+    /** The roster, the employee's own shift, or the company default (ShiftResolver). */
     protected function shiftFor(int $userId, string $date): ?object
     {
-        return DB::table('employee_shift_schedules as ess')
-            ->join('employee_shifts as es', 'es.id', '=', 'ess.employee_shift_id')
-            ->where('ess.user_id', $userId)->whereDate('ess.date', $date)
-            ->first(['es.*']) ?? $this->defaultShift;
+        return ShiftResolver::shared()->shiftOn($userId, $date);
     }
 
 }

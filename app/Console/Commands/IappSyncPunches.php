@@ -30,6 +30,12 @@ class IappSyncPunches extends Command
 
     public function handle(): int
     {
+        // A month of attendance for every employee needs more than PHP's usual
+        // 128 MB (the shift lookup keeps each person's roster); at 128 MB the
+        // nightly run died with "Allowed memory size exhausted" and exit 255.
+        @ini_set('memory_limit', '1024M');
+        @set_time_limit(0);
+
         $config = new IappConfig();
 
         if (!$config->isConfigured()) {

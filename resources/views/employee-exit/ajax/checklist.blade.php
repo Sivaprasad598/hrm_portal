@@ -77,7 +77,7 @@
                         <button type="button" id="saveChecklistBtn" class="btn btn-primary mr-3">
                             <i class="fa fa-save mr-1"></i> Save Checklist
                         </button>
-                        <button type="button" class="btn btn-secondary" onclick="$(RIGHT_MODAL).modal('hide')">
+                        <button type="button" class="btn btn-secondary" onclick="closeExitPanel()">
                             Cancel
                         </button>
                     </div>
@@ -88,6 +88,15 @@
 </div>
 
 <script>
+    // The side panel is closed with closeTaskDetail() (main.js), not as a
+    // Bootstrap modal; opened as a page of its own, go back to the list.
+    window.closeExitPanel = function () {
+        if ($(RIGHT_MODAL).hasClass('in') && typeof closeTaskDetail === 'function') {
+            closeTaskDetail();
+        } else {
+            window.location.href = '{{ route('employee-exit.index') }}';
+        }
+    };
     $(function () {
         $('#saveChecklistBtn').on('click', function () {
             var btn = $(this);
@@ -100,9 +109,10 @@
                 success: function (res) {
                     if (res.status === 'success') {
                         toastr.success(res.message);
-                        if (typeof window['employee-exit-table'] !== 'undefined') {
-                            window['employee-exit-table'].draw();
+                        if (window.LaravelDataTables && window.LaravelDataTables['employee-exit-table']) {
+                            window.LaravelDataTables['employee-exit-table'].draw(false);
                         }
+                        closeExitPanel();
                     } else {
                         toastr.error(res.message);
                     }

@@ -364,7 +364,7 @@ class TaskObserver
         $google = new Google();
         $googleAccount = company();
 
-        if (company()->google_calendar_status == 'active' && $googleAccount->google_calendar_verification_status == 'verified' && $googleAccount->token) {
+        if (company() && company()->google_calendar_status == 'active' && $googleAccount->google_calendar_verification_status == 'verified' && $googleAccount->token) {
             $google->connectUsing($googleAccount->token);
             try {
                 if ($task->event_id) {
@@ -419,7 +419,7 @@ class TaskObserver
             return $event->event_id;
         }
 
-        if (company()->google_calendar_status == 'active' && $googleAccount->google_calendar_verification_status == 'verified' && $googleAccount->token && $module->task_status == 1) {
+        if (company() && company()->google_calendar_status == 'active' && $googleAccount->google_calendar_verification_status == 'verified' && $googleAccount->token && $module->task_status == 1) {
 
             $google = new Google();
             $attendiesData = [];
@@ -498,7 +498,7 @@ class TaskObserver
     {
         $googleAccount = company();
 
-        if (company()->google_calendar_status == 'active' && $googleAccount->google_calendar_verification_status == 'verified' && $googleAccount->token) {
+        if (company() && company()->google_calendar_status == 'active' && $googleAccount->google_calendar_verification_status == 'verified' && $googleAccount->token) {
             $google = new Google();
             $events = Task::whereIn('id', $eventIds)->get();
             $event = $events->first();

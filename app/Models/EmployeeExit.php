@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class EmployeeExit extends Model
 {
     protected $fillable = [
-        'user_id', 'company_id', 'exit_type', 'exit_reason',
+        'user_id', 'company_id', 'resignation_id', 'exit_type', 'exit_reason',
         'resignation_date', 'notice_period_days', 'last_working_date',
         'exit_interview_status', 'asset_clearance_status', 'finance_clearance_status',
         'hr_clearance_status', 'final_settlement_status', 'offboarding_date',
@@ -21,9 +21,26 @@ class EmployeeExit extends Model
         'exit_initiated_date' => 'date',
     ];
 
+    /**
+     * The exit still in progress for this employee, if any: not off-boarded
+     * yet, and not from an employment that has since ended in a rejoin.
+     */
+    public static function openFor(int $userId, ?int $exceptResignationId = null): ?self
+    {
+        return static::where('user_id', $userId)
+            ->whereNull('offboarding_date')
+            ->when(\Illuminate\Support\Facades\Schema::hasColumn('employee_exits', 'closed_by_rejoin_id'),
+                fn ($q) => $q->whereNull('closed_by_rejoin_id'))
+            ->when($exceptResignationId, fn ($q) => $q->where(fn ($w) => $w->whereNull('resignation_id')
+                ->orWhere('resignation_id', '<>', $exceptResignationId)))
+            ->orderByDesc('id')
+            ->first();
+    }
+
     public function employee()
     {
-        return $this->belongsTo(User::class, 'user_id');
+        // Includes people who have left: an exit is mostly about them.
+        return $this->belongsTo(User::class, 'user_id')->withoutGlobalScope(\App\Scopes\ActiveScope::class);
     }
 
     public function initiatedBy()

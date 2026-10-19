@@ -103,7 +103,22 @@ if (!empty($ytdSource['label'])) {
   .desk { background: #ffffff; padding: 0; }
   .sheet { width: auto; margin: 0; background: #ffffff; padding: 0; }
 
+  /* The buttons above the sheet are for a monitor only: hidden on paper and,
+     since DomPDF skips @media screen, in the PDF too. */
+  .actions { display: none; }
+
   @media screen {
+    .actions {
+      display: flex; gap: 10px; justify-content: flex-end;
+      width: 210mm; max-width: 100%; margin: 0 auto 12px;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+    .actions a, .actions button {
+      font: inherit; font-size: 13px; padding: 7px 16px; border-radius: 20px;
+      border: 1px solid #1f5b91; background: #fff; color: #1f5b91;
+      text-decoration: none; cursor: pointer;
+    }
+    .actions button { background: #1f5b91; color: #fff; }
     .desk { background: #e9edf3; padding: 26px 0; }
     .sheet {
       width: 210mm;
@@ -246,6 +261,15 @@ if (!empty($ytdSource['label'])) {
 </head>
 <body>
 <div class="desk">
+<?php if (($userRole ?? 'employee') !== 'employee'): ?>
+<div class="actions">
+  <?php if (!empty($calculatorUrl)): ?><a href="<?= e($calculatorUrl) ?>">← Back to calculator</a><?php endif; ?>
+  <?php if (!empty($attendanceUrl)): ?>
+    <a href="<?= e($attendanceUrl) ?>" target="_blank" title="Every day of this salary period, as it was counted">📅 Attendance for this period</a>
+  <?php endif; ?>
+  <button type="button" onclick="window.print()">🖨 Print</button>
+</div>
+<?php endif; ?>
 <div class="sheet">
 
   <!-- who issued it -->

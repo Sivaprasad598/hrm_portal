@@ -197,6 +197,11 @@ if ($pdo && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_terminat
             $previousEmploymentStatus = $previousStatusRow['employment_status'] ?: 'confirmed';
 
             try {
+                // All or nothing: a failure part-way used to leave the
+                // termination recorded and the employee off-boarded, with
+                // the error shown as though nothing had been saved.
+                $pdo->beginTransaction();
+
                 $stmt = $pdo->prepare(
                     'INSERT INTO terminations
                         (company_id, user_id, termination_date, notice_period_days, notice_start_date, last_working_date, notice_served, reason, remarks, previous_employment_status, created_at, updated_at)
@@ -235,7 +240,7 @@ if ($pdo && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_terminat
                     'UPDATE employee_details
                         SET last_date = :lastDate
                       WHERE user_id = :userId AND company_id = :companyId
-                        AND (last_date IS NULL OR last_date = "")'
+                        AND last_date IS NULL'
                 );
                 $lastDateStmt->execute([
                     ':lastDate' => $formValues['last_working_date'] ?: $formValues['termination_date'],
@@ -243,9 +248,15 @@ if ($pdo && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_terminat
                     ':companyId' => $companyId,
                 ]);
 
+                $pdo->commit();
+
                 header('Location: Termination.php?added=1');
                 exit;
             } catch (PDOException $ex) {
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+
                 error_log('Termination save failed: ' . $ex->getMessage());
                 $error = 'Could not save. Please try again.';
             }

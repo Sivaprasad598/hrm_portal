@@ -4,7 +4,8 @@
     <x-alert type="info">
         Leave that is <strong>paid</strong> at year end — or carried forward beyond its maximum and set to
         <strong>encash</strong> — is valued with the settings below and paid on the employee's next payslip.
-        Which leave types encash is set on each leave type, under <em>Unused leave</em>.
+        Which leave types encash is set on each leave type, under <em>Unused leave</em>. On leaving, the final settlement pays only
+        the leave types marked <strong>encashed</strong> &mdash; Earned Leave, within the limits below.
     </x-alert>
 
     <form id="encashment-settings-form">
@@ -37,6 +38,32 @@
                 <x-forms.number fieldId="encashment_basic_pct" fieldLabel="Basic as % of gross"
                     fieldName="encashment_basic_pct" :fieldValue="(float) ($settings->encashment_basic_pct ?? 50)"
                     popover="Used with CTC when valuing from basic. An employee's own basic % takes precedence where one is set." />
+            </div>
+        </div>
+
+        @php
+            $leaveTypesForEl = \App\Models\LeaveType::where('paid', 1)->orderBy('type_name')->get(['id', 'type_name']);
+        @endphp
+        <h4 class="f-16 text-dark-grey mt-3 mb-2">Earned Leave</h4>
+        <div class="row">
+            <div class="col-lg-3 col-md-6">
+                <x-forms.select fieldId="earned_leave_type_id" fieldLabel="Earned Leave type" fieldName="earned_leave_type_id"
+                    popover="The leave type the rules below apply to. It accrues from the joining date like any monthly leave.">
+                    <option value="">--</option>
+                    @foreach ($leaveTypesForEl as $type)
+                        <option value="{{ $type->id }}" @selected((int) ($settings->earned_leave_type_id ?? 0) === $type->id)>{{ $type->type_name }}</option>
+                    @endforeach
+                </x-forms.select>
+            </div>
+            <div class="col-lg-3 col-md-6">
+                <x-forms.number fieldId="earned_leave_min_service_years" fieldLabel="Usable after (years of service)"
+                    fieldName="earned_leave_min_service_years" :fieldValue="(float) ($settings->earned_leave_min_service_years ?? 2)"
+                    popover="Counted from the joining date. Before this the balance builds up but cannot be used, and is not paid out on leaving. 0 = from joining." />
+            </div>
+            <div class="col-lg-3 col-md-6">
+                <x-forms.number fieldId="earned_leave_encash_max_days" fieldLabel="Paid out on leaving, up to (days)"
+                    fieldName="earned_leave_encash_max_days" :fieldValue="$settings->earned_leave_encash_max_days ?? 30"
+                    popover="The most Earned Leave the final settlement pays. Leave it empty for no limit." />
             </div>
         </div>
 

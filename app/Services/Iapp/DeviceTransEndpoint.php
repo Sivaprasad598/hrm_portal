@@ -84,7 +84,7 @@ class DeviceTransEndpoint
      * `EmpCode`); `EmployeeCode` is rejected with "Filter Parameter Not Found!".
      * Verified against the live server, read-only.
      */
-    public function between(Carbon $after, Carbon $until, array $fields = self::FIELDS, ?string $empCode = null): IappResponse
+    public function between(Carbon $after, Carbon $until, array $fields = self::FIELDS, ?string $empCode = null, ?string $controllerCode = null): IappResponse
     {
         $filter = sprintf(
             "PunchDetail gt '%s' and PunchDetail lteq '%s'",
@@ -94,6 +94,12 @@ class DeviceTransEndpoint
 
         if ($empCode !== null && $empCode !== '') {
             $filter .= sprintf(" and empcode eq '%s'", IappHelper::escapeFilterValue($empCode));
+        }
+
+        // One device. The server filters on controllerCode itself (verified:
+        // a filtered hour came back with that controller's rows only).
+        if ($controllerCode !== null && $controllerCode !== '') {
+            $filter .= sprintf(" and controllerCode eq '%s'", IappHelper::escapeFilterValue($controllerCode));
         }
 
         return $this->client->get(self::PATH, [
@@ -126,7 +132,7 @@ class DeviceTransEndpoint
      *
      * @return \Generator<int, array<int, array>>
      */
-    public function stream(Carbon $from, ?Carbon $until = null, int $maxCalls = 20000, ?string $empCode = null): \Generator
+    public function stream(Carbon $from, ?Carbon $until = null, int $maxCalls = 20000, ?string $empCode = null, ?string $controllerCode = null): \Generator
     {
         $until = ($until ?? Carbon::now())->copy();
         // `gt` is exclusive, so step back to keep a punch exactly at $from.
@@ -142,13 +148,14 @@ class DeviceTransEndpoint
             }
 
             $calls++;
-            $response = $this->between($cursor, $end, self::FIELDS, $empCode);
+            $response = $this->between($cursor, $end, self::FIELDS, $empCode, $controllerCode);
 
             if (!$response->successful()) {
                 // "not found" means this window is simply empty.
                 if (!$response->isEmptyResult()) {
                     throw new \RuntimeException(
-                        'iApp deviceTrans/get failed: ' . ($response->message() ?: 'unknown error')
+                        'iApp deviceTrans/get failed' . ($controllerCode ? ' for device ' . $controllerCode : '') . ': '
+                        . ($response->message() ?: 'unknown error')
                     );
                 }
 

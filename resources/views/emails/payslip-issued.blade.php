@@ -1,9 +1,8 @@
 @php
     $money = fn ($v) => '₹' . number_format((float) $v, 2);
-    $lop = max(0, (float) $payslip->net_salary - (float) $payslip->attendance_net);
-    $takeHome = (float) $payslip->basic + (float) $payslip->hra + (float) $payslip->ca + (float) $payslip->others
-        - ((float) $payslip->pf + (float) $payslip->esi + (float) $payslip->pt + $lop)
-        - ((float) ($payslip->employer_pf ?? $payslip->pf) + (float) ($payslip->employer_esi ?? $payslip->esi));
+    // The figure the attached slip prints, TDS and extra lines included
+    [$extraEarnings, $extraDeductions] = \App\Services\Payroll\NetPay::extras([$payslip->id])[(int) $payslip->id] ?? [0.0, 0.0];
+    $takeHome = \App\Services\Payroll\NetPay::takeHome($payslip, $extraEarnings, $extraDeductions);
 @endphp
 <!DOCTYPE html>
 <html lang="en">

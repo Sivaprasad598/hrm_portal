@@ -162,10 +162,16 @@
 
     if ($launcherRows->isNotEmpty()) {
         $showBySlug = [];
+        $routeBySlug = [];
 
         foreach ($tiles as $tile) {
             if (isset($tile['slug'])) {
                 $showBySlug[$tile['slug']] = (bool) $tile['show'];
+                // A group tile (HR, Work, Finance, Leads, Reports, Settings) goes to the
+                // first page of the group this person can open, not the fixed page
+                // saved on the row: HR -> Employees was a 403 for anyone who only has
+                // leave and attendance.
+                $routeBySlug[$tile['slug']] = $tile['route'] ?? null;
             }
         }
 
@@ -183,8 +189,10 @@
 
             $url = $row->url;
 
-            if (!$url && $row->route && \Illuminate\Support\Facades\Route::has($row->route)) {
-                $url = route($row->route);
+            $routeName = !empty($routeBySlug[$row->slug]) ? $routeBySlug[$row->slug] : $row->route;
+
+            if (!$url && $routeName && \Illuminate\Support\Facades\Route::has($routeName)) {
+                $url = route($routeName);
             }
 
             if (!$url) {

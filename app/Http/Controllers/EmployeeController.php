@@ -227,6 +227,7 @@ class EmployeeController extends AccountBaseController
         abort_403(!($viewEmployeeMenuPermission == 'all' || $viewEmployeeMenuPermission == 4));
 
         DB::beginTransaction();
+        $storedDocuments = [];
         try {
             $user = new User();
             $user->first_name  = $request->first_name;
@@ -250,6 +251,7 @@ class EmployeeController extends AccountBaseController
             $user->employee_ctc = ($request->filled('employee_ctc') || $request->employee_ctc === '0' || $request->employee_ctc === 0)
                 ? $request->employee_ctc
                 : null;
+            $user->monthly_salary = $user->employee_ctc !== null ? round((float) $user->employee_ctc / 12, 2) : null;
             $user->basic_for_payroll = ($request->filled('basic_for_payroll') || $request->basic_for_payroll === '0' || $request->basic_for_payroll === 0)
                 ? $request->basic_for_payroll
                 : null;
@@ -349,6 +351,21 @@ class EmployeeController extends AccountBaseController
                 $finalDeclaration->hr_comments = $request->get('hr_comments');
                 $finalDeclaration->save();
 
+                // The employee's own shift: from the joining date unless another date is given
+                if ($request->filled('employee_shift_id')) {
+                    app(\App\Services\Attendance\ShiftAssignments::class)->assign(
+                        $user->id,
+                        (int) $request->employee_shift_id,
+                        $request->filled('shift_effective_from') ? companyToYmd($request->shift_effective_from)
+                            : ($request->filled('joining_date') ? companyToYmd($request->joining_date) : now()->toDateString()),
+                        user()->id
+                    );
+                }
+
+                // Resume, checklist documents and the signed declaration copies
+                $storedDocuments = app(\App\Services\Employee\OnboardingDocuments::class)
+                    ->saveFromRequest($request, $user->id, company()->id);
+
                 $ecNames     = $request->get('emergency_name', []);
                 $ecRelations = $request->get('emergency_relation', []);
                 $ecNumbers   = $request->get('emergency_number', []);
@@ -407,6 +424,11 @@ class EmployeeController extends AccountBaseController
             logger($e->getMessage());
             // Rollback Transaction
             DB::rollback();
+
+            // Files written before the failure are removed with the rows
+            if (isset($user) && $user->id && $storedDocuments) {
+                app(\App\Services\Employee\OnboardingDocuments::class)->discard($user->id, $storedDocuments);
+            }
 
             return Reply::error('Some error occurred when inserting the data. Please try again or contact support ' . $e->getMessage());
         }
@@ -616,7 +638,12 @@ class EmployeeController extends AccountBaseController
         }
 
         $user = User::withoutGlobalScope(ActiveScope::class)->findOrFail($id);
-        $user->name = $request->name;
+        // First / middle / last, as on Add Employee; the full name is built from them.
+        $user->first_name = $request->first_name;
+        $user->middle_name = $request->middle_name;
+        $user->last_name = $request->last_name;
+        $user->name = trim(implode(' ', array_filter([$request->first_name, $request->middle_name, $request->last_name])));
+        $user->personal_email = $request->personal_email;
         $user->email = $request->email;
 
         if ($request->password != '') {
@@ -633,6 +660,7 @@ class EmployeeController extends AccountBaseController
         $user->employee_ctc = ($request->filled('employee_ctc') || $request->employee_ctc === '0' || $request->employee_ctc === 0)
             ? $request->employee_ctc
             : null;
+        $user->monthly_salary = $user->employee_ctc !== null ? round((float) $user->employee_ctc / 12, 2) : null;
         $user->basic_for_payroll = ($request->filled('basic_for_payroll') || $request->basic_for_payroll === '0' || $request->basic_for_payroll === 0)
             ? $request->basic_for_payroll
             : null;
@@ -841,6 +869,42 @@ class EmployeeController extends AccountBaseController
         $finalDeclaration->hr_signature = $request->get('hr_signature');
         $finalDeclaration->hr_comments = $request->get('hr_comments');
         $finalDeclaration->save();
+
+        // Emergency contacts, as on Add Employee: the rows on the form replace those on file.
+        if ($request->has('emergency_name')) {
+            EmployeeRelation::where('user_id', $user->id)->delete();
+
+            foreach ((array) $request->get('emergency_name', []) as $i => $contactName) {
+                if (!$contactName) {
+                    continue;
+                }
+
+                $relation = new EmployeeRelation();
+                $relation->user_id = $user->id;
+                $relation->serial_no = $i + 1;
+                $relation->name = $contactName;
+                $relation->relation = $request->get('emergency_relation', [])[$i] ?? '';
+                $relation->contact_number = $request->get('emergency_number', [])[$i] ?? '';
+                $relation->save();
+            }
+        }
+
+        // The employee's own shift. Recorded only when it changes, from the date
+        // given (today by default); earlier days keep the shift they had.
+        if ($request->has('employee_shift_id')) {
+            $shiftAssignments = app(\App\Services\Attendance\ShiftAssignments::class);
+            $wanted = $request->filled('employee_shift_id') ? (int) $request->employee_shift_id : null;
+            $from = $request->filled('shift_effective_from') ? companyToYmd($request->shift_effective_from) : now()->toDateString();
+            $inForce = $shiftAssignments->current($user->id, $from);
+
+            if ((int) ($inForce->employee_shift_id ?? 0) !== (int) ($wanted ?? 0)) {
+                $shiftAssignments->assign($user->id, $wanted, $from, user()->id);
+            }
+        }
+
+        // Resume, checklist documents, signed declaration copies; and any marked for removal
+        app(\App\Services\Employee\OnboardingDocuments::class)
+            ->saveFromRequest($request, $user->id, company()->id);
 
         if (user()->id == $user->id) {
             session(['user' => $user]);
@@ -1515,7 +1579,17 @@ class EmployeeController extends AccountBaseController
         $employee->pf_account_number = $request->pf_account_number;
         $employee->esi_number = $request->esi_number;
         $employee->personal_account_number = $request->personal_account_number;
-        $employee->ifsc_code = $request->ifsc_code;
+        $employee->ifsc_code = $request->ifsc_code ? strtoupper($request->ifsc_code) : null;
+
+        // The bank and branch the IFSC belongs to, from the IFSC directory
+        // (cached, so this is the lookup the form already made).
+        if ($employee->isDirty('ifsc_code') || !$employee->bank_name) {
+            $bank = $employee->ifsc_code ? app(\App\Services\Bank\IfscLookup::class)->lookup($employee->ifsc_code) : null;
+            $valid = ($bank['status'] ?? null) === 'valid';
+            $employee->bank_name = $valid ? $bank['bank'] : null;
+            $employee->bank_branch = $valid ? trim($bank['branch'] . ', ' . $bank['city'], ', ') : null;
+            $employee->ifsc_verified_at = $valid ? now() : null;
+        }
         $employee->aadhar_card_number = $request->aadhar_card_number;
         $employee->father_or_husband_name = $request->father_or_husband_name;
         $employee->qualification = $request->qualification;

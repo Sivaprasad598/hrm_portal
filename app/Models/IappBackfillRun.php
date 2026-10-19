@@ -24,6 +24,7 @@ class IappBackfillRun extends BaseModel
         'from_date' => 'date',
         'to_date' => 'date',
         'sync_dates' => 'array',
+        'devices' => 'array',
         'cursor_at' => 'datetime',
         'started_at' => 'datetime',
         'finished_at' => 'datetime',

@@ -126,13 +126,31 @@
                                             @if ($row['ignored'])
                                                 <span class="badge badge-secondary ml-1">ignored</span>
                                             @endif
+                                            @if ($row['probably'])
+                                                <div class="f-11 text-success mt-1">
+                                                    Probably {{ $row['probably']['employee_id'] }} {{ $row['probably']['name'] }}
+                                                    <span class="text-lightest">({{ implode('; ', $row['probably']['reasons']) }})</span>
+                                                </div>
+                                            @elseif ($row['possible'])
+                                                <div class="f-11 text-lightest mt-1">
+                                                    Could be: {{ collect($row['possible'])->map(fn ($c) => $c['employee_id'] . ' ' . $c['name'])->implode(', ') }}
+                                                    — choose on Employee Mapping
+                                                </div>
+                                            @endif
                                         </td>
                                         <td class="text-right">{{ number_format($row['punches']) }}</td>
                                         <td class="text-right">{{ $row['attendance_days'] }}</td>
                                         <td class="f-12 text-lightest">{{ $row['first_seen'] ?? '—' }}</td>
                                         <td class="f-12 text-lightest">{{ $row['last_seen'] ?? '—' }}</td>
                                         <td>
-                                            @if ($canCreate && $row['creatable'])
+                                            @if ($row['probably'])
+                                                <button type="button" class="btn btn-xs btn-primary link-probable"
+                                                        data-url="{{ route('biometric.employees.map', $row['device_id']) }}"
+                                                        data-user="{{ $row['probably']['user_id'] }}"
+                                                        data-label="{{ $row['emp_code'] }} → {{ $row['probably']['employee_id'] }} {{ $row['probably']['name'] }}">
+                                                    <i class="fa fa-link mr-1"></i>Link
+                                                </button>
+                                            @elseif ($canCreate && $row['creatable'])
                                                 <button type="button" class="btn btn-xs btn-outline-primary create-one"
                                                         data-id="{{ $row['device_id'] }}"
                                                         data-name="{{ $row['employee_name'] }}"
@@ -258,6 +276,30 @@
         $(function () {
             var csrf = '{{ csrf_token() }}';
             var createRoute = "{{ route('biometric.comparison.create') }}";
+
+            // A device-only code that is an employee already: link, do not create.
+            $(document).on('click', '.link-probable', function () {
+                var b = $(this);
+
+                Swal.fire({
+                    title: 'Link ' + b.data('label') + '?',
+                    text: 'Their punches on this device become their attendance.',
+                    showCancelButton: true,
+                    confirmButtonText: 'Link',
+                    customClass: { confirmButton: 'btn btn-primary mr-2', cancelButton: 'btn btn-secondary' },
+                    buttonsStyling: false
+                }).then(function (r) {
+                    if (!r.isConfirmed) { return; }
+
+                    $.easyAjax({
+                        url: b.data('url'),
+                        type: 'POST',
+                        blockUI: true,
+                        data: { _token: '{{ csrf_token() }}', action: 'map', user_id: b.data('user') },
+                        success: function (res) { if (res.status === 'success') { window.location.reload(); } }
+                    });
+                });
+            });
 
             // ---- filter -----------------------------------------------------
             $('#device-filter').on('keyup', function () {

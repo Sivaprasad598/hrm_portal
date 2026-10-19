@@ -427,7 +427,7 @@ class InvoiceObserver
         $google = new Google();
         $googleAccount = $invoice->company;
 
-        if (company()->google_calendar_status == 'active' && $googleAccount->google_calendar_verification_status == 'verified' && $googleAccount->token) {
+        if (company() && company()->google_calendar_status == 'active' && $googleAccount->google_calendar_verification_status == 'verified' && $googleAccount->token) {
             $google->connectUsing($googleAccount->token);
             try {
                 if ($invoice->event_id) {

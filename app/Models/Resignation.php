@@ -19,9 +19,25 @@ class Resignation extends Model
         'reviewed_at'        => 'datetime',
     ];
 
+    /**
+     * A resignation of this employee that is still live: waiting for review,
+     * or approved and not since closed by a rejoin. One person has at most one.
+     */
+    public static function openFor(int $userId, ?int $exceptId = null): ?self
+    {
+        return static::where('user_id', $userId)
+            ->whereIn('status', ['pending', 'approved'])
+            ->when(\Illuminate\Support\Facades\Schema::hasColumn('resignations', 'closed_by_rejoin_id'),
+                fn ($q) => $q->whereNull('closed_by_rejoin_id'))
+            ->when($exceptId, fn ($q) => $q->where('id', '<>', $exceptId))
+            ->orderByDesc('id')
+            ->first();
+    }
+
     public function employee()
     {
-        return $this->belongsTo(User::class, 'user_id');
+        // Includes people who have left: a resignation is mostly about them.
+        return $this->belongsTo(User::class, 'user_id')->withoutGlobalScope(\App\Scopes\ActiveScope::class);
     }
 
     public function company()

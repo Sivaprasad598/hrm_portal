@@ -43,6 +43,9 @@ class EmployeeDetailsObserver
 
         Artisan::call('app:recalculate-leaves-quotas ' . $detail->company_id . ' ' . $user->id);
 
+        // The first employment period, from the joining date.
+        app(\App\Services\Employment\EmploymentPeriods::class)->syncFromRecord((int) $detail->user_id);
+
         event(new NewUserSlackEvent($user));
 
         event(new NewEmployeeAddedEvent($user));
@@ -54,6 +57,12 @@ class EmployeeDetailsObserver
     {
         if (user() && $detail->isDirty('joining_date'))  {
             Artisan::call('app:recalculate-leaves-quotas ' . $detail->company_id . ' ' . $detail->user_id);
+        }
+
+        // The current employment period follows the record: joining and exit
+        // dates, designation, department, branch, codes.
+        if ($detail->isDirty(['joining_date', 'last_date', 'designation_id', 'department_id', 'branch_id', 'employee_id', 'employee_card_id'])) {
+            app(\App\Services\Employment\EmploymentPeriods::class)->syncFromRecord((int) $detail->user_id);
         }
 
     }

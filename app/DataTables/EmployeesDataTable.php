@@ -130,6 +130,14 @@ class EmployeesDataTable extends BaseDataTable
                 }
             }
 
+            // Someone who has left can be brought back as the same employee
+            if ($this->editEmployeePermission == 'all' && !empty($row->last_date)
+                && \Carbon\Carbon::parse($row->last_date)->lt(now()->startOfDay())) {
+                $action .= '<a class="dropdown-item" href="' . route('employees.rejoin.create', [$row->id]) . '">
+                                <i class="fa fa-user-plus mr-2"></i>Rejoin
+                            </a>';
+            }
+
             if ($this->deleteEmployeePermission == 'all' || ($this->deleteEmployeePermission == 'added' && user()->id == $row->added_by)) {
                 if ((!in_array('admin', $userRole) && user()->id !== $row->id) || (user()->id !== $row->id && in_array('admin', $userRole) && in_array('admin', user_roles()))) {
                     $action .= '<a class="dropdown-item delete-table-row" href="javascript:;" data-user-id="' . $row->id . '">
@@ -283,6 +291,7 @@ class EmployeesDataTable extends BaseDataTable
                 'employee_details.added_by',
                 'employee_details.employee_id',
                 'employee_details.joining_date',
+                'employee_details.last_date',
                 'teams.team_name as department_name',
                 DB::raw('CASE
                     WHEN users.status = "deactive" THEN "inactive"

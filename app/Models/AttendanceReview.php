@@ -60,6 +60,7 @@ class AttendanceReview extends BaseModel
         'left_early' => 'Left early',
         'not_on_device' => 'Not linked to device',
         'device_incomplete' => 'Device data incomplete',
+        'shift_in_progress' => 'Shift still running when reviewed',
     ];
 
     protected $guarded = ['id'];

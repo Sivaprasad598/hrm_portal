@@ -3,8 +3,9 @@
 namespace App\Models;
 
 /**
- * One date of the daily attendance routine: pulled from the device, reviewed,
- * notified. A date whose pull failed stays pending and is retried.
+ * One date of the nightly attendance routine: pulled from the device, built
+ * into Device Attendance, written to ERP and cross-checked, notified. A date
+ * whose pull failed stays pending and is retried.
  *
  * @property int $id
  * @property \Illuminate\Support\Carbon $date
@@ -29,6 +30,9 @@ class AttendanceDailyRun extends BaseModel
         'pulled_at' => 'datetime',
         'reviewed_at' => 'datetime',
         'notified_at' => 'datetime',
+        'built_at' => 'datetime',
+        'reconciled_at' => 'datetime',
+        'devices' => 'array',
     ];
 
 }

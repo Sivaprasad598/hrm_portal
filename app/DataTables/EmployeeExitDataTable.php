@@ -118,6 +118,16 @@ class EmployeeExitDataTable extends BaseDataTable
                         <i class="fa fa-history mr-2"></i> Exit History
                       </a>';
 
+            // Someone who has left can be brought back as the same employee
+            $hasLeft = $status === 'off_boarded'
+                || (!empty($row->last_date) && \Carbon\Carbon::parse($row->last_date)->lt(now()->startOfDay()));
+
+            if ($hasLeft && user()->permission('edit_employees') === 'all') {
+                $html .= '<a class="dropdown-item" href="' . route('employees.rejoin.create', $userId) . '">
+                            <i class="fa fa-user-plus mr-2"></i> Rejoin / Rehire
+                          </a>';
+            }
+
             $html .= '</div></div></div>';
 
             return $html;

@@ -103,7 +103,7 @@ class PayrollRegisterController extends AccountBaseController
             ->orderBy('p.emp_name')
             ->get([
                 'p.id', 'p.payslip_number', 'p.emp_name', 'p.emp_id', 'p.emp_pan', 'p.user_id',
-                'p.gross', 'p.basic', 'p.hra', 'p.ca', 'p.others',
+                'p.gross', 'p.basic', 'p.hra', 'p.ca', 'p.lta', 'p.cea', 'p.others',
                 'p.pf', 'p.employer_pf', 'p.esi', 'p.employer_esi', 'p.pt', 'p.tds',
                 'p.total_deductions', 'p.net_salary', 'p.attendance_net', 'p.leave_encashment',
                 'p.working_days', 'p.days_present', 'p.lop_days',

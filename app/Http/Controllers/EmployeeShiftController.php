@@ -81,6 +81,15 @@ class EmployeeShiftController extends AccountBaseController
 
     public function destroy($id)
     {
+        // A shift employees have (or had) as their own cannot go: their days are
+        // judged by it. Move them to another shift on Edit Employee first.
+        $assigned = \Illuminate\Support\Facades\DB::table('employee_shift_assignments')
+            ->where('employee_shift_id', $id)->distinct()->count('user_id');
+
+        if ($assigned > 0) {
+            return Reply::error($assigned . ' employee(s) have this shift on record. Give them another shift on Edit Employee before deleting it.');
+        }
+
         EmployeeShift::destroy($id);
         return Reply::success(__('messages.deleteSuccess'));
     }
@@ -121,6 +130,11 @@ class EmployeeShiftController extends AccountBaseController
 
         $setting->save();
         session()->forget('attendance_setting');
+
+        // Roster days written from employees' assignments carry the shift's hours;
+        // from today on they take the new ones.
+        app(\App\Services\Attendance\ShiftAssignments::class)->refreshHours((int) $setting->id);
+
         return Reply::success(__('messages.updateSuccess'));
     }
 

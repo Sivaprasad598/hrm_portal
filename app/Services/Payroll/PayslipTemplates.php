@@ -124,17 +124,20 @@ class PayslipTemplates
     {
         $company = $this->company();
 
+        // A month by the calculation sheet (gross 32,000), plus an extra line each way.
         $earnings = [
-            ['Basic', 15000.00],
-            ['House Rent Allowance', 7500.00],
-            ['Conveyance Allowance', 1600.00],
-            ['Other Allowances', 5900.00],
+            ['Basic', 12800.00],
+            ['House Rent Allowance', 5120.00],
+            ['Conveyance Allowance', 800.00],
+            ['Leave Travel Allowance', 1280.00],
+            ['Children Education Allowance', 1200.00],
+            ['Special Allowance', 10800.00],
             ['Overtime', 4500.00],
         ];
 
         $deductions = [
-            ['Employee PF', 1800.00],
-            ['Employee ESI', 225.00],
+            ['Employee PF', 1536.00],
+            ['Employee ESI', 0.00],
             ['Professional Tax', 200.00],
             ['Salary Advance', 2000.00],
         ];

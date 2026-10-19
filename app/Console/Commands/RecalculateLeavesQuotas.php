@@ -426,6 +426,13 @@ class RecalculateLeavesQuotas extends Command
             $leaveTo = $leaveStartYear->copy()->addYear()->toDateString();
         }
 
+        // Nothing before the joining date counts against this employment: for
+        // someone who left and rejoined, leave taken in the earlier employment
+        // was settled when it ended.
+        if ($joiningDate && $leaveFrom < $joiningDate->toDateString()) {
+            $leaveFrom = $joiningDate->toDateString();
+        }
+
         $fullDay = Leave::where('user_id', $user->id)
             ->whereBetween('leave_date', [$leaveFrom, $leaveTo])
             ->where('status', 'approved')

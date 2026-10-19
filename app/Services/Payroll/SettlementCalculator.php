@@ -2,6 +2,7 @@
 
 namespace App\Services\Payroll;
 
+use App\Services\Leaves\EarnedLeavePolicy;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -55,30 +56,43 @@ class SettlementCalculator
         // ---- the final month's salary -----------------------------------
         $cycle = PayPeriod::forMonth((int) $lastWorkingDay->month, (int) $lastWorkingDay->year);
         $days = (new AttendanceDays())->forRange($userId, $cycle->start, min($lastWorkingDay, $cycle->end));
+
+        // As on every payslip: the day's pay is the month's net over all the
+        // days of the salary period (30 / 31), and only the days up to the last
+        // working day are paid. Dividing by the days up to the last day instead
+        // paid a whole month for a part of one.
+        $periodDays = $cycle->days();
         $pay = (new SalaryCalculator())->forEmployee(
             (float) $employee->employee_ctc,
             $employee->basic_for_payroll !== null ? (float) $employee->basic_for_payroll : null,
-            $days['working_days'],
+            $periodDays,
             $days['days_present'],
             (float) ($employee->monthly_tds ?? 0)
         );
 
-        $salaryDue = round($pay['net'] - $pay['after_lop'], 2);
+        // The month's pay before PF, ESI and tax: gross less the attendance
+        // deduction. Those come off once, below. (This used to start from Net,
+        // which is after them, and then take the employee's share off again.)
+        $statutory = round($pay['pf'] + $pay['esi'] + $pay['pt'] + $pay['tds'], 2);
+        $salaryDue = round($pay['final_net'] + $statutory, 2);
         $workings[] = ['Salary for ' . $cycle->describe(), $salaryDue,
-            sprintf('%s day(s) of %s worked up to %s',
+            sprintf('%s day(s) paid of the %s in the period, up to %s',
                 rtrim(rtrim(number_format($days['days_present'], 2), '0'), '.'),
-                $days['working_days'], $lastWorkingDay->format('d M Y'))];
+                $periodDays, $lastWorkingDay->format('d M Y'))];
 
         // ---- leave not taken --------------------------------------------
         $leave = $this->leaveBalance($userId);
-        $perDay = $pay['working_days'] > 0 ? $pay['net'] / $pay['working_days'] : 0.0;
+        $perDay = $periodDays > 0 ? $pay['net'] / $periodDays : 0.0;
         $leaveDays = (float) ($overrides['leave_days'] ?? $leave['days']);
-        $encashment = round($leaveDays * $perDay, 2);
+        $leaveRate = $this->leaveDayRate($employee);
+        $encashment = round($leaveDays * ($leaveRate['exact_rate'] ?? 0), 2);
 
         if ($encashment > 0) {
             $workings[] = ['Leave not taken', $encashment,
-                sprintf('%s day(s) at %s a day', rtrim(rtrim(number_format($leaveDays, 2), '0'), '.'),
-                    number_format($perDay, 2))];
+                sprintf('%s day(s) of %s at %s a day (%s)', rtrim(rtrim(number_format($leaveDays, 2), '0'), '.'),
+                    $leave['types'] ?: 'leave', number_format((float) $leaveRate['rate'], 2), $leaveRate['source'])];
+        } elseif ($leave['note'] !== '') {
+            $workings[] = ['Leave not taken', 0.0, $leave['note']];
         }
 
         // ---- gratuity ----------------------------------------------------
@@ -119,11 +133,9 @@ class SettlementCalculator
         }
 
         // ---- what the law takes off the final pay -------------------------
-        $statutory = round($pay['pf_employee'] + $pay['esi_employee'] + $pay['pt'] + $pay['tds'], 2);
-
         if ($statutory > 0) {
             $workings[] = ['Provident fund, insurance, professional and income tax', -$statutory,
-                'on the final month\'s salary'];
+                'on the final month\'s salary; PF and ESI both shares, as on the payslip'];
         }
 
         $deductions = round($notice['recovery'] + $advances['amount'] + $otherRecovery + $statutory, 2);
@@ -218,6 +230,9 @@ class SettlementCalculator
 
         $resignation = DB::table('resignations')
             ->where('user_id', $userId)
+            ->where('status', 'approved')
+            ->when(\Illuminate\Support\Facades\Schema::hasColumn('resignations', 'closed_by_rejoin_id'),
+                fn ($q) => $q->whereNull('closed_by_rejoin_id'))
             ->orderByDesc('id')
             ->first(['notice_period_days', 'notice_start_date', 'last_working_date', 'notice_served']);
 
@@ -274,26 +289,90 @@ class SettlementCalculator
      *
      * @return array{days: float, note: string}
      */
+    /**
+     * Leave days to be paid out: the remaining balance of the leave types set
+     * to be encashed (Leave Types -> Encashed). Casual, sick and the like lapse
+     * on leaving and are not paid.
+     *
+     * @return array{days: float, types: string, note: string}
+     */
     protected function leaveBalance(int $userId): array
     {
         try {
             // The leave module keeps the balance itself, so it is read rather
             // than worked out again here.
-            $quotas = DB::table('employee_leave_quotas')
-                ->where('user_id', $userId)
-                ->get(['leave_type_id', 'no_of_leaves', 'leaves_used', 'leaves_remaining']);
+            $quotas = DB::table('employee_leave_quotas as q')
+                ->join('leave_types as t', 't.id', '=', 'q.leave_type_id')
+                ->where('q.user_id', $userId)
+                ->whereNull('t.deleted_at')
+                ->get(['t.id as type_id', 't.type_name', 't.encashed', 'q.no_of_leaves', 'q.leaves_used', 'q.leaves_remaining']);
+            $earnedLeave = new \App\Services\Leaves\EarnedLeavePolicy();
+            $notes = [];
 
             $days = 0.0;
+            $types = [];
+            $lapsing = 0.0;
 
             foreach ($quotas as $quota) {
-                $days += max(0.0, $quota->leaves_remaining !== null
+                $left = max(0.0, $quota->leaves_remaining !== null
                     ? (float) $quota->leaves_remaining
                     : (float) $quota->no_of_leaves - (float) $quota->leaves_used);
+
+                if ((int) $quota->encashed === 1) {
+                    // Earned Leave: paid out only after the years of service, and
+                    // only up to the most the policy pays.
+                    if ($earnedLeave->isEarnedLeave((int) $quota->type_id) && $left > 0) {
+                        if (!$earnedLeave->canUse($userId)) {
+                            $notes[] = EarnedLeavePolicy::fmt($left) . ' day(s) of ' . $quota->type_name . ' not paid: '
+                                . strtolower(rtrim($earnedLeave->refusal($userId), '.'));
+                            continue;
+                        }
+
+                        $cap = $earnedLeave->encashMaxDays();
+
+                        if ($cap !== null && $left > $cap) {
+                            $notes[] = 'paid up to ' . EarnedLeavePolicy::fmt($cap) . ' of ' . EarnedLeavePolicy::fmt($left) . ' day(s) of ' . $quota->type_name;
+                            $left = $cap;
+                        }
+                    }
+
+                    $days += $left;
+                    if ($left > 0) {
+                        $types[] = $quota->type_name;
+                    }
+                } else {
+                    $lapsing += $left;
+                }
             }
 
-            return ['days' => round($days, 2), 'note' => 'from the leave balances'];
+            if ($days <= 0 && $lapsing > 0 && $notes === []) {
+                $notes[] = 'No leave type is set to be encashed; ' . EarnedLeavePolicy::fmt($lapsing) . ' day(s) of other leave lapse';
+            }
+
+            return [
+                'days' => round($days, 2),
+                'types' => implode(', ', $types) . ($notes && $days > 0 ? '; ' . implode('; ', $notes) : ''),
+                'note' => $days <= 0 ? implode('; ', $notes) : '',
+            ];
         } catch (\Throwable $noQuotas) {
-            return ['days' => 0.0, 'note' => ''];
+            return ['days' => 0.0, 'types' => '', 'note' => ''];
+        }
+    }
+
+    /**
+     * What a day of encashed leave is worth: the Leave Settings rule (basic or
+     * gross, over the divisor), the same as the year-end encashment.
+     *
+     * @return array{rate: ?float, exact_rate: ?float, source: ?string}
+     */
+    protected function leaveDayRate(object $employee): array
+    {
+        try {
+            $companyId = (int) (DB::table('employee_details')->where('user_id', $employee->id)->value('company_id') ?: 1);
+
+            return (new \App\Services\Leaves\LeaveYearEnd($companyId, 1))->salaryBase($employee);
+        } catch (\Throwable $noRule) {
+            return ['rate' => null, 'exact_rate' => null, 'source' => null];
         }
     }
 
