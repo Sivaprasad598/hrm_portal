@@ -27,6 +27,7 @@ const POLL_MS = 30 * 1000;
 const SEGMENT_MS = 5 * 60 * 1000;          // upload the audio every 5 minutes
 const ALONE_LEAVE_MS = 2 * 60 * 1000;      // leave after being the only one in the call for 2 minutes
 const OVERTIME_MS = 30 * 60 * 1000;        // never stay longer than 30 minutes after the scheduled end
+const SILENCE_PEAK = 0.01;                 // a segment whose loudest sample stays under 1% has no speech in it
 
 if (!PORTAL || !KEY) {
   console.error('Set PORTAL_URL and BOT_KEY in notetaker-bot/.env');
@@ -51,6 +52,12 @@ function browser() {
       args: [
         '--disable-blink-features=AutomationControlled',
         '--autoplay-policy=no-user-gesture-required',
+        // The window is off-screen: stop Chrome treating it as hidden and throttling its page and audio
+        '--disable-backgrounding-occluded-windows',
+        '--disable-renderer-backgrounding',
+        '--disable-background-timer-throttling',
+        // Lets the Meet page record its own tab audio without the "share this tab" prompt
+        '--auto-accept-this-tab-capture',
         '--window-position=-2400,0', // keep the window off-screen
         '--window-size=1280,800',
       ],
@@ -104,6 +111,7 @@ function captureCallAudio() {
 
   function Patched(...args) {
     const pc = new Original(...args);
+    (state.pcs = state.pcs || []).push(pc);
     pc.addEventListener('track', (e) => addTrack(e.track));
     return pc;
   }
@@ -114,7 +122,7 @@ function captureCallAudio() {
 
 async function startRecorder(page) {
   // One MediaRecorder per segment so each upload is a complete audio file
-  await page.evaluate((segmentMs) => {
+  return page.evaluate(async (segmentMs) => {
     const state = window.__crmNotes;
     if (!state.ctx) {
       state.ctx = new AudioContext();
@@ -124,9 +132,46 @@ async function startRecorder(page) {
     state.index = 0;
     state.stopping = false;
 
+    // Record what the Meet tab plays. Meet's incoming WebRTC tracks can arrive as silence while Meet still plays
+    // the call, so the tracks collected by captureCallAudio are only the fallback.
+    let input = state.dest.stream;
+    let source = 'call audio tracks';
+    try {
+      const tab = await navigator.mediaDevices.getDisplayMedia({
+        video: { width: 320, height: 180, frameRate: 1 },
+        audio: { suppressLocalAudioPlayback: false, echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+        preferCurrentTab: true,
+        selfBrowserSurface: 'include',
+      });
+      if (tab.getAudioTracks().length) {
+        state.tab = tab;
+        const tabDest = state.ctx.createMediaStreamDestination();
+        state.ctx.createMediaStreamSource(new MediaStream(tab.getAudioTracks())).connect(tabDest);
+        input = tabDest.stream;
+        source = 'tab audio';
+      } else {
+        tab.getTracks().forEach((t) => t.stop());
+      }
+    } catch (e) {
+      source += ` (tab audio unavailable: ${e.name})`;
+    }
+
+    // How loud the call was during each segment, so silent recordings are not sent for transcription
+    const analyser = state.ctx.createAnalyser();
+    analyser.fftSize = 2048;
+    state.ctx.createMediaStreamSource(input).connect(analyser);
+    const samples = new Float32Array(analyser.fftSize);
+    state.peak = 0;
+    clearInterval(state.meter);
+    state.meter = setInterval(() => {
+      if (state.ctx.state !== 'running') state.ctx.resume();
+      analyser.getFloatTimeDomainData(samples);
+      for (let i = 0; i < samples.length; i++) state.peak = Math.max(state.peak, Math.abs(samples[i]));
+    }, 250);
+
     const run = () => {
       const chunks = [];
-      const recorder = new MediaRecorder(state.dest.stream, { mimeType: 'audio/webm;codecs=opus', audioBitsPerSecond: 32000 });
+      const recorder = new MediaRecorder(input, { mimeType: 'audio/webm;codecs=opus', audioBitsPerSecond: 32000 });
       state.recorder = recorder;
       recorder.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
       recorder.onstop = async () => {
@@ -136,13 +181,16 @@ async function startRecorder(page) {
         let binary = '';
         const bytes = new Uint8Array(buffer);
         for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
-        await window.__crmSegment(index, btoa(binary), state.stopping);
+        const peak = state.peak;
+        state.peak = 0;
+        await window.__crmSegment(index, btoa(binary), state.stopping, peak, state.keep.length, state.ctx.state);
         if (!state.stopping) run();
       };
       recorder.start(10000);
       state.timer = setTimeout(() => recorder.state === 'recording' && recorder.stop(), segmentMs);
     };
     run();
+    return source;
   }, SEGMENT_MS);
 }
 
@@ -151,8 +199,34 @@ async function stopRecorder(page) {
     const state = window.__crmNotes;
     state.stopping = true;
     clearTimeout(state.timer);
+    clearInterval(state.meter);
     if (state.recorder && state.recorder.state === 'recording') state.recorder.stop();
+    if (state.tab) state.tab.getTracks().forEach((t) => t.stop());
   }).catch(() => {});
+}
+
+// Why was a segment silent? Meet's receive statistics say whether any call audio reached the bot at all
+async function diagnoseSilence(page, tag) {
+  const info = await page.evaluate(async () => {
+    const audio = [];
+    for (const pc of (window.__crmNotes.pcs || [])) {
+      if (pc.connectionState === 'closed') continue;
+      const stats = await pc.getStats();
+      stats.forEach((r) => {
+        if (r.type === 'inbound-rtp' && r.kind === 'audio') {
+          audio.push({ kB: Math.round((r.bytesReceived || 0) / 1024), level: r.audioLevel ?? null, energy: r.totalAudioEnergy ?? null });
+        }
+      });
+    }
+    const names = [...new Set([...document.querySelectorAll('[data-participant-id]')]
+      .map((el) => (el.innerText || '').split('\n')[0].trim()).filter(Boolean))];
+    return { audio, names };
+  });
+  log(tag, 'call audio received by the bot (per stream):', JSON.stringify(info.audio));
+  log(tag, 'people in the call as the bot sees them:', JSON.stringify(info.names));
+  const shot = path.join(__dirname, 'silent-' + Date.now() + '.png');
+  await page.screenshot({ path: shot }).catch(() => {});
+  log(tag, 'screenshot:', shot);
 }
 
 async function othersInCall(page) {
@@ -173,9 +247,17 @@ async function runMeeting(meeting) {
   let lastSegmentSent = null;
 
   await page.addInitScript(captureCallAudio);
-  await page.exposeFunction('__crmSegment', (pageIndex, base64, last) => {
+  await page.exposeFunction('__crmSegment', (pageIndex, base64, last, peak = 0, tracks = 0, ctxState = '') => {
     const audio = Buffer.from(base64, 'base64');
     if (audio.length < 2000) return; // nothing recorded
+    const level = `level ${(peak * 100).toFixed(1)}%, ${tracks} audio stream(s), audio ${ctxState}`;
+    if (peak < SILENCE_PEAK) {
+      log(tag, `segment ${pageIndex + 1} silent, not uploaded (${level})`
+        + (tracks ? '' : ' - the bot received no audio from the call'));
+      diagnoseSilence(page, tag).catch((e) => log(tag, 'diagnosis failed:', e.message));
+      if (last) lastSegmentSent = uploads;
+      return;
+    }
     const index = nextPart.get(meeting.session) || 0;
     nextPart.set(meeting.session, index + 1);
     segments++;
@@ -186,7 +268,7 @@ async function runMeeting(meeting) {
           form.append('index', String(index));
           form.append('audio', new Blob([audio], { type: 'audio/webm' }), `segment-${index}.webm`);
           await api('POST', `/api/crm-notes/meetings/${meeting.id}/segments`, form);
-          log(tag, `audio part ${index + 1} uploaded (${Math.round(audio.length / 1024)} KB)`);
+          log(tag, `audio part ${index + 1} uploaded (${Math.round(audio.length / 1024)} KB, ${level})`);
           return;
         } catch (e) {
           log(tag, `upload of part ${index + 1} failed (try ${attempt}):`, e.message);
@@ -209,27 +291,39 @@ async function runMeeting(meeting) {
     const name = page.locator('input[type="text"][aria-label*="name" i]');
     if (await name.count()) await name.first().fill(BOT_NAME);
 
-    const join = page.locator('button:has-text("Join now"), button:has-text("Switch here"), button:has-text("Ask to join")');
+    // Never "Switch here": that button means the bot's Google account is already in the call on someone's device,
+    // and clicking it would take that person's call away. "Join here too" adds the bot alongside them.
+    const join = page.locator('button:has-text("Join now"), button:has-text("Join here too"), button:has-text("Ask to join")');
+    if (await page.locator('button:has-text("Switch here")').count()) {
+      log(tag, "WARNING: the bot's Google account is already in this call on another device. Sign the bot in to its own account (notetaker-bot\\sign-in.bat); Meet does not send a person's voice to their own second device.");
+    }
     await join.first().waitFor({ timeout: 30000 });
+    log(tag, 'clicking', JSON.stringify((await join.first().innerText().catch(() => '')).trim()));
     await join.first().click();
 
     const leave = page.locator('[aria-label*="Leave call" i]');
     await leave.first().waitFor({ timeout: 120000 });
     log(tag, 'in the call');
 
-    await startRecorder(page);
+    log(tag, 'recording', await startRecorder(page));
+    // Early check: after a minute in the call, log whether Meet is sending the bot any audio
+    setTimeout(() => diagnoseSilence(page, tag).catch(() => {}), 60000);
 
     const endsAt = new Date(meeting.ends_at).getTime();
     let aloneSince = null;
+    let someoneJoined = false; // the bot joins early: wait for people instead of leaving before they arrive
 
     while (true) {
       await page.waitForTimeout(15000);
       if (!(await leave.count())) { log(tag, 'removed from the call or call ended'); done = true; break; }
 
       const others = await othersInCall(page);
+      if (others > 0 && !someoneJoined) { someoneJoined = true; log(tag, `${others} other person(s) in the call`); }
       aloneSince = others > 0 ? null : (aloneSince || Date.now());
 
-      if (aloneSince && Date.now() - aloneSince > ALONE_LEAVE_MS) { log(tag, 'everyone has left'); done = true; break; }
+      // Nobody came: stay until the scheduled end (plus the alone time), then leave
+      if (!someoneJoined && Date.now() > endsAt + ALONE_LEAVE_MS) { log(tag, 'nobody joined by the end time'); done = true; break; }
+      if (someoneJoined && aloneSince && Date.now() - aloneSince > ALONE_LEAVE_MS) { log(tag, 'everyone has left'); done = true; break; }
       if (Date.now() > endsAt + OVERTIME_MS) { log(tag, '30 minutes past the end time'); done = true; break; }
     }
   } catch (e) {
