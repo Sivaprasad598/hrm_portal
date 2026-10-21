@@ -124,7 +124,7 @@
     @endif
 
     @if (file_exists(public_path() . '/css/theme-custom.css'))
-        <link href="{{ asset('css/theme-custom.css') }}" rel="stylesheet">
+        <link href="{{ asset('css/theme-custom.css') }}?v={{ filemtime(public_path('css/theme-custom.css')) }}" rel="stylesheet">
     @endif
 
     <script src="{{ asset('vendor/jquery/jquery.min.js') }}"></script>
