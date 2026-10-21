@@ -345,9 +345,40 @@ class CustomerController extends AccountBaseController
     }
 
     /**
+     * Where the Meeting Result page returns to (Back, Cancel, after saving): the page its button was on.
+     * ?from=lead-contact|client (+ lead_id / client_id from a lead's or client's own Meetings tab). Opened without
+     * ?from= (a notification, a reminder): the Meetings page of the meeting's own contact, else Customers.
+     */
+    private function meetingsReturnUrl(Request $request, ?CustomerMeeting $meeting = null): string
+    {
+        $from = $request->get('from');
+
+        if (!$from && $meeting) {
+            $from = $meeting->client_id ? 'client' : ($meeting->lead_id ? 'lead-contact' : null);
+        }
+
+        $leadId = (int) $request->get('lead_id');
+        $clientId = (int) $request->get('client_id');
+
+        if ($from === 'lead-contact' && $leadId) {
+            return route('lead-contact.show', $leadId) . '?tab=meetings';
+        }
+
+        if ($from === 'client' && $clientId) {
+            return route('clients.show', $clientId) . '?tab=meetings';
+        }
+
+        if (in_array($from, ['lead-contact', 'client'], true)) {
+            return route('customers.index', ['from' => $from]) . '#meetings';
+        }
+
+        return route('customers.index') . '#meetings';
+    }
+
+    /**
      * Meeting Result page: "Follow-up Required" or "Discussion Ended".
      */
-    public function meetingResult($id)
+    public function meetingResult(Request $request, $id)
     {
         $meeting = CustomerMeeting::with(['customer', 'lead', 'client', 'followupMeeting'])->findOrFail($id);
         $followup = $meeting->followupMeeting;
@@ -396,6 +427,10 @@ class CustomerController extends AccountBaseController
         $this->endReasons      = self::END_REASONS;
         $this->meetingOutcomes = MeetingOption::ofType('result')->pluck('name')->all();
         $this->pageTitle       = 'Meeting Result';
+        $this->returnUrl       = $this->meetingsReturnUrl($request, $meeting);
+        // Saved result summary (shown instead of the form until Edit): the rich text notes, cleaned for display
+        $this->outcomeReasonHtml = self::cleanHtml($meeting->outcome_reason);
+        $this->endNotesHtml      = self::cleanHtml($meeting->end_notes);
 
         return view('customers.meeting-result', $this->data);
     }
@@ -610,6 +645,30 @@ class CustomerController extends AccountBaseController
         $meeting->save();
 
         return Reply::success($message);
+    }
+
+    /**
+     * Delete a meeting's saved result (Meeting Result page → Delete): the meeting goes back to having no result.
+     * A follow-up meeting it scheduled is kept as an ordinary meeting, only unlinked.
+     */
+    public function deleteMeetingResult($id)
+    {
+        $meeting = CustomerMeeting::findOrFail($id);
+
+        $meeting->fill([
+            'result'              => null,
+            'outcome'             => null,
+            'outcome_reason'      => null,
+            'end_reason'          => null,
+            'end_notes'           => null,
+            'followup_date'       => null,
+            'followup_action'     => null,
+            'followup_reason'     => null,
+            'followup_meeting_id' => null,
+            'result_at'           => null,
+        ])->save();
+
+        return Reply::success('Meeting result deleted.');
     }
 
     /**

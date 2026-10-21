@@ -331,6 +331,7 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account'], function () {
     Route::put('customer-meetings/{id}', [\App\Http\Controllers\CustomerController::class, 'updateMeeting'])->name('customers.meetings.update');
     Route::get('customer-meetings/{id}/result', [\App\Http\Controllers\CustomerController::class, 'meetingResult'])->name('customers.meetings.result');
     Route::post('customer-meetings/{id}/result', [\App\Http\Controllers\CustomerController::class, 'saveMeetingResult'])->name('customers.meetings.result.save');
+    Route::delete('customer-meetings/{id}/result', [\App\Http\Controllers\CustomerController::class, 'deleteMeetingResult'])->name('customers.meetings.result.destroy');
     Route::post('crm-notes/key', [\App\Http\Controllers\CrmNotesController::class, 'createKey'])->name('crm-notes.key');
     Route::get('customer-meetings/{id}/notes', [\App\Http\Controllers\CustomerController::class, 'meetingNotes'])->name('customers.meetings.notes');
     Route::post('customer-meetings/{id}/notes', [\App\Http\Controllers\CustomerController::class, 'refreshMeetingNotes'])->name('customers.meetings.notes.refresh');

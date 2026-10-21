@@ -4,6 +4,8 @@
 <head>
     <!-- Required meta tags -->
     <meta charset="utf-8">
+    {{-- Broken images get a placeholder (registered first, so it catches every image) --}}
+    @include('sections.image-fallback')
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
     <!-- Font Awesome Icons -->

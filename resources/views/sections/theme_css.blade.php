@@ -127,4 +127,13 @@
         color: #000000 !important;
     }
 
+    /* Page tabs (Profile | Deals | Notes | Meetings): one underline only. The theme underlines the active
+       tab with a border; the base stylesheet also drew a 3px bar under it, which gave two lines. */
+    .project-menu .p-sub-menu::after,
+    .project-menu .p-sub-menu:hover::after,
+    .project-menu .p-sub-menu.active::after,
+    .project-menu .p-sub-menu.active:hover::after {
+        display: none !important;
+    }
+
 </style>

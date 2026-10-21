@@ -16,10 +16,12 @@ $viewClientOrder = user()->permission('view_order');
     <!-- FILTER START -->
     <!-- PROJECT HEADER START -->
 
-    <div class="d-flex d-lg-block filter-box project-header bg-white">
+    {{-- A row on every screen size, so the Back button sits on the right of the tabs --}}
+    <div class="d-flex align-items-center filter-box project-header bg-white">
         <div class="mobile-close-overlay w-100 h-100" id="close-client-overlay"></div>
 
-        <div class="project-menu" id="mob-client-detail">
+        {{-- Takes the width left of the Back button; "More" collects the tabs that do not fit --}}
+        <div class="project-menu" id="mob-client-detail" style="flex: 1 1 auto; min-width: 0;">
             <a class="d-none close-it" href="javascript:;" id="close-client-detail">
                 <i class="fa fa-times"></i>
             </a>
@@ -114,7 +116,11 @@ $viewClientOrder = user()->permission('view_order');
             </nav>
         </div>
 
-        <a class="mb-0 d-block d-lg-none text-dark-grey ml-auto mr-2 border-left-grey" onclick="openClientDetailSidebar()"><i class="fa fa-ellipsis-v "></i></a>
+        {{-- Back to the Clients list, at the right end of the tab bar --}}
+        <a href="{{ route('clients.index') }}"
+           class="btn btn-outline-secondary btn-sm align-self-center ml-auto mr-3 text-nowrap"
+           title="Back to Clients">&larr; Back</a>
+        <a class="mb-0 d-block d-lg-none text-dark-grey mr-2 border-left-grey" onclick="openClientDetailSidebar()"><i class="fa fa-ellipsis-v "></i></a>
 
     </div>
     <!-- FILTER END -->

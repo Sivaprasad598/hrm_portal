@@ -18,13 +18,6 @@ $addLeadCustomFormPermission = user()->permission('manage_lead_custom_forms');
 @section('content')
     <!-- CONTENT WRAPPER START -->
     <div class="content-wrapper">
-        @include('customers.partials.contact-section-tabs', [
-            'active' => 'list',
-            'listUrl' => route('lead-contact.index'),
-            'listLabel' => __('modules.leadContact.leadContacts'),
-            'meetingsUrl' => route('customers.index', ['from' => 'lead-contact']) . '#meetings',
-        ])
-
         <!-- Add Task Export Buttons Start -->
         <div class="d-grid d-lg-flex d-md-flex action-bar">
             <div id="table-actions" class="flex-grow-1 align-items-center">
@@ -54,6 +47,16 @@ $addLeadCustomFormPermission = user()->permission('manage_lead_custom_forms');
                     </select>
                 </div>
             </x-datatable.actions>
+
+            {{-- "Lead Contacts | Meetings" at the right end of the button row --}}
+            @include('customers.partials.contact-section-tabs', [
+                'active' => 'list',
+                'listUrl' => route('lead-contact.index'),
+                'listLabel' => __('modules.leadContact.leadContacts'),
+                'meetingsUrl' => route('customers.index', ['from' => 'lead-contact']) . '#meetings',
+                'margin' => 'mb-0',
+                'class' => 'align-self-center ml-lg-3 mt-2 mt-md-0',
+            ])
 
         </div>
 

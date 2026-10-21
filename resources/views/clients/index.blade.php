@@ -165,13 +165,6 @@
 
     <!-- CONTENT WRAPPER START -->
     <div class="content-wrapper">
-        @include('customers.partials.contact-section-tabs', [
-            'active' => 'list',
-            'listUrl' => route('clients.index'),
-            'listLabel' => __('app.menu.clients'),
-            'meetingsUrl' => route('customers.index', ['from' => 'client']) . '#meetings',
-        ])
-
         <!-- Add Task Export Buttons Start -->
         <div class="d-grid d-lg-flex d-md-flex action-bar">
 
@@ -212,6 +205,16 @@
                 <a href="javascript:;" class="btn btn-secondary f-14 show-unverified" data-toggle="tooltip"
                     data-original-title="@lang('modules.dashboard.verificationPending')"><i class="side-icon bi bi-person-x"></i></a>
             </div>
+
+            {{-- "Clients | Meetings" at the right end of the button row --}}
+            @include('customers.partials.contact-section-tabs', [
+                'active' => 'list',
+                'listUrl' => route('clients.index'),
+                'listLabel' => __('app.menu.clients'),
+                'meetingsUrl' => route('customers.index', ['from' => 'client']) . '#meetings',
+                'margin' => 'mb-0',
+                'class' => 'align-self-center ml-lg-3 ml-md-3 mt-2 mt-md-0',
+            ])
 
         </div>
         <!-- Add Task Export Buttons End -->

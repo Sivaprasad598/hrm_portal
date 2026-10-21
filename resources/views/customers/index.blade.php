@@ -3,23 +3,15 @@
 @section('content')
 
 <div class="content-wrapper">
-    @if ($contactListUrl)
-        {{-- Opened as the Meetings tab of Lead Contacts / Clients --}}
-        @include('customers.partials.contact-section-tabs', [
-            'active' => 'meetings',
-            'listUrl' => $contactListUrl,
-            'listLabel' => $pageTitle,
-            'meetingsUrl' => request()->fullUrlWithoutQuery([]) . '#meetings',
-            'class' => 'hide-while-editing',
-        ])
-    @else
+    {{-- Opened as the Meetings tab of Lead Contacts / Clients: the "… | Meetings" tabs sit in the Meetings header row --}}
+    @unless ($contactListUrl)
     <div class="d-flex justify-content-between align-items-center mb-4 hide-while-editing">
         <div>
             <h1 class="mb-1">Customers</h1>
             <p class="text-muted mb-0">Manage customers and customer meetings</p>
         </div>
     </div>
-    @endif
+    @endunless
 
     {{-- ==================== TABS ==================== --}}
     <div class="mb-3 hide-while-editing {{ $contactListUrl ? 'd-none' : 'd-flex' }}" style="gap: 8px;">
@@ -66,19 +58,33 @@
 
     {{-- ==================== MEETINGS PANEL ==================== --}}
     <section id="meetingsPanel" style="display: none;">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <div>
-                <h2 class="h5 mb-0">Meetings</h2>
-                <div class="text-muted small">Created customer meetings</div>
+        {{-- Left: heading, + Add Meeting and the bot's status. Right: "… | Meetings" tabs (Back while the form is open) --}}
+        <div class="d-flex justify-content-between align-items-center flex-wrap mb-3" style="gap: 8px;">
+            <div class="d-flex align-items-center flex-wrap" style="gap: 16px;">
+                <div>
+                    <h2 class="h5 mb-0">Meetings</h2>
+                    {{-- Opened from Lead Contacts / Clients: "lead" / "client" meetings, else customer --}}
+                    @php $meetingsWord = !$contactListUrl ? 'customer' : ($meetingWith === 'client' ? 'client' : 'lead'); @endphp
+                    <div class="text-muted small">Created {{ $meetingsWord }} meetings</div>
+                </div>
+                <div class="d-flex align-items-center hide-while-editing" style="gap: 8px;">
+                    <button type="button" class="btn btn-primary" id="topAddMeetingBtn">+ Add Meeting</button>
+                    <span class="badge badge-light border align-self-stretch d-inline-flex align-items-center px-3" id="botStatusBadge" style="font-size: 13px; border-radius: 8px;" title="CRM Notetaker bot: joins every Google Meet meeting automatically and takes notes">Bot: checking…</span>
+                </div>
             </div>
             <div class="d-flex align-items-center" style="gap: 8px;">
-            <div class="d-flex hide-while-editing" style="gap: 8px;">
-                <span class="badge badge-light border align-self-center px-2 py-2" id="botStatusBadge" title="CRM Notetaker bot: joins every Google Meet meeting automatically and takes notes">Bot: checking…</span>
-                <button type="button" class="btn btn-outline-secondary" id="crmNotesSetupBtn" title="Connect the CRM Notes Chrome extension">CRM Notes extension</button>
-                <button type="button" class="btn btn-primary" id="topAddMeetingBtn">+ Add Meeting</button>
-            </div>
-            {{-- Back: only while the Add/Edit Meeting form is open; closes it --}}
-            <button type="button" class="btn btn-outline-secondary show-while-editing" id="meetingsBackBtn">&larr; Back</button>
+                @if ($contactListUrl)
+                    @include('customers.partials.contact-section-tabs', [
+                        'active' => 'meetings',
+                        'listUrl' => $contactListUrl,
+                        'listLabel' => $pageTitle,
+                        'meetingsUrl' => request()->fullUrlWithoutQuery([]) . '#meetings',
+                        'margin' => 'mb-0',
+                        'class' => 'hide-while-editing',
+                    ])
+                @endif
+                {{-- Back: only while the Add/Edit Meeting form is open; closes it --}}
+                <button type="button" class="btn btn-outline-secondary show-while-editing" id="meetingsBackBtn">&larr; Back</button>
             </div>
         </div>
 
@@ -86,7 +92,8 @@
         <div id="meetingEditor" style="display: none;">
             <div class="card mb-3" id="meetingChooser">
                 <div class="card-body">
-                    <h3 class="h6 mb-1">Meet with Customer</h3>
+                    {{-- "Lead" / "Client": set by setMeetingContact() for the meeting being added or edited --}}
+                    <h3 class="h6 mb-1">Meet with <span class="meeting-contact-word">{{ $meetingWith === 'client' ? 'Client' : 'Lead' }}</span></h3>
                     <p class="text-muted small mb-3">Choose Online Meeting or Offline Meeting</p>
                     <div class="d-flex" style="gap: 10px;">
                         <button type="button" class="btn btn-outline-primary" id="onlineBtn">Online Meeting</button>
@@ -99,13 +106,17 @@
         </div>
 
         {{-- Meetings list --}}
-        <div id="meetingList" class="hide-while-editing">
+        <div id="meetingList" class="hide-while-editing meeting-carousel-groups">
             @forelse (\App\Models\CustomerMeeting::groupByProject($meetings) as $projectId => $groupMeetings)
             @include('customers.partials.project-group-header', [
                 'projectName' => $groupMeetings->first()->leadProject->name ?? 'Project',
                 'count' => $groupMeetings->count(),
                 'open' => $loop->first,
             ])
+            {{-- This project's meetings as a carousel: the arrows (or a swipe / shift + wheel) scroll it --}}
+            <div class="meeting-carousel">
+                <button type="button" class="meeting-carousel-arrow prev" aria-label="Previous meetings"><i class="fa fa-chevron-left"></i></button>
+                <div class="meeting-track">
             @foreach ($groupMeetings as $meeting)
                 @php
                     $meetingOwner = $employees->firstWhere('name', $meeting->lead_owner);
@@ -130,75 +141,95 @@
                         'description'     => $meeting->description,
                     ];
                 @endphp
-                <div class="card mb-2 meeting-card" data-meeting-id="{{ $meeting->id }}">
-                    <div class="card-body d-flex justify-content-between align-items-start flex-wrap" style="gap: 16px;">
-                        <div>
-                            <h3 class="h6 mb-1 font-weight-bold">
-                                {{ $meeting->title ?: ucfirst($meeting->meeting_type) . ' Meeting' }}
-                                @if ($meeting->title)
-                                    <span class="badge badge-light border ml-1">{{ ucfirst($meeting->meeting_type) }}</span>
-                                @endif
+                <div class="meeting-slide">
+                <div class="card meeting-card h-100" data-meeting-id="{{ $meeting->id }}">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2" style="gap: 8px;">
+                            <h3 class="meeting-card-title mb-0">{{ $meeting->title ?: ucfirst($meeting->meeting_type) . ' Meeting' }}</h3>
+                            <i class="fa fa-thumbtack meeting-card-pin" aria-hidden="true"></i>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center flex-wrap" style="gap: 8px;">
+                            <div class="d-flex flex-wrap" style="gap: 6px;">
+                                <span class="meeting-chip meeting-chip-type">{{ ucfirst($meeting->meeting_type) }}</span>
                                 @if ($meeting->status)
-                                    <span class="badge badge-light border ml-1">{{ $meeting->status }}</span>
+                                    <span class="meeting-chip">{{ $meeting->status }}</span>
                                 @endif
-                            </h3>
-                            {{-- Filled by the live status poll while people are in the Google Meet call --}}
-                            <div class="meet-live-panel mb-2" data-meeting-id="{{ $meeting->id }}" style="display: none;"></div>
-                            <p class="mb-1"><b>{{ $meeting->client_id ? 'Client' : 'Lead' }}:</b> {{ $meeting->contact->company_name ?? '-' }}</p>
+                            </div>
+                            <div class="d-flex flex-wrap meeting-card-actions" style="gap: 6px;">
+                                <button type="button" class="btn btn-outline-primary edit-meeting-btn"
+                                        data-meeting-id="{{ $meeting->id }}" data-meeting='@json($meetingData)'>Edit</button>
+                                @if ($meeting->meeting_type === 'online' && $meeting->provider === 'Google Meet' && $meeting->meeting_link)
+                                    <button type="button" class="btn btn-outline-info meet-notes-btn" data-meeting-id="{{ $meeting->id }}">
+                                        Meet Notes @if ($meeting->meet_notes)<i class="fa fa-check-circle ml-1"></i>@endif
+                                    </button>
+                                @endif
+                                {{-- Carries ?from= / lead_id / client_id so the result page returns here --}}
+                                <a href="{{ route('customers.meetings.result', ['id' => $meeting->id] + request()->only(['from', 'lead_id', 'client_id'])) }}" class="btn btn-outline-success">Meeting Result</a>
+                                <button type="button" class="btn btn-outline-danger delete-meeting-btn"
+                                        data-meeting-id="{{ $meeting->id }}">Delete</button>
+                            </div>
+                        </div>
+
+                        <hr class="my-3">
+
+                        {{-- Filled by the live status poll while people are in the Google Meet call --}}
+                        <div class="meet-live-panel mb-2" data-meeting-id="{{ $meeting->id }}" style="display: none;"></div>
+                        <div class="meeting-card-details">
+                            <p><b>{{ $meeting->client_id ? 'Client' : 'Lead' }}:</b> {{ $meeting->contact->company_name ?? '-' }}</p>
                             @if ($meeting->leadProject)
-                                <p class="mb-1"><b>Project:</b> {{ $meeting->leadProject->name }}</p>
+                                <p><b>Project:</b> {{ $meeting->leadProject->name }}</p>
                             @endif
                             @if ($meeting->title)
-                                <p class="mb-1"><b>Title:</b> {{ $meeting->title }}</p>
+                                <p><b>Title:</b> {{ $meeting->title }}</p>
                             @endif
-                            <p class="mb-1 text-muted">
-                                {{ $meeting->purpose }} ·
+                            <p class="small">
+                                <b>{{ $meeting->purpose ?: 'Meeting' }}</b> ·
                                 {{ $meeting->meeting_date ? $meeting->meeting_date->format('d M Y') : '-' }} ·
                                 {{ $meeting->start_time ? \Carbon\Carbon::parse($meeting->start_time)->format('h:i A') : '' }}
                                 - {{ $meeting->end_time ? \Carbon\Carbon::parse($meeting->end_time)->format('h:i A') : '' }}
                             </p>
                             @if ($meeting->lead_owner)
-                                <p class="mb-1 text-muted small">Lead Owner: {{ $meeting->lead_owner }}</p>
+                                <p class="small"><b>Lead Owner:</b> {{ $meeting->lead_owner }}</p>
                             @endif
                             @if ($meeting->meeting_link)
-                                <p class="mb-1 text-muted small">Link: <a href="{{ $meeting->meeting_link }}" target="_blank" rel="noopener">{{ $meeting->meeting_link }}</a></p>
+                                <p class="small meeting-card-link"><b>Link:</b> <a href="{{ $meeting->meeting_link }}" target="_blank" rel="noopener">{{ $meeting->meeting_link }}</a></p>
                             @endif
                             @if ($meeting->location)
-                                <p class="mb-0 text-muted small">Location: {{ $meeting->location }}</p>
-                            @endif
-                            @if ($meeting->result === 'followup')
-                                <p class="mb-0 mt-1 small"><span class="badge badge-info">Follow-up</span>
-                                    {{ $meeting->followup_action }} on {{ $meeting->followup_date ? $meeting->followup_date->format('d M Y') : '-' }}</p>
-                            @elseif ($meeting->result === 'outcome')
-                                <p class="mb-0 mt-1 small"><span class="badge badge-success">Result</span>
-                                    {{ $meeting->outcome }}@if ($meeting->followup_date) · Follow-up on {{ $meeting->followup_date->format('d M Y') }}@endif</p>
-                            @elseif ($meeting->result === 'ended')
-                                <p class="mb-0 mt-1 small"><span class="badge badge-danger">Discussion Ended</span>
-                                    {{ $meeting->end_reason }}</p>
+                                <p class="small"><b>Location:</b> {{ $meeting->location }}</p>
                             @endif
                         </div>
-                        <div class="d-flex" style="gap: 8px;">
-                            <button type="button" class="btn btn-outline-primary btn-sm edit-meeting-btn"
-                                    data-meeting-id="{{ $meeting->id }}" data-meeting='@json($meetingData)'>Edit</button>
-                            @if ($meeting->meeting_type === 'online' && $meeting->provider === 'Google Meet' && $meeting->meeting_link)
-                                <button type="button" class="btn btn-outline-info btn-sm meet-notes-btn" data-meeting-id="{{ $meeting->id }}">
-                                    Meet Notes @if ($meeting->meet_notes)<i class="fa fa-check-circle ml-1"></i>@endif
-                                </button>
-                            @endif
-                            <a href="{{ route('customers.meetings.result', $meeting->id) }}" class="btn btn-outline-success btn-sm">Meeting Result</a>
-                            <button type="button" class="btn btn-outline-danger btn-sm delete-meeting-btn"
-                                    data-meeting-id="{{ $meeting->id }}">Delete</button>
-                        </div>
+
+                        @if ($meeting->result === 'followup')
+                            <div class="meeting-result-pill meeting-result-followup">
+                                <b>Follow-up</b> {{ $meeting->followup_action }} on {{ $meeting->followup_date ? $meeting->followup_date->format('d M Y') : '-' }}
+                            </div>
+                        @elseif ($meeting->result === 'outcome')
+                            <div class="meeting-result-pill">
+                                <b>Result</b> {{ $meeting->outcome }}@if ($meeting->followup_date) · Follow-up on {{ $meeting->followup_date->format('d M Y') }}@endif
+                            </div>
+                        @elseif ($meeting->result === 'ended')
+                            <div class="meeting-result-pill meeting-result-ended">
+                                <b>Discussion Ended</b> {{ $meeting->end_reason }}
+                            </div>
+                        @endif
                     </div>
                 </div>
+                </div>
             @endforeach
+                </div>
+                <button type="button" class="meeting-carousel-arrow next" aria-label="Next meetings"><i class="fa fa-chevron-right"></i></button>
+            </div>
+            {{-- "1 / 3": which card is showing --}}
+            <div class="meeting-carousel-count"></div>
                 </div>
             </div>
             </div>
             @empty
-                <div class="text-muted mb-3" id="noMeetings">No meetings created yet.</div>
+                <div class="text-muted mb-3" id="noMeetings">No {{ $meetingsWord }} meetings created yet.</div>
             @endforelse
             @include('customers.partials.project-group-assets')
+            @include('customers.partials.meeting-carousel-assets')
         </div>
     </section>
 </div>
@@ -283,6 +314,7 @@
     /* !important needed: the header and tabs use Bootstrap .d-flex, which is display:flex !important */
     .meeting-editing .hide-while-editing { display: none !important; }
     .show-while-editing { display: none !important; }
+
     .meeting-editing .show-while-editing { display: inline-block !important; }
 </style>
 <script>
@@ -336,11 +368,23 @@ $(document).ready(function () {
     var meetingForm = $('#createMeetingForm');
     var emojiPattern = /[\u{1F000}-\u{1FAFF}\u{2300}-\u{23FF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{200D}\u{20E3}]/u;
 
+    // "Lead" or "Client": who the meeting being added or edited is with (set by setMeetingContact)
+    var meetingContactWord = @json($meetingWith === 'client' ? 'Client' : 'Lead');
+
+    // "Edit Online Lead Meeting", "Meet with Lead", "… with this lead"
+    function updateMeetingHeadings() {
+        var online = $('#meetingType').val() === 'online';
+        $('#meetingFormTitle').text(($('#meetingId').val() ? 'Edit ' : 'Create ') + (online ? 'Online ' : 'Offline ')
+            + meetingContactWord + ' Meeting');
+        $('.meeting-contact-word').text(meetingContactWord);
+        $('.meeting-contact-word-lower').text(meetingContactWord.toLowerCase());
+    }
+
     function setMeetingType(type) {
         var online = type === 'online';
 
         $('#meetingType').val(type);
-        $('#meetingFormTitle').text(($('#meetingId').val() ? 'Edit ' : 'Create ') + (online ? 'Online' : 'Offline') + ' Meeting');
+        updateMeetingHeadings();
 
         $('#onlineBtn').toggleClass('btn-primary', online).toggleClass('btn-outline-primary', !online);
         $('#offlineBtn').toggleClass('btn-primary', !online).toggleClass('btn-outline-primary', online);
@@ -445,6 +489,9 @@ $(document).ready(function () {
             $(this).toggle(shown).find('select').prop('disabled', !shown);
         });
         refreshMeetingPickers();
+
+        meetingContactWord = kind === 'client' ? 'Client' : 'Lead';
+        updateMeetingHeadings();
     }
 
     // Picking a lead fills Select Project with that lead's project (it can still be changed)

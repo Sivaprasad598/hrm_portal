@@ -4,6 +4,11 @@
     // Results saved earlier as "Follow-up Required" open as Meeting Result
     $result       = $meeting->result === 'ended' ? 'ended' : 'outcome';
     $followupType = $followupValues['meeting_type'] ?? 'online';
+    // A saved result opens as a summary with Edit / Delete; the form shows on Edit (or when there is no result yet)
+    $hasResult    = (bool) $meeting->result;
+    $followupMeeting = $meeting->followupMeeting;
+    // "Lead" or "Client" in the follow-up form headings
+    $contactWord  = $meeting->client_id ? 'Client' : 'Lead';
 @endphp
 
 @section('content')
@@ -19,10 +24,78 @@
                 {{ $meeting->start_time ? \Carbon\Carbon::parse($meeting->start_time)->format('h:i A') : '' }}
             </p>
         </div>
-        <a href="{{ route('customers.index') }}#meetings" class="btn btn-outline-secondary">&larr; Back to Meetings</a>
+        <a href="{{ $returnUrl }}" class="btn btn-outline-secondary">&larr; Back to Meetings</a>
     </div>
 
-    <form id="meetingResultForm" novalidate>
+    {{-- ===== Saved result: summary with Edit / Delete ===== --}}
+    @if ($hasResult)
+        <div class="card mb-3" id="resultSummary">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start flex-wrap mb-3" style="gap: 12px;">
+                    <div>
+                        <h2 class="h5 font-weight-bold mb-1">
+                            Meeting Result
+                            @if ($meeting->result === 'ended')
+                                <span class="badge badge-danger ml-1">Discussion Ended</span>
+                            @elseif ($meeting->result === 'followup')
+                                <span class="badge badge-info ml-1">Follow-up</span>
+                            @else
+                                <span class="badge badge-success ml-1">Meeting Result</span>
+                            @endif
+                        </h2>
+                        @if ($meeting->result_at)
+                            <p class="text-muted small mb-0">Saved on {{ $meeting->result_at->format('d M Y, h:i A') }}</p>
+                        @endif
+                    </div>
+                    <div class="d-flex" style="gap: 8px;">
+                        <button type="button" class="btn btn-outline-primary btn-sm" id="editResultBtn"><i class="fa fa-edit mr-1"></i>Edit</button>
+                        <button type="button" class="btn btn-outline-danger btn-sm" id="deleteResultBtn"><i class="fa fa-trash mr-1"></i>Delete</button>
+                    </div>
+                </div>
+
+                <dl class="row mb-0 result-summary">
+                    @if ($meeting->result === 'ended')
+                        <dt class="col-md-3">Reason</dt>
+                        <dd class="col-md-9">{{ $meeting->end_reason ?: '-' }}</dd>
+                        <dt class="col-md-3">Additional Notes</dt>
+                        <dd class="col-md-9 result-rich-text">{!! $endNotesHtml ?: '-' !!}</dd>
+                    @elseif ($meeting->result === 'followup')
+                        <dt class="col-md-3">Follow-up Action</dt>
+                        <dd class="col-md-9">{{ $meeting->followup_action ?: '-' }}</dd>
+                        <dt class="col-md-3">Reason</dt>
+                        <dd class="col-md-9">{{ $meeting->followup_reason ?: '-' }}</dd>
+                    @else
+                        <dt class="col-md-3">Meeting Result</dt>
+                        <dd class="col-md-9">{{ $meeting->outcome ?: '-' }}</dd>
+                        <dt class="col-md-3">Meeting Result Reason</dt>
+                        <dd class="col-md-9 result-rich-text">{!! $outcomeReasonHtml ?: '-' !!}</dd>
+                    @endif
+
+                    <dt class="col-md-3">Follow-up Meeting</dt>
+                    <dd class="col-md-9">
+                        @if ($followupMeeting)
+                            {{ $followupMeeting->title ?: ucfirst($followupMeeting->meeting_type) . ' Meeting' }} ·
+                            {{ $followupMeeting->meeting_date ? $followupMeeting->meeting_date->format('d M Y') : '-' }}
+                            {{ $followupMeeting->start_time ? \Carbon\Carbon::parse($followupMeeting->start_time)->format('h:i A') : '' }}
+                            @if ($followupMeeting->end_time) - {{ \Carbon\Carbon::parse($followupMeeting->end_time)->format('h:i A') }} @endif
+                            <span class="badge badge-light border ml-1">{{ ucfirst($followupMeeting->meeting_type) }}</span>
+                            @if ($followupMeeting->meeting_link)
+                                <br><a href="{{ $followupMeeting->meeting_link }}" target="_blank" rel="noopener" class="small">{{ $followupMeeting->meeting_link }}</a>
+                            @elseif ($followupMeeting->location)
+                                <br><span class="small text-muted">{{ $followupMeeting->location }}</span>
+                            @endif
+                        @elseif ($meeting->followup_date)
+                            {{ $meeting->followup_date->format('d M Y') }}
+                        @else
+                            <span class="text-muted">Not required</span>
+                        @endif
+                    </dd>
+                </dl>
+            </div>
+        </div>
+    @endif
+
+    <form id="meetingResultForm" novalidate @if ($hasResult) style="display: none;" @endif>
         @csrf
 
         {{-- ===== Result choice ===== --}}
@@ -84,7 +157,7 @@
 
                 <div class="mt-4" id="outcomeSaveRow">
                     <button type="submit" class="btn btn-primary" id="saveOutcomeBtn">Save</button>
-                    <a href="{{ route('customers.index') }}#meetings" class="btn btn-outline-secondary ml-2">Cancel</a>
+                    <a href="{{ $returnUrl }}" class="btn btn-outline-secondary ml-2 result-cancel">Cancel</a>
                 </div>
             </div>
         </div>
@@ -94,7 +167,7 @@
         <div id="followupMeetingSection" @if (!($result === 'outcome' && $meeting->followup_meeting_id)) style="display: none;" @endif>
             <div class="card mb-3">
                 <div class="card-body">
-                    <h3 class="h6 mb-1">Meet with Customer</h3>
+                    <h3 class="h6 mb-1">Meet with {{ $contactWord }}</h3>
                     <p class="text-muted small mb-3">Choose Online Meeting or Offline Meeting for the follow-up</p>
                     <div class="d-flex" style="gap: 10px;">
                         <button type="button" class="btn {{ $followupType === 'online' ? 'btn-primary' : 'btn-outline-primary' }}" id="onlineBtn">Online Meeting</button>
@@ -105,14 +178,14 @@
 
             <div class="card mb-3">
                 <div class="card-body">
-                    <h3 class="h5 mb-1 font-weight-bold" id="meetingFormTitle">Create {{ ucfirst($followupType) }} Meeting</h3>
-                    <p class="text-muted small mb-4">Schedule the follow-up meeting with this lead</p>
+                    <h3 class="h5 mb-1 font-weight-bold" id="meetingFormTitle">Create {{ ucfirst($followupType) }} {{ $contactWord }} Meeting</h3>
+                    <p class="text-muted small mb-4">Schedule the follow-up meeting with this {{ strtolower($contactWord) }}</p>
 
                     <input type="hidden" name="meeting_type" id="meetingType" value="{{ $followupType }}">
                     @include('customers.partials.meeting-fields', ['values' => $followupValues, 'withCustomerAddButton' => false])
 
                     <button type="submit" class="btn btn-primary" id="saveFollowupBtn">Save Result &amp; Follow-up</button>
-                    <a href="{{ route('customers.index') }}#meetings" class="btn btn-outline-secondary ml-2">Cancel</a>
+                    <a href="{{ $returnUrl }}" class="btn btn-outline-secondary ml-2 result-cancel">Cancel</a>
                 </div>
             </div>
         </div>
@@ -151,7 +224,7 @@
                 </div>
 
                 <button type="submit" class="btn btn-danger" id="closeLeadBtn">Close Lead</button>
-                <a href="{{ route('customers.index') }}#meetings" class="btn btn-outline-secondary ml-2">Cancel</a>
+                <a href="{{ $returnUrl }}" class="btn btn-outline-secondary ml-2 result-cancel">Cancel</a>
             </div>
         </div>
     </form>
@@ -171,6 +244,9 @@
     .jqte { margin: 0; border-radius: 4px; box-shadow: none; border-color: #ced4da; }
     .jqte_editor { min-height: 120px; }
     .jqte.is-invalid { border-color: #dc3545; }
+    .result-summary dt { font-weight: 600; color: #5a6475; margin-bottom: 12px; }
+    .result-summary dd { margin-bottom: 12px; }
+    .result-rich-text p:last-child, .result-rich-text ul:last-child, .result-rich-text ol:last-child { margin-bottom: 0; }
 </style>
 <script>
 $(document).ready(function () {
@@ -260,7 +336,7 @@ $(document).ready(function () {
         var online = type === 'online';
 
         $('#meetingType').val(type);
-        $('#meetingFormTitle').text('Create ' + (online ? 'Online' : 'Offline') + ' Meeting');
+        $('#meetingFormTitle').text('Create ' + (online ? 'Online ' : 'Offline ') + @json($contactWord) + ' Meeting');
 
         $('#onlineBtn').toggleClass('btn-primary', online).toggleClass('btn-outline-primary', !online);
         $('#offlineBtn').toggleClass('btn-primary', !online).toggleClass('btn-outline-primary', online);
@@ -397,7 +473,7 @@ $(document).ready(function () {
             data: form.serialize(),
             success: function (r) {
                 if (r.status === 'success') {
-                    window.location.href = "{{ route('customers.index') }}#meetings";
+                    window.location.href = @json($returnUrl);
                 } else {
                     btn.prop('disabled', false).text(label);
                 }
@@ -405,6 +481,56 @@ $(document).ready(function () {
             error: function (xhr) {
                 btn.prop('disabled', false).text(label);
                 showServerErrors(xhr, ended ? 'end_notes' : 'outcome_reason');
+            }
+        });
+    });
+
+    // ---- Saved result: summary ⇄ form, and Delete ----
+    var hasResult = @json($hasResult);
+
+    function showSummary() {
+        clearErrors();
+        form.hide();
+        $('#resultSummary').show();
+        $('html, body').animate({ scrollTop: 0 }, 200);
+    }
+
+    $('#editResultBtn').on('click', function () {
+        $('#resultSummary').hide();
+        form.show();
+        updateSections();
+        refreshMeetingPickers();
+    });
+
+    // While editing a saved result, Cancel goes back to its summary instead of leaving the page
+    form.on('click', 'a.result-cancel', function (e) {
+        if (!hasResult) return;
+        e.preventDefault();
+        showSummary();
+    });
+
+    $('#deleteResultBtn').on('click', function () {
+        var btn = $(this);
+        var message = 'Delete this meeting result?'
+            + (@json((bool) $meeting->followup_meeting_id) ? ' The follow-up meeting stays scheduled.' : '');
+        if (!confirm(message)) return;
+
+        btn.prop('disabled', true);
+
+        $.ajax({
+            url: "{{ route('customers.meetings.result.destroy', $meeting->id) }}",
+            type: 'POST',
+            data: { _token: '{{ csrf_token() }}', _method: 'DELETE' },
+            success: function (r) {
+                if (r.status === 'success') {
+                    window.location.reload();
+                } else {
+                    btn.prop('disabled', false);
+                }
+            },
+            error: function () {
+                btn.prop('disabled', false);
+                alert('Unable to delete the meeting result. Please try again.');
             }
         });
     });

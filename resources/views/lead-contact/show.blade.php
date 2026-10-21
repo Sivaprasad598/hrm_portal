@@ -37,7 +37,11 @@ $viewDeals = user()->permission('view_deals');
             <x-tab :href="route('lead-contact.show', $leadContact->id).'?tab=meetings'" ajax="false" text="Meetings" class="meetings" />
 
         </div>
-        <a class="mb-0 d-block d-lg-none text-dark-grey ml-auto mr-2 border-left-grey"
+        {{-- Back to the Lead Contacts list, at the right end of the tab bar --}}
+        <a href="{{ route('lead-contact.index') }}"
+           class="btn btn-outline-secondary btn-sm align-self-center ml-auto mr-3 text-nowrap"
+           title="Back to Lead Contacts">&larr; Back</a>
+        <a class="mb-0 d-block d-lg-none text-dark-grey mr-2 border-left-grey"
             onclick="openClientDetailSidebar()"><i class="fa fa-ellipsis-v "></i></a>
     </div>
     <!-- FILTER END -->

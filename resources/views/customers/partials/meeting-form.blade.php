@@ -1,8 +1,9 @@
 {{-- Inline Create Meeting form (Meetings tab). Online/Offline is switched by the chooser above it. --}}
 <div class="card mb-3 meeting-form-card" id="meetingFormCard">
     <div class="card-body">
-        <h3 class="h5 mb-1 font-weight-bold" id="meetingFormTitle">Create Offline Meeting</h3>
-        <p class="text-muted small mb-4">Schedule the meeting with this lead</p>
+        @php $contactWord = ($meetingWith ?? 'lead') === 'client' ? 'Client' : 'Lead'; @endphp
+        <h3 class="h5 mb-1 font-weight-bold" id="meetingFormTitle">Create Offline {{ $contactWord }} Meeting</h3>
+        <p class="text-muted small mb-4">Schedule the meeting with this <span class="meeting-contact-word-lower">{{ strtolower($contactWord) }}</span></p>
 
         <form id="createMeetingForm" novalidate>
             @csrf
