@@ -69,6 +69,8 @@
             <x-cards.data-row :label="__('app.owner')" :value="'--'" />
             @endif
 
+            <x-cards.data-row label="Project Name" :value="$leadContact->leadProject->name ?? '--'" />
+
             <x-cards.data-row :label="__('modules.lead.source')" :value="$leadContact->leadSource ? $leadContact->leadSource->type : '--'" />
 
             <x-cards.data-row :label="__('modules.lead.companyName')" :value="!empty($leadContact->company_name) ? $leadContact->company_name : '--'" />

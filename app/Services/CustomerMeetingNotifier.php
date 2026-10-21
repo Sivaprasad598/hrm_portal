@@ -15,7 +15,7 @@ class CustomerMeetingNotifier
 {
     public static function send(CustomerMeeting $meeting, string $kind): void
     {
-        $meeting->loadMissing('customer');
+        $meeting->loadMissing(['customer', 'lead', 'client']);
 
         // A failed email must never stop the meeting from being saved
         try {
@@ -25,7 +25,7 @@ class CustomerMeetingNotifier
                 $owner->notify(new CustomerMeetingNotification($meeting, $kind));
             }
 
-            $customerEmail = $meeting->customer->email ?? null;
+            $customerEmail = $meeting->contact->email;
 
             if ($kind !== 'ended' && filter_var($customerEmail, FILTER_VALIDATE_EMAIL)) {
                 Notification::route('mail', $customerEmail)->notify(new CustomerMeetingNotification($meeting, $kind));

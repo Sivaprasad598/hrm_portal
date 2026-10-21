@@ -18,6 +18,13 @@ $addLeadCustomFormPermission = user()->permission('manage_lead_custom_forms');
 @section('content')
     <!-- CONTENT WRAPPER START -->
     <div class="content-wrapper">
+        @include('customers.partials.contact-section-tabs', [
+            'active' => 'list',
+            'listUrl' => route('lead-contact.index'),
+            'listLabel' => __('modules.leadContact.leadContacts'),
+            'meetingsUrl' => route('customers.index', ['from' => 'lead-contact']) . '#meetings',
+        ])
+
         <!-- Add Task Export Buttons Start -->
         <div class="d-grid d-lg-flex d-md-flex action-bar">
             <div id="table-actions" class="flex-grow-1 align-items-center">
@@ -37,8 +44,7 @@ $addLeadCustomFormPermission = user()->permission('manage_lead_custom_forms');
                     <x-forms.link-secondary :link="route('lead-contact.import')" class="mr-3 openRightModal float-left mb-2 mb-lg-0 mb-md-0 d-none d-lg-block" icon="file-upload">
                         @lang('app.importExcel')
                     </x-forms.link-secondary>
-                @endif
-            </div>
+                @endif            </div>
 
             <x-datatable.actions>
                 <div class="select-status mr-3 pl-3">

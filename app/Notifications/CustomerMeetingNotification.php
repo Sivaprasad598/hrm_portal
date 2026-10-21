@@ -26,9 +26,9 @@ class CustomerMeetingNotification extends BaseNotification
 
     public function __construct(CustomerMeeting $meeting, string $kind)
     {
-        $this->meeting = $meeting->loadMissing('customer');
+        $this->meeting = $meeting->loadMissing(['customer', 'lead', 'client']);
         $this->kind = $kind;
-        $this->company = Company::find($meeting->customer->company_id ?? null) ?? Company::first();
+        $this->company = Company::find($meeting->contact->company_id) ?? Company::first();
     }
 
     public function via($notifiable)
@@ -71,7 +71,7 @@ class CustomerMeetingNotification extends BaseNotification
                 'content' => implode('<br>', array_map('e', $lines)),
                 'themeColor' => $this->company->header_color ?? null,
                 'actionText' => $actionText,
-                'notifiableName' => $notifiable instanceof User ? $notifiable->name : ($this->meeting->customer->customer_name ?? ''),
+                'notifiableName' => $notifiable instanceof User ? $notifiable->name : ($this->meeting->contact->name ?? ''),
             ]);
 
         parent::resetLocale();
@@ -108,7 +108,7 @@ class CustomerMeetingNotification extends BaseNotification
 
     private function companyName(): string
     {
-        return $this->meeting->customer->company_name ?? 'the customer';
+        return $this->meeting->contact->company_name ?? 'the customer';
     }
 
     private function timeRange(): string

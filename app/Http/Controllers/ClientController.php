@@ -594,6 +594,12 @@ class ClientController extends AccountBaseController
             break;
         case 'notes':
             return $this->notes();
+        case 'meetings':
+            // Meetings with this client (made from "Add Meetings" on Clients)
+            $this->meetings = \App\Models\CustomerMeeting::with(['client', 'leadProject'])->where('client_id', $this->client->id)
+                ->orderByDesc('meeting_date')->orderByDesc('start_time')->get();
+            $this->view = 'clients.ajax.meetings';
+            break;
         case 'tickets':
             return $this->tickets();
         case 'gdpr':

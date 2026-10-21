@@ -39,6 +39,28 @@ $addProductPermission = user()->permission('add_product');
                         </x-forms.email>
                     </div>
 
+                    {{-- Project Name: pick one, or "Add" a new name in the pop-up --}}
+                    <div class="col-lg-4 col-md-6">
+                        <x-forms.label class="my-3" fieldId="lead_project_id" fieldLabel="Project Name" fieldRequired="true">
+                        </x-forms.label>
+                        <x-forms.input-group>
+                            <select class="form-control select-picker" name="lead_project_id" id="lead_project_id"
+                                data-live-search="true">
+                                <option value="">--</option>
+                                @foreach ($leadProjects as $leadProject)
+                                    <option value="{{ $leadProject->id }}" @selected($leadContact->lead_project_id == $leadProject->id)>{{ $leadProject->name }}</option>
+                                @endforeach
+                            </select>
+
+                            <x-slot name="append">
+                                <button type="button"
+                                    class="btn btn-outline-secondary border-grey add-lead-project"
+                                    data-toggle="tooltip" data-original-title="Add Project Name">
+                                    @lang('app.add')</button>
+                            </x-slot>
+                        </x-forms.input-group>
+                    </div>
+
                     @if ($viewLeadSourcesPermission != 'none')
                         <div class="col-lg-4 col-md-6">
                             <x-forms.label class="my-3" fieldId="source_id" :fieldLabel="__('modules.lead.leadSource')">
@@ -192,6 +214,11 @@ $addProductPermission = user()->permission('add_product');
                     window.location.href = response.redirectUrl;
                 }
             });
+        });
+
+        $('body').off('click', '.add-lead-project').on('click', '.add-lead-project', function() {
+            $(MODAL_LG + ' ' + MODAL_HEADING).html('...');
+            $.ajaxModal(MODAL_LG, '{{ route('lead-projects.create') }}');
         });
 
         $('body').on('click', '.add-lead-source', function() {

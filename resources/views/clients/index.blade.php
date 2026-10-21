@@ -165,6 +165,13 @@
 
     <!-- CONTENT WRAPPER START -->
     <div class="content-wrapper">
+        @include('customers.partials.contact-section-tabs', [
+            'active' => 'list',
+            'listUrl' => route('clients.index'),
+            'listLabel' => __('app.menu.clients'),
+            'meetingsUrl' => route('customers.index', ['from' => 'client']) . '#meetings',
+        ])
+
         <!-- Add Task Export Buttons Start -->
         <div class="d-grid d-lg-flex d-md-flex action-bar">
 
@@ -179,8 +186,7 @@
                     <x-forms.link-secondary :link="route('clients.import')" class="mr-3 float-left mb-2 mb-lg-0 mb-md-0 d-sm-bloc d-none d-lg-block" icon="file-upload">
                         @lang('app.importExcel')
                     </x-forms.link-secondary>
-                @endif
-            </div>
+                @endif            </div>
 
             <x-datatable.actions>
                 <div class="select-status mr-3">

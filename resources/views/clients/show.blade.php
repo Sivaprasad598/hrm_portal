@@ -84,6 +84,11 @@ $viewClientOrder = user()->permission('view_order');
                     </li>
                     @endif
 
+                    <li>
+                        <x-tab :href="route('clients.show', $client->id).'?tab=meetings'" ajax="false" text="Meetings"
+                            class="meetings" />
+                    </li>
+
                     @if ($viewTicket == 'all' || $viewTicket == 'added')
                     <li>
                         <x-tab :href="route('clients.show', $client->id).'?tab=tickets'" ajax="false" :text="__('app.menu.tickets')"

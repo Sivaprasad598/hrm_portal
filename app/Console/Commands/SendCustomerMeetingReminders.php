@@ -36,7 +36,7 @@ class SendCustomerMeetingReminders extends Command
         $ended = 0;
 
         // Only meetings around today can be due; the time checks below are exact
-        $meetings = CustomerMeeting::with('customer')
+        $meetings = CustomerMeeting::with(['customer', 'lead', 'client'])
             ->whereBetween('meeting_date', [$now->copy()->subDay()->toDateString(), $now->copy()->addDay()->toDateString()])
             ->where(function ($query) {
                 $query->whereNull('status')->orWhere('status', '!=', 'Cancelled');

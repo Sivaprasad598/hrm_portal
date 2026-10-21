@@ -3,15 +3,26 @@
 @section('content')
 
 <div class="content-wrapper">
+    @if ($contactListUrl)
+        {{-- Opened as the Meetings tab of Lead Contacts / Clients --}}
+        @include('customers.partials.contact-section-tabs', [
+            'active' => 'meetings',
+            'listUrl' => $contactListUrl,
+            'listLabel' => $pageTitle,
+            'meetingsUrl' => request()->fullUrlWithoutQuery([]) . '#meetings',
+            'class' => 'hide-while-editing',
+        ])
+    @else
     <div class="d-flex justify-content-between align-items-center mb-4 hide-while-editing">
         <div>
             <h1 class="mb-1">Customers</h1>
             <p class="text-muted mb-0">Manage customers and customer meetings</p>
         </div>
     </div>
+    @endif
 
     {{-- ==================== TABS ==================== --}}
-    <div class="d-flex mb-3 hide-while-editing" style="gap: 8px;">
+    <div class="mb-3 hide-while-editing {{ $contactListUrl ? 'd-none' : 'd-flex' }}" style="gap: 8px;">
         <button type="button" class="btn btn-primary tab-btn active" data-tab="customers">Customers</button>
         <button type="button" class="btn btn-outline-primary tab-btn" data-tab="meetings">Meetings</button>
     </div>
@@ -89,15 +100,24 @@
 
         {{-- Meetings list --}}
         <div id="meetingList" class="hide-while-editing">
-            @forelse ($meetings as $meeting)
+            @forelse (\App\Models\CustomerMeeting::groupByProject($meetings) as $projectId => $groupMeetings)
+            @include('customers.partials.project-group-header', [
+                'projectName' => $groupMeetings->first()->leadProject->name ?? 'Project',
+                'count' => $groupMeetings->count(),
+                'open' => $loop->first,
+            ])
+            @foreach ($groupMeetings as $meeting)
                 @php
                     $meetingOwner = $employees->firstWhere('name', $meeting->lead_owner);
                     $meetingData = [
                         'id'              => $meeting->id,
                         'meeting_type'    => $meeting->meeting_type,
+                        'title'           => $meeting->title,
                         'purpose'         => $meeting->purpose,
                         'status'          => $meeting->status,
-                        'customer_id'     => $meeting->customer_id,
+                        'lead_id'         => $meeting->lead_id,
+                        'client_id'       => $meeting->client_id,
+                        'lead_project_id' => $meeting->lead_project_id,
                         'lead_owner'      => $meetingOwner->id ?? '',
                         'meeting_date'    => $meeting->meeting_date ? $meeting->meeting_date->format('Y-m-d') : '',
                         'start_time'      => $meeting->start_time ? substr($meeting->start_time, 0, 5) : '',
@@ -114,14 +134,23 @@
                     <div class="card-body d-flex justify-content-between align-items-start flex-wrap" style="gap: 16px;">
                         <div>
                             <h3 class="h6 mb-1 font-weight-bold">
-                                {{ ucfirst($meeting->meeting_type) }} Meeting
+                                {{ $meeting->title ?: ucfirst($meeting->meeting_type) . ' Meeting' }}
+                                @if ($meeting->title)
+                                    <span class="badge badge-light border ml-1">{{ ucfirst($meeting->meeting_type) }}</span>
+                                @endif
                                 @if ($meeting->status)
                                     <span class="badge badge-light border ml-1">{{ $meeting->status }}</span>
                                 @endif
                             </h3>
                             {{-- Filled by the live status poll while people are in the Google Meet call --}}
                             <div class="meet-live-panel mb-2" data-meeting-id="{{ $meeting->id }}" style="display: none;"></div>
-                            <p class="mb-1"><b>Customer:</b> {{ $meeting->customer->company_name ?? '-' }}</p>
+                            <p class="mb-1"><b>{{ $meeting->client_id ? 'Client' : 'Lead' }}:</b> {{ $meeting->contact->company_name ?? '-' }}</p>
+                            @if ($meeting->leadProject)
+                                <p class="mb-1"><b>Project:</b> {{ $meeting->leadProject->name }}</p>
+                            @endif
+                            @if ($meeting->title)
+                                <p class="mb-1"><b>Title:</b> {{ $meeting->title }}</p>
+                            @endif
                             <p class="mb-1 text-muted">
                                 {{ $meeting->purpose }} ·
                                 {{ $meeting->meeting_date ? $meeting->meeting_date->format('d M Y') : '-' }} ·
@@ -150,7 +179,7 @@
                         </div>
                         <div class="d-flex" style="gap: 8px;">
                             <button type="button" class="btn btn-outline-primary btn-sm edit-meeting-btn"
-                                    data-meeting='@json($meetingData)'>Edit</button>
+                                    data-meeting-id="{{ $meeting->id }}" data-meeting='@json($meetingData)'>Edit</button>
                             @if ($meeting->meeting_type === 'online' && $meeting->provider === 'Google Meet' && $meeting->meeting_link)
                                 <button type="button" class="btn btn-outline-info btn-sm meet-notes-btn" data-meeting-id="{{ $meeting->id }}">
                                     Meet Notes @if ($meeting->meet_notes)<i class="fa fa-check-circle ml-1"></i>@endif
@@ -162,9 +191,14 @@
                         </div>
                     </div>
                 </div>
+            @endforeach
+                </div>
+            </div>
+            </div>
             @empty
                 <div class="text-muted mb-3" id="noMeetings">No meetings created yet.</div>
             @endforelse
+            @include('customers.partials.project-group-assets')
         </div>
     </section>
 </div>
@@ -330,13 +364,13 @@ $(document).ready(function () {
         var start = $('#meetingStart').val();
         var end = $('#meetingEnd').val();
 
-        if (!$('#meetingCustomer').val()) errors.customer_id = 'Select a customer.';
+        if (!contactSelect().val()) errors[contactSelect().attr('name')] = contactSelect().is('#meetingClient') ? 'Select a client.' : 'Select a lead.';
         if (!$('#meetingDate').val()) errors.meeting_date = 'Select the meeting date.';
         if (!start) errors.start_time = 'Select the start time.';
         if (!end) errors.end_time = 'Select the end time.';
         if (start && end && end <= start) errors.end_time = 'End time must be after the start time.';
 
-        ['customer_id', 'meeting_date', 'start_time', 'end_time', 'meeting_link'].forEach(function (name) {
+        ['client_id', 'lead_id', 'meeting_date', 'start_time', 'end_time', 'meeting_link'].forEach(function (name) {
             showMeetingError(name, errors[name] || '');
         });
 
@@ -399,6 +433,29 @@ $(document).ready(function () {
         $('#generateMeetBtn').text('Generate Link');
         $('#saveMeetingBtn').prop('disabled', false).text('Create Meeting');
         setMeetingType('offline');
+        setMeetingContact(defaultMeetingContact);
+    }
+
+    // Client or lead dropdown: the page's by default ("Add Meetings" on Clients → client), the meeting's when editing
+    var defaultMeetingContact = @json($meetingWith);
+
+    function setMeetingContact(kind) {
+        $('.contact-group').each(function () {
+            var shown = $(this).data('contact') === kind;
+            $(this).toggle(shown).find('select').prop('disabled', !shown);
+        });
+        refreshMeetingPickers();
+    }
+
+    // Picking a lead fills Select Project with that lead's project (it can still be changed)
+    $(document).on('change', '#meetingLead', function () {
+        var projectId = $(this).find(':selected').data('project-id');
+        if (projectId) $('#meetingProject').val(String(projectId));
+        refreshMeetingPickers();
+    });
+
+    function contactSelect() {
+        return $('.contact-group select:enabled');
     }
 
     function openMeetingEditor(scrollTo) {
@@ -409,13 +466,8 @@ $(document).ready(function () {
         $('html, body').animate({ scrollTop: $(scrollTo).offset().top - 80 }, 300);
     }
 
-    function showMeetingForm(customerId) {
+    function showMeetingForm() {
         resetMeetingForm();
-
-        if (customerId) {
-            $('#meetingCustomer').val(String(customerId));
-        }
-
         openMeetingEditor('#meetingChooser');
     }
 
@@ -425,7 +477,15 @@ $(document).ready(function () {
         $('.content-wrapper').removeClass('meeting-editing');
     }
 
+    // Opened from "Add Meetings" on Lead Contacts or Clients: Back returns there
+    var meetingsBackUrl = @json($backUrl);
+
     $('#meetingsBackBtn').on('click', function () {
+        if (meetingsBackUrl) {
+            location.href = meetingsBackUrl;
+            return;
+        }
+
         closeMeetingForm();
         $('html, body').animate({ scrollTop: 0 }, 200);
     });
@@ -434,9 +494,13 @@ $(document).ready(function () {
         resetMeetingForm();
 
         $('#meetingId').val(meeting.id);
+        $('#meetingTitle').val(meeting.title || '');
         $('#meetingPurpose').val(meeting.purpose || $('#meetingPurpose option:first').val());
         $('#meetingStatus').val(meeting.status || $('#meetingStatus option:first').val());
-        $('#meetingCustomer').val(String(meeting.customer_id));
+        setMeetingContact(meeting.client_id ? 'client' : 'lead');
+        $('#meetingClient').val(meeting.client_id ? String(meeting.client_id) : '');
+        $('#meetingLead').val(meeting.lead_id ? String(meeting.lead_id) : '');
+        $('#meetingProject').val(meeting.lead_project_id ? String(meeting.lead_project_id) : '');
         $('#meetingLeadOwner').val(meeting.lead_owner ? String(meeting.lead_owner) : '');
         $('#meetingDate').val(meeting.meeting_date);
         $('#meetingStart').val(meeting.start_time);
@@ -451,6 +515,7 @@ $(document).ready(function () {
         setMeetingType(meeting.meeting_type);
         $('#generateMeetBtn').text(meeting.google_event_id || meeting.teams_meeting_id ? 'Regenerate' : 'Generate Link');
         $('#saveMeetingBtn').text('Update Meeting');
+        refreshMeetingPickers();
 
         openMeetingEditor('#meetingFormCard');
     }
@@ -639,23 +704,38 @@ $(document).ready(function () {
 
     // After saving or deleting a meeting, come back to the Meetings tab
     function reloadOnMeetings() {
+        // Opened from a lead's Meetings tab: go back there instead
+        if (@json($returnAfterSave) && meetingsBackUrl) {
+            location.href = meetingsBackUrl;
+            return;
+        }
+
         location.hash = 'meetings';
         location.reload();
     }
 
+    // Linked from a lead's Meetings tab: #edit-meeting-<id> opens the edit form, #meet-notes-<id> the notes pop-up
+    var linkedMeeting = location.hash.match(/^#(edit-meeting|meet-notes)-(\d+)$/);
+
     if (location.hash === '#meetings') {
         $('.tab-btn[data-tab="meetings"]').trigger('click');
-    }
+    } else if (linkedMeeting) {
+        $('.tab-btn[data-tab="meetings"]').trigger('click');
+        $((linkedMeeting[1] === 'edit-meeting' ? '.edit-meeting-btn' : '.meet-notes-btn')
+            + '[data-meeting-id="' + linkedMeeting[2] + '"]').first().trigger('click');
+    } else if (location.hash === '#add-meeting') {
+        // Linked from "Add Meetings" on Lead Contacts / Clients: open the create form straight away,
+        // with the lead or client already chosen when the link names one (a lead's Meetings tab)
+        showMeetingForm();
 
-    // "+ Add" beside Customer: create the customer in the pop-up, then select it here
-    $('#meetingAddCustomerBtn').on('click', function () {
-        window.onCustomerCreated = function (customer) {
-            var option = $('<option>').val(customer.id).text(customer.company_name + ' (' + customer.customer_name + ')');
-            $('#meetingCustomer').append(option).val(String(customer.id));
-            showMeetingError('customer_id', '');
-        };
-        openCustomerModal();
-    });
+        var params = new URLSearchParams(location.search);
+        if (params.get('lead_id')) $('#meetingLead').val(params.get('lead_id')).trigger('change');
+        if (params.get('client_id')) $('#meetingClient').val(params.get('client_id'));
+        refreshMeetingPickers();
+    } else if (@json((bool) $contactListUrl)) {
+        // Meetings tab of Lead Contacts / Clients: there is no Customers panel to show
+        $('.tab-btn[data-tab="meetings"]').trigger('click');
+    }
 
     $('#customerModal').on('hidden.bs.modal', function () {
         window.onCustomerCreated = null;
@@ -671,18 +751,18 @@ $(document).ready(function () {
         var start = $('#meetingStart').val();
         var end = $('#meetingEnd').val();
 
-        if (!$('#meetingCustomer').val()) errors.customer_id = 'Select a customer.';
+        if (!contactSelect().val()) errors[contactSelect().attr('name')] = contactSelect().is('#meetingClient') ? 'Select a client.' : 'Select a lead.';
         if (!$('#meetingDate').val()) errors.meeting_date = 'Select the meeting date.';
         if (!start) errors.start_time = 'Select the start time.';
         if (!end) errors.end_time = 'Select the end time.';
         if (start && end && end <= start) errors.end_time = 'End time must be after the start time.';
 
-        ['location', 'meeting_link'].forEach(function (name) {
+        ['title', 'location', 'meeting_link'].forEach(function (name) {
             var field = meetingForm.find('[name="' + name + '"]');
             if (!field.prop('disabled') && emojiPattern.test(field.val())) errors[name] = 'Emojis are not allowed.';
         });
 
-        ['customer_id', 'lead_owner', 'meeting_date', 'start_time', 'end_time', 'location', 'meeting_link'].forEach(function (name) {
+        ['title', 'client_id', 'lead_id', 'lead_owner', 'meeting_date', 'start_time', 'end_time', 'location', 'meeting_link'].forEach(function (name) {
             showMeetingError(name, errors[name] || '');
         });
 

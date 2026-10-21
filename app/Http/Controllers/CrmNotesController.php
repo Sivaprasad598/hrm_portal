@@ -27,7 +27,7 @@ class CrmNotesController extends Controller
         $this->userId($request);
         $code = strtolower((string) $request->query('code'));
 
-        $meeting = $code ? CustomerMeeting::with('customer')
+        $meeting = $code ? CustomerMeeting::with(['customer', 'lead', 'client'])
             ->where('provider', 'Google Meet')
             ->where('meeting_link', 'like', '%' . $code . '%')
             ->orderByDesc('meeting_date')
@@ -41,7 +41,7 @@ class CrmNotesController extends Controller
             'status' => 'success',
             'meeting' => [
                 'id' => $meeting->id,
-                'title' => ($meeting->customer->company_name ?? 'Customer') . ' · ' . ($meeting->purpose ?: 'Meeting'),
+                'title' => ($meeting->contact->company_name ?? 'Customer') . ' · ' . ($meeting->purpose ?: 'Meeting'),
                 'has_notes' => (bool) $meeting->meet_notes,
             ],
         ]);
@@ -123,7 +123,7 @@ class CrmNotesController extends Controller
 
         $now = now(CustomerMeeting::timezone());
 
-        $meetings = CustomerMeeting::with('customer')
+        $meetings = CustomerMeeting::with(['customer', 'lead', 'client'])
             ->where('meeting_type', 'online')
             ->where('provider', 'Google Meet')
             ->whereNotNull('meeting_link')
@@ -138,7 +138,7 @@ class CrmNotesController extends Controller
             })
             ->map(fn (CustomerMeeting $meeting) => [
                 'id' => $meeting->id,
-                'title' => ($meeting->customer->company_name ?? 'Customer') . ' · ' . ($meeting->purpose ?: 'Meeting'),
+                'title' => ($meeting->contact->company_name ?? 'Customer') . ' · ' . ($meeting->purpose ?: 'Meeting'),
                 'link' => $meeting->meeting_link,
                 // Same meeting moved to a new time is a new session for the bot
                 'session' => $meeting->id . '@' . $meeting->startsAt()->format('Y-m-d H:i'),

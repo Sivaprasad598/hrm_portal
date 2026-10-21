@@ -93,6 +93,12 @@ class LeadContactController extends AccountBaseController
             return $this->deals();
         case 'notes':
             return $this->notes();
+        case 'meetings':
+            // Meetings with this lead (made from "Add Meetings" / the Meetings tab)
+            $this->meetings = \App\Models\CustomerMeeting::with(['lead', 'leadProject'])->where('lead_id', $this->leadContact->id)
+                ->orderByDesc('meeting_date')->orderByDesc('start_time')->get();
+            $this->view = 'lead-contact.ajax.meetings';
+            break;
         default:
             $this->view = 'lead-contact.ajax.profile';
             break;
@@ -184,6 +190,7 @@ class LeadContactController extends AccountBaseController
         }
 
         $this->sources = LeadSource::all();
+        $this->leadProjects = \App\Models\LeadProject::orderBy('name')->get();
         $this->categories = LeadCategory::all();
         $this->countries = countries();
         $this->salutations = Salutation::cases();
@@ -232,6 +239,7 @@ class LeadContactController extends AccountBaseController
         $leadContact->client_email = $request->client_email;
         $leadContact->note = trim_editor($request->note);
         $leadContact->source_id = $request->source_id;
+        $leadContact->lead_project_id = $request->lead_project_id;
         $leadContact->client_id = $existingUser?->id;
         $leadContact->lead_owner = $request->lead_owner;
         $leadContact->company_name = $request->company_name;
@@ -327,6 +335,7 @@ class LeadContactController extends AccountBaseController
         }
 
         $this->sources = LeadSource::all();
+        $this->leadProjects = \App\Models\LeadProject::orderBy('name')->get();
         $this->categories = LeadCategory::all();
         $this->countries = countries();
 
@@ -367,6 +376,7 @@ class LeadContactController extends AccountBaseController
         $leadContact->client_email = $request->client_email;
         $leadContact->note = trim_editor($request->note);
         $leadContact->source_id = $request->source_id;
+        $leadContact->lead_project_id = $request->lead_project_id;
         $leadContact->lead_owner = $request->lead_owner;
         $leadContact->category_id = $request->category_id;
         $leadContact->company_name = $request->company_name;

@@ -33,6 +33,9 @@ $viewDeals = user()->permission('view_deals');
             @if ($viewClientNote == 'all' || $viewClientNote == 'both' || $viewClientNote == 'added' || $viewClientNote == 'owned')
                 <x-tab :href="route('lead-contact.show', $leadContact->id).'?tab=notes'" ajax="false" :text="__('app.notes')" class="notes" />
             @endif
+
+            <x-tab :href="route('lead-contact.show', $leadContact->id).'?tab=meetings'" ajax="false" text="Meetings" class="meetings" />
+
         </div>
         <a class="mb-0 d-block d-lg-none text-dark-grey ml-auto mr-2 border-left-grey"
             onclick="openClientDetailSidebar()"><i class="fa fa-ellipsis-v "></i></a>

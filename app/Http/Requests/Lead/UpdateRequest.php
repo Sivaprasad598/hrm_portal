@@ -28,6 +28,7 @@ class UpdateRequest extends CoreRequest
     {
         $rules = [
             'client_name' => 'required',
+            'lead_project_id' => 'required|exists:lead_projects,id,company_id,' . company()->id,
             'client_email' => 'nullable|email:rfc,strict|unique:leads,client_email,'.$this->route('lead_contact').',id,company_id,' . company()->id,
         ];
 
@@ -43,6 +44,7 @@ class UpdateRequest extends CoreRequest
         $attributes = $this->customFieldsAttributes($attributes);
 
         $attributes['client_name'] = __('app.name');
+        $attributes['lead_project_id'] = 'Project Name';
         $attributes['client_email'] = __('app.email');
 
         return $attributes;

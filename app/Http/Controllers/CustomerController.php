@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Helper\Reply;
 use App\Models\Customer;
 use App\Models\CustomerMeeting;
+use App\Models\Lead;
+use App\Models\LeadProject;
 use App\Models\MeetingOption;
 use App\Models\User;
 use App\Services\CustomerMeetingNotifier;
@@ -23,6 +25,11 @@ class CustomerController extends AccountBaseController
 {
     private const EMOJI_PATTERN = '/[\x{1F000}-\x{1FAFF}\x{2300}-\x{23FF}\x{2600}-\x{27BF}\x{2B00}-\x{2BFF}\x{FE0F}\x{200D}\x{20E3}]/u';
 
+    private const CONTACT_MESSAGES = [
+        'client_id.in'             => 'Select a valid client.',
+        'lead_id.required_without' => 'Select a lead.',
+    ];
+
     private const END_REASONS = ['Customer Not Interested', 'Budget Issue', 'Requirement Not Suitable', 'Price Too High', 'Project Cancelled', 'Project Postponed', 'Competitor Selected', 'Decision Pending', 'Other'];
 
 
@@ -37,10 +44,44 @@ class CustomerController extends AccountBaseController
     /**
      * Main page with tabs (Customers / Meetings).
      */
-    public function index()
+    public function index(Request $request)
     {
+        // Opened as the Meetings tab of Lead Contacts or Clients: that page's title and breadcrumb and only its
+        // meetings; from a lead's or client's own Meetings tab, Back and saving return to it
+        $from = $request->get('from');
+        $this->meetingWith = $from === 'client' ? 'client' : 'lead';
+        $this->backUrl = null;
+        $this->returnAfterSave = false;
+        $this->contactListUrl = null; // set when shown as the Meetings tab of Lead Contacts / Clients
+        $meetings = CustomerMeeting::with(['customer', 'lead', 'client', 'leadProject'])->orderByDesc('created_at');
+
+        if ($from === 'lead-contact') {
+            $this->pageTitle = __('modules.leadContact.leadContacts');
+            $this->contactListUrl = route('lead-contact.index');
+            $meetings->whereNotNull('lead_id');
+
+            // From a lead's Meetings tab: Back (and saving) returns to that tab
+            if ($request->get('lead_id')) {
+                $this->backUrl = route('lead-contact.show', $request->get('lead_id')) . '?tab=meetings';
+                $this->returnAfterSave = true;
+            }
+        } elseif ($from === 'client') {
+            $this->pageTitle = __('app.menu.clients');
+            $this->contactListUrl = route('clients.index');
+            $meetings->whereNotNull('client_id');
+
+            // From a client's Meetings tab: Back (and saving) returns to that tab
+            if ($request->get('client_id')) {
+                $this->backUrl = route('clients.show', $request->get('client_id')) . '?tab=meetings';
+                $this->returnAfterSave = true;
+            }
+        }
+
         $this->customers = Customer::with('meetings')->orderByDesc('id')->get();
-        $this->meetings  = CustomerMeeting::with('customer')->orderByDesc('created_at')->get();
+        $this->meetings  = $meetings->get();
+        $this->leads     = Lead::orderBy('client_name')->get();
+        $this->clients   = User::allClients();
+        $this->leadProjects = LeadProject::orderBy('name')->get();
         $this->employees = User::allEmployees(null, true);
         $this->meetingPurposes = MeetingOption::ofType('purpose')->get();
         $this->meetingStatuses = MeetingOption::ofType('status')->get();
@@ -192,9 +233,10 @@ class CustomerController extends AccountBaseController
 
         $employeeIds = User::allEmployees(null, true)->pluck('id')->all();
 
-        $request->validate([
-            'customer_id'    => 'required|exists:customers,id',
+        $request->validate($this->contactRules() + [
             'meeting_type'   => 'required|in:online,offline',
+            'title'          => ['nullable', 'string', 'max:191', $noEmoji],
+            'lead_project_id' => ['nullable', Rule::exists('lead_projects', 'id')->where('company_id', company()->id)],
             'purpose'        => ['nullable', Rule::in(MeetingOption::ofType('purpose')->pluck('name')->all())],
             'status'         => ['nullable', Rule::in(MeetingOption::ofType('status')->pluck('name')->all())],
             'lead_owner'     => ['nullable', 'integer', Rule::in($employeeIds)],
@@ -208,12 +250,12 @@ class CustomerController extends AccountBaseController
             'location'       => ['nullable', 'string', 'max:255', $noEmoji],
             'description'    => ['nullable', 'string', $noEmoji],
         ], [
-            'customer_id.required'  => 'Select a customer.',
             'lead_owner.in'         => 'Select a valid lead owner.',
             'end_time.after'        => 'End time must be after the start time.',
             'purpose.in'            => 'Select a valid meeting purpose.',
+            'lead_project_id.exists' => 'Select a valid project.',
             'status.in'             => 'Select a valid meeting status.',
-        ]);
+        ] + self::CONTACT_MESSAGES);
 
         $link = $request->meeting_link;
         $googleEventId = null;
@@ -252,8 +294,13 @@ class CustomerController extends AccountBaseController
         }
 
         $meeting->fill([
-            'customer_id'    => $request->customer_id,
+            // A meeting is with a client or a lead (customer_id is only on meetings made before leads)
+            'client_id'      => $request->client_id ?: null,
+            'lead_id'        => $request->client_id ? null : $request->lead_id,
+            'customer_id'    => null,
             'meeting_type'   => $request->meeting_type,
+            'title'          => $request->title,
+            'lead_project_id' => $request->lead_project_id ?: null,
             'purpose'        => $request->purpose,
             'status'         => $request->status ?? 'Planned',
             // Stored as the owner's name, like customers.lead_owner
@@ -302,11 +349,14 @@ class CustomerController extends AccountBaseController
      */
     public function meetingResult($id)
     {
-        $meeting = CustomerMeeting::with(['customer', 'followupMeeting'])->findOrFail($id);
+        $meeting = CustomerMeeting::with(['customer', 'lead', 'client', 'followupMeeting'])->findOrFail($id);
         $followup = $meeting->followupMeeting;
 
         // Same lists as the Meetings tab form
-        $this->customers       = Customer::orderBy('company_name')->get();
+        $this->leads           = Lead::orderBy('client_name')->get();
+        $this->clients         = User::allClients();
+        $this->leadProjects    = LeadProject::orderBy('name')->get();
+        $this->meetingWith     = $meeting->client_id ? 'client' : 'lead';
         $this->employees       = User::allEmployees(null, true);
         $this->meetingPurposes = MeetingOption::ofType('purpose')->get();
         $this->meetingStatuses = MeetingOption::ofType('status')->get();
@@ -317,9 +367,12 @@ class CustomerController extends AccountBaseController
         // Follow-up meeting form: the saved follow-up meeting, or a new one for the same customer
         $this->followupValues = $followup ? [
             'meeting_type'    => $followup->meeting_type,
+            'title'           => $followup->title,
+            'lead_project_id' => $followup->lead_project_id,
             'purpose'         => $followup->purpose,
             'status'          => $followup->status,
-            'customer_id'     => $followup->customer_id,
+            'lead_id'         => $followup->lead_id,
+            'client_id'       => $followup->client_id,
             'lead_owner'      => $ownerId($followup->lead_owner),
             'meeting_date'    => $followup->meeting_date ? $followup->meeting_date->format('Y-m-d') : '',
             'start_time'      => $followup->start_time ? substr($followup->start_time, 0, 5) : '',
@@ -333,7 +386,9 @@ class CustomerController extends AccountBaseController
         ] : [
             'meeting_type' => 'online',
             'purpose'      => $meeting->purpose,
-            'customer_id'  => $meeting->customer_id,
+            'lead_id'      => $meeting->lead_id,
+            'client_id'    => $meeting->client_id,
+            'lead_project_id' => $meeting->lead_project_id,
             'lead_owner'   => $ownerId($meeting->lead_owner),
         ];
 
@@ -391,7 +446,7 @@ class CustomerController extends AccountBaseController
 
     public function meetingNotes($id)
     {
-        return Reply::dataOnly($this->meetingNotesData(CustomerMeeting::with('customer')->findOrFail($id)));
+        return Reply::dataOnly($this->meetingNotesData(CustomerMeeting::with(['customer', 'lead', 'client'])->findOrFail($id)));
     }
 
     /**
@@ -400,7 +455,7 @@ class CustomerController extends AccountBaseController
      */
     public function refreshMeetingNotes($id)
     {
-        $meeting = CustomerMeeting::with('customer')->findOrFail($id);
+        $meeting = CustomerMeeting::with(['customer', 'lead', 'client'])->findOrFail($id);
 
         if (!GoogleMeetNotes::meetingCode($meeting->meeting_link)) {
             return response()->json(['status' => 'fail', 'message' => 'Notes are only available for Google Meet meetings.'], 422);
@@ -450,6 +505,8 @@ class CustomerController extends AccountBaseController
             $message = null;
         } elseif ($meeting->notes_recording_status === 'recording') {
             $message = 'The CRM Notes extension is recording this call. Notes appear here a minute or two after the call ends.';
+        } elseif ($meeting->notes_recording_status === 'failed') {
+            $message = 'The call was recorded, but no speech was heard in it, so no notes were written. Check that people had their microphones on, and see notetaker-bot\\bot.log for the audio level of each part.';
         } elseif ($meeting->notes_recording_status === 'processing') {
             $message = 'The call has ended. Writing the meeting notes now; check again in a minute.';
         } elseif (!GoogleMeetNotes::meetingCode($meeting->meeting_link)) {
@@ -467,7 +524,7 @@ class CustomerController extends AccountBaseController
 
         return [
             'status' => 'success',
-            'title' => ($meeting->customer->company_name ?? 'Meeting') . ' · ' . ($start ? $start->format('d M Y, h:i A') : '') . ($end ? ' – ' . $end->format('h:i A') : ''),
+            'title' => ($meeting->contact->company_name ?? 'Meeting') . ' · ' . ($start ? $start->format('d M Y, h:i A') : '') . ($end ? ' – ' . $end->format('h:i A') : ''),
             'notes' => $meeting->meet_notes,
             'url' => $meeting->meet_notes_url,
             'fetched_at' => $meeting->meet_notes_fetched_at ? $meeting->meet_notes_fetched_at->timezone(CustomerMeeting::timezone())->format('d M Y, h:i A') : null,
@@ -594,7 +651,7 @@ class CustomerController extends AccountBaseController
         $followup = $meeting->followupMeeting ?? new CustomerMeeting(['added_by' => user()->id]);
 
         $followupRequest = Request::create('', 'POST', $request->only([
-            'meeting_type', 'purpose', 'status', 'customer_id', 'lead_owner', 'meeting_date', 'start_time',
+            'meeting_type', 'title', 'purpose', 'status', 'lead_id', 'client_id', 'lead_project_id', 'lead_owner', 'meeting_date', 'start_time',
             'end_time', 'provider', 'meeting_link', 'google_event_id', 'teams_meeting_id', 'location', 'description',
         ]));
 
@@ -612,8 +669,7 @@ class CustomerController extends AccountBaseController
      */
     public function generateMeetLink(Request $request)
     {
-        $request->validate([
-            'customer_id'     => 'required|exists:customers,id',
+        $request->validate($this->contactRules() + [
             'lead_owner'      => ['nullable', 'integer', Rule::in(User::allEmployees(null, true)->pluck('id')->all())],
             'meeting_date'    => 'required|date',
             'start_time'      => 'required|date_format:H:i',
@@ -621,12 +677,11 @@ class CustomerController extends AccountBaseController
             'google_event_id' => ['nullable', 'string', 'max:255'],
             'teams_meeting_id' => ['nullable', 'string', 'max:500'],
         ], [
-            'customer_id.required'  => 'Select a customer.',
             'meeting_date.required' => 'Select the meeting date.',
             'start_time.required'   => 'Select the start time.',
             'end_time.required'     => 'Select the end time.',
             'end_time.after'        => 'End time must be after the start time.',
-        ]);
+        ] + self::CONTACT_MESSAGES);
 
         // Regenerating: remove the event made by the previous click. A saved meeting's event is kept
         // until the edit is saved, so cancelling the edit leaves the meeting's link working.
@@ -759,13 +814,31 @@ class CustomerController extends AccountBaseController
         }
     }
 
+    /** The meeting form's client or lead: a client is chosen on meetings from the Clients page, a lead otherwise. */
+    private function contactRules(): array
+    {
+        return [
+            'client_id' => ['nullable', 'integer', Rule::in(User::allClients()->pluck('id')->all())],
+            'lead_id'   => ['required_without:client_id', 'nullable', 'exists:leads,id'],
+        ];
+    }
+
+    /** Name, company and email of the form's client or lead. */
+    private function requestContact(Request $request): object
+    {
+        return (new CustomerMeeting([
+            'client_id' => $request->client_id ?: null,
+            'lead_id'   => $request->client_id ? null : $request->lead_id,
+        ]))->contact;
+    }
+
     private function teamsSlot(Request $request): array
     {
         $timezone = CustomerMeeting::timezone();
-        $customer = Customer::find($request->customer_id);
+        $contact = $this->requestContact($request);
 
         return [
-            ($request->purpose ?: 'Meeting') . ' - ' . ($customer->company_name ?? 'Customer'),
+            ($request->title ?: ($request->purpose ?: 'Meeting')) . ' - ' . ($contact->company_name ?? 'Meeting'),
             Carbon::parse($request->meeting_date . ' ' . $request->start_time, $timezone),
             Carbon::parse($request->meeting_date . ' ' . $request->end_time, $timezone),
         ];
@@ -793,10 +866,10 @@ class CustomerController extends AccountBaseController
     private function meetingCalendarEvent(Request $request, bool $withAttendees): Google_Service_Calendar_Event
     {
         $timezone = company()->timezone ?: config('app.timezone');
-        $customer = Customer::find($request->customer_id);
+        $contact = $this->requestContact($request);
 
         $data = [
-            'summary' => ($request->purpose ?: 'Meeting') . ' - ' . $customer->company_name,
+            'summary' => ($request->title ?: ($request->purpose ?: 'Meeting')) . ' - ' . ($contact->company_name ?? 'Meeting'),
             'description' => $request->description,
             'start' => [
                 'dateTime' => Carbon::parse($request->meeting_date . ' ' . $request->start_time, $timezone)->toRfc3339String(),
@@ -812,7 +885,7 @@ class CustomerController extends AccountBaseController
             $owner = $request->lead_owner ? User::find($request->lead_owner) : null;
             $data['attendees'] = [];
 
-            foreach ([$customer->email, $owner->email ?? null] as $email) {
+            foreach ([$contact->email, $owner->email ?? null] as $email) {
                 if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
                     $data['attendees'][] = ['email' => $email];
                 }

@@ -143,6 +143,11 @@ class Lead extends BaseModel
         return $this->email;
     }
 
+    public function leadProject(): BelongsTo
+    {
+        return $this->belongsTo(LeadProject::class, 'lead_project_id');
+    }
+
     public function leadSource(): BelongsTo
     {
         return $this->belongsTo(LeadSource::class, 'source_id');

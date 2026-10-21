@@ -679,6 +679,10 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account'], function () {
 
     // deals route
 
+    // Project Name on the lead form: "Add" pop-up
+    Route::get('lead-projects/create', [\App\Http\Controllers\LeadProjectController::class, 'create'])->name('lead-projects.create');
+    Route::post('lead-projects', [\App\Http\Controllers\LeadProjectController::class, 'store'])->name('lead-projects.store');
+
     Route::resource('lead-contact', LeadContactController::class);
     Route::post('lead-contact/apply-quick-action', [LeadContactController::class, 'applyQuickAction'])->name('lead-contact.apply_quick_action');
 

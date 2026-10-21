@@ -30,6 +30,7 @@ class StoreRequest extends CoreRequest
         $rules = array();
 
         $rules['client_name'] = 'required';
+        $rules['lead_project_id'] = 'required|exists:lead_projects,id,company_id,' . company()->id;
         $rules['client_email'] = 'nullable|email:rfc,strict|unique:leads,client_email,null,id,company_id,' . company()->id;
 
         if (request()->has('create_deal') && request()->create_deal == 'on') {
@@ -51,6 +52,7 @@ class StoreRequest extends CoreRequest
         $attributes = $this->customFieldsAttributes($attributes);
 
         $attributes['client_name'] = __('app.name');
+        $attributes['lead_project_id'] = 'Project Name';
         $attributes['client_email'] = __('app.email');
         $attributes['name'] = __('modules.deal.dealName');
         $attributes['stage_id'] = __('modules.deal.leadStages');

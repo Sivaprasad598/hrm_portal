@@ -74,6 +74,7 @@ $(document).ready(function () {
         if (current && select.find('option').filter(function () { return this.value === current; }).length) {
             select.val(current);
         }
+        if (window.refreshMeetingPickers) refreshMeetingPickers();
     }
 
     function renderOptionList(options) {
@@ -130,6 +131,7 @@ $(document).ready(function () {
                 loadOptions().done(function () {
                     // Select the newly added option in the form
                     $('select[data-option-type="' + optionType + '"]').val(r.option.name);
+                    if (window.refreshMeetingPickers) refreshMeetingPickers();
                 });
             },
             error: function (xhr) {

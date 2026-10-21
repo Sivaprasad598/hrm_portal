@@ -58,13 +58,16 @@ class CrmNotesRecorder
      */
     public static function finish(CustomerMeeting $meeting): bool
     {
-        $meeting->loadMissing('customer');
+        $meeting->loadMissing(['customer', 'lead', 'client']);
         $files = glob(self::directory($meeting) . '/*.txt') ?: [];
         sort($files);
 
         $transcript = trim(implode("\n", array_map(fn ($file) => trim(File::get($file)), $files)));
 
-        if ($transcript === '') {
+        // Speech-to-text invents a few repeated words ("you you you") from silent audio: that is not speech
+        $words = array_unique(str_word_count(strtolower($transcript), 1));
+
+        if ($transcript === '' || count($words) < 3) {
             $meeting->forceFill(['notes_recording_status' => 'failed'])->save();
             Log::warning('CRM Notes: no speech was transcribed for meeting ' . $meeting->id);
 

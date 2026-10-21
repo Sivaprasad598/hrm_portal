@@ -13,7 +13,7 @@
         <div>
             <h1 class="mb-1">Meeting Result</h1>
             <p class="text-muted mb-0">
-                {{ $meeting->customer->company_name ?? '-' }} ·
+                {{ $meeting->contact->company_name ?? '-' }} ·
                 {{ $meeting->purpose }} ·
                 {{ $meeting->meeting_date ? $meeting->meeting_date->format('d M Y') : '-' }}
                 {{ $meeting->start_time ? \Carbon\Carbon::parse($meeting->start_time)->format('h:i A') : '' }}
@@ -106,7 +106,7 @@
             <div class="card mb-3">
                 <div class="card-body">
                     <h3 class="h5 mb-1 font-weight-bold" id="meetingFormTitle">Create {{ ucfirst($followupType) }} Meeting</h3>
-                    <p class="text-muted small mb-4">Schedule the follow-up meeting with this customer</p>
+                    <p class="text-muted small mb-4">Schedule the follow-up meeting with this lead</p>
 
                     <input type="hidden" name="meeting_type" id="meetingType" value="{{ $followupType }}">
                     @include('customers.partials.meeting-fields', ['values' => $followupValues, 'withCustomerAddButton' => false])
@@ -281,18 +281,26 @@ $(document).ready(function () {
     $('#offlineBtn').on('click', function () { setMeetingType('offline'); });
     $('#meetingProvider').on('change', updateGenerateMeetBtn);
 
+    // Picking a lead fills Select Project with that lead's project (it can still be changed)
+    $(document).on('change', '#meetingLead', function () {
+        var projectId = $(this).find(':selected').data('project-id');
+        if (projectId) $('#meetingProject').val(String(projectId));
+        refreshMeetingPickers();
+    });
+
     function validateSlot() {
         var errors = {};
         var start = $('#meetingStart').val();
         var end = $('#meetingEnd').val();
 
-        if (!$('#meetingCustomer').val()) errors.customer_id = 'Select a customer.';
+        var contact = $('.contact-group select:enabled');
+        if (!contact.val()) errors[contact.attr('name')] = contact.is('#meetingClient') ? 'Select a client.' : 'Select a lead.';
         if (!$('#meetingDate').val()) errors.meeting_date = 'Select the meeting date.';
         if (!start) errors.start_time = 'Select the start time.';
         if (!end) errors.end_time = 'Select the end time.';
         if (start && end && end <= start) errors.end_time = 'End time must be after the start time.';
 
-        ['customer_id', 'meeting_date', 'start_time', 'end_time'].forEach(function (name) {
+        ['client_id', 'lead_id', 'meeting_date', 'start_time', 'end_time'].forEach(function (name) {
             showError(name, errors[name] || '');
         });
 

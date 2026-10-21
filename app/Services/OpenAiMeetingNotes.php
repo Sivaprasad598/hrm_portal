@@ -47,7 +47,7 @@ class OpenAiMeetingNotes
         $end = $meeting->endsAt();
 
         $context = implode("\n", array_filter([
-            'Customer: ' . ($meeting->customer->company_name ?? '-') . ($meeting->customer->customer_name ?? null ? ' (' . $meeting->customer->customer_name . ')' : ''),
+            'Customer: ' . ($meeting->contact->company_name ?? '-') . ($meeting->contact->name ? ' (' . $meeting->contact->name . ')' : ''),
             'Lead owner: ' . ($meeting->lead_owner ?: '-'),
             'Purpose: ' . ($meeting->purpose ?: '-'),
             'Scheduled: ' . ($start ? $start->format('d M Y, h:i A') : '-') . ($end ? ' – ' . $end->format('h:i A') : ''),
