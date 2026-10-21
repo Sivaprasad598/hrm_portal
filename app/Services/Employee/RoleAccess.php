@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\DB;
  * What the HR, Admin and CEO roles may use (the CEO role is the Chairman / MD and the CEO): the dashboards, HR (employees,
  * attendance, leave, shifts, holidays, exits), Biometric, Payroll and the
  * settings pages that belong to them (Attendance, Shift, Biometric, Leave,
- * Notice Period, Payslip and AI settings).
+ * Notice Period, Payslip and AI settings) and Assets.
  *
  * Company-wide controls stay with the Super Admin: company / account details,
  * sign-up, business addresses, roles & permissions, modules, Data Clean.
@@ -40,6 +40,8 @@ class RoleAccess
         'add_holiday', 'view_holiday', 'edit_holiday', 'add_leave', 'view_leave', 'edit_leave', 'approve_or_reject_leaves',
         // their settings pages
         'manage_attendance_setting', 'manage_leave_setting',
+        // assets
+        'manage_assets',
     ];
 
     /** Sidebar entries granted, by route (and the group headings they sit under). */
@@ -58,6 +60,8 @@ class RoleAccess
         'biometric.overview', 'biometric.review', 'biometric.exceptions', 'biometric.attendance', 'biometric.attendance-sync',
         'biometric.profile', 'biometric.employees', 'biometric.devices', 'biometric.shifts', 'biometric.punch-log',
         'biometric.calendar', 'biometric.sync-logs', 'biometric.comparison', 'biometric.actions',
+        // Assets
+        'assets.index', 'assets.assigned', 'asset-types.index',
         // Settings
         'attendance-settings.index', 'employee-shifts.index', 'biometric-settings.index', 'leaves-settings.index',
         'notice-period-settings.index', 'payslip-settings.index', 'profile-settings.index',

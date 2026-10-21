@@ -189,6 +189,8 @@ class Kernel extends ConsoleKernel
         $schedule->command('iapp:sync-punches --scheduled --days=1 --push')->hourly()->withoutOverlapping(120)->runInBackground();
         // Employees' own shifts, written into the roster 60 days ahead (ShiftAssignments).
         $schedule->command('shifts:extend')->dailyAt('00:30');
+        // Asset services / warranties / renewals coming due: bell only, never email.
+        $schedule->command('assets:due-reminders')->dailyAt('09:00')->timezone('Asia/Kolkata');
         // Draft payslips once a pay cycle has ended. attendance:daily also runs
         // this straight after each review; this is the fallback.
         $schedule->command('payroll:generate-due')->dailyAt('13:00')->timezone('Asia/Kolkata');

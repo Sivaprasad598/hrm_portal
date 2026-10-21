@@ -83,16 +83,20 @@ class DataCleaner
             'task_history', 'task_labels', 'task_notes', 'task_status_logs', 'task_users', 'tasks', 'ticket_activities', 'ticket_files',
             'ticket_replies', 'ticket_reply_users', 'ticket_tags', 'tickets', 'subscriptions', 'subscription_items',
         ]],
+        'assets' => ['Assets', 'The asset register, every hand-over and return, services, repairs and renewals, and the asset history, photos and bills. Asset types stay.', [
+            'asset_reminders', 'asset_services', 'asset_renewals', 'asset_histories', 'asset_assignments', 'assets',
+        ]],
     ];
 
     /** Removing people removes what belongs to them. */
-    public const IMPLIED_BY_EMPLOYEES = ['attendance', 'shifts', 'exits', 'payroll', 'biometric', 'modules'];
+    public const IMPLIED_BY_EMPLOYEES = ['attendance', 'shifts', 'exits', 'payroll', 'biometric', 'modules', 'assets'];
 
     /** Upload folders emptied with each group (under public/user-uploads). */
     protected const FOLDERS = [
         'employees' => ['employee-docs', 'import-files', 'temp'],
         'attendance' => ['leave-files'],
         'modules' => ['project-files', 'task-files', 'events', 'notice-files', 'products'],
+        'assets' => ['asset-images', 'asset-files'],
     ];
 
     /** Shifts that are never removed. */

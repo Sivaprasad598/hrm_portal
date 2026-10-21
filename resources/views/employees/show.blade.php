@@ -123,6 +123,12 @@ if ($viewPermission == 'all'
                         </li>
                     @endif
 
+                    @if (user()->permission('manage_assets') === 'all' || $employee->id == user()->id)
+                        <li>
+                            <x-tab :href="route('employees.show', $employee->id) . '?tab=assets'" text="Assets" class="assets" />
+                        </li>
+                    @endif
+
                     @if ($manageRolePermissionSetting == 'all')
                         <li>
                             <x-tab :href="route('employees.show', $employee->id) . '?tab=permissions'" :text="__('modules.permission.permissions')" class="permissions" />

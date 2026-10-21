@@ -148,6 +148,8 @@ class EmployeeExitController extends AccountBaseController
 
         $this->exit = EmployeeExit::with(['employee', 'employee.employeeDetail', 'checklists', 'interview', 'initiatedBy'])->findOrFail($id);
         $this->pageTitle = 'Exit Details — ' . $this->exit->employee->name;
+        $this->heldAssets = \App\Services\Assets\AssetFlow::heldBy((int) $this->exit->user_id);
+        $this->manageAssets = user()->permission('manage_assets') === 'all';
 
         $view = 'employee-exit.ajax.show';
 
@@ -293,6 +295,12 @@ class EmployeeExitController extends AccountBaseController
             if ($allDone) {
                 $exit->$field = 'completed';
             }
+        }
+
+        // Ticking the checklist does not clear assets the employee still holds.
+        if ($exit->asset_clearance_status !== 'waived'
+            && \App\Models\AssetAssignment::withoutGlobalScopes()->where('user_id', $exit->user_id)->whereNull('returned_on')->exists()) {
+            $exit->asset_clearance_status = 'pending';
         }
 
         $exit->save();

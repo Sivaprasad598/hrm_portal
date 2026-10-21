@@ -86,6 +86,13 @@ return [
     |
     */
 
+    /*
+    | Master switch: no email leaves the application unless this is true
+    | (AppServiceProvider drops every message otherwise). Set
+    | MAIL_SENDING_ENABLED=true in .env only when email should go out.
+    */
+    'sending_enabled' => (bool) env('MAIL_SENDING_ENABLED', false),
+
     'from' => [
        'address' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
         'name' => env('MAIL_FROM_NAME', 'Example'),

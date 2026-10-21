@@ -237,6 +237,30 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account'], function () {
 
     Route::resource('employees', EmployeeController::class);
 
+    // Assets: the register, hand-over to employees and return.
+    Route::get('assets/assigned', [App\Http\Controllers\AssetController::class, 'assigned'])->name('assets.assigned');
+    Route::get('assets/handover', [App\Http\Controllers\AssetController::class, 'handover'])->name('assets.handover');
+    Route::get('assets/import', [App\Http\Controllers\AssetController::class, 'importForm'])->name('assets.import');
+    Route::get('assets/import/template', [App\Http\Controllers\AssetController::class, 'importTemplate'])->name('assets.import.template');
+    Route::post('assets/import/preview', [App\Http\Controllers\AssetController::class, 'importPreview'])->name('assets.import.preview');
+    Route::post('assets/import/run', [App\Http\Controllers\AssetController::class, 'importRun'])->name('assets.import.run');
+    Route::get('assets/assign', [App\Http\Controllers\AssetController::class, 'assignForm'])->name('assets.assign-form');
+    Route::post('assets/assign', [App\Http\Controllers\AssetController::class, 'assign'])->name('assets.assign');
+    Route::get('assets/return/{assignment}', [App\Http\Controllers\AssetController::class, 'returnForm'])->name('assets.return-form');
+    Route::post('assets/return/{assignment}', [App\Http\Controllers\AssetController::class, 'returnAsset'])->name('assets.return');
+    Route::get('assets/{asset}/status', [App\Http\Controllers\AssetController::class, 'statusForm'])->name('assets.status-form');
+    Route::post('assets/{asset}/status', [App\Http\Controllers\AssetController::class, 'status'])->name('assets.status');
+    // Servicing, repairs and renewals of an asset.
+    Route::get('assets/{asset}/service', [App\Http\Controllers\AssetUpkeepController::class, 'serviceForm'])->name('assets.service-form');
+    Route::post('assets/{asset}/service', [App\Http\Controllers\AssetUpkeepController::class, 'serviceStore'])->name('assets.service');
+    Route::get('assets/services/{service}/complete', [App\Http\Controllers\AssetUpkeepController::class, 'completeForm'])->name('assets.service-complete-form');
+    Route::post('assets/services/{service}/complete', [App\Http\Controllers\AssetUpkeepController::class, 'complete'])->name('assets.service-complete');
+    Route::get('assets/{asset}/renewal', [App\Http\Controllers\AssetUpkeepController::class, 'renewalForm'])->name('assets.renewal-form');
+    Route::post('assets/{asset}/renewal', [App\Http\Controllers\AssetUpkeepController::class, 'renewalStore'])->name('assets.renewal');
+    Route::delete('assets/renewals/{renewal}', [App\Http\Controllers\AssetUpkeepController::class, 'renewalDestroy'])->name('assets.renewal-destroy');
+    Route::resource('assets', App\Http\Controllers\AssetController::class);
+    Route::resource('asset-types', App\Http\Controllers\AssetTypeController::class)->only(['index', 'store', 'update', 'destroy']);
+
     // Employee Exit Management
     Route::get('employee-exit/initiate/{userId}', [EmployeeExitController::class, 'initiate'])->name('employee-exit.initiate');
     Route::post('employee-exit/store', [EmployeeExitController::class, 'store'])->name('employee-exit.store');

@@ -445,6 +445,7 @@
                     @include('dashboard.employee.widgets.week_timelog')
                     @include('dashboard.employee.widgets.onboarding')
                     @include('dashboard.employee.widgets.documents')
+                    @include('dashboard.employee.widgets.assets')
                 </div>
                 <!-- EMP DASHBOARD TASKS PROJECTS END -->
                 @include('dashboard.employee.widgets.roadblocks')

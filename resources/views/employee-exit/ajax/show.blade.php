@@ -91,6 +91,33 @@
                     @endforeach
                 </div>
 
+                {{-- Assets still with the employee: Asset Clearance completes when the last one is returned --}}
+                <div class="mb-3">
+                    <h6 class="f-14 font-weight-700 text-uppercase text-dark-grey border-bottom pb-2">Assets to Return</h6>
+                    @if ($heldAssets->isEmpty())
+                        <p class="f-13 text-success mb-0"><i class="fa fa-check-circle mr-1"></i>No asset is with this employee.</p>
+                    @else
+                        <table class="table table-sm table-bordered f-13 mb-0">
+                            <thead class="bg-light"><tr><th>Asset</th><th>Assigned On</th>@if ($manageAssets)<th class="text-right">Action</th>@endif</tr></thead>
+                            <tbody>
+                            @foreach ($heldAssets as $held)
+                                <tr>
+                                    <td>{{ $held->asset?->name }} <span class="text-dark-grey">({{ $held->asset?->asset_code }})</span></td>
+                                    <td>{{ $held->assigned_on->format(company()->date_format) }}</td>
+                                    @if ($manageAssets)
+                                        <td class="text-right">
+                                            <a href="{{ route('assets.return-form', $held->id) }}" class="btn btn-sm btn-outline-primary openRightModal">
+                                                <i class="fa fa-undo mr-1"></i>Take Return</a>
+                                        </td>
+                                    @endif
+                                </tr>
+                            @endforeach
+                            </tbody>
+                        </table>
+                        <p class="f-12 text-dark-grey mt-1 mb-0">Asset Clearance is completed once all of these are returned.</p>
+                    @endif
+                </div>
+
                 {{-- Checklist Progress --}}
                 @if($exit->checklists->count())
                 <div class="mb-3">

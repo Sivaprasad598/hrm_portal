@@ -150,6 +150,7 @@ class SettlementController extends AccountBaseController
             'notice_shortfall_days' => $draft['notice_shortfall_days'],
             'notice_recovery' => $draft['notice_recovery'],
             'advances_outstanding' => $draft['advances_outstanding'],
+            'asset_recovery' => $draft['asset_recovery'],
             'other_recovery' => $draft['other_recovery'],
             'statutory_deductions' => $draft['statutory_deductions'],
             'total_deductions' => $draft['total_deductions'],
@@ -179,6 +180,21 @@ class SettlementController extends AccountBaseController
     public function agree(Request $request)
     {
         $request->validate(['id' => 'required|integer|exists:settlements,id']);
+
+        // Assets: all back (or written off) first, and the draft has to carry
+        // what is recorded against them now, not what was known when drafted.
+        $settlement = DB::table('settlements')->where('id', $request->id)->first(['user_id', 'last_working_day', 'asset_recovery']);
+        $assets = app(SettlementCalculator::class)->assetRecovery((int) $settlement->user_id,
+            DB::table('employee_details')->where('user_id', $settlement->user_id)->value('joining_date'));
+
+        if ($assets['unreturned'] !== '') {
+            return Reply::error('Assets are still with the employee: ' . $assets['unreturned']);
+        }
+
+        if (round((float) $settlement->asset_recovery, 2) !== round($assets['amount'], 2)) {
+            return Reply::error('The amount to recover for assets has changed since this was drafted ('
+                . number_format($assets['amount'], 2) . ' now). Draft it again, then agree.');
+        }
 
         $agreed = DB::table('settlements')->where('id', $request->id)->where('status', 'draft')
             ->update(['status' => 'agreed', 'agreed_at' => now(), 'agreed_by' => user()->id, 'updated_at' => now()]);

@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\DB;
  *   gratuity, where the years served qualify
  *   less notice not served
  *   less advances still outstanding
+ *   less amounts to recover for assets lost or damaged
  *   less the statutory deductions on the final pay
  *
  * Every figure is produced with its working, because a leaver reads this line
@@ -126,6 +127,17 @@ class SettlementCalculator
             $workings[] = ['Advances still owed', -$advances['amount'], $advances['note']];
         }
 
+        // ---- assets lost or damaged, and assets still out -----------------
+        $assets = $this->assetRecovery($userId, $employee->joining_date);
+
+        if ($assets['amount'] > 0) {
+            $workings[] = ['Assets lost or damaged', -$assets['amount'], $assets['note']];
+        }
+
+        if ($assets['unreturned'] !== '') {
+            $workings[] = ['Assets not yet returned', 0.0, $assets['unreturned']];
+        }
+
         $otherRecovery = (float) ($overrides['other_recovery'] ?? 0);
 
         if ($otherRecovery > 0) {
@@ -138,7 +150,7 @@ class SettlementCalculator
                 'on the final month\'s salary; PF and ESI both shares, as on the payslip'];
         }
 
-        $deductions = round($notice['recovery'] + $advances['amount'] + $otherRecovery + $statutory, 2);
+        $deductions = round($notice['recovery'] + $advances['amount'] + $assets['amount'] + $otherRecovery + $statutory, 2);
         $net = round($payable - $deductions, 2);
 
         $workings[] = ['Net payable', $net, $net < 0 ? 'owed by the employee to the company' : '', 'total'];
@@ -161,6 +173,8 @@ class SettlementCalculator
             'notice_shortfall_days' => $notice['shortfall'],
             'notice_recovery' => $notice['recovery'],
             'advances_outstanding' => $advances['amount'],
+            'asset_recovery' => $assets['amount'],
+            'assets_unreturned' => $assets['unreturned'],
             'other_recovery' => $otherRecovery,
             'statutory_deductions' => $statutory,
             'total_deductions' => $deductions,
@@ -168,6 +182,37 @@ class SettlementCalculator
             'per_day' => round($perDay, 2),
             'workings' => $workings,
             'message' => null,
+        ];
+    }
+
+    /**
+     * Amounts recorded against the employee for assets they lost or damaged in
+     * this employment (Assets -> Take Return), and the assets still with them,
+     * which have to be taken back or written off before the settlement is final.
+     *
+     * @return array{amount: float, note: string, unreturned: string}
+     */
+    public function assetRecovery(int $userId, $joinedOn): array
+    {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('asset_assignments')) {
+            return ['amount' => 0.0, 'note' => '', 'unreturned' => ''];
+        }
+
+        $rows = DB::table('asset_assignments as aa')->join('assets as a', 'a.id', '=', 'aa.asset_id')
+            ->where('aa.user_id', $userId)
+            ->when($joinedOn, fn ($q) => $q->whereDate('aa.assigned_on', '>=', Carbon::parse($joinedOn)->toDateString()))
+            ->get(['a.name', 'a.asset_code', 'aa.returned_on', 'aa.condition_in', 'aa.recovery_amount']);
+
+        $charged = $rows->filter(fn ($r) => $r->returned_on && (float) $r->recovery_amount > 0);
+        $out = $rows->whereNull('returned_on');
+
+        return [
+            'amount' => round((float) $charged->sum(fn ($r) => (float) $r->recovery_amount), 2),
+            'note' => $charged->map(fn ($r) => $r->name . ' (' . $r->asset_code . ', ' . ($r->condition_in === 'lost' ? 'lost' : 'damaged')
+                . ') ' . number_format((float) $r->recovery_amount, 2))->implode('; '),
+            'unreturned' => $out->isEmpty() ? '' : $out->count() . ' still with the employee: '
+                . $out->map(fn ($r) => $r->name . ' (' . $r->asset_code . ')')->implode(', ')
+                . '. Take them back, or record them as lost with an amount to recover, before agreeing the settlement.',
         ];
     }
 

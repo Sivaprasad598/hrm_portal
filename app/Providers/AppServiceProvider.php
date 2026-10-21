@@ -38,6 +38,21 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot()
     {
+        // Master switch for outgoing email. Off unless MAIL_SENDING_ENABLED=true
+        // is set in .env: every email the application tries to send is dropped
+        // (and noted in the log) whatever the SMTP settings or notification
+        // ticks say. In-app (bell) notifications are not affected.
+        \Illuminate\Support\Facades\Event::listen(\Illuminate\Mail\Events\MessageSending::class, function ($event) {
+            if (config('mail.sending_enabled')) {
+                return null;
+            }
+
+            $to = implode(', ', array_map(fn ($a) => $a->getAddress(), $event->message->getTo()));
+            logger()->info('Email blocked (MAIL_SENDING_ENABLED is off): "' . $event->message->getSubject() . '" to ' . $to);
+
+            return false;
+        });
+
         // Outgoing HTTPS (IFSC lookup, AI providers) needs a CA certificate
         // bundle. A PHP built without one configured (curl.cainfo /
         // openssl.cafile empty, as on this WAMP install) fails every call with

@@ -1205,6 +1205,18 @@ class EmployeeController extends AccountBaseController
             $this->view = 'employees.ajax.activity';
             break;
 
+        case 'assets':
+            // HR and admins manage them; an employee sees their own.
+            $this->manageAssets = user()->permission('manage_assets') === 'all';
+            abort_403(!$this->manageAssets && $this->employee->id != user()->id);
+
+            $this->heldAssets = \App\Services\Assets\AssetFlow::heldBy($this->employee->id);
+            $this->pastAssets = \App\Models\AssetAssignment::withoutGlobalScopes()->with('asset.type')
+                ->where('user_id', $this->employee->id)->whereNotNull('returned_on')
+                ->orderByDesc('returned_on')->get();
+            $this->view = 'employees.ajax.assets';
+            break;
+
         case 'immigration':
             abort_403($viewImmigrationPermission == 'none');
             $this->passport = Passport::with('country')->where('user_id', $this->employee->id)->first();
