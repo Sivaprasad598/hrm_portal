@@ -13,6 +13,16 @@
 
             @include('customers.partials.meeting-fields')
 
+            {{-- Lead meetings: who is invited (lead, lead owner, lead team). Filled when a lead is picked;
+                 people ticked on the lead's "Lead Team" tab arrive pre-selected. --}}
+            <div class="form-group mb-4" id="meetingInviteBox" style="display: none;">
+                <label class="d-block mb-1">Invite</label>
+                <small class="text-muted d-block mb-2">Ticked people are saved with the meeting; for Google Meet they also get the calendar invite.</small>
+                <input type="hidden" name="attendees_sent" value="1" id="meetingAttendeesSent" disabled>
+                <div id="meetingInviteList" class="border rounded p-2" style="max-height: 260px; overflow-y: auto;"></div>
+                <div class="text-danger small mt-1" data-error-for="attendees"></div>
+            </div>
+
             <button type="submit" class="btn btn-primary" id="saveMeetingBtn">Create Meeting</button>
             <button type="button" class="btn btn-outline-secondary ml-2" id="cancelMeetingBtn">Cancel</button>
         </form>

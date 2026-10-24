@@ -133,7 +133,19 @@ $addDealPermission = user()->permission('add_deals');
                             </div>
                         </div>
                     </div>
+
+                    {{-- Assign Team: employees working this lead, picked by department and designation --}}
+                    <div class="col-lg-3 col-md-6">
+                        <div class="form-group">
+                            <div class="mt-2 d-flex">
+                                <x-forms.checkbox fieldId="assign_team" fieldLabel="Assign Team"
+                                                fieldName="assign_team" :checked="false"/>
+                            </div>
+                        </div>
+                    </div>
                 </div>
+
+                @include('lead-contact.ajax.assign-team')
 
                 <div class="row p-20" id="add_deal">
                     <div class="col-lg-4 col-md-6">

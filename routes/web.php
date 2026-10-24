@@ -684,6 +684,31 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account'], function () {
     Route::get('lead-projects/create', [\App\Http\Controllers\LeadProjectController::class, 'create'])->name('lead-projects.create');
     Route::post('lead-projects', [\App\Http\Controllers\LeadProjectController::class, 'store'])->name('lead-projects.store');
 
+    // Lead contact form, "Assign Team": designations of a department, employees of a designation
+    Route::get('lead-contact/team/designations', [\App\Http\Controllers\LeadTeamController::class, 'designations'])->name('lead-contact.team.designations');
+    Route::post('lead-contact/{id}/team-members', [\App\Http\Controllers\LeadTeamController::class, 'addMember'])->name('lead-contact.team.add');
+    Route::delete('lead-contact/{id}/team-members/{userId}', [\App\Http\Controllers\LeadTeamController::class, 'removeMember'])->name('lead-contact.team.remove');
+
+    // Standalone Lead Team view (no tabs, no Create Meeting button)
+    // My Lead Teams: the leads I am assigned to (employees who own no lead land here from Lead Contact)
+    Route::get('lead-contact/my-teams', [\App\Http\Controllers\LeadContactController::class, 'myTeams'])->name('lead-contact.my-teams');
+    // Lead Team page: the lead page with only its Lead Team tab (lead_team_view; /lead_team_view.php?id= opens it)
+    Route::get('lead-contact/{id}/team-only', [\App\Http\Controllers\LeadContactController::class, 'teamView'])->name('lead-contact.team-only');
+
+    // Lead Team Meetings notes (project qualification, lead_team_meetings)
+    Route::post('lead-meetings/{meetingId}/analyse', [\App\Http\Controllers\LeadMeetingController::class, 'analyse'])->name('lead-meetings.analyse');
+    Route::put('lead-meetings/{meetingId}', [\App\Http\Controllers\LeadMeetingController::class, 'update'])->name('lead-meetings.update');
+    Route::get('lead-contact/{id}/meeting-people',[\App\Http\Controllers\LeadTeamController::class, 'meetingPeople'])->name('lead-contact.team.meeting-people');
+    // Lead Team → Team Chat (group chat with the lead team, one-to-one chats; ?with=group|<user id>)
+    Route::get('lead-contact/{id}/chat', [\App\Http\Controllers\LeadChatController::class, 'index'])->name('lead-chat.index');
+    Route::get('lead-contact/{id}/chat/messages', [\App\Http\Controllers\LeadChatController::class, 'messages'])->name('lead-chat.messages');
+    Route::get('lead-contact/{id}/chat/info', [\App\Http\Controllers\LeadChatController::class, 'info'])->name('lead-chat.info');
+    Route::post('lead-contact/{id}/chat/messages', [\App\Http\Controllers\LeadChatController::class, 'send'])->name('lead-chat.send');
+    Route::put('lead-contact/{id}/chat/messages/{messageId}', [\App\Http\Controllers\LeadChatController::class, 'update'])->name('lead-chat.update');
+    Route::delete('lead-contact/{id}/chat/messages/{messageId}', [\App\Http\Controllers\LeadChatController::class, 'destroy'])->name('lead-chat.destroy');
+    Route::get('lead-chat/attachments/{attachmentId}', [\App\Http\Controllers\LeadChatController::class, 'download'])->name('lead-chat.attachment');
+    Route::get('lead-contact/team/employees',[\App\Http\Controllers\LeadTeamController::class, 'employees'])->name('lead-contact.team.employees');
+
     Route::resource('lead-contact', LeadContactController::class);
     Route::post('lead-contact/apply-quick-action', [LeadContactController::class, 'applyQuickAction'])->name('lead-contact.apply_quick_action');
 
@@ -691,6 +716,11 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account'], function () {
     Route::get('deals/get-deals/{id}', [DealController::class, 'getDeals'])->name('deals.get-deals');
     Route::get('deals/get-agent/{id}', [DealController::class, 'getAgents'])->name('deals.get_agents');
     Route::resource('deals', DealController::class);
+
+    // Leads > Lead Generation Bot: Claude web search for project leads (administrators only)
+    Route::get('lead-generation-bot', [\App\Http\Controllers\LeadGenerationBotController::class, 'index'])->name('lead-generation-bot.index');
+    Route::get('lead-generation-bot/companies', [\App\Http\Controllers\LeadGenerationBotController::class, 'suggestCompanies'])->name('lead-generation-bot.companies');
+    Route::post('lead-generation-bot/search', [\App\Http\Controllers\LeadGenerationBotController::class, 'search'])->name('lead-generation-bot.search');
 
     // leaves files routes
     Route::get('leave-files/download/{id}', [LeaveFileController::class, 'download'])->name('leave-files.download');

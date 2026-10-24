@@ -1,5 +1,9 @@
 @php
 $addLeadNotePermission = user()->permission('add_lead_note');
+// The Lead Owner can always add notes to their lead
+if ($addLeadNotePermission === 'none' && $leadContact->isOwnedByMe()) {
+    $addLeadNotePermission = 'added';
+}
 @endphp
 
 <!-- ROW START -->

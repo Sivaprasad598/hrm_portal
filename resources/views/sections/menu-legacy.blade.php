@@ -61,6 +61,11 @@
                     <x-sub-menu-item :link="route('deals.index')" :text="__('app.deal')" />
                 </div>
             @endif
+            @if (in_array('admin', user_roles()))
+                <div class="accordionItemContent ">
+                    <x-sub-menu-item :link="route('lead-generation-bot.index')" text="Lead Generation Bot" />
+                </div>
+            @endif
         </x-menu-item>
     @endif
 

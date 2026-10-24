@@ -70,6 +70,43 @@ class CustomerMeeting extends Model
         ];
     }
 
+    /** People invited to the meeting (lead meetings: chosen from the lead's team). */
+    public function attendees()
+    {
+        return $this->hasMany(CustomerMeetingAttendee::class, 'customer_meeting_id')->orderByDesc('is_lead')->orderBy('id');
+    }
+
+    /** The Lead Team Meeting record (its own ID, LTM-0001) when the meeting was made from a lead's Lead Team tab. */
+    public function leadTeamMeeting()
+    {
+        return $this->hasOne(LeadTeamMeeting::class, 'customer_meeting_id');
+    }
+
+    /** meeting_role values: a lead meeting, a client meeting, or a Lead Team meeting (made from the Lead Team tab). */
+    public const ROLE_LEAD = 'lead';
+    public const ROLE_CLIENT = 'client';
+    public const ROLE_LEAD_TEAM = 'lead_team_meeting';
+
+    public const ROLE_LABELS = [self::ROLE_LEAD => 'Lead', self::ROLE_CLIENT => 'Client', self::ROLE_LEAD_TEAM => 'Lead Team'];
+
+    /** A meeting made from a lead's Lead Team tab (role lead_team_meeting); it has its own Lead Team Meeting record. */
+    public function isLeadTeamMeeting(): bool
+    {
+        return $this->meeting_role === self::ROLE_LEAD_TEAM && $this->lead_id && !$this->client_id;
+    }
+
+    /** Chip on the meeting cards: Lead, Client or Lead Team. */
+    public function roleLabel(): string
+    {
+        return self::ROLE_LABELS[$this->meeting_role] ?? ($this->client_id ? 'Client' : 'Lead');
+    }
+
+    /** Lead meetings, client meetings or Lead Team meetings. */
+    public function scopeRole($query, string $role)
+    {
+        return $query->where('meeting_role', $role);
+    }
+
     /** Project (lead_projects) the meeting is about. */
     public function leadProject()
     {

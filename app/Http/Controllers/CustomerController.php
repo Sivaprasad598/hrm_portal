@@ -51,18 +51,28 @@ class CustomerController extends AccountBaseController
         $from = $request->get('from');
         $this->meetingWith = $from === 'client' ? 'client' : 'lead';
         $this->backUrl = null;
+        $this->afterSaveUrl = null; // where saving goes when it is not backUrl
         $this->returnAfterSave = false;
         $this->contactListUrl = null; // set when shown as the Meetings tab of Lead Contacts / Clients
-        $meetings = CustomerMeeting::with(['customer', 'lead', 'client', 'leadProject'])->orderByDesc('created_at');
+        $meetings = CustomerMeeting::with(['customer', 'lead', 'client', 'leadProject', 'attendees', 'leadTeamMeeting'])->orderByDesc('created_at');
 
         if ($from === 'lead-contact') {
             $this->pageTitle = __('modules.leadContact.leadContacts');
             $this->contactListUrl = route('lead-contact.index');
             $meetings->whereNotNull('lead_id');
+            // Lead meetings and Lead Team meetings are listed separately; a Lead Team meeting's Edit / Meet Notes
+            // opens this page with ?role=lead_team_meeting
+            $this->meetingRole = $request->get('role') === CustomerMeeting::ROLE_LEAD_TEAM ? CustomerMeeting::ROLE_LEAD_TEAM : CustomerMeeting::ROLE_LEAD;
+            $meetings->role($this->meetingRole);
 
             // From a lead's Meetings tab: Back (and saving) returns to that tab
+            // From the lead's Lead Team tab (?return=team): Back goes to that tab, saving to the Meetings tab
             if ($request->get('lead_id')) {
-                $this->backUrl = route('lead-contact.show', $request->get('lead_id')) . '?tab=meetings';
+                $leadPage = route('lead-contact.show', $request->get('lead_id'));
+                $teamMeetings = $this->meetingRole === CustomerMeeting::ROLE_LEAD_TEAM;
+                $this->backUrl = $leadPage . ($teamMeetings ? '?tab=team&view=meetings'
+                    : ($request->get('return') === 'team' ? '?tab=team' : '?tab=meetings'));
+                $this->afterSaveUrl = $leadPage . ($teamMeetings ? '?tab=team&view=meetings' : '?tab=meetings');
                 $this->returnAfterSave = true;
             }
         } elseif ($from === 'client') {
@@ -208,9 +218,15 @@ class CustomerController extends AccountBaseController
      */
     public function storeMeeting(Request $request)
     {
-        $this->saveMeeting($request, new CustomerMeeting(['added_by' => user()->id]));
+        $meeting = new CustomerMeeting(['added_by' => user()->id]);
+        $this->saveMeeting($request, $meeting);
 
-        return Reply::success('Meeting saved successfully.');
+        // meeting_id: the Lead Team tab goes straight to the new meeting's card;
+        // lead_team_meeting_id: the Lead Team Meeting record made for it (Lead Team tab only)
+        return Reply::successWithData('Meeting saved successfully.', [
+            'meeting_id' => $meeting->id,
+            'lead_team_meeting_id' => $meeting->leadTeamMeeting()->value('id'),
+        ]);
     }
 
     /**
@@ -257,6 +273,13 @@ class CustomerController extends AccountBaseController
             'status.in'             => 'Select a valid meeting status.',
         ] + self::CONTACT_MESSAGES);
 
+        // Lead meetings: the people ticked in the Invite list (checked before any calendar event is made)
+        $invited = $this->invitedPeople($request);
+
+        if ($invited === []) {
+            throw ValidationException::withMessages(['attendees' => 'Select at least one person to invite.']);
+        }
+
         $link = $request->meeting_link;
         $googleEventId = null;
         $previousEventId = $meeting->google_event_id;
@@ -297,6 +320,9 @@ class CustomerController extends AccountBaseController
             // A meeting is with a client or a lead (customer_id is only on meetings made before leads)
             'client_id'      => $request->client_id ?: null,
             'lead_id'        => $request->client_id ? null : $request->lead_id,
+            // Who the meeting is with. A Lead Team meeting keeps its role when edited from the Meetings page.
+            'meeting_role'   => $request->client_id ? CustomerMeeting::ROLE_CLIENT
+                : (($request->lead_team_meeting || $meeting->meeting_role === CustomerMeeting::ROLE_LEAD_TEAM) ? CustomerMeeting::ROLE_LEAD_TEAM : CustomerMeeting::ROLE_LEAD),
             'customer_id'    => null,
             'meeting_type'   => $request->meeting_type,
             'title'          => $request->title,
@@ -332,6 +358,32 @@ class CustomerController extends AccountBaseController
 
         $meeting->save();
 
+        // Made from a lead's Lead Team tab: its own Lead Team Meeting record (own ID), linked to the lead and this meeting.
+        // A meeting moved to a client is no longer a Lead Team meeting.
+        if ($meeting->client_id) {
+            $meeting->leadTeamMeeting()->delete();
+        } elseif ($meeting->meeting_role === CustomerMeeting::ROLE_LEAD_TEAM && $meeting->lead_id) {
+            $record = \App\Models\LeadTeamMeeting::firstOrNew(['customer_meeting_id' => $meeting->id]);
+            $record->fill(['company_id' => $meeting->lead->company_id ?? company()->id, 'lead_id' => $meeting->lead_id]);
+            $record->created_by ??= user()->id;
+            $record->save();
+        }
+
+        // Invitees saved with the meeting (replaced on every save); client meetings have none
+        if ($invited !== null || $meeting->client_id) {
+            $meeting->attendees()->delete();
+
+            foreach ($invited ?? [] as $person) {
+                $meeting->attendees()->create([
+                    'user_id' => $person['user_id'],
+                    'is_lead' => $person['key'] === 'lead',
+                    'role'    => $person['role'],
+                    'name'    => $person['name'],
+                    'email'   => $person['email'] !== '--' ? $person['email'] : null,
+                ]);
+            }
+        }
+
         // Google Meet: turn on automatic Smart Notes for the meeting's space (needs Gemini on the company account)
         if ($meeting->meeting_type === 'online' && $meeting->provider === 'Google Meet'
             && GoogleMeetNotes::meetingCode($meeting->meeting_link) && !$meeting->auto_notes_enabled) {
@@ -361,7 +413,10 @@ class CustomerController extends AccountBaseController
         $clientId = (int) $request->get('client_id');
 
         if ($from === 'lead-contact' && $leadId) {
-            return route('lead-contact.show', $leadId) . '?tab=meetings';
+            // A Lead Team meeting's result returns to Lead Team Meetings
+            $team = $request->get('role') === CustomerMeeting::ROLE_LEAD_TEAM || $meeting?->isLeadTeamMeeting();
+
+            return route('lead-contact.show', $leadId) . ($team ? '?tab=team&view=meetings' : '?tab=meetings');
         }
 
         if ($from === 'client' && $clientId) {
@@ -570,6 +625,10 @@ class CustomerController extends AccountBaseController
             'source' => $meeting->meet_notes ? ($meeting->meet_notes_source ?: 'gemini') : null,
             'transcript' => $meeting->meet_notes_source === 'ai' ? $meeting->meet_transcript : null,
             'recording_status' => $meeting->notes_recording_status,
+            // Lead Team meetings: the Lead Team Meeting Notes table is shown in place of the normal notes
+            'lead_team_html' => $meeting->isLeadTeamMeeting()
+                ? view('lead-contact.partials.lead-meeting-notes', ['meeting' => $meeting, 'leadMeeting' => $meeting->leadTeamMeeting])->render()
+                : null,
         ];
     }
 
@@ -883,6 +942,27 @@ class CustomerController extends AccountBaseController
     }
 
     /** Name, company and email of the form's client or lead. */
+    /**
+     * People ticked in the meeting form's Invite list, from the picked lead's team (LeadTeamController::people).
+     * null when the form sent no Invite list (client meetings, older forms): invites then go to contact + owner.
+     */
+    private function invitedPeople(Request $request): ?array
+    {
+        if (!$request->attendees_sent || $request->client_id || !$request->lead_id) {
+            return null;
+        }
+
+        $lead = \App\Models\Lead::find($request->lead_id);
+
+        if (!$lead) {
+            return null;
+        }
+
+        $keys = array_map('strval', (array) $request->attendees);
+
+        return array_values(array_filter(LeadTeamController::people($lead), fn ($p) => in_array($p['key'], $keys, true)));
+    }
+
     private function requestContact(Request $request): object
     {
         return (new CustomerMeeting([
@@ -943,8 +1023,14 @@ class CustomerController extends AccountBaseController
         if ($withAttendees) {
             $owner = $request->lead_owner ? User::find($request->lead_owner) : null;
             $data['attendees'] = [];
+            $invited = $this->invitedPeople($request);
 
-            foreach ([$contact->email, $owner->email ?? null] as $email) {
+            // Lead meetings with an Invite list: exactly the ticked people; otherwise the contact and the owner
+            $emails = $invited !== null
+                ? array_column($invited, 'email')
+                : [$contact->email, $owner->email ?? null];
+
+            foreach (array_unique(array_map('strtolower', array_filter($emails))) as $email) {
                 if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
                     $data['attendees'][] = ['email' => $email];
                 }

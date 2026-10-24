@@ -92,6 +92,16 @@ class CrmNotesRecorder
             'notes_recording_status' => 'done',
         ])->save();
 
+        // Lead Team Meetings: project qualification from the same transcript (its own notes, lead_team_meetings).
+        // A failure here must not undo the meeting notes; it can be run again with "Analyse".
+        if ($meeting->isLeadTeamMeeting()) {
+            try {
+                LeadMeetingQualifier::analyse($meeting);
+            } catch (\Throwable $e) {
+                Log::warning('Lead meeting qualification failed for meeting ' . $meeting->id . ': ' . $e->getMessage());
+            }
+        }
+
         return true;
     }
 

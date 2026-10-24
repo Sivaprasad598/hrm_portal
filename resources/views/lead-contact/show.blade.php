@@ -7,6 +7,11 @@
 @php
 $viewClientNote = user()->permission('view_lead_note');
 $viewDeals = user()->permission('view_deals');
+// The Lead Owner always gets this lead's Deals and Notes tabs
+if ($leadContact->isOwnedByMe()) {
+    $viewDeals = $viewDeals === 'none' ? 'owned' : $viewDeals;
+    $viewClientNote = $viewClientNote === 'none' ? 'owned' : $viewClientNote;
+}
 @endphp
 
 
@@ -35,6 +40,8 @@ $viewDeals = user()->permission('view_deals');
             @endif
 
             <x-tab :href="route('lead-contact.show', $leadContact->id).'?tab=meetings'" ajax="false" text="Meetings" class="meetings" />
+
+            <x-tab :href="route('lead-contact.show', $leadContact->id).'?tab=team'" ajax="false" text="Lead Team" class="team" />
 
         </div>
         {{-- Back to the Lead Contacts list, at the right end of the tab bar --}}

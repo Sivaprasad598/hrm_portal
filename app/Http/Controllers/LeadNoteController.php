@@ -30,9 +30,15 @@ class LeadNoteController extends AccountBaseController
         return $dataTable->render('lead-contact.notes.index', $this->data);
     }
 
+    /** The Lead Owner of this lead may add, open and edit its notes. */
+    private function ownsLead($leadId): bool
+    {
+        return (bool) \App\Models\Lead::find($leadId)?->isOwnedByMe();
+    }
+
     public function create()
     {
-        abort_403(!in_array(user()->permission('add_lead_note'), ['all', 'added', 'both']));
+        abort_403(!in_array(user()->permission('add_lead_note'), ['all', 'added', 'both']) && !$this->ownsLead(request('lead')));
 
         $this->employees = User::allEmployees();
 
@@ -60,6 +66,7 @@ class LeadNoteController extends AccountBaseController
         $memberIds = $this->note->members->pluck('user_id')->toArray(); /** @phpstan-ignore-line */
 
         abort_403(!($viewClientNotePermission == 'all'
+            || $this->ownsLead($this->note->lead_id)
             || ($viewClientNotePermission == 'added' && $this->note->added_by == user()->id)
             || ($viewClientNotePermission == 'owned' && in_array(user()->id, $memberIds) && in_array('employee', user_roles()))
             || ($viewClientNotePermission == 'both' && (in_array(user()->id, $memberIds) || $this->note->added_by == user()->id))
@@ -79,7 +86,7 @@ class LeadNoteController extends AccountBaseController
 
     public function store(StoreLeadNote $request)
     {
-        abort_403(!in_array(user()->permission('add_lead_note'), ['all', 'added', 'both']));
+        abort_403(!in_array(user()->permission('add_lead_note'), ['all', 'added', 'both']) && !$this->ownsLead($request->lead_id));
 
         $this->employees = User::allEmployees();
 
@@ -117,6 +124,7 @@ class LeadNoteController extends AccountBaseController
         $memberIds = $this->note->members->pluck('user_id')->toArray(); /** @phpstan-ignore-line */
 
         abort_403(!($editClientNotePermission == 'all'
+            || $this->ownsLead($this->note->lead_id)
             || ($editClientNotePermission == 'added' && user()->id == $this->note->added_by)
             || ($editClientNotePermission == 'owned' && in_array(user()->id, $memberIds) && in_array('employee', user_roles()))
             || ($editClientNotePermission == 'both' && ($this->note->added_by == user()->id || in_array(user()->id, $memberIds)))
@@ -140,6 +148,16 @@ class LeadNoteController extends AccountBaseController
     public function update(StoreLeadNote $request, $id)
     {
         $note = LeadNote::findOrFail($id);
+
+        // Same rule as opening the edit form (saving had no check before)
+        $permission = user()->permission('view_lead_note');
+        $memberIds = $note->members->pluck('user_id')->toArray(); /** @phpstan-ignore-line */
+        abort_403(!($permission == 'all'
+            || $this->ownsLead($note->lead_id)
+            || ($permission == 'added' && user()->id == $note->added_by)
+            || ($permission == 'owned' && in_array(user()->id, $memberIds) && in_array('employee', user_roles()))
+            || ($permission == 'both' && ($note->added_by == user()->id || in_array(user()->id, $memberIds)))
+        ));
         $note->title = $request->title;
         $note->details = $request->details;
         $note->type = $request->type;

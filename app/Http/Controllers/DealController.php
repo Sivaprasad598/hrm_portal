@@ -255,10 +255,17 @@ class DealController extends AccountBaseController
      *
      * @return \Illuminate\Http\Response
      */
+    /** I am the Lead Owner of this lead. */
+    private function ownsLead($leadId): bool
+    {
+        return $leadId && (bool) \App\Models\Lead::find($leadId)?->isOwnedByMe();
+    }
+
     public function create()
     {
         $this->addPermission = user()->permission('add_deals');
-        abort_403(!in_array($this->addPermission, ['all', 'added']));
+        // The Lead Owner may add a deal to their own lead (Add Deal on that lead's Deals tab)
+        abort_403(!in_array($this->addPermission, ['all', 'added']) && !$this->ownsLead(request('contact_id')));
 
         $this->employees = User::allEmployees(null, true);
 
@@ -327,7 +334,8 @@ class DealController extends AccountBaseController
     public function store(StoreRequest $request)
     {
         $this->addPermission = user()->permission('add_deals');
-        abort_403(!in_array($this->addPermission, ['all', 'added']));
+        // The Lead Owner may add a deal to a lead they own
+        abort_403(!in_array($this->addPermission, ['all', 'added']) && !$this->ownsLead($request->lead_contact));
         $agentId = null;
         if (!is_null($request->agent_id)) {
             $leadAgent = LeadAgent::where('user_id', $request->agent_id)->where('lead_category_id', $request->category_id)->first();

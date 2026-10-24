@@ -1449,6 +1449,12 @@ class User extends BaseModel implements AuthenticatableContract, AuthorizableCon
             return true;
         }
 
+        // Leads → Lead Contact, when the role has it in Assign Menus: every employee sees it, even without View Lead.
+        // LeadContactController::index sends anyone without the lead list to My Lead Teams (only their own leads).
+        if ($menu->route === 'lead-contact.index' && in_array('employee', user_roles() ?? [])) {
+            return true;
+        }
+
         $rule = trim((string) ($menu->permission_rule ?? 'any')) ?: 'any';
 
         // A handful of entries are gated through user()->permission(), which

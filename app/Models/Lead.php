@@ -173,9 +173,26 @@ class Lead extends BaseModel
         return $this->belongsTo(User::class, 'added_by')->withoutGlobalScope(ActiveScope::class);
     }
 
+    /** The signed-in person is this lead's Lead Owner: they get its Deals and Notes whatever their role allows. */
+    public function isOwnedByMe(): bool
+    {
+        return user() && (int) $this->lead_owner === (int) user()->id;
+    }
+
     public function leadOwner(): BelongsTo
     {
         return $this->belongsTo(User::class, 'lead_owner')->withoutGlobalScope(ActiveScope::class);
+    }
+
+    /**
+     * "Assign Team" on the lead form: employees working this lead.
+     */
+    public function teamMembers(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'lead_team_members', 'lead_id', 'user_id')
+            ->withoutGlobalScope(ActiveScope::class)
+            ->withPivot('added_by')
+            ->withTimestamps();
     }
 
     public static function allLeads($contactId = null)

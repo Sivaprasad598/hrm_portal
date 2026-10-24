@@ -69,7 +69,21 @@
             <x-cards.data-row :label="__('app.owner')" :value="'--'" />
             @endif
 
-            <x-cards.data-row label="Project Name" :value="$leadContact->leadProject->name ?? '--'" />
+            {{-- Assign Team (lead form) --}}
+            @php $leadTeam = $leadContact->teamMembers()->with('employeeDetail.designation')->orderBy('name')->get(); @endphp
+            <div class="col-12 px-0 pb-3 d-block d-lg-flex d-md-flex">
+                <p class="mb-0 text-lightest f-14 w-30 d-inline-block">Team</p>
+                <div class="mb-0 text-dark-grey f-14">
+                    @forelse ($leadTeam as $member)
+                        <div class="mb-1">{{ $member->name }}
+                            <span class="text-lightest">· {{ $member->employeeDetail?->designation?->name ?? '--' }}</span></div>
+                    @empty
+                        --
+                    @endforelse
+                </div>
+            </div>
+
+            <x-cards.data-row label="Project Name":value="$leadContact->leadProject->name ?? '--'" />
 
             <x-cards.data-row :label="__('modules.lead.source')" :value="$leadContact->leadSource ? $leadContact->leadSource->type : '--'" />
 

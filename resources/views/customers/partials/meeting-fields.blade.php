@@ -1,12 +1,14 @@
 {{--
     Meeting fields shared by the Meetings tab form and the Meeting Result follow-up.
-    Optional: $values (field => value) to pre-fill, $meetingWith ('lead' default | 'client') for the contact dropdown, $withAddButtons (default true) for the Purpose/Status "+ Add" buttons,
+    Optional: $values (field => value) to pre-fill, $hideContactFields (no Client/Leads and Lead Owner fields), $meetingWith ('lead' default | 'client') for the contact dropdown, $withAddButtons (default true) for the Purpose/Status "+ Add" buttons,
     $withCustomerAddButton (default: same as $withAddButtons) for the Customer "+ Add" button.
 --}}
 @php
     $values         = $values ?? [];
     $withAddButtons = $withAddButtons ?? true;
     $withCustomerAddButton = $withCustomerAddButton ?? $withAddButtons;
+    // Lead Team meetings: the lead and its owner are fixed by the page (hidden inputs), so no Leads / Lead Owner fields
+    $hideContactFields = $hideContactFields ?? false;
     $fieldType      = $values['meeting_type'] ?? 'offline';
     $isOnline       = $fieldType === 'online';
     $val            = fn ($key) => $values[$key] ?? '';
@@ -60,6 +62,7 @@
     </div>
 
     {{-- Meeting with a client (from the Clients page) or a lead; only the shown one is submitted --}}
+    @unless ($hideContactFields)
     <div class="col-md-6 contact-group" data-contact="client" @if (!$withClient) style="display: none;" @endif>
         <div class="form-group">
             <label for="meetingClient">Clients <span class="text-danger">*</span></label>
@@ -87,7 +90,7 @@
                 <select name="lead_id" id="meetingLead" class="form-control meeting-picker" data-live-search="true" data-size="8" @disabled($withClient)>
                     <option value="">Select Lead</option>
                     @foreach ($leads as $leadOption)
-                        <option value="{{ $leadOption->id }}" data-project-id="{{ $leadOption->lead_project_id }}" @selected((string) $val('lead_id') === (string) $leadOption->id)>
+                        <option value="{{ $leadOption->id }}" data-project-id="{{ $leadOption->lead_project_id }}" data-owner-id="{{ $leadOption->lead_owner }}" @selected((string) $val('lead_id') === (string) $leadOption->id)>
                             {{ $leadOption->client_name }}{{ $leadOption->company_name ? ' (' . $leadOption->company_name . ')' : '' }}
                         </option>
                     @endforeach
@@ -100,6 +103,7 @@
             <div class="invalid-feedback d-block" data-error-for="lead_id"></div>
         </div>
     </div>
+    @endunless
     <div class="col-md-6">
         <div class="form-group">
             <label for="meetingProject">Select Project</label>
@@ -112,6 +116,7 @@
             <div class="invalid-feedback d-block" data-error-for="lead_project_id"></div>
         </div>
     </div>
+    @unless ($hideContactFields)
     <div class="col-md-6">
         <div class="form-group">
             <label for="meetingLeadOwner">Lead Owner</label>
@@ -127,6 +132,7 @@
         </div>
     </div>
 
+    @endunless
     <div class="col-md-4">
         <div class="form-group">
             <label for="meetingDate">Date <span class="text-danger">*</span></label>

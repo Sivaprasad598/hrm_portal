@@ -122,4 +122,15 @@ return [
         // Server issues 20-minute tokens; stay below that.
         'token_cache_minutes' => env('IAPP_TOKEN_CACHE_MINUTES', 15),
     ],
+
+    /*
+     * Claude API, used by ai_lead_search.php (Target Account & Lead
+     * Generation bot) to search the web for project leads.
+     */
+    'anthropic' => [
+        'key' => env('ANTHROPIC_API_KEY'),
+        'model' => env('ANTHROPIC_MODEL', 'claude-opus-5-5'),
+        // Company name suggestions while typing: needs to be fast and cheap
+        'suggest_model' => env('ANTHROPIC_SUGGEST_MODEL', 'claude-haiku-5-5'),
+    ],
 ];

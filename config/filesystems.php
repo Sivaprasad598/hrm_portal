@@ -56,6 +56,15 @@ return [
             'root' => public_path(Files::UPLOAD_FOLDER),
         ],
 
+        // Lead Team → Team Chat attachments: outside the web root (public/), so they are only served through
+        // LeadChatController::download, which checks the person is on the lead's team
+        'lead_chat' => [
+            'driver' => 'local',
+            'root' => storage_path('app/lead-chat'),
+            'visibility' => 'private',
+            'throw' => false,
+        ],
+
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),

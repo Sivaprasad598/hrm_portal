@@ -139,6 +139,8 @@
                         'teams_meeting_id' => $meeting->teams_meeting_id,
                         'location'        => $meeting->location,
                         'description'     => $meeting->description,
+                        // Invite keys ("lead", "user-<id>"); null for meetings saved before invites
+                        'attendees'       => $meeting->attendees->isEmpty() ? null : $meeting->attendees->pluck('key_name')->values(),
                     ];
                 @endphp
                 <div class="meeting-slide">
@@ -152,6 +154,9 @@
                         <div class="d-flex justify-content-between align-items-center flex-wrap" style="gap: 8px;">
                             <div class="d-flex flex-wrap" style="gap: 6px;">
                                 <span class="meeting-chip meeting-chip-type">{{ ucfirst($meeting->meeting_type) }}</span>
+                                {{-- Who the meeting is with: Client, Lead, or Lead Team (made from the lead's Lead Team, with invitees) --}}
+                                @php $meetingRole = $meeting->roleLabel(); @endphp
+                                <span class="meeting-chip meeting-chip-role {{ $meetingRole === 'Lead Team' ? 'meeting-chip-team' : '' }}">{{ $meetingRole }}</span>
                                 @if ($meeting->status)
                                     <span class="meeting-chip">{{ $meeting->status }}</span>
                                 @endif
@@ -191,6 +196,9 @@
                             </p>
                             @if ($meeting->lead_owner)
                                 <p class="small"><b>Lead Owner:</b> {{ $meeting->lead_owner }}</p>
+                            @endif
+                            @if ($meeting->attendees->isNotEmpty())
+                                <p class="small"><b>Invited:</b> {{ $meeting->attendees->pluck('name')->implode(', ') }}</p>
                             @endif
                             @if ($meeting->meeting_link)
                                 <p class="small meeting-card-link"><b>Link:</b> <a href="{{ $meeting->meeting_link }}" target="_blank" rel="noopener">{{ $meeting->meeting_link }}</a></p>
@@ -294,6 +302,8 @@
                 <div id="meetNotesStatus" class="small mb-2"></div>
                 <div id="meetNotesMessage" class="alert alert-light border small mb-0" style="display: none;"></div>
                 <div id="meetNotesText" class="border rounded p-3 bg-white" style="display: none; white-space: pre-wrap; font-size: 14px; line-height: 1.6;"></div>
+                {{-- Lead Team meetings: their notes are the Lead Team Meeting Notes table instead --}}
+                <div id="meetLeadTeamNotes" style="display: none;"></div>
                 <details id="meetTranscriptBox" class="mt-3" style="display: none;">
                     <summary class="small text-muted" style="cursor: pointer;">Show full transcript</summary>
                     <div id="meetTranscriptText" class="border rounded p-3 mt-2 bg-light small" style="white-space: pre-wrap; max-height: 300px; overflow: auto;"></div>
@@ -310,6 +320,7 @@
 @endsection
 
 @push('scripts')
+@include('lead-contact.partials.lead-meeting-notes-assets')
 <style>
     /* !important needed: the header and tabs use Bootstrap .d-flex, which is display:flex !important */
     .meeting-editing .hide-while-editing { display: none !important; }
@@ -478,6 +489,8 @@ $(document).ready(function () {
         $('#saveMeetingBtn').prop('disabled', false).text('Create Meeting');
         setMeetingType('offline');
         setMeetingContact(defaultMeetingContact);
+        pendingInvite = null;
+        hideInviteList();
     }
 
     // Client or lead dropdown: the page's by default ("Add Meetings" on Clients → client), the meeting's when editing
@@ -492,13 +505,68 @@ $(document).ready(function () {
 
         meetingContactWord = kind === 'client' ? 'Client' : 'Lead';
         updateMeetingHeadings();
+
+        // Invites are for lead meetings only
+        if (kind === 'client') hideInviteList();
     }
 
-    // Picking a lead fills Select Project with that lead's project (it can still be changed)
+    // Picking a lead fills Select Project and Lead Owner with that lead's (they can still be changed)
     $(document).on('change', '#meetingLead', function () {
         var projectId = $(this).find(':selected').data('project-id');
+        var ownerId = $(this).find(':selected').data('owner-id');
         if (projectId) $('#meetingProject').val(String(projectId));
+        if (ownerId && $('#meetingLeadOwner option[value="' + ownerId + '"]').length) $('#meetingLeadOwner').val(String(ownerId));
         refreshMeetingPickers();
+    });
+
+    // ----------------------------------------------------
+    // INVITE LIST (lead meetings): lead, lead owner and lead team
+    // ----------------------------------------------------
+    // Keys to tick ("lead", "user-<id>"): from the Lead Team tab (?invite=) or the meeting being edited.
+    // null = a new meeting: everyone ticked; 'legacy' = a meeting saved before invites: lead + owner, as before
+    var pendingInvite = null;
+    var invitePeopleUrl = "{{ route('lead-contact.team.meeting-people', ':id') }}";
+    var inviteRequest = 0;
+
+    function hideInviteList() {
+        inviteRequest++;
+        $('#meetingInviteBox').hide();
+        $('#meetingAttendeesSent').prop('disabled', true);
+        $('#meetingInviteList').html('');
+    }
+
+    function loadInviteList(leadId) {
+        if (!leadId || meetingContactWord === 'Client') return hideInviteList();
+
+        var request = ++inviteRequest;
+        $('#meetingInviteBox').show();
+        $('#meetingInviteList').html('<span class="text-muted small">Loading…</span>');
+
+        $.get(invitePeopleUrl.replace(':id', leadId), function (r) {
+            if (request !== inviteRequest) return;
+
+            $('#meetingInviteList').html(r.people.map(function (p) {
+                var ticked = pendingInvite === null ? true
+                    : pendingInvite === 'legacy' ? (p.key === 'lead' || p.role.indexOf('Owner') > -1)
+                    : pendingInvite.indexOf(p.key) > -1;
+                var id = 'invite-' + p.key;
+
+                return '<div class="custom-control custom-checkbox py-1">'
+                    + '<input type="checkbox" class="custom-control-input" name="attendees[]" id="' + id + '" value="' + p.key + '"' + (ticked ? ' checked' : '') + '>'
+                    + '<label class="custom-control-label w-100" for="' + id + '">'
+                    + '<b>' + $('<span>').text(p.name).html() + '</b>'
+                    + ' <span class="badge badge-light border ml-1">' + $('<span>').text(p.role).html() + '</span>'
+                    + '<span class="d-block text-muted small">' + $('<span>').text(p.designation + ' · ' + p.email).html() + '</span>'
+                    + '</label></div>';
+            }).join(''));
+            $('#meetingAttendeesSent').prop('disabled', false);
+        }).fail(function () {
+            if (request === inviteRequest) $('#meetingInviteList').html('<span class="text-danger small">Could not load the lead team.</span>');
+        });
+    }
+
+    $(document).on('change', '#meetingLead', function () {
+        loadInviteList($(this).val());
     });
 
     function contactSelect() {
@@ -559,6 +627,10 @@ $(document).ready(function () {
         $('#meetingLocation').val(meeting.location || '');
         $('#meetingDescription').val(meeting.description || '');
 
+        // Saved invitees ticked again; a meeting saved before invites existed: lead + owner, as it was invited
+        pendingInvite = meeting.attendees || 'legacy';
+        loadInviteList(meeting.client_id ? null : meeting.lead_id);
+
         setMeetingType(meeting.meeting_type);
         $('#generateMeetBtn').text(meeting.google_event_id || meeting.teams_meeting_id ? 'Regenerate' : 'Generate Link');
         $('#saveMeetingBtn').text('Update Meeting');
@@ -594,7 +666,10 @@ $(document).ready(function () {
             $('#meetNotesStatus').append($('<span class="text-muted ml-2">').text('Saved ' + r.fetched_at));
         }
 
-        $('#meetNotesText').text(r.notes || '').toggle(!!r.notes);
+        // Lead Team meetings: Validate Fit / Service Requirements / Buying Entity / Timing / Decision Makers
+        // instead of Summary / Discussion Points
+        $('#meetLeadTeamNotes').html(r.lead_team_html || '').toggle(!!r.lead_team_html);
+        $('#meetNotesText').text(r.notes || '').toggle(!!r.notes && !r.lead_team_html);
         $('#meetNotesMessage').text(r.message || '').toggle(!!r.message);
         $('#meetNotesDocLink').attr('href', r.url || '#').toggle(!!r.url);
         $('#meetNotesRefreshBtn').toggle(!r.notes);
@@ -640,7 +715,7 @@ $(document).ready(function () {
     $(document).on('click', '.meet-notes-btn', function () {
         notesMeetingId = $(this).data('meeting-id');
         $('#meetNotesTitle, #meetNotesStatus').text('');
-        $('#meetNotesText, #meetNotesDocLink').hide();
+        $('#meetNotesText, #meetNotesDocLink, #meetLeadTeamNotes').hide();
         $('#meetNotesMessage').html('<i class="fa fa-spinner fa-spin"></i> Loading...').show();
         $('#meetNotesModal').modal('show');
 
@@ -753,7 +828,7 @@ $(document).ready(function () {
     function reloadOnMeetings() {
         // Opened from a lead's Meetings tab: go back there instead
         if (@json($returnAfterSave) && meetingsBackUrl) {
-            location.href = meetingsBackUrl;
+            location.href = @json($afterSaveUrl) || meetingsBackUrl;
             return;
         }
 
@@ -776,9 +851,14 @@ $(document).ready(function () {
         showMeetingForm();
 
         var params = new URLSearchParams(location.search);
+        // From the lead's "Lead Team" tab: the people ticked there
+        if (params.get('invite')) pendingInvite = params.get('invite').split(',');
         if (params.get('lead_id')) $('#meetingLead').val(params.get('lead_id')).trigger('change');
         if (params.get('client_id')) $('#meetingClient').val(params.get('client_id'));
         refreshMeetingPickers();
+
+        // From the Lead Team tab: start at the top (Meetings header and Back), as the edit form opens
+        if (params.get('return') === 'team') $('html, body').stop().scrollTop(0);
     } else if (@json((bool) $contactListUrl)) {
         // Meetings tab of Lead Contacts / Clients: there is no Customers panel to show
         $('.tab-btn[data-tab="meetings"]').trigger('click');

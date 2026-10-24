@@ -2,6 +2,10 @@
 @php
     $addInvoicePermission = user()->permission('add_lead_proposals');
     $addLeadPermission = user()->permission('add_deals');
+    // The Lead Owner can add deals to their own lead
+    if (!in_array($addLeadPermission, ['all', 'added']) && $leadContact->isOwnedByMe()) {
+        $addLeadPermission = 'added';
+    }
 @endphp
 
 <!-- ROW START -->

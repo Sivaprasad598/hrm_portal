@@ -50,6 +50,9 @@
         border: 1px solid #d5dbe4; background: #f8fafc; color: #334155;
     }
     .meeting-chip-type { border-color: #bfdbfe; background: #eff6ff; color: #1d4ed8; }
+    /* Client / Lead / Lead Team */
+    .meeting-chip-role { border-color: #e2e8f0; background: #f8fafc; color: #475569; }
+    .meeting-chip-team { border-color: #c7d2fe; background: #eef2ff; color: #4338ca; }
     .meeting-card-actions .btn { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 6px; line-height: 1.4; }
     /* Edit, Meet Notes, Meeting Result and Delete all in Edit's blue */
     .meeting-card-actions .btn,

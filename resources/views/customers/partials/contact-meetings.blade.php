@@ -4,7 +4,9 @@
 --}}
 @php
     // Edit and Meet Notes open on the Meetings page (same form and notes pop-up); Back and saving return here
-    $meetingsPage = fn ($hash) => route('customers.index', ['from' => $from, $contactParam => $contactId]) . '#' . $hash;
+    // Lead Team Meetings view: the meetings page lists Lead Team meetings (?role=lead_team_meeting)
+    $roleParam = !empty($withLeadMeetingNotes) ? ['role' => \App\Models\CustomerMeeting::ROLE_LEAD_TEAM] : [];
+    $meetingsPage = fn ($hash) => route('customers.index', ['from' => $from, $contactParam => $contactId] + $roleParam) . '#' . $hash;
 
     $projectGroups = \App\Models\CustomerMeeting::groupByProject($meetings);
 @endphp
@@ -36,25 +38,36 @@
                             <div class="d-flex justify-content-between align-items-center flex-wrap" style="gap: 8px;">
                                 <div class="d-flex flex-wrap" style="gap: 6px;">
                                     <span class="meeting-chip meeting-chip-type">{{ ucfirst($meeting->meeting_type) }}</span>
+                                    {{-- Who the meeting is with: Client, Lead, or Lead Team (made from the lead's Lead Team, with invitees) --}}
+                                    @php $meetingRole = $meeting->roleLabel(); @endphp
+                                    <span class="meeting-chip meeting-chip-role {{ $meetingRole === 'Lead Team' ? 'meeting-chip-team' : '' }}">{{ $meetingRole }}</span>
                                     @if ($meeting->status)
                                         <span class="meeting-chip">{{ $meeting->status }}</span>
                                     @endif
                                 </div>
                                 <div class="d-flex flex-wrap meeting-card-actions" style="gap: 6px;">
-                                    <a href="{{ $meetingsPage('edit-meeting-' . $meeting->id) }}" class="btn btn-outline-primary">Edit</a>
-                                    @if ($meeting->meeting_type === 'online' && $meeting->provider === 'Google Meet' && $meeting->meeting_link)
-                                        <a href="{{ $meetingsPage('meet-notes-' . $meeting->id) }}" class="btn btn-outline-info">
-                                            Meet Notes @if ($meeting->meet_notes)<i class="fa fa-check-circle ml-1"></i>@endif
-                                        </a>
+                                    {{-- Edit, Meeting Result and Delete: not on the Lead Team page (hideMeetingActions) --}}
+                                    @if (empty($hideMeetingActions))
+                                        <a href="{{ $meetingsPage('edit-meeting-' . $meeting->id) }}" class="btn btn-outline-primary">Edit</a>
                                     @endif
-                                    <a href="{{ route('customers.meetings.result', ['id' => $meeting->id, 'from' => $from, $contactParam => $contactId]) }}" class="btn btn-outline-success">Meeting Result</a>
-                                    <button type="button" class="btn btn-outline-danger delete-lead-meeting-btn"
-                                            data-meeting-id="{{ $meeting->id }}">Delete</button>
+                                    @if ($meeting->meeting_type === 'online' && $meeting->provider === 'Google Meet' && $meeting->meeting_link)
+                                        {{-- The notes open in a pop-up on this page (customers.partials.meet-notes-modal) --}}
+                                        <button type="button" class="btn btn-outline-info ltm-notes-btn" data-meeting-id="{{ $meeting->id }}">
+                                            Meet Notes @if ($meeting->meet_notes)<i class="fa fa-check-circle ml-1"></i>@endif
+                                        </button>
+                                    @endif
+                                    @if (empty($hideMeetingActions))
+                                        <a href="{{ route('customers.meetings.result', ['id' => $meeting->id, 'from' => $from, $contactParam => $contactId] + $roleParam) }}" class="btn btn-outline-success">Meeting Result</a>
+                                        <button type="button" class="btn btn-outline-danger delete-lead-meeting-btn"
+                                                data-meeting-id="{{ $meeting->id }}">Delete</button>
+                                    @endif
                                 </div>
                             </div>
 
                             <hr class="my-3">
 
+                            {{-- Lead Team Meetings: filled by the live status poll while people are in the Google Meet call --}}
+                            <div class="meet-live-panel mb-2" data-meeting-id="{{ $meeting->id }}" style="display: none;"></div>
                             <div class="meeting-card-details">
                                 <p><b>{{ $contactLabel }}:</b> {{ $meeting->contact->company_name ?? '-' }}</p>
                                 @if ($meeting->leadProject)
@@ -71,6 +84,9 @@
                                 </p>
                                 @if ($meeting->lead_owner)
                                     <p class="small"><b>Lead Owner:</b> {{ $meeting->lead_owner }}</p>
+                                @endif
+                                @if ($meeting->attendees->isNotEmpty())
+                                    <p class="small"><b>Invited:</b> {{ $meeting->attendees->pluck('name')->implode(', ') }}</p>
                                 @endif
                                 @if ($meeting->meeting_link)
                                     <p class="small meeting-card-link"><b>Link:</b> <a href="{{ $meeting->meeting_link }}" target="_blank" rel="noopener">{{ $meeting->meeting_link }}</a></p>
@@ -93,6 +109,7 @@
                                     <b>Discussion Ended</b> {{ $meeting->end_reason }}
                                 </div>
                             @endif
+
                         </div>
                     </div>
                     </div>
@@ -113,6 +130,9 @@
     </div>
 </div>
 <!-- ROW END -->
+
+{{-- Meet Notes opens here, in a pop-up --}}
+@include('customers.partials.meet-notes-modal')
 
 {{-- After the cards: its script binds to them --}}
 @include('customers.partials.meeting-carousel-assets')
