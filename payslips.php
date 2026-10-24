@@ -678,7 +678,7 @@ if ($dbConn) {
                 'Working Days' => (string) $row['working_days'],
                 'Days Present' => (string) $row['days_present'],
                 'LOP Days' => (string) ($row['lop_days'] ?? 0),
-                'Per-day' => '₹ ' . indian_number($row['per_day']),
+                'Per-day' => 'Rs. ' . indian_number($row['per_day']),
             ];
 
             // What this employee has been paid so far in the financial year,
@@ -697,12 +697,15 @@ if ($dbConn) {
                     $fyLabel = $fyStartYear . '-' . substr((string) ($fyStartYear + 1), -2);
 
                     $ytdStmt = $pdo->prepare(
-                        "SELECT period, basic, hra, ca, lta, cea, others, pf, esi, pt, tds, employer_pf, employer_esi,
+                        "SELECT id, period, basic, hra, ca, lta, cea, others, pf, esi, pt, tds, employer_pf, employer_esi,
                                 net_salary, attendance_net, leave_encashment
                            FROM payslips
                           WHERE emp_id = :empId AND status = 'active' AND deleted_at IS NULL"
                     );
                     $ytdStmt->execute([':empId' => $row['emp_id']]);
+
+                    // Extra lines (incentive, OT encashed, an advance recovered) are part of what was paid.
+                    $extraStmt = $pdo->prepare("SELECT kind, SUM(amount) total FROM payslip_components WHERE payslip_id = :id GROUP BY kind");
 
                     $totals = ['gross' => 0.0, 'pf' => 0.0, 'esi' => 0.0, 'pt' => 0.0, 'tds' => 0.0, 'lop' => 0.0, 'net' => 0.0, 'months' => 0];
 
@@ -718,6 +721,12 @@ if ($dbConn) {
                             + (float) $slip['lta'] + (float) $slip['cea'] + (float) $slip['others'];
                         $lop = max(0, (float) $slip['net_salary'] - (float) $slip['attendance_net']);
                         $slipEmployer = (float) ($slip['employer_pf'] ?? $slip['pf']) + (float) ($slip['employer_esi'] ?? $slip['esi']);
+                        $extraStmt->execute([':id' => $slip['id']]);
+                        $slipExtra = ['earning' => 0.0, 'deduction' => 0.0];
+                        foreach ($extraStmt->fetchAll() as $extra) {
+                            $slipExtra[$extra['kind']] = (float) $extra['total'];
+                        }
+                        $slipEarnings += $slipExtra['earning'];
 
                         $totals['months']++;
                         $totals['gross'] += $slipEarnings;
@@ -727,7 +736,7 @@ if ($dbConn) {
                         $totals['tds'] += (float) ($slip['tds'] ?? 0);
                         $totals['lop'] += $lop;
                         $totals['net'] += $slipEarnings - ((float) $slip['pf'] + (float) $slip['esi'] + (float) $slip['pt'] + (float) ($slip['tds'] ?? 0) + $lop)
-                            - $slipEmployer + (float) ($slip['leave_encashment'] ?? 0);
+                            - $slipExtra['deduction'] - $slipEmployer + (float) ($slip['leave_encashment'] ?? 0);
                     }
 
                     if ($totals['months'] > 0) {
@@ -800,6 +809,7 @@ if ($dbConn) {
                     'IFSC'        => $empIfsc,
                 ], fn ($value) => $value !== null && $value !== ''),
                 'earnings' => $earnings,
+                'extra_earnings' => $extraEarnings,
                 'deductions' => $deductions,
                 'employer' => $employer,
                 'statutory_rows' => ['Employee PF', 'Employee ESI', 'Professional Tax', 'Employer PF', 'Employer ESI'],
@@ -894,7 +904,9 @@ $statutoryTotal = total_of_labels(
 );
 
 $netSalary = $grossEarnings - $grossDeductions - $employerTotal;
-$ctcMonthly = $grossEarnings;
+// CTC is the salary structure: this month's extra lines (incentive, OT
+// encashed, reimbursement) are pay, not part of it.
+$ctcMonthly = $grossEarnings - total_of($payslip['extra_earnings'] ?? []);
 $ctcAnnual  = $ctcMonthly * $payslip['months_per_year'];
 $netInWords = amount_in_words($netSalary);
 

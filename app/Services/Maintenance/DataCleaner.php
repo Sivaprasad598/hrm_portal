@@ -11,8 +11,10 @@ use Illuminate\Support\Facades\Schema;
 use Symfony\Component\Process\Process;
 
 /**
- * Settings -> Data Clean: empty the application for a fresh test, group by
- * group, keeping the Super Admin login and every setting.
+ * Settings -> Data Clean: empty the application for a fresh test, table by
+ * table (grouped for picking), keeping the Super Admin login and every setting.
+ * Only what is picked is removed; removing employee accounts also removes the
+ * rows that belong to them, and the preview lists those first.
  *
  * Always kept: Super Admin (users with the admin role), company and module
  * settings, payroll settings (Payslip Calculation), leave types and policy,
@@ -29,7 +31,7 @@ class DataCleaner
 
     /** group => [label, description, tables emptied completely] */
     public const GROUPS = [
-        'employees' => ['Employees', 'Every user except the Super Admin, with their details, documents, bank and emergency contacts, employment history, rejoins, sessions and uploaded files. Includes everything below that belongs to people.', [
+        'employees' => ['Employees', 'Employee accounts and the records kept about people: documents, emergency contacts, experience, passports and visas, rejoins, promotions, notifications, chats, sessions. Each can be picked on its own.', [
             // employee_details and employment_periods go per person below (the Super Admin keeps theirs)
             'employee_docs', 'employee_document_expiries', 'emergency_contacts', 'employee_relations', 'employee_skills',
             'employee_teams', 'employee_experiences', 'employee_previous_emp_details', 'emp_final_declaration', 'emp_final_declarations',
@@ -42,14 +44,14 @@ class DataCleaner
         'organisation' => ['Departments, designations, branches', 'The import creates them again from the sheet.', [
             'teams', 'designations', 'branches',
         ]],
-        'roles' => ['Custom roles', 'Every role except Super Admin, Employee and Client, with its permissions and menu. Employees keep the base Employee role.', []],
+        'roles' => ['Custom roles', 'Roles other than Super Admin, Employee and Client.', []],
         'attendance' => ['Attendance & leaves', 'Attendance, daily reviews, regularisations, day overrides, leave applications, leave balances and their history, leave encashments, timesheets.', [
             'attendances', 'attendance_reviews', 'attendance_regularisations', 'attendance_day_overrides', 'attendance_daily_runs',
             'leaves', 'leave_files', 'employee_leave_quotas', 'employee_leave_quota_events', 'employee_leave_quota_histories',
             'employee_fixed_leave_balance', 'employee_monthly_balance', 'leave_encashments', 'leave_year_end_items', 'leave_year_end_runs',
             'weekly_timesheets', 'weekly_timesheet_entries',
         ]],
-        'shifts' => ['Shifts & rosters', 'Every shift except the default (General Shift) and Day Off; rosters, assignments, rotations and change requests.', [
+        'shifts' => ['Shifts & rosters', 'Custom shifts, rosters, assignments, rotations and change requests. General Shift and Day Off stay.', [
             'employee_shift_schedules', 'employee_shift_assignments', 'employee_shift_change_requests', 'employee_shift_rotations',
             'shift_rotation_sequences', 'automate_shifts', 'rotation_automate_log',
         ]],
@@ -57,9 +59,9 @@ class DataCleaner
             'resignations', 'resignation_replies', 'employee_exits', 'employee_exit_checklists', 'employee_exit_histories',
             'employee_exit_interviews', 'terminations', 'settlements',
         ]],
-        'payroll' => ['Payroll data', 'Payslips, pay elements given to people, advances and instalments, tax declarations. Payroll settings stay.', [
+        'payroll' => ['Payroll data', 'Payslips, pay elements given to people, advances and instalments, tax declarations, OT bank. Payroll settings stay.', [
             'payslips', 'payslip_components', 'payroll_arrangements', 'pay_element_group_members', 'pay_element_rule_applications',
-            'tax_declarations', 'payslip_mock_calculation',
+            'tax_declarations', 'payslip_mock_calculation', 'ot_ledger', 'ot_daily', 'ot_past',
         ]],
         'biometric' => ['Biometric data', 'Punches, device days, the device employee register and links, sync logs, backfills, exceptions. Devices and connection settings stay.', [
             'iapp_device_transactions', 'iapp_attendance_records', 'iapp_attendance_links', 'iapp_attendance_sync_runs', 'iapp_backfill_runs',
@@ -88,19 +90,31 @@ class DataCleaner
         ]],
     ];
 
-    /** Removing people removes what belongs to them. */
-    public const IMPLIED_BY_EMPLOYEES = ['attendance', 'shifts', 'exits', 'payroll', 'biometric', 'modules', 'assets'];
+    /** Special items: not a table emptied completely. */
+    public const SPECIAL = [
+        '@users' => ['Employee accounts', 'Every user except the Super Admin. Every row that belongs to them in any table goes with them.'],
+        '@roles' => ['Custom roles', 'Every role except Super Admin, Employee and Client, with its permissions and menu. People who had one keep the base Employee role.'],
+        '@shifts' => ['Custom shifts', 'Every shift except General Shift and Day Off.'],
+    ];
 
-    /** Upload folders emptied with each group (under public/user-uploads). */
+    /** Upload folders emptied with a table (under public/user-uploads). */
     protected const FOLDERS = [
-        'employees' => ['employee-docs', 'import-files', 'temp'],
-        'attendance' => ['leave-files'],
-        'modules' => ['project-files', 'task-files', 'events', 'notice-files', 'products'],
+        '@users' => ['import-files', 'temp'],
+        'employee_docs' => ['employee-docs'],
+        'leave_files' => ['leave-files'],
+        'project_files' => ['project-files'],
+        'task_files' => ['task-files'],
+        'event_files' => ['events'],
+        'notice_files' => ['notice-files'],
+        'product_files' => ['products'],
         'assets' => ['asset-images', 'asset-files'],
     ];
 
     /** Shifts that are never removed. */
     protected const KEPT_SHIFTS = ['General Shift', 'Day Off'];
+
+    /** Tables never touched when people are removed. */
+    protected const NOT_PER_PERSON = ['users', 'ticket_settings_for_agents', 'lead_setting'];
 
     /** @return array<int, int> the Super Admin accounts kept */
     public function keptUsers(): array
@@ -109,44 +123,91 @@ class DataCleaner
             ->where('roles.name', 'admin')->pluck('role_user.user_id')->map(fn ($id) => (int) $id)->unique()->values()->all();
     }
 
-    /** The groups chosen, plus those removing people takes with it. */
-    public function resolve(array $groups): array
+    /** What can be picked in a group: its special item (if any) then its tables that exist. */
+    public function items(string $group): array
     {
-        $groups = array_values(array_intersect(array_keys(self::GROUPS), $groups));
+        $special = ['employees' => ['@users'], 'roles' => ['@roles'], 'shifts' => ['@shifts']][$group] ?? [];
 
-        if (in_array('employees', $groups, true)) {
-            $groups = array_values(array_unique(array_merge($groups, self::IMPLIED_BY_EMPLOYEES)));
-        }
-
-        return $groups;
+        return array_merge($special, array_values(array_filter(self::GROUPS[$group][2], fn ($t) => Schema::hasTable($t))));
     }
 
-    /** Rows each group would remove now. @return array<string, int> */
-    public function counts(): array
+    /**
+     * Exactly what was picked: tables and special items. A group key picks the
+     * whole group. Nothing else is ever added.
+     */
+    public function resolve(array $picked): array
     {
-        $keep = $this->keptUsers();
-        $out = [];
+        $all = [];
 
-        foreach (self::GROUPS as $group => [, , $tables]) {
-            $n = 0;
-
-            foreach ($tables as $table) {
-                if (Schema::hasTable($table)) {
-                    $n += DB::table($table)->count();
+        foreach (array_keys(self::GROUPS) as $group) {
+            foreach ($this->items($group) as $item) {
+                if (in_array($item, $picked, true) || in_array($group, $picked, true)) {
+                    $all[] = $item;
                 }
             }
+        }
 
-            $n += match ($group) {
-                'employees' => DB::table('users')->whereNotIn('id', $keep ?: [0])->count(),
-                'roles' => DB::table('roles')->whereNotIn('name', ['admin', 'employee', 'client'])->count(),
-                'shifts' => DB::table('employee_shifts')->whereNotIn('shift_name', self::KEPT_SHIFTS)->count(),
-                default => 0,
-            };
+        return array_values(array_unique($all));
+    }
 
-            $out[$group] = $n;
+    /** Rows each item would remove now. @return array<string, int> */
+    public function counts(): array
+    {
+        $keep = $this->keptUsers() ?: [0];
+        $out = [];
+
+        foreach (array_keys(self::GROUPS) as $group) {
+            foreach ($this->items($group) as $item) {
+                $out[$item] = match ($item) {
+                    '@users' => DB::table('users')->whereNotIn('id', $keep)->count(),
+                    '@roles' => DB::table('roles')->whereNotIn('name', ['admin', 'employee', 'client'])->count(),
+                    '@shifts' => DB::table('employee_shifts')->whereNotIn('shift_name', self::KEPT_SHIFTS)->count(),
+                    default => DB::table($item)->count(),
+                };
+            }
         }
 
         return $out;
+    }
+
+    /**
+     * What a clean of these items would remove, without removing anything.
+     * "linked" lists the rows of people being removed in tables not picked.
+     *
+     * @return array{items: array<string, int>, linked: array<string, int>}
+     */
+    public function preview(array $picked): array
+    {
+        $items = $this->resolve($picked);
+        $counts = $this->counts();
+        $linked = [];
+
+        if (in_array('@users', $items, true)) {
+            $keep = $this->keptUsers() ?: [0];
+
+            foreach ($this->perPersonTables() as $table) {
+                if (in_array($table, $items, true)) {
+                    continue;
+                }
+
+                $n = DB::table($table)->whereNotNull('user_id')->whereNotIn('user_id', $keep)->count();
+
+                if ($n) {
+                    $linked[$table] = $n;
+                }
+            }
+
+            arsort($linked);
+        }
+
+        return ['items' => array_intersect_key($counts, array_flip($items)), 'linked' => $linked];
+    }
+
+    /** Tables with a user_id column. */
+    protected function perPersonTables(): array
+    {
+        return collect(DB::select("SELECT DISTINCT TABLE_NAME t FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND COLUMN_NAME = 'user_id'"))
+            ->pluck('t')->reject(fn ($t) => in_array($t, self::NOT_PER_PERSON, true))->values()->all();
     }
 
     /**
@@ -202,31 +263,33 @@ class DataCleaner
     }
 
     /**
-     * Remove the chosen groups. @return array{removed: array<string, int>, groups: array<int, string>, backup: string}
+     * Remove exactly the picked items (tables, @users, @roles, @shifts; a group
+     * key picks its whole group).
+     *
+     * @return array{removed: array<string, int>, items: array<int, string>, backup: string}
      */
-    public function clean(array $groups, string $backupPath, int $byUserId): array
+    public function clean(array $picked, string $backupPath, int $byUserId): array
     {
-        $groups = $this->resolve($groups);
+        $items = $this->resolve($picked);
         $keep = $this->keptUsers() ?: [$byUserId];
         $removed = [];
+        $has = fn ($item) => in_array($item, $items, true);
 
         DB::statement('SET FOREIGN_KEY_CHECKS=0');
 
         try {
-            foreach ($groups as $group) {
-                foreach (self::GROUPS[$group][2] as $table) {
-                    if (Schema::hasTable($table)) {
-                        $removed[$table] = DB::table($table)->count();
-                        DB::table($table)->delete();
-                    }
+            foreach ($items as $table) {
+                if ($table[0] !== '@' && Schema::hasTable($table)) {
+                    $removed[$table] = DB::table($table)->count();
+                    DB::table($table)->delete();
                 }
             }
 
-            if (in_array('shifts', $groups, true)) {
+            if ($has('@shifts')) {
                 $removed['employee_shifts'] = DB::table('employee_shifts')->whereNotIn('shift_name', self::KEPT_SHIFTS)->delete();
             }
 
-            if (in_array('roles', $groups, true)) {
+            if ($has('@roles')) {
                 $custom = DB::table('roles')->whereNotIn('name', ['admin', 'employee', 'client'])->pluck('id');
                 $affected = DB::table('role_user')->whereIn('role_id', $custom)->pluck('user_id')->unique();
                 DB::table('permission_role')->whereIn('role_id', $custom)->delete();
@@ -244,28 +307,33 @@ class DataCleaner
                 }
             }
 
-            if (in_array('organisation', $groups, true)) {
-                DB::table('employee_details')->update(['department_id' => null, 'designation_id' => null, 'branch_id' => null]);
-                // Holidays limited to departments / designations that are gone would
-                // apply to nobody: they apply to everyone again.
-                DB::table('holidays')->update(['department_id_json' => null, 'designation_id_json' => null]);
+            // Holidays limited to departments / designations that are gone would
+            // apply to nobody: they apply to everyone again.
+            if ($has('teams')) {
+                DB::table('employee_details')->update(['department_id' => null]);
+                DB::table('holidays')->update(['department_id_json' => null]);
             }
 
-            if (in_array('biometric', $groups, true) && !in_array('employees', $groups, true)) {
+            if ($has('designations')) {
+                DB::table('employee_details')->update(['designation_id' => null]);
+                DB::table('holidays')->update(['designation_id_json' => null]);
+            }
+
+            if ($has('branches')) {
+                DB::table('employee_details')->update(['branch_id' => null]);
+            }
+
+            if ($has('iapp_employees') && !$has('@users')) {
                 DB::table('employee_details')->update(['iapp_emp_code' => null, 'iapp_linked_at' => null]);
             }
 
-            if (in_array('employees', $groups, true)) {
+            if ($has('@users')) {
                 // Anything else that points at a person goes with them.
-                foreach (DB::select("SELECT DISTINCT TABLE_NAME t FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND COLUMN_NAME = 'user_id'") as $row) {
-                    if (in_array($row->t, ['users', 'ticket_settings_for_agents', 'lead_setting'], true)) {
-                        continue;
-                    }
-
-                    $n = DB::table($row->t)->whereNotNull('user_id')->whereNotIn('user_id', $keep)->delete();
+                foreach ($this->perPersonTables() as $table) {
+                    $n = DB::table($table)->whereNotNull('user_id')->whereNotIn('user_id', $keep)->delete();
 
                     if ($n) {
-                        $removed[$row->t] = ($removed[$row->t] ?? 0) + $n;
+                        $removed[$table] = ($removed[$table] ?? 0) + $n;
                     }
                 }
 
@@ -283,7 +351,7 @@ class DataCleaner
         }
 
         // The Super Admin starts clean too.
-        if (in_array('employees', $groups, true)) {
+        if ($has('@users')) {
             foreach ($keep as $userId) {
                 DB::table('employee_details')->where('user_id', $userId)->update(['employment_status' => 'confirmed', 'last_date' => null,
                     'notice_period_start_date' => null, 'notice_period_end_date' => null, 'iapp_emp_code' => null]);
@@ -292,7 +360,7 @@ class DataCleaner
             }
         }
 
-        $this->emptyFolders($groups, $keep);
+        $this->emptyFolders($items, $keep);
 
         try {
             Artisan::call('cache:clear');
@@ -300,9 +368,9 @@ class DataCleaner
             // The data is clean either way.
         }
 
-        Log::channel('single')->warning('Data Clean', ['by' => $byUserId, 'groups' => $groups, 'backup' => $backupPath, 'removed' => array_filter($removed)]);
+        Log::channel('single')->warning('Data Clean', ['by' => $byUserId, 'items' => $items, 'backup' => $backupPath, 'removed' => array_filter($removed)]);
 
-        return ['removed' => array_filter($removed), 'groups' => $groups, 'backup' => $backupPath];
+        return ['removed' => array_filter($removed), 'items' => $items, 'backup' => $backupPath];
     }
 
     /**
@@ -348,12 +416,12 @@ class DataCleaner
         return $fixed;
     }
 
-    protected function emptyFolders(array $groups, array $keep): void
+    protected function emptyFolders(array $items, array $keep): void
     {
         $base = public_path('user-uploads');
 
-        foreach ($groups as $group) {
-            foreach (self::FOLDERS[$group] ?? [] as $folder) {
+        foreach ($items as $item) {
+            foreach (self::FOLDERS[$item] ?? [] as $folder) {
                 if (is_dir($base . '/' . $folder)) {
                     File::cleanDirectory($base . '/' . $folder);
                 }
@@ -361,7 +429,7 @@ class DataCleaner
         }
 
         // Photos of people who are gone; the Super Admin's stays.
-        if (in_array('employees', $groups, true) && is_dir($base . '/avatar')) {
+        if (in_array('@users', $items, true) && is_dir($base . '/avatar')) {
             $kept = DB::table('users')->whereIn('id', $keep)->pluck('image')->filter()->all();
 
             foreach (File::files($base . '/avatar') as $file) {

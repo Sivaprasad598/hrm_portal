@@ -555,6 +555,27 @@
             $.ajaxModal(MODAL_XL, url);
         });
 
+        // Salary-month grid, a day without punches: its details first (the day carries its own
+        // date - a pay cycle spans two months). Days with punches open .view-attendance (above).
+        $('#attendance-data').on('click', '.cycle-day', function () {
+            var url = "{{ route('attendances.cycle-day', [':userid', ':date']) }}";
+            url = url.replace(':userid', $(this).data('user-id')).replace(':date', $(this).data('date'));
+
+            $(MODAL_LG + ' ' + MODAL_HEADING).html('...');
+            $.ajaxModal(MODAL_LG, url);
+        });
+
+        // ...and from there "Mark attendance" opens the add / edit form for that day.
+        $('body').on('click', '.cycle-mark', function () {
+            var d = String($(this).data('date')).split('-');
+            var url = "{{ route('attendances.mark', [':userid', ':day', ':month', ':year']) }}";
+            url = url.replace(':userid', $(this).data('user-id')).replace(':day', d[2]).replace(':month', d[1]).replace(':year', d[0]);
+
+            $(MODAL_LG).modal('hide');
+            $(MODAL_XL + ' ' + MODAL_HEADING).html('...');
+            $.ajaxModal(MODAL_XL, url);
+        });
+
         $('#attendance-data').on('click', '.edit-attendance', function (event) {
             var attendanceDate = $(this).data('attendance-date');
             var userData = $(this).closest('tr').children('td:first');

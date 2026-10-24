@@ -20,9 +20,16 @@
             </div>
 
             <div class="col-lg-3 col-md-6">
-                <x-forms.number fieldId="encashment_divisor" fieldLabel="Divided by (days)"
-                    fieldName="encashment_divisor" :fieldValue="(float) ($settings->encashment_divisor ?? 26)"
-                    popover="Per-day value = monthly figure ÷ this number. 26 is the usual working-day basis; 30 uses calendar days." />
+                @php $div = (float) ($settings->encashment_divisor ?? 0); @endphp
+                <x-forms.select fieldId="encashment_divisor" fieldLabel="Divided by (days)" fieldName="encashment_divisor"
+                    popover="Per-day value = monthly figure ÷ this number of days.">
+                    <option value="0" @selected($div < 1)>Days in the salary period (30 / 31)</option>
+                    <option value="30" @selected($div == 30)>30 days</option>
+                    <option value="26" @selected($div == 26)>26 working days</option>
+                    @if ($div >= 1 && !in_array($div, [26.0, 30.0], true))
+                        <option value="{{ $div }}" selected>{{ rtrim(rtrim(number_format($div, 2), '0'), '.') }} days</option>
+                    @endif
+                </x-forms.select>
             </div>
 
             <div class="col-lg-3 col-md-6">
@@ -83,7 +90,7 @@
         function refresh() {
             var basis = $('#encashment_basis').val();
             var source = $('#encashment_salary_source').val();
-            var divisor = parseFloat($('#encashment_divisor').val()) || 26;
+            var divisor = parseFloat($('#encashment_divisor').val()) || {{ \App\Services\Payroll\PayPeriod::containing(now())->days() }};
             var pct = parseFloat($('#encashment_basic_pct').val()) || 50;
 
             // The basic % only matters when basic is derived from CTC.

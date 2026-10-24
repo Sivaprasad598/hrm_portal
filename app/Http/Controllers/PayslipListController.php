@@ -330,6 +330,8 @@ class PayslipListController extends AccountBaseController
 
         $released = $this->releaseEncashment((int) $id);
         (new \App\Services\Payroll\PayComponents())->releaseFromPayslip((int) $id);
+        // Its banked overtime comes out; its OT cover / encashment is open again.
+        (new \App\Services\Payroll\OtBank())->onRevoke((int) $id);
 
         return Reply::success(sprintf(
             'Payslip revoked for %s, %s. A replacement can now be generated.%s',
@@ -366,6 +368,8 @@ class PayslipListController extends AccountBaseController
 
         $this->releaseEncashment((int) $id);
         (new \App\Services\Payroll\PayComponents())->releaseFromPayslip((int) $id);
+        // Its banked overtime comes out; its OT cover / encashment is open again.
+        (new \App\Services\Payroll\OtBank())->onRevoke((int) $id);
 
         return Reply::success(sprintf(
             'Payslip deleted for %s, %s.',

@@ -44,6 +44,7 @@ class DepartmentController extends AccountBaseController
 
     public function create()
     {
+        abort_403(!in_array(user()->permission('add_department'), ['all', 'added']));
         $this->departments = Team::allDepartments();
 
         $this->view = 'departments.ajax.create';
@@ -66,10 +67,15 @@ class DepartmentController extends AccountBaseController
      */
     public function store(StoreDepartment $request)
     {
+        abort_403(!in_array(user()->permission('add_department'), ['all', 'added']));
 
         $group = new Team();
         $group->team_name = $request->team_name;
         $group->parent_id = $request->parent_id;
+        // Working Hours & OT: off = any punch is a full day for this department.
+        if ($request->has('consider_attendance_hours')) {
+            $group->consider_attendance_hours = $request->boolean('consider_attendance_hours');
+        }
         $group->save();
 
         $this->departments = Team::allDepartments();
@@ -100,6 +106,7 @@ class DepartmentController extends AccountBaseController
 
     public function edit($id)
     {
+        abort_403(user()->permission('edit_department') != 'all');
         $this->department = Team::findOrFail($id);
         $departments = Team::where('id', '!=', $this->department->id)->get();
 
@@ -135,6 +142,10 @@ class DepartmentController extends AccountBaseController
         $group = Team::findOrFail($id);
         $group->team_name = strip_tags($request->team_name);
         $group->parent_id = $request->parent_id ?? null;
+        // Working Hours & OT: off = any punch is a full day for this department.
+        if ($request->has('consider_attendance_hours')) {
+            $group->consider_attendance_hours = $request->boolean('consider_attendance_hours');
+        }
         $group->save();
 
         $redirectUrl = route('departments.index');

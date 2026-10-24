@@ -104,7 +104,7 @@
                         @else
                             (latest payslip)
                         @endif
-                        ÷ {{ $fmt($result['settings']['divisor']) }} per day
+                        ÷ {{ $result['settings']['divisor_label'] ?? $fmt($result['settings']['divisor']) }} per day
                         @unless ($closed)
                             &middot; <a href="{{ route('leaves-settings.index') }}?tab=encashment">change</a>
                         @endunless

@@ -18,8 +18,10 @@
     </div>
 </div>
 
-<div class="table-responsive">
-    <table class="table table-bordered table-sm mb-0 f-12 cycle-grid">
+{{-- Its own scroll box, under the page's filter bar: the dates stay on top and the
+     names on the left, and neither can paint over the filters. --}}
+<div class="cycle-wrap">
+    <table class="table table-bordered table-sm mb-0 f-12 cycle-grid" style="overflow: visible !important">
         <thead class="thead-light">
             <tr>
                 <th class="cycle-name">@lang('app.employee')</th>
@@ -58,9 +60,14 @@
                                 . ($day['first_in'] ? ' · in ' . $time($day['first_in']) . ', out ' . $time($day['last_out']) : '')
                                 . ($day['status'] !== 'upcoming' ? ' · paid ' . $fmt($day['paid']) : '');
                         @endphp
-                        <td class="text-center px-1 {{ substr($day['date'], 8, 2) === '01' ? 'cycle-month-start' : '' }}" title="{{ $tip }}">
+                        @php $attendanceId = $attendanceIds[$employee->id][$day['date']] ?? null; @endphp
+                        <td class="text-center px-1 {{ substr($day['date'], 8, 2) === '01' ? 'cycle-month-start' : '' }}" title="{{ $tip }}{{ $day['status'] !== 'upcoming' ? ' · click for details' : '' }}">
                             @if ($day['status'] !== 'upcoming')
-                                <i class="fa {{ $icon }} text-{{ $colour === 'light' ? 'lightest' : $colour }}"></i>
+                                {{-- Details first: the attendance popup (edit / delete inside), or the day as counted. --}}
+                                <a href="javascript:;" class="cycle-cell d-block {{ $attendanceId ? 'view-attendance' : 'cycle-day' }}"
+                                   @if ($attendanceId) data-attendance-id="{{ $attendanceId }}" @else data-user-id="{{ $employee->id }}" data-date="{{ $day['date'] }}" @endif>
+                                    <i class="fa {{ $icon }} text-{{ $colour === 'light' ? 'lightest' : $colour }}"></i>
+                                </a>
                             @endif
                         </td>
                     @endforeach
@@ -79,8 +86,14 @@
 @include('attendances.ajax.pager')
 
 <style>
+    .cycle-wrap { position: relative; z-index: 0; overflow: auto; max-height: calc(100vh - 300px); min-height: 300px; }
+    .cycle-grid { border-collapse: separate; border-spacing: 0; }
+    .cycle-grid thead th { position: sticky; top: 0; z-index: 2; background: #f1f1f3; }
     .cycle-grid .cycle-name { position: sticky; left: 0; background: #fff; z-index: 1; min-width: 170px; }
-    .cycle-grid thead .cycle-name { background: #f1f1f3; }
+    .cycle-grid thead .cycle-name { z-index: 3; background: #f1f1f3; }
+    .cycle-grid tbody tr:hover > td { background: #f6f7f9; }
+    .cycle-grid .cycle-cell { cursor: pointer; border-radius: 4px; }
+    .cycle-grid .cycle-cell:hover { background: #e7ebf0; }
     .cycle-grid .cycle-month-start { border-left: 2px solid #99a5b5 !important; }
     .cycle-grid td, .cycle-grid th { vertical-align: middle; }
 </style>

@@ -8,7 +8,8 @@ use Illuminate\Support\Facades\DB;
  * What the HR, Admin and CEO roles may use (the CEO role is the Chairman / MD and the CEO): the dashboards, HR (employees,
  * attendance, leave, shifts, holidays, exits), Biometric, Payroll and the
  * settings pages that belong to them (Attendance, Shift, Biometric, Leave,
- * Notice Period, Payslip and AI settings) and Assets.
+ * Notice Period, Payslip and AI settings), Assets, and the Work modules -
+ * Projects, Contracts and Tasks (MODULES: every permission except delete_*).
  *
  * Company-wide controls stay with the Super Admin: company / account details,
  * sign-up, business addresses, roles & permissions, modules, Data Clean.
@@ -44,6 +45,12 @@ class RoleAccess
         'manage_assets',
     ];
 
+    /**
+     * Whole modules granted at "all": every permission they have, except the
+     * delete_* ones (deleting stays with the Super Admin, as everywhere here).
+     */
+    public const MODULES = ['projects', 'contracts', 'tasks'];
+
     /** Sidebar entries granted, by route (and the group headings they sit under). */
     public const MENU_ROUTES = [
         'dashboard', 'dashboard.advanced',
@@ -55,13 +62,15 @@ class RoleAccess
         'leaves.index', 'leave-management.index', 'leave-year-end.index',
         // Payroll
         'my-payslips.index', 'payslips.index', 'pay-elements.index', 'payroll-run.index', 'payslips.generated',
-        'payroll-register.index', 'payroll-dashboard.index', 'income-tax.index', 'statutory-returns.index', 'settlements.index',
+        'payroll-register.index', 'payroll-dashboard.index', 'income-tax.index', 'statutory-returns.index', 'settlements.index', 'ot-hours.index',
         // Biometric
         'biometric.overview', 'biometric.review', 'biometric.exceptions', 'biometric.attendance', 'biometric.attendance-sync',
         'biometric.profile', 'biometric.employees', 'biometric.devices', 'biometric.shifts', 'biometric.punch-log',
         'biometric.calendar', 'biometric.sync-logs', 'biometric.comparison', 'biometric.actions',
         // Assets
         'assets.index', 'assets.assigned', 'asset-types.index',
+        // Work
+        'projects.index', 'contracts.index', 'tasks.index',
         // Settings
         'attendance-settings.index', 'employee-shifts.index', 'biometric-settings.index', 'leaves-settings.index',
         'notice-period-settings.index', 'payslip-settings.index', 'profile-settings.index',
@@ -83,11 +92,22 @@ class RoleAccess
         return $done;
     }
 
+    /** Every non-delete permission of MODULES. */
+    public static function modulePermissionIds()
+    {
+        return DB::table('permissions as p')
+            ->join('modules as m', 'm.id', '=', 'p.module_id')
+            ->whereIn('m.module_name', self::MODULES)
+            ->where('p.name', 'not like', 'delete\_%')
+            ->pluck('p.id');
+    }
+
     /** @return int how many people with the role had their permissions refreshed */
     public static function apply(int $roleId): int
     {
         $all = (int) DB::table('permission_types')->where('name', 'all')->value('id');
-        $ids = DB::table('permissions')->whereIn('name', self::PERMISSIONS)->pluck('id');
+        $ids = DB::table('permissions')->whereIn('name', self::PERMISSIONS)->pluck('id')
+            ->merge(self::modulePermissionIds());
 
         foreach ($ids as $permissionId) {
             DB::table('permission_role')->updateOrInsert(

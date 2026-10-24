@@ -36,7 +36,7 @@
   table { width: 100%; border-collapse: collapse; table-layout: fixed; }
   td, th { border: 1px solid #111; padding: 5px 7px; font-size: 13px; vertical-align: middle; }
   .no-border { border: 0; }
-  .header td { height: 135px; }
+  .header td { height: 115px; }
   .logo-cell { width: 50%; text-align: center; }
   .company-logo { max-width: 220px; width: auto; display: block; margin: 0 auto; }
   .logo {
@@ -48,7 +48,7 @@
   .tagline { font-size: 9px; letter-spacing: 1px; margin-top: -5px; }
   .address { text-align: center; line-height: 1.5; font-size: 13px; }
   .month { text-align: center; font-weight: 700; padding: 3px; }
-  .employee-info td { height: 41px; }
+  .employee-info td { height: 30px; }
   .center { text-align: center; }
   .right { text-align: right; }
   .bold { font-weight: 700; }
@@ -56,7 +56,7 @@
   .component { width: 28%; }
   .amount { width: 22%; text-align: center; }
   .summary-label { font-weight: 700; }
-  .signature-area { height: 145px; text-align: center; vertical-align: bottom; }
+  .signature-area { height: 110px; text-align: center; vertical-align: bottom; }
   .stamp {
     width: 170px; height: 170px; margin: 5px auto; display: flex; align-items: center; justify-content: center;
   }
@@ -124,19 +124,22 @@
   </div>
 <?php endif; ?>
 
+  <?php
+    // Employee and attendance details as one even grid, three to a row, so
+    // every border lines up however many statutory fields an employee has.
+    $infoCells = [];
+    foreach ($payslip['employee'] + ($payslip['attendance'] ?? []) as $label => $value) {
+        $infoCells[] = [$label, $value];
+    }
+  ?>
   <table class="employee-info">
-    <tr>
-      <?php $i = 0; foreach ($payslip['employee'] as $label => $value): ?>
-        <td class="<?= $i % 2 ? 'center' : '' ?>"><b><?= e($label) ?>:</b> <?= e($value) ?></td>
-      <?php $i++; endforeach; ?>
-    </tr>
-    <?php if (!empty($payslip['attendance'])): ?>
+    <?php foreach (array_chunk($infoCells, 3) as $infoRow): ?>
       <tr>
-        <?php $i = 0; foreach ($payslip['attendance'] as $label => $value): ?>
-          <td class="<?= $i % 2 ? 'center' : '' ?>"><b><?= e($label) ?>:</b> <?= e($value) ?></td>
-        <?php $i++; endforeach; ?>
+        <?php foreach ($infoRow as $n => [$label, $value]): ?>
+          <td<?= $n === count($infoRow) - 1 && count($infoRow) < 3 ? ' colspan="' . (4 - count($infoRow)) . '"' : '' ?>><b><?= e($label) ?>:</b> <?= e($value) ?></td>
+        <?php endforeach; ?>
       </tr>
-    <?php endif; ?>
+    <?php endforeach; ?>
   </table>
 
   <table>
@@ -176,7 +179,7 @@
         <td><?= e($row[0]) ?></td>
         <td class="amount"><?= e(amt($row[1])) ?></td>
         <?php if ($index === 0): ?>
-          <td rowspan="<?= count($payslip['employer']) + 3 ?>" colspan="2" class="signature-area">
+          <td rowspan="<?= count($payslip['employer']) + 4 ?>" colspan="2" class="signature-area">
             <div class="stamp"><img src="<?= function_exists('asset') ? asset('img/sign and stamp.png') : '../img/sign and stamp.png' ?>" alt="Authorized Stamp"></div>
           </td>
         <?php endif; ?>
@@ -192,15 +195,18 @@
       <td class="amount bold"><?= e(indian_number($statutoryTotal)) ?></td>
     </tr>
     <tr>
-      <td class="summary-label">CTC (Monthly &amp; Year)</td>
+      <td class="summary-label">CTC (Monthly)</td>
       <td class="amount bold"><?= e(indian_number($ctcMonthly)) ?></td>
+    </tr>
+    <tr>
+      <td class="summary-label">CTC (Annual)</td>
+      <td class="amount bold"><?= e(indian_number($ctcAnnual)) ?></td>
     </tr>
 
     <tr>
       <td class="summary-label">Net Salary</td>
       <td class="amount bold"><?= e(indian_number($netSalary)) ?></td>
-      <td class="center bold"><?= e(indian_number($ctcAnnual)) ?></td>
-      <td class="center bold">Authorized Signature</td>
+      <td colspan="2" class="center bold">Authorized Signature</td>
     </tr>
     <tr>
       <td class="summary-label">Net Salary (in words)</td>

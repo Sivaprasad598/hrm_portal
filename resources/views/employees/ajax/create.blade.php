@@ -511,6 +511,14 @@ $addDepartmentPermission = user()->permission('add_department');
                                 <option value="trainee">@lang('app.trainee')</option>
                             </x-forms.select>
                         </div>
+                        <div class="col-lg-3 col-md-6">
+                            <input type="hidden" name="attendance_exempt" value="0">
+                            <div class="custom-control custom-switch" style="margin-top:42px">
+                                <input type="checkbox" class="custom-control-input" id="attendance_exempt" name="attendance_exempt" value="1" >
+                                <label class="custom-control-label f-14" for="attendance_exempt" data-toggle="tooltip"
+                                       title="Management staff who are not in office full hours: full salary every month whatever the punches; leave they apply for still counts (unpaid leave deducts). No lates, no overtime, not in the daily review.">Salary not based on attendance</label>
+                            </div>
+                        </div>
                         <div class="col-lg-3 col-md-6 d-none internship-date">
                             <x-forms.datepicker fieldId="internship_end_date"
                                 :fieldLabel="__('modules.employees.internshipEndDate')"

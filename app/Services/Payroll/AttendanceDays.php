@@ -83,10 +83,23 @@ class AttendanceDays
             ->payableDays($userId, $from->toDateString(), $to->toDateString());
 
         $breakdown = ['worked' => 0.0, 'week_off' => 0, 'holiday' => 0, 'paid_leave' => 0.0,
-            'lop_leave' => 0.0, 'absent' => 0.0, 'not_employed' => 0];
+            'lop_leave' => 0.0, 'absent' => 0.0, 'not_employed' => 0,
+            'late_marks' => 0, 'late_half_days' => 0, 'late_deduction' => 0.0,
+            'ot_weekday_hours' => 0.0, 'ot_weekend_hours' => 0.0, 'ot_holiday_hours' => 0.0];
         $workingDays = 0;
         $daysPresent = 0.0;
         $days = [];
+
+        // Working Hours & OT (WorkRules), for the days it applies to. Somebody
+        // attendance-exempt is paid in full but for leave; a department that
+        // does not consider hours takes any punch as a full day.
+        $rules = \App\Services\Attendance\WorkRules::forCompany($employee?->company_id, $tz);
+        $flags = $rules ? DB::table('employee_details as ed')->leftJoin('teams as t', 't.id', '=', 'ed.department_id')
+            ->where('ed.user_id', $userId)->first(['ed.attendance_exempt', 't.consider_attendance_hours']) : null;
+        $exempt = (bool) ($flags->attendance_exempt ?? false);
+        $hoursOff = $flags && $flags->consider_attendance_hours !== null && !(bool) $flags->consider_attendance_hours;
+        $basis = !$rules ? 'standard' : ($exempt ? 'exempt' : ($hoursOff ? 'hours_off' : 'rules'));
+        $ruleDays = 0;
 
         // One line per date, for the screens that explain the count.
         $day = function (string $key, string $status, float $paid, ?object $shift, array $extra = []) use (&$days, $worked) {
@@ -135,23 +148,69 @@ class AttendanceDays
             // Off by the shift's own working days ("Day Off" is never worked).
             $weekOff = !\App\Services\Attendance\ShiftResolver::worksOn($shift, $key);
 
-            if ($weekOff) {
-                $breakdown['week_off']++;
-                $daysPresent++;
-                $day($key, 'week_off', 1.0, $shift);
-                continue;
-            }
+            $useRules = $rules && $rules->appliesOn($key);
+            $edge = $this->bounds[$key] ?? null;
+            $ruleDays += $useRules ? 1 : 0;
 
-            if (in_array($key, $holidays, true)) {
-                $breakdown['holiday']++;
+            if ($weekOff || in_array($key, $holidays, true)) {
+                $type = $weekOff ? 'weekend' : 'holiday';
+                $extra = [];
+
+                // Work on a week-off or a holiday is all overtime (Working Hours & OT).
+                if ($useRules && $basis === 'rules' && $edge && $edge['last'] > $edge['first']) {
+                    $ot = $rules->overtime($edge['first'], $edge['last'], $shift, $type);
+                    $breakdown['ot_' . $type . '_hours'] += $ot / 3600;
+                    $extra['ot_minutes'] = intdiv($ot, 60);
+                    $extra['ot_type'] = $type;
+                    $extra['worked_minutes'] = intdiv($rules->worked($edge['first'], $edge['last'], $shift, $key), 60);
+                }
+
+                $breakdown[$weekOff ? 'week_off' : 'holiday']++;
                 $daysPresent++;
-                $day($key, 'holiday', 1.0, $shift, ['note' => $this->holidayNames[$key] ?? null]);
+                $day($key, $weekOff ? 'week_off' : 'holiday', 1.0, $shift,
+                    $extra + ($weekOff ? [] : ['note' => $this->holidayNames[$key] ?? null]));
                 continue;
             }
 
             $leave = $leaveByDay[$key] ?? ['covered' => 0.0];
             $paidLeave = (float) ($leave['paid'] ?? 0);
-            $credit = min(1.0 - $leave['covered'], $this->attendanceCredit($worked[$key] ?? 0, $shift));
+            $ruleNote = [];
+
+            if (!$useRules) {
+                $credit = min(1.0 - $leave['covered'], $this->attendanceCredit($worked[$key] ?? 0, $shift));
+            } elseif ($basis === 'exempt') {
+                // Paid in full; only leave they applied for changes the day.
+                $credit = max(0.0, 1.0 - $leave['covered']);
+                $ruleNote = ['note' => 'Attendance-exempt'];
+            } elseif ($basis === 'hours_off') {
+                // Any punch is a full day; no punch and no leave is still absent.
+                $credit = $edge ? max(0.0, 1.0 - $leave['covered']) : 0.0;
+                $ruleNote = ['note' => 'Hours not considered'];
+            } else {
+                $credit = 0.0;
+
+                if ($edge) {
+                    $workedSeconds = $rules->worked($edge['first'], max($edge['first'], $edge['last']), $shift, $key);
+                    $credit = $rules->credit($workedSeconds, $shift);
+
+                    if ($credit > 0 && $rules->afterHalfDayMark($edge['first'], $shift, $key)) {
+                        $credit = min($credit, 0.5);
+                        $breakdown['late_half_days']++;
+                        $ruleNote['late'] = 'after the half-day mark';
+                    } elseif ($credit > 0 && $rules->isLate($edge['first'], $shift, $key)) {
+                        $breakdown['late_marks']++;
+                        $ruleNote['late'] = 'late';
+                    }
+
+                    $ot = $rules->overtime($edge['first'], $edge['last'], $shift, 'weekday');
+                    $breakdown['ot_weekday_hours'] += $ot / 3600;
+                    $ruleNote['ot_minutes'] = intdiv($ot, 60);
+                    $ruleNote['ot_type'] = 'weekday';
+                    $ruleNote['worked_minutes'] = intdiv($workedSeconds, 60);
+                }
+
+                $credit = min(1.0 - $leave['covered'], $credit);
+            }
 
             $breakdown['paid_leave'] += $paidLeave;
             $breakdown['lop_leave'] += (float) ($leave['unpaid'] ?? 0);
@@ -171,10 +230,26 @@ class AttendanceDays
                 $paidLeave > 0 || $unpaidLeave > 0 => 'half_leave',
                 default => 'absent',
             };
-            $day($key, $status, $paid, $shift, ['leave_paid' => $paidLeave, 'leave_unpaid' => $unpaidLeave, 'credit' => $credit]);
+            $day($key, $status, $paid, $shift, ['leave_paid' => $paidLeave, 'leave_unpaid' => $unpaidLeave, 'credit' => $credit] + $ruleNote);
         }
 
-        return ['working_days' => $workingDays, 'days_present' => $daysPresent, 'breakdown' => $breakdown, 'days' => $days];
+        // Every Nth late in the period costs half a day (Attendance Settings ->
+        // Half Day): lates one and two do not touch the day, the third does.
+        if ($rules && $basis === 'rules' && $breakdown['late_marks'] > 0) {
+            $setting = DB::table('attendance_settings')
+                ->when($employee?->company_id, fn ($q) => $q->where('company_id', $employee->company_id))
+                ->first(['half_day_late_threshold', 'half_day_deduction_type']);
+            $deduction = min($daysPresent, $rules->lateDeduction((int) $breakdown['late_marks'], $setting ?? (object) []));
+            $breakdown['late_deduction'] = $deduction;
+            $daysPresent -= $deduction;
+        }
+
+        foreach (['ot_weekday_hours', 'ot_weekend_hours', 'ot_holiday_hours'] as $k) {
+            $breakdown[$k] = round($breakdown[$k], 2);
+        }
+
+        return ['working_days' => $workingDays, 'days_present' => $daysPresent, 'breakdown' => $breakdown, 'days' => $days,
+            'basis' => $ruleDays ? $basis : 'standard'];
     }
 
     /** Credit for the time worked on a day: 1, 0.5 or nothing, by the shift's thresholds. */

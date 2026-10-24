@@ -164,6 +164,100 @@ class PayrollRunController extends AccountBaseController
     }
 
     /**
+     * Put this period's calculated overtime on the run as editable lines
+     * ("Overtime (calculated)"), for everyone shown whose payslip is not out.
+     */
+    public function calculateOvertime(Request $request)
+    {
+        $request->validate([
+            'month' => 'required|integer|min:1|max:12',
+            'year' => 'required|integer|min:2000|max:2100',
+        ]);
+
+        $rules = \App\Services\Attendance\WorkRules::forCompany(company()->id);
+
+        if (!$rules || !$rules->s->ot_enabled) {
+            return Reply::error('Overtime is switched off. Turn it on under Settings -> Attendance Settings -> Overtime.');
+        }
+
+        if (($rules->s->ot_mode ?? 'bank') === 'bank') {
+            return Reply::error('Overtime is banked (Settings -> Attendance Settings -> Overtime): use the OT bank on each employee to cover LOP or encash it.');
+        }
+
+        // Every employee's period is counted again, like the payroll run itself.
+        @ini_set('memory_limit', '1024M');
+        @set_time_limit(600);
+
+        $cycle = PayPeriod::forMonth((int) $request->month, (int) $request->year);
+        $calc = new \App\Services\Payroll\OvertimeCalculator();
+        $tally = ['added' => 0, 'updated' => 0, 'removed' => 0, 'issued' => 0];
+        $hours = 0.0;
+
+        foreach ($this->rows((int) $request->month, (int) $request->year, array_filter((array) $request->employees), $request->department) as $row) {
+            if ($row['status'] === 'generated' || $row['status'] === 'blocked') {
+                continue;
+            }
+
+            $result = $calc->store($row['user_id'], $cycle, $row['ot']);
+            $tally[$result] = ($tally[$result] ?? 0) + 1;
+            $hours += $row['ot']['hours'];
+        }
+
+        return Reply::success(sprintf('Overtime for %s: %d added, %d updated, %d removed (%s hours in all).',
+            $cycle->describe(), $tally['added'], $tally['updated'], $tally['removed'], rtrim(rtrim(number_format($hours, 2), '0'), '.') ?: '0'));
+    }
+
+    /**
+     * OT bank decision for one employee and period: LOP days to cover and hours
+     * to encash. The rest carries forward.
+     */
+    public function otBankDecide(Request $request)
+    {
+        $request->validate([
+            'user_id' => 'required|integer|exists:users,id',
+            'month' => 'required|integer|min:1|max:12',
+            'year' => 'required|integer|min:2000|max:2100',
+            'compensate_days' => 'nullable|numeric|min:0|max:31',
+            'encash_hours' => 'nullable|numeric|min:0|max:9999',
+        ]);
+
+        $row = collect($this->rows((int) $request->month, (int) $request->year, [(int) $request->user_id]))->first();
+
+        if (!$row || !$row['ot_bank']) {
+            return Reply::error('The OT bank does not apply to this employee (it is off, or their attendance is not counted by hours).');
+        }
+
+        try {
+            (new \App\Services\Payroll\OtBank())->decide((int) $request->user_id, (int) company()->id,
+                PayPeriod::forMonth((int) $request->month, (int) $request->year), $row['ot_bank'],
+                (float) $request->compensate_days, (float) $request->encash_hours, user()->id);
+        } catch (\RuntimeException $e) {
+            return Reply::error($e->getMessage());
+        }
+
+        return Reply::success('OT bank updated for ' . $row['name'] . '.');
+    }
+
+    /** HR / Admin correction of somebody's OT bank, with a reason. */
+    public function otBankAdjust(Request $request)
+    {
+        $request->validate([
+            'user_id' => 'required|integer|exists:users,id',
+            'hours' => 'required|numeric|between:-9999,9999|not_in:0',
+            'reason' => 'required|string|min:5|max:400',
+        ], ['hours.not_in' => 'Give the hours to add (+) or take off (-).', 'reason.required' => 'Give a reason for the correction.']);
+
+        try {
+            (new \App\Services\Payroll\OtBank())->adjust((int) $request->user_id, (int) company()->id, (float) $request->hours,
+                trim($request->reason), user()->id);
+        } catch (\RuntimeException $e) {
+            return Reply::error($e->getMessage());
+        }
+
+        return Reply::success('OT bank corrected.');
+    }
+
+    /**
      * Set the monthly income tax for an employee.
      *
      * The figure comes from the accountant; nothing here works it out.
@@ -206,6 +300,9 @@ class PayrollRunController extends AccountBaseController
         $cycle = PayPeriod::forMonth($month, $year);
         $periodLabel = $cycle->label;
 
+        // Approved salary revisions whose month has come are on the record first.
+        (new \App\Services\Payroll\SalaryRevisions())->applyDue();
+
         $employees = DB::table('users as u')
             ->join('employee_details as ed', 'ed.user_id', '=', 'u.id')
             ->leftJoin('designations as d', 'd.id', '=', 'ed.designation_id')
@@ -218,8 +315,10 @@ class PayrollRunController extends AccountBaseController
             ->when($employeeIds !== [], fn ($q) => $q->whereIn('u.id', $employeeIds))
             ->when($departmentId, fn ($q) => $q->where('ed.department_id', $departmentId))
             ->orderBy('u.name')
-            ->get(['u.id', 'u.name', 'u.employee_ctc', 'u.basic_for_payroll', 'u.monthly_tds', 'ed.employee_card_id',
+            ->get(['u.id', 'u.name', 'u.company_id', 'u.employee_ctc', 'u.basic_for_payroll', 'u.monthly_tds', 'ed.employee_card_id',
                 'ed.employee_id', 'd.name as designation', 't.team_name as department']);
+        $overtime = new \App\Services\Payroll\OvertimeCalculator();
+        $bank = new \App\Services\Payroll\OtBank();
 
         // Which of them already hold a payslip for this month.
         $existing = DB::table('payslips')
@@ -230,10 +329,25 @@ class PayrollRunController extends AccountBaseController
         $serial = 0;
 
         foreach ($employees as $employee) {
-            $ctc = (float) $employee->employee_ctc;
+            // The pay in force for this month: a month before a revision is paid at the old rate.
+            [$ctc, $basicPct] = \App\Services\Payroll\SalaryRevisions::payFor((int) $employee->id, $cycle, (float) $employee->employee_ctc,
+                $employee->basic_for_payroll !== null ? (float) $employee->basic_for_payroll : null);
             $count = $days->forRange((int) $employee->id, $cycle->start, $cycle->end);
-            $pay = $calculator->forEmployee($ctc, $employee->basic_for_payroll !== null ? (float) $employee->basic_for_payroll : null,
-                $count['working_days'], $count['days_present'], (float) ($employee->monthly_tds ?? 0));
+            $pay = $calculator->forEmployee($ctc, $basicPct, $count['working_days'], $count['days_present'], (float) ($employee->monthly_tds ?? 0));
+
+            // Overtime as the settings work it out; with the OT bank, the LOP
+            // days it covers this period are paid days (as on the payslip).
+            $ot = $overtime->forEmployee((int) $employee->company_id, $cycle, $count, $pay);
+            $otBank = null;
+
+            if ($bank->enabled((int) $employee->company_id) && ($count['basis'] ?? '') === 'rules') {
+                $otBank = $bank->summary((int) $employee->id, (int) $employee->company_id, $cycle, $count, $pay, $ot);
+
+                if ($otBank['comp_days'] > 0) {
+                    $count['days_present'] += min($otBank['comp_days'], $otBank['lop_days']);
+                    $pay = $calculator->forEmployee($ctc, $basicPct, $count['working_days'], $count['days_present'], (float) ($employee->monthly_tds ?? 0));
+                }
+            }
 
             $blockers = [];
 
@@ -253,8 +367,15 @@ class PayrollRunController extends AccountBaseController
             $pay['extra_deductions'] = $extra['deduction_total'];
             $pay['final_net'] = $pay['final_net'] + $extra['earning_total'] - $extra['deduction_total'];
 
+            // "Calculate overtime" (pay every month) writes it as an editable line.
+            $otLine = collect($extra['earnings'])->firstWhere('label', \App\Services\Payroll\OvertimeCalculator::LABEL);
+
             $rows[] = [
                 'serial' => ++$serial,
+                'basis' => $count['basis'] ?? 'standard',
+                'ot' => $ot,
+                'ot_on_run' => $otLine ? (float) $otLine->amount : null,
+                'ot_bank' => $otBank,
                 'extras' => array_merge($extra['earnings'], $extra['deductions']),
                 'user_id' => (int) $employee->id,
                 'name' => $employee->name,

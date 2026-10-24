@@ -29,24 +29,43 @@ class DataCleanController extends AccountBaseController
     public function index(DataCleaner $cleaner)
     {
         $this->groups = DataCleaner::GROUPS;
+        $this->items = collect(array_keys(DataCleaner::GROUPS))->mapWithKeys(fn ($g) => [$g => $cleaner->items($g)])->all();
+        $this->special = DataCleaner::SPECIAL;
         $this->counts = $cleaner->counts();
-        $this->implied = DataCleaner::IMPLIED_BY_EMPLOYEES;
         $this->phrase = DataCleaner::CONFIRM_PHRASE;
         $this->keptUsers = \App\Models\User::withoutGlobalScopes()->whereIn('id', $cleaner->keptUsers())->get(['id', 'name', 'email']);
 
         return view('data-clean.index', $this->data);
     }
 
+    /** What the picked items would remove; nothing is removed. */
+    public function preview(Request $request, DataCleaner $cleaner)
+    {
+        $items = $cleaner->resolve((array) $request->items);
+
+        if (!$items) {
+            return Reply::error('Tick at least one table.');
+        }
+
+        return Reply::dataOnly(['status' => 'success'] + $cleaner->preview($items));
+    }
+
     public function clean(Request $request, DataCleaner $cleaner)
     {
         $request->validate([
-            'groups' => 'required|array|min:1',
-            'groups.*' => 'in:' . implode(',', array_keys(DataCleaner::GROUPS)),
+            'items' => 'required|array|min:1',
+            'items.*' => 'string',
             'confirm' => 'required|string',
         ]);
 
         if (trim($request->confirm) !== DataCleaner::CONFIRM_PHRASE) {
             return Reply::error('Type ' . DataCleaner::CONFIRM_PHRASE . ' exactly to confirm.');
+        }
+
+        $items = $cleaner->resolve((array) $request->items);
+
+        if (!$items) {
+            return Reply::error('Tick at least one table.');
         }
 
         session()->save();
@@ -58,11 +77,10 @@ class DataCleanController extends AccountBaseController
             return Reply::error($backup['message']);
         }
 
-        $result = $cleaner->clean((array) $request->groups, $backup['path'], (int) user()->id);
+        $result = $cleaner->clean($items, $backup['path'], (int) user()->id);
 
         return Reply::successWithData(
-            'Cleaned: ' . implode(', ', array_map(fn ($g) => DataCleaner::GROUPS[$g][0], $result['groups'])) . '. '
-            . number_format(array_sum($result['removed'])) . ' rows removed. Backup: ' . basename($result['backup']),
+            'Cleaned ' . count($result['items']) . ' item(s). ' . number_format(array_sum($result['removed'])) . ' rows removed. Backup: ' . basename($result['backup']),
             ['removed' => $result['removed']]
         );
     }

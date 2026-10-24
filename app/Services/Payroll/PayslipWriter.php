@@ -88,9 +88,32 @@ class PayslipWriter
         }
 
         $count = $this->days->forRange($userId, $cycle->start, $cycle->end);
-        $pay = $this->calculator->forEmployee((float) $employee->employee_ctc,
-            $employee->basic_for_payroll !== null ? (float) $employee->basic_for_payroll : null,
+
+        // The pay in force for this month (salary revisions): an earlier month is paid at the old rate.
+        (new SalaryRevisions())->applyDue();
+        [$ctcForMonth, $basicPct] = SalaryRevisions::payFor($userId, $cycle, (float) $employee->employee_ctc,
+            $employee->basic_for_payroll !== null ? (float) $employee->basic_for_payroll : null);
+        $employee->employee_ctc = $ctcForMonth;
+        $pay = $this->calculator->forEmployee((float) $employee->employee_ctc, $basicPct,
             $count['working_days'], $count['days_present'], (float) ($employee->monthly_tds ?? 0));
+
+        // OT bank: the LOP days it covers this period are paid days - decided in
+        // the payroll run, or automatically if so set. The overtime itself is
+        // banked once the payslip is written (below).
+        $bank = new OtBank();
+        $otBank = null;
+
+        if ($bank->enabled((int) $employee->company_id) && ($count['basis'] ?? '') === 'rules') {
+            $ot = (new OvertimeCalculator())->forEmployee((int) $employee->company_id, $cycle, $count, $pay);
+            $otBank = $bank->summary($userId, (int) $employee->company_id, $cycle, $count, $pay, $ot);
+            $otBank = $bank->autoCompensate($userId, (int) $employee->company_id, $cycle, $otBank);
+
+            if ($otBank['comp_days'] > 0) {
+                $count['days_present'] += min($otBank['comp_days'], $otBank['lop_days']);
+                $pay = $this->calculator->forEmployee((float) $employee->employee_ctc, $basicPct,
+                    $count['working_days'], $count['days_present'], (float) ($employee->monthly_tds ?? 0));
+            }
+        }
 
         // Somebody whose settlement has been paid has had their final money and
         // their advances closed; another payslip would pay them twice over.
@@ -180,6 +203,10 @@ class PayslipWriter
         // Overtime, bonuses and recoveries for this period belong to this payslip
         // now, so the next one does not pay or recover them a second time.
         $this->components->attachToPayslip($userId, $cycle->start, (int) $id);
+
+        if ($otBank) {
+            $bank->onIssue($userId, (int) $employee->company_id, $cycle, (int) $id, $otBank);
+        }
 
         return ['ok' => true, 'message' => $employee->name . ' — ' . $period, 'payslip_id' => (int) $id];
     }

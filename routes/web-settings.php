@@ -148,6 +148,9 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account/settings'], function 
 
     Route::put('attendance-settings/{id}/regularisation', [AttendanceSettingController::class, 'attendanceRegularisation'])->name('attendance-settings.attendanceRegularisation');
     Route::post('attendance-settings/half-day', [AttendanceSettingController::class, 'updateHalfDay'])->name('attendance-settings.update_half_day');
+    Route::post('attendance-settings/working-hours', [AttendanceSettingController::class, 'updateWorkingHours'])->name('attendance-settings.update_working_hours');
+    Route::post('attendance-settings/lates', [AttendanceSettingController::class, 'updateLates'])->name('attendance-settings.update_lates');
+    Route::post('attendance-settings/overtime', [AttendanceSettingController::class, 'updateOvertime'])->name('attendance-settings.update_overtime');
     Route::resource('attendance-settings', AttendanceSettingController::class);
 
     // Shift Rotation routes
@@ -262,6 +265,7 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account/settings'], function 
     // Data Clean: empty the application for a fresh test (Super Admin only, backup first).
     Route::get('data-clean', [App\Http\Controllers\DataCleanController::class, 'index'])->name('data-clean.index');
     Route::post('data-clean', [App\Http\Controllers\DataCleanController::class, 'clean'])->name('data-clean.run');
+    Route::post('data-clean/preview', [App\Http\Controllers\DataCleanController::class, 'preview'])->name('data-clean.preview');
 
     Route::get('biometric-settings', [App\Http\Controllers\BiometricSettingController::class, 'index'])->name('biometric-settings.index');
     Route::post('biometric-settings', [App\Http\Controllers\BiometricSettingController::class, 'update'])->name('biometric-settings.update');

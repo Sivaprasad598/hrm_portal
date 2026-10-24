@@ -42,9 +42,19 @@ $manageShiftPermission = user()->permission('manage_employee_shifts');
                             aria-controls="nav-ticketTy" aria-selected="true">@lang('clan.attendance.attendanceRegularisation')
                             </a>
 
-                            <a class="nav-item nav-link f-15 half-day"
-                            href="{{ route('attendance-settings.index') }}?tab=half-day"  role="tab"
-                            aria-controls="nav-ticketTy" aria-selected="true">@lang('app.halfDaySettings')
+                            <a class="nav-item nav-link f-15 working-hours"
+                            href="{{ route('attendance-settings.index') }}?tab=working-hours"  role="tab"
+                            aria-controls="nav-ticketTy" aria-selected="true">Working Hours
+                            </a>
+
+                            <a class="nav-item nav-link f-15 lates"
+                            href="{{ route('attendance-settings.index') }}?tab=lates"  role="tab"
+                            aria-controls="nav-ticketTy" aria-selected="true">Lates &amp; Half Day
+                            </a>
+
+                            <a class="nav-item nav-link f-15 overtime"
+                            href="{{ route('attendance-settings.index') }}?tab=overtime"  role="tab"
+                            aria-controls="nav-ticketTy" aria-selected="true">Overtime
                             </a>
                         </div>
                     </nav>

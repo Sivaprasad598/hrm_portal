@@ -2,12 +2,18 @@
 
 @push('styles')
     <style>
-        /* The pay table is wide; the name column stays put while the figures scroll. */
+        /* The pay table is wide and long: the headings stay at the top, S.No and the
+           name stay at the left, the totals at the bottom, while the figures scroll.
+           (The theme clips tables - overflow: hidden - which would stop all of that.) */
+        .payroll-table { overflow: visible !important; border-collapse: separate; border-spacing: 0; }
         .payroll-table th, .payroll-table td { white-space: nowrap; }
-        .payroll-table thead th { position: sticky; top: 0; background: #f8f9fa; z-index: 2; }
-        .payroll-table .col-name { position: sticky; left: 0; background: #fff; z-index: 1; }
-        .payroll-table thead .col-name { z-index: 3; background: #f8f9fa; }
-        .payroll-table tfoot td { font-weight: 600; background: #f8f9fa; }
+        .payroll-table thead th { position: sticky; top: 0; z-index: 3; background: #f8f9fa !important; box-shadow: inset 0 -1px 0 #dee2e6; }
+        .payroll-table .col-sno { position: sticky; left: 0; z-index: 2; width: 56px; min-width: 56px; max-width: 56px; background: #fff; }
+        .payroll-table .col-name { position: sticky; left: 56px; z-index: 2; background: #fff; box-shadow: inset -1px 0 0 #dee2e6; }
+        .payroll-table thead .col-sno, .payroll-table thead .col-name { z-index: 4; }
+        .payroll-table tbody tr:hover > .col-sno, .payroll-table tbody tr:hover > .col-name { background: #f2f4f7; }
+        .payroll-table tfoot td { position: sticky; bottom: 0; z-index: 3; font-weight: 600; background: #f8f9fa; box-shadow: inset 0 1px 0 #dee2e6; }
+        .payroll-table tfoot .col-sno, .payroll-table tfoot .col-name { z-index: 4; background: #f8f9fa; }
         .bootstrap-select .dropdown-menu { z-index: 1060; }
     </style>
 @endpush
@@ -215,6 +221,14 @@
                     @endif
                 </span>
 
+                @php $otRules = \App\Services\Attendance\WorkRules::forCompany(company()->id); @endphp
+                @if ($otRules && $otRules->s->ot_enabled && ($otRules->s->ot_mode ?? 'bank') === 'pay')
+                    <button type="button" class="btn btn-sm btn-outline-primary mr-2" id="calculate-ot"
+                            title="Put each employee's overtime for this period on the run as an editable line">
+                        <i class="fa fa-clock mr-1"></i> Calculate overtime
+                    </button>
+                @endif
+
                 <a class="btn btn-sm btn-outline-secondary mr-2"
                    href="{{ route('payroll-run.export', request()->query()) }}">
                     <i class="fa fa-file-excel mr-1"></i> Export to Excel
@@ -229,10 +243,10 @@
             </div>
 
             <div class="table-responsive" style="max-height: 70vh">
-                <table class="table table-hover mb-0 f-13 payroll-table">
+                <table class="table table-hover mb-0 f-13 payroll-table" style="overflow: visible !important">
                     <thead>
                         <tr>
-                            <th>S.No</th>
+                            <th class="col-sno">S.No</th>
                             <th class="col-name">Employee Name</th>
                             <th class="text-right">Gross</th>
                             <th class="text-right">Basic</th>
@@ -261,7 +275,7 @@
                     <tbody>
                         @forelse ($rows as $row)
                             <tr @class(['text-lightest' => $row['status'] === 'blocked'])>
-                                <td>{{ $row['serial'] }}</td>
+                                <td class="col-sno">{{ $row['serial'] }}</td>
                                 <td class="col-name">
                                     <span class="font-weight-bold">{{ $row['name'] }}</span>
                                     <br>
@@ -274,6 +288,30 @@
                                        class="openRightModal f-11" title="Attendance for this salary period, day by day">
                                         <i class="fa fa-calendar-alt mr-1"></i>Attendance
                                     </a>
+                                    @if (($row['basis'] ?? '') === 'exempt')
+                                        <br><span class="badge badge-light f-10" title="Salary not based on attendance: full salary, leave still counts">Attendance-exempt</span>
+                                    @elseif (($row['basis'] ?? '') === 'hours_off')
+                                        <br><span class="badge badge-light f-10" title="The department does not consider hours: any punch is a full day">Hours not considered</span>
+                                    @endif
+                                    @if (($row['breakdown']['late_marks'] ?? 0) || ($row['breakdown']['late_half_days'] ?? 0))
+                                        <br><span class="f-10 text-warning" title="Lates before the half-day mark (every Nth costs a deduction) / arrivals after the half-day mark (half day each)">
+                                            Late {{ $row['breakdown']['late_marks'] }}{{ $row['breakdown']['late_deduction'] > 0 ? ' → −' . $num($row['breakdown']['late_deduction']) . ' day' : '' }}{{ $row['breakdown']['late_half_days'] ? ' · after half-day mark ' . $row['breakdown']['late_half_days'] : '' }}
+                                        </span>
+                                    @endif
+                                    @if ($b = $row['ot_bank'] ?? null)
+                                        {{-- OT bank: brought forward, earned this period, LOP covered / encashed, carried forward. --}}
+                                        <br><span class="f-10 text-dark-grey" title="Brought forward + earned this period - used = carried forward">
+                                            OT bank {{ $num($b['bf']) }}h{{ $b['earned'] > 0 ? ' +' . $num($b['earned']) . 'h' : '' }}{{ $b['comp_days'] > 0 ? ' · covers ' . $num($b['comp_days']) . ' LOP' : '' }}{{ $b['enc_hours'] > 0 ? ' · encash ' . $num($b['enc_hours']) . 'h' : '' }} → {{ $num($b['cf']) }}h
+                                        </span>
+                                        @unless ($row['status'] === 'generated' || $b['issued'])
+                                            <a href="#" class="ot-bank f-10 ml-1" data-user="{{ $row['user_id'] }}"
+                                               data-name="{{ $row['name'] }}" data-bank="{{ json_encode($b) }}">Manage</a>
+                                        @endunless
+                                    @elseif (($row['ot']['hours'] ?? 0) > 0)
+                                        <br><span class="f-10 {{ $row['ot_on_run'] === null ? 'text-primary' : 'text-success' }}" title="{{ $row['ot']['note'] }}">
+                                            OT {{ $num($row['ot']['hours']) }}h = {{ number_format($row['ot']['amount'], 2) }}{{ $row['ot_on_run'] === null ? ' (not on the run yet)' : '' }}
+                                        </span>
+                                    @endif
                                 </td>
                                 <td class="text-right">{{ number_format($row['gross'], 2) }}</td>
                                 <td class="text-right">{{ number_format($row['basic'], 2) }}</td>
@@ -340,18 +378,26 @@
                                 <td>
                                     @if ($row['status'] === 'generated')
                                         <span class="badge badge-success" title="Payslip already issued for this month">Issued</span>
+                                        @if ($row['payslip_id'])
+                                            <a href="{{ route('payslips.generated.pdf', $row['payslip_id']) }}" target="_blank" class="f-11 ml-1" title="Open the payslip"><i class="fa fa-file-pdf mr-1"></i>PDF</a>
+                                        @endif
                                     @elseif ($row['status'] === 'blocked')
                                         <span class="badge badge-danger" title="{{ implode(', ', $row['blockers']) }}">
                                             {{ implode(', ', $row['blockers']) }}
                                         </span>
                                     @else
                                         <span class="badge badge-light border">To issue</span>
+                                        <button type="button" class="btn btn-xs btn-outline-primary f-11 py-0 px-2 ml-1 generate-one"
+                                                data-user="{{ $row['user_id'] }}" data-name="{{ $row['name'] }}"
+                                                @if ($isCurrentMonth) disabled title="Available from {{ $cycle->end->copy()->addDay()->format('d M') }}" @else title="Issue this employee's payslip only" @endif>
+                                            <i class="fa fa-bolt mr-1"></i>Generate
+                                        </button>
                                     @endif
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="22" class="text-center text-lightest p-4">
+                                <td colspan="24" class="text-center text-lightest p-4">
                                     No employees match these filters.
                                 </td>
                             </tr>
@@ -360,10 +406,10 @@
                     @if ($rows !== [])
                         <tfoot>
                             <tr>
-                                <td></td>
+                                <td class="col-sno"></td>
                                 <td class="col-name">Total — {{ $monthName }}</td>
                                 <td class="text-right">{{ number_format($totals['gross'], 2) }}</td>
-                                <td colspan="4"></td>
+                                <td colspan="6"></td>
                                 <td class="text-right">{{ number_format($totals['pf_full'], 2) }}</td>
                                 <td class="text-right">{{ number_format($totals['pf'], 2) }}</td>
                                 <td class="text-right">{{ number_format($totals['esi'], 2) }}</td>
@@ -395,6 +441,59 @@
         </p>
     </div>
 @endsection
+
+
+{{-- OT bank for one employee and this period --}}
+<div class="modal fade" id="ot-bank-modal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title f-16">OT bank: <span id="ot-name"></span></h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            </div>
+            <div class="modal-body f-13">
+                <table class="table table-sm mb-3">
+                    <tr><td class="text-dark-grey">Brought forward</td><td class="text-right" id="ot-bf"></td></tr>
+                    <tr><td class="text-dark-grey">Overtime this period</td><td class="text-right" id="ot-earned"></td></tr>
+                    <tr class="font-weight-600"><td>Available</td><td class="text-right" id="ot-available"></td></tr>
+                    <tr><td class="text-dark-grey">LOP days this period</td><td class="text-right" id="ot-lop"></td></tr>
+                </table>
+
+                <div class="form-group">
+                    <label class="f-13 mb-1">Cover LOP days <span class="text-lightest">(up to <span id="ot-cover-max"></span>; a day = <span id="ot-dayh"></span>)</span></label>
+                    <div class="d-flex align-items-center">
+                        <input type="number" step="0.5" min="0" id="ot-cover" class="form-control form-control-sm mr-2" style="max-width:120px">
+                        <span class="text-dark-grey mr-auto">uses <b id="ot-cover-hours">0h</b></span>
+                        <button type="button" class="btn btn-sm btn-outline-primary text-nowrap" id="ot-cover-all">Cover max</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="f-13 mb-1">Encash hours <span class="text-lightest">(at <span id="ot-hourly"></span> an hour)</span></label>
+                    <div class="d-flex align-items-center">
+                        <input type="number" step="0.01" min="0" id="ot-encash" class="form-control form-control-sm mr-2" style="max-width:120px">
+                        <span class="text-dark-grey mr-auto">pays <b id="ot-encash-amount">₹0.00</b></span>
+                        <button type="button" class="btn btn-sm btn-outline-primary text-nowrap" id="ot-encash-rest" title="Encash every hour the LOP cover does not use">Encash the rest</button>
+                    </div>
+                    <small class="text-lightest d-none" id="ot-encash-rest-note">Encashing what is left after the cover; changing the days updates it.</small>
+                </div>
+                <p class="mb-0">Carried forward: <b id="ot-left"></b></p>
+
+                <details class="mt-3">
+                    <summary class="text-dark-grey">Correct the balance (HR / Admin)</summary>
+                    <div class="d-flex mt-2">
+                        <input type="number" step="0.5" id="ot-adjust-hours" class="form-control form-control-sm mr-2" style="max-width:120px" placeholder="+/- hours">
+                        <input type="text" id="ot-adjust-reason" class="form-control form-control-sm mr-2" placeholder="Reason" maxlength="400">
+                        <button type="button" class="btn btn-sm btn-outline-secondary text-nowrap" id="ot-adjust">Correct</button>
+                    </div>
+                </details>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary btn-sm" id="ot-save">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 @push('scripts')
     <script>
@@ -523,6 +622,103 @@
                 });
             });
 
+            // ---- OT bank: cover LOP, encash, correct ------------------------
+            var otAllowCover = {{ ($otRules->s->ot_compensate ?? 1) ? 'true' : 'false' }};
+            var otAllowEncash = {{ ($otRules->s->ot_encash ?? 1) ? 'true' : 'false' }};
+            var otUser = null, otBank = null, otEncashRest = false;
+            var hrs = function (v) { return (Math.round(v * 100) / 100) + 'h'; };
+
+            // Hours the cover leaves in the bank (rounded down, so it never asks for more than there is).
+            function otRest() {
+                var days = parseFloat($('#ot-cover').val()) || 0;
+                return Math.max(0, Math.floor((otBank.available - days * otBank.day_hours) * 100) / 100);
+            }
+
+            function otRefresh() {
+                var days = parseFloat($('#ot-cover').val()) || 0;
+                if (otEncashRest) { $('#ot-encash').val(otRest()); }
+                var enc = parseFloat($('#ot-encash').val()) || 0;
+                var left = otBank.available - days * otBank.day_hours - enc;
+                $('#ot-cover-hours').text(hrs(days * otBank.day_hours));
+                $('#ot-encash-amount').text('₹' + (enc * otBank.hourly).toFixed(2));
+                $('#ot-left').text(hrs(left)).toggleClass('text-red', left < 0);
+            }
+
+            $('body').on('click', '.ot-bank', function (e) {
+                e.preventDefault();
+                otUser = $(this).data('user');
+                otBank = $(this).data('bank');
+                $('#ot-name').text($(this).data('name'));
+                $('#ot-bf').text(hrs(otBank.bf));
+                $('#ot-earned').text(hrs(otBank.earned));
+                $('#ot-available').text(hrs(otBank.available));
+                $('#ot-lop').text(otBank.lop_days);
+                $('#ot-dayh').text(hrs(otBank.day_hours));
+                $('#ot-hourly').text('₹' + Number(otBank.hourly).toFixed(2));
+                $('#ot-cover-max').text(otBank.max_comp_days);
+                $('#ot-cover').attr('max', otBank.max_comp_days).val(otBank.comp_days || 0).prop('disabled', !otAllowCover);
+                $('#ot-encash').val(otBank.enc_hours || 0).prop('disabled', !otAllowEncash);
+                $('#ot-cover-all').prop('disabled', !otAllowCover || !(otBank.max_comp_days > 0));
+                $('#ot-encash-rest').prop('disabled', !otAllowEncash || !(otBank.available > 0));
+                otEncashRest = false;
+                $('#ot-encash-rest-note').addClass('d-none');
+                $('#ot-adjust-hours, #ot-adjust-reason').val('');
+                otRefresh();
+                $('#ot-bank-modal').modal('show');
+            });
+
+            $('#ot-cover').on('input change', otRefresh);
+            $('#ot-encash').on('input', function () {
+                otEncashRest = false;   // typed by hand: no longer follows the cover
+                $('#ot-encash-rest-note').addClass('d-none');
+                otRefresh();
+            });
+
+            $('#ot-cover-all').on('click', function () {
+                $('#ot-cover').val(otBank.max_comp_days);
+                otRefresh();
+            });
+
+            $('#ot-encash-rest').on('click', function () {
+                otEncashRest = true;
+                $('#ot-encash-rest-note').removeClass('d-none');
+                otRefresh();
+            });
+
+            $('#ot-save').on('click', function () {
+                $.easyAjax({
+                    url: "{{ route('payroll-run.ot-bank') }}", type: 'POST', blockUI: true, disableButton: true, buttonSelector: '#ot-save',
+                    data: { _token: '{{ csrf_token() }}', user_id: otUser, month: {{ $month }}, year: {{ $year }},
+                        compensate_days: $('#ot-cover').val(), encash_hours: $('#ot-encash').val() },
+                    success: function (r) { if (r.status === 'success') { window.location.reload(); } }
+                });
+            });
+
+            $('#ot-adjust').on('click', function () {
+                $.easyAjax({
+                    url: "{{ route('payroll-run.ot-bank.adjust') }}", type: 'POST', blockUI: true, disableButton: true, buttonSelector: '#ot-adjust',
+                    data: { _token: '{{ csrf_token() }}', user_id: otUser, hours: $('#ot-adjust-hours').val(), reason: $('#ot-adjust-reason').val() },
+                    success: function (r) { if (r.status === 'success') { window.location.reload(); } }
+                });
+            });
+
+            $('#calculate-ot').on('click', function () {
+                $.easyAjax({
+                    url: "{{ route('payroll-run.overtime') }}",
+                    type: 'POST',
+                    blockUI: true,
+                    disableButton: true,
+                    buttonSelector: '#calculate-ot',
+                    data: {
+                        _token: '{{ csrf_token() }}', month: {{ $month }}, year: {{ $year }},
+                        department: @json($departmentId), employees: @json(array_values($selectedEmployees))
+                    },
+                    success: function (response) {
+                        if (response.status === 'success') { window.location.reload(); }
+                    }
+                });
+            });
+
             $('#generate-all').on('click', function () {
                 if (!pending.length) { return; }
 
@@ -539,6 +735,23 @@
                     cancelButtonText: '@lang('app.cancel')'
                 }).then(function (result) {
                     if (result.isConfirmed) { run(pending.slice()); }
+                });
+            });
+
+            // One employee's payslip, from their row.
+            $('body').on('click', '.generate-one', function () {
+                var id = $(this).data('user'), name = $(this).data('name');
+
+                Swal.fire({
+                    title: 'Issue ' + $('<div>').text(name).html() + '’s payslip?',
+                    html: '<p class="mb-0" style="font-size:13px">For <strong>{{ $monthName }}</strong>, using the figures in their row ' +
+                          '(OT bank cover and encashment included). Nobody else is touched.</p>',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: 'Issue payslip',
+                    cancelButtonText: '@lang('app.cancel')'
+                }).then(function (result) {
+                    if (result.isConfirmed) { run([id]); }
                 });
             });
 

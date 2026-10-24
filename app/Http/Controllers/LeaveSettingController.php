@@ -84,7 +84,7 @@ class LeaveSettingController extends AccountBaseController
     {
         $request->validate([
             'encashment_basis' => 'required|in:basic,gross',
-            'encashment_divisor' => 'required|numeric|min:1|max:31',
+            'encashment_divisor' => ['required', 'numeric', 'max:31', fn ($attr, $v, $fail) => ((float) $v == 0 || (float) $v >= 1) ?: $fail('Choose the days to divide by.')],
             'encashment_salary_source' => 'required|in:ctc,last_payslip',
             'encashment_basic_pct' => 'nullable|numeric|min:1|max:100',
             'earned_leave_type_id' => 'nullable|integer|exists:leave_types,id',

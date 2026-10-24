@@ -50,6 +50,9 @@ class DailyAttendanceReview
             ->where('u.status', 'active')
             ->where(fn ($q) => $q->whereNull('ed.joining_date')->orWhereDate('ed.joining_date', '<=', $key))
             ->where(fn ($q) => $q->whereNull('ed.last_date')->orWhereDate('ed.last_date', '>=', $key))
+            // Attendance-exempt (management paid in full) have no attendance to review.
+            ->when(\Illuminate\Support\Facades\Schema::hasColumn('employee_details', 'attendance_exempt'),
+                fn ($q) => $q->where(fn ($w) => $w->whereNull('ed.attendance_exempt')->orWhere('ed.attendance_exempt', 0)))
             ->get(['u.id', 'u.company_id']);
 
         $mapped = DB::table('iapp_employees')->where('map_status', 'mapped')->whereNotNull('user_id')
@@ -115,6 +118,13 @@ class DailyAttendanceReview
         $key = $day->toDateString();
         $count = $counter->forRange($userId, $day, $day);
         $breakdown = $count['breakdown'];
+
+        // The day's overtime goes into the employee's OT bank straight away
+        // (and again whenever the day is judged afresh after a correction).
+        if (\Illuminate\Support\Facades\Schema::hasTable('ot_daily')) {
+            (new \App\Services\Payroll\OtDaily())->store($userId,
+                (int) DB::table('employee_details')->where('user_id', $userId)->value('company_id'), $count);
+        }
         $credit = (float) $count['days_present'];
 
         // What was recorded: ERP attendance in the day's own window - the

@@ -15,6 +15,17 @@
         ['Days paid', $fmt($count['days_present']), 'text-success', 'Days Present on the payslip'],
         ['LOP days', $fmt($lopDays), $lopDays > 0 ? 'text-red' : 'text-dark-grey', 'counted − paid'],
     ];
+    // Working Hours & OT: lates and overtime, when the rules apply.
+    $basis = $count['basis'] ?? 'standard';
+    $otHours = ($b['ot_weekday_hours'] ?? 0) + ($b['ot_weekend_hours'] ?? 0) + ($b['ot_holiday_hours'] ?? 0);
+    if ($basis === 'rules') {
+        $tiles[] = ['Lates', ($b['late_marks'] ?? 0) . (($b['late_half_days'] ?? 0) ? ' + ' . $b['late_half_days'] . ' after ½-day mark' : ''),
+            ($b['late_marks'] ?? 0) ? 'text-warning' : 'text-dark-grey',
+            ($b['late_deduction'] ?? 0) > 0 ? '− ' . $fmt($b['late_deduction']) . ' day deducted' : 'no deduction'];
+        $tiles[] = ['Overtime', $fmt($otHours) . 'h', $otHours > 0 ? 'text-primary' : 'text-dark-grey',
+            'weekday ' . $fmt($b['ot_weekday_hours'] ?? 0) . ' · week-off ' . $fmt($b['ot_weekend_hours'] ?? 0) . ' · holiday ' . $fmt($b['ot_holiday_hours'] ?? 0)];
+    }
+    $rules = \App\Services\Attendance\WorkRules::forCompany(company()?->id);
     $periodUrl = fn ($p) => route('payroll.attendance', ['userId' => $employee->id, 'month' => $p->month, 'year' => $p->year]);
 @endphp
 
@@ -42,6 +53,22 @@
             </a>
         </div>
     </div>
+
+    @if ($basis === 'exempt')
+        <div class="alert alert-secondary f-13 py-2"><i class="fa fa-user-tie mr-1"></i>
+            <strong>Salary not based on attendance:</strong> every working day is paid; only leave applied for changes a day (unpaid leave deducts).</div>
+    @elseif ($basis === 'hours_off')
+        <div class="alert alert-secondary f-13 py-2"><i class="fa fa-building mr-1"></i>
+            <strong>{{ $employee->department }}</strong> does not consider attendance hours: any punch on a working day is a full day; no punch and no leave is absent.</div>
+    @elseif ($basis === 'rules' && $rules)
+        <div class="f-12 text-dark-grey mb-2">
+            <i class="fa fa-info-circle mr-1"></i>
+            Counted {{ $rules->withinShiftOnly() ? 'within the shift timings' : 'from first to last punch' }};
+            a full day is the shift's length less its breaks (only the part of a break inside the time in office is taken off),
+            grace {{ $rules->s->wh_grace_minutes }} min. After the half-day mark a day is a half day; every
+            {{ \Illuminate\Support\Facades\DB::table('attendance_settings')->value('half_day_late_threshold') ?? 3 }} lates cost a deduction.
+        </div>
+    @endif
 
     @if ($running)
         <div class="alert alert-warning f-13 py-2">
@@ -97,10 +124,12 @@
                         <td class="text-nowrap">{{ $day['shift'] ?? '—' }} <span class="text-lightest f-11">{{ $day['shift_hours'] }}</span></td>
                         <td>{{ $timeOf($day['first_in']) }}</td>
                         <td>{{ $timeOf($day['last_out']) }}</td>
-                        <td>{{ $hours($day['seconds']) }}</td>
+                        <td>{{ isset($day['worked_minutes']) ? $hours($day['worked_minutes'] * 60) : $hours($day['seconds']) }}</td>
                         <td>
                             <span class="badge badge-{{ $colour }} f-11"><i class="fa {{ $icon }} mr-1"></i>{{ $label }}</span>
                             @if (!empty($day['note']))<span class="f-11 text-lightest ml-1">{{ $day['note'] }}</span>@endif
+                            @if (!empty($day['late']))<span class="badge badge-warning f-10 ml-1">{{ $day['late'] === 'late' ? 'Late' : 'Late: after half-day mark' }}</span>@endif
+                            @if (!empty($day['ot_minutes']))<span class="badge badge-primary f-10 ml-1">OT {{ $hours($day['ot_minutes'] * 60) }}</span>@endif
                             @if (($day['leave_paid'] ?? 0) > 0 && $day['status'] !== 'paid_leave')<span class="f-11 text-primary ml-1">+ {{ $fmt($day['leave_paid']) }} paid leave</span>@endif
                             @if (($day['leave_unpaid'] ?? 0) > 0 && $day['status'] !== 'lop_leave')<span class="f-11 text-red ml-1">+ {{ $fmt($day['leave_unpaid']) }} unpaid leave</span>@endif
                         </td>

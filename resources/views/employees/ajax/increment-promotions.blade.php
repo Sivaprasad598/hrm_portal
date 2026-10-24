@@ -1,8 +1,44 @@
 <!-- TAB CONTENT START -->
 <div class="tab-pane fade show active mt-5" role="tabpanel" aria-labelledby="nav-email-tab">
-    @if (!in_array('payroll', user_modules()))
-        <div class="alert alert-info" type="info"><i class="fa fa-info-circle mr-2"></i> @lang('modules.incrementPromotion.incrementAlert')</div>
-    @endif
+    {{-- Salary revisions: hikes and promotions approved by the CFO and CEO, with the letter. --}}
+    @php $srInr = fn ($v) => '₹' . \App\Services\Payroll\SalaryRevisionLetter::inr($v); @endphp
+    <div class="bg-white rounded b-shadow-4 p-20 mb-4">
+        <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+            <h4 class="f-18 font-weight-normal mb-0">Salary revisions</h4>
+            @if ($canReviseSalary)
+                <a href="{{ route('salary-revisions.create', ['user_id' => $employee->id]) }}" class="btn btn-primary btn-sm rounded"><i class="fa fa-plus mr-1"></i>Salary revision</a>
+            @endif
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered f-13 mb-0">
+                <thead class="bg-light"><tr><th>Effective</th><th>Revision</th><th class="text-right">CTC before</th><th class="text-right">CTC after</th>
+                    <th class="text-right">Hike</th><th>Designation</th><th>Status</th><th>Letter</th></tr></thead>
+                <tbody>
+                @forelse ($salaryRevisions as $sr)
+                    @php
+                        $srInc = $sr->new_ctc - $sr->old_ctc;
+                        [$srLabel, $srColour] = \App\Services\Payroll\SalaryRevisions::STATUSES[$sr->status] ?? [$sr->status, 'light'];
+                    @endphp
+                    <tr>
+                        <td class="text-nowrap">{{ \Carbon\Carbon::parse($sr->effective_date)->format(company()->date_format) }}
+                            <br><span class="f-11 text-lightest">paid from {{ \App\Services\Payroll\SalaryRevisions::monthLabel(\Carbon\Carbon::parse($sr->applies_from)) }}</span></td>
+                        <td>@if ($canSeeRevisions)<a href="{{ route('salary-revisions.show', $sr->batch_id) }}">{{ $sr->batch_name }}</a>@else{{ \App\Services\Payroll\SalaryRevisions::TYPES[$sr->type] ?? $sr->type }}@endif</td>
+                        <td class="text-right">{{ $srInr($sr->old_ctc) }}</td>
+                        <td class="text-right font-weight-600">{{ $srInr($sr->new_ctc) }}</td>
+                        <td class="text-right {{ $srInc >= 0 ? 'text-success' : 'text-red' }}">{{ $sr->old_ctc > 0 ? number_format($srInc / $sr->old_ctc * 100, 2) . '%' : '–' }}</td>
+                        <td>{{ $sr->new_designation ? ($sr->old_designation ?: '—') . ' → ' . $sr->new_designation : ($sr->old_designation ?: '—') }}</td>
+                        <td><span class="badge badge-{{ $srColour }}">{{ $srLabel }}</span>@if ($sr->applied_at)<br><span class="f-11 text-success">on record</span>@endif</td>
+                        <td>@if ($sr->status === 'approved' && ($sr->released_at || $canSeeRevisions))
+                                <a href="{{ route('salary-revisions.letter', $sr->id) }}" target="_blank"><i class="fa fa-file-pdf mr-1"></i>{{ $sr->letter_no }}</a>
+                            @else<span class="text-lightest">—</span>@endif</td>
+                    </tr>
+                @empty
+                    <tr><td colspan="8" class="text-center text-dark-grey py-3">No salary revisions yet.</td></tr>
+                @endforelse
+                </tbody>
+            </table>
+        </div>
+    </div>
     @if ($manageIncrementPermission != 'none')
         <div class="d-flex justify-content-between action-bar mb-3">
             <x-forms.link-primary

@@ -922,6 +922,7 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account'], function () {
     Route::get('attendances/export-all-attendance-clock/{year}/{month}/{id}/{department}/{designation}', [AttendanceController::class, 'exportAllAttendanceClock'])->name('attendances.export_all_attendance_clock');
     Route::post('attendances/employee-data', [AttendanceController::class, 'employeeData'])->name('attendances.employee_data');
     Route::get('attendances/mark/{id}/{day}/{month}/{year}', [AttendanceController::class, 'mark'])->name('attendances.mark');
+    Route::get('attendances/cycle-day/{userId}/{date}', [AttendanceController::class, 'cycleDay'])->name('attendances.cycle-day');
     Route::get('attendances/calendar/{id}/{month}/{year}', [AttendanceController::class, 'calendar'])->name('attendances.calendar');
     Route::post('attendances/day-status', [AttendanceController::class, 'saveDayStatus'])->name('attendances.save_day_status');
     Route::post('attendances/apply-late-half-day', [AttendanceController::class, 'applyLateHalfDay'])->name('attendances.apply_late_half_day');
@@ -1148,6 +1149,34 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account'], function () {
     Route::post('payroll-run/component', [App\Http\Controllers\PayrollRunController::class, 'addComponent'])->name('payroll-run.component.add');
     Route::post('payroll-run/component/remove', [App\Http\Controllers\PayrollRunController::class, 'removeComponent'])->name('payroll-run.component.remove');
     Route::post('payroll-run/tds', [App\Http\Controllers\PayrollRunController::class, 'setTds'])->name('payroll-run.tds');
+    Route::post('payroll-run/overtime', [App\Http\Controllers\PayrollRunController::class, 'calculateOvertime'])->name('payroll-run.overtime');
+    Route::post('payroll-run/ot-bank', [App\Http\Controllers\PayrollRunController::class, 'otBankDecide'])->name('payroll-run.ot-bank');
+    Route::post('payroll-run/ot-bank/adjust', [App\Http\Controllers\PayrollRunController::class, 'otBankAdjust'])->name('payroll-run.ot-bank.adjust');
+    // Payroll -> OT Hours: everyone's overtime by month, used, encashed, held.
+    // HR -> Salary Revisions: hikes, promotions, appraisal cycles; CFO -> CEO approval; letters.
+    Route::get('salary-revisions', [App\Http\Controllers\SalaryRevisionController::class, 'index'])->name('salary-revisions.index');
+    Route::get('salary-revisions/create', [App\Http\Controllers\SalaryRevisionController::class, 'create'])->name('salary-revisions.create');
+    Route::post('salary-revisions', [App\Http\Controllers\SalaryRevisionController::class, 'store'])->name('salary-revisions.store');
+    Route::get('salary-revisions/rows', [App\Http\Controllers\SalaryRevisionController::class, 'rows'])->name('salary-revisions.rows');
+    Route::get('salary-revisions/applies', [App\Http\Controllers\SalaryRevisionController::class, 'applies'])->name('salary-revisions.applies');
+    Route::get('salary-revisions/template', [App\Http\Controllers\SalaryRevisionController::class, 'template'])->name('salary-revisions.template');
+    Route::post('salary-revisions/import', [App\Http\Controllers\SalaryRevisionController::class, 'import'])->name('salary-revisions.import');
+    Route::match(['get', 'post'], 'salary-revisions/settings', [App\Http\Controllers\SalaryRevisionController::class, 'settings'])->name('salary-revisions.settings');
+    Route::get('salary-revisions/letter/{id}', [App\Http\Controllers\SalaryRevisionController::class, 'letter'])->name('salary-revisions.letter');
+    Route::get('salary-revisions/{id}', [App\Http\Controllers\SalaryRevisionController::class, 'show'])->whereNumber('id')->name('salary-revisions.show');
+    Route::get('salary-revisions/{id}/edit', [App\Http\Controllers\SalaryRevisionController::class, 'edit'])->whereNumber('id')->name('salary-revisions.edit');
+    Route::post('salary-revisions/{id}/action', [App\Http\Controllers\SalaryRevisionController::class, 'action'])->whereNumber('id')->name('salary-revisions.action');
+    Route::get('salary-revisions/{id}/letters', [App\Http\Controllers\SalaryRevisionController::class, 'letters'])->whereNumber('id')->name('salary-revisions.letters');
+    Route::get('ot-hours', [App\Http\Controllers\OtHoursController::class, 'index'])->name('ot-hours.index');
+    Route::get('ot-hours/days', [App\Http\Controllers\OtHoursController::class, 'days'])->name('ot-hours.days');
+    // Past OT (before go-live): by month on the employee's OT Bank tab, or imported for everybody.
+    Route::get('ot-past/year', [App\Http\Controllers\OtPastController::class, 'year'])->name('ot-past.year');
+    Route::post('ot-past/year', [App\Http\Controllers\OtPastController::class, 'saveYear'])->name('ot-past.year.save');
+    Route::post('ot-past/day', [App\Http\Controllers\OtPastController::class, 'saveDay'])->name('ot-past.day');
+    Route::post('ot-past/delete', [App\Http\Controllers\OtPastController::class, 'destroy'])->name('ot-past.delete');
+    Route::get('ot-past/import/template', [App\Http\Controllers\OtPastController::class, 'template'])->name('ot-past.import.template');
+    Route::post('ot-past/import/preview', [App\Http\Controllers\OtPastController::class, 'importPreview'])->name('ot-past.import.preview');
+    Route::post('ot-past/import/run', [App\Http\Controllers\OtPastController::class, 'importRun'])->name('ot-past.import.run');
     // Pay that sits outside the standard salary: overtime, bonuses, advances.
     Route::get('pay-elements', [App\Http\Controllers\PayElementsController::class, 'index'])->name('pay-elements.index');
     Route::post('pay-elements/type', [App\Http\Controllers\PayElementsController::class, 'storeType'])->name('pay-elements.type.store');

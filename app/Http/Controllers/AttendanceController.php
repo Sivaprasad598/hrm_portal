@@ -212,10 +212,44 @@ class AttendanceController extends AccountBaseController
         $this->year = (int) $request->year;
         $this->canOpenPayrollView = user()->permission('manage_payroll') === 'all'
             || $this->viewAttendancePermission === 'all' || in_array('admin', user_roles());
+        // A day opens its details first: the attendance popup (sessions, edit, delete) when
+        // there are punches, otherwise how payroll counted it, with "Mark attendance".
+        $this->canEditAttendance = user()->permission('add_attendance') === 'all';
+        $tz = company()->timezone ?: 'Asia/Kolkata';
+        $attendanceIds = [];
+
+        foreach (Attendance::whereIn('user_id', collect($rows)->pluck('employee.id')->all() ?: [0])
+            ->whereBetween('clock_in_time', [$cycle->start->copy()->subDay()->startOfDay(), $cycle->end->copy()->addDays(2)->startOfDay()])
+            ->orderBy('clock_in_time')->get(['id', 'user_id', 'clock_in_time']) as $a) {
+            $attendanceIds[$a->user_id][$a->clock_in_time->copy()->timezone($tz)->toDateString()] ??= $a->id;
+        }
+
+        $this->attendanceIds = $attendanceIds;
 
         $view = view('attendances.ajax.cycle_data', $this->data)->render();
 
         return Reply::dataOnly(['status' => 'success', 'data' => $view]);
+    }
+
+    /** A day without punches in the salary-month grid: how payroll counted it, and its leave or holiday. */
+    public function cycleDay($userId, $date)
+    {
+        abort_403(!in_array(user()->permission('view_attendance'), ['all', 'added', 'owned', 'both']));
+        abort_403(user()->permission('view_attendance') === 'owned' && (int) $userId !== (int) user()->id);
+
+        $day = Carbon::parse($date)->startOfDay();
+        $this->employee = User::withoutGlobalScope(ActiveScope::class)->with('employeeDetail.designation')->findOrFail($userId);
+        $count = (new \App\Services\Payroll\AttendanceDays(company()->timezone ?: 'Asia/Kolkata'))->forRange((int) $userId, $day, $day);
+        $this->day = $count['days'][0] ?? null;
+        $this->date = $day;
+        $this->statusMeta = PayrollAttendanceController::STATUSES;
+        $this->leaves = DB::table('leaves as l')->leftJoin('leave_types as t', 't.id', '=', 'l.leave_type_id')
+            ->where('l.user_id', $userId)->whereDate('l.leave_date', $day->toDateString())
+            ->get(['l.duration', 'l.half_day_type', 'l.status', 'l.paid', 'l.reason', 't.type_name']);
+        $this->holiday = Holiday::whereDate('date', $day->toDateString())->value('occassion');
+        $this->canEditAttendance = user()->permission('add_attendance') === 'all' && $day->lte(now());
+
+        return view('attendances.ajax.cycle_day', $this->data);
     }
 
     public function summaryData($request)

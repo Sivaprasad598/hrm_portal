@@ -99,7 +99,7 @@ if ($viewPermission == 'all'
                         </li>
                     @endif
 
-                    @if ($viewIncrementPermission != 'none')
+                    @if ($viewIncrementPermission != 'none' || $employee->id == user()->id)
                         <li>
                             <x-tab :href="route('employees.show', $employee->id) . '?tab=increment-promotions'" :text="__('modules.incrementPromotion.incrementPromotions')" class="increment-promotions" />
                         </li>
@@ -120,6 +120,13 @@ if ($viewPermission == 'all'
                     @if ($manageShiftPermission == 'all' && in_array('attendance', user_modules()))
                         <li>
                             <x-tab :href="route('employees.show', $employee->id) . '?tab=shifts'" :text="__('app.menu.shiftRoster')" class="shifts" />
+                        </li>
+                    @endif
+
+                    @if (\Illuminate\Support\Facades\Schema::hasTable('ot_ledger')
+                        && (user()->permission('manage_payroll') === 'all' || in_array('admin', user_roles()) || $employee->id == user()->id))
+                        <li>
+                            <x-tab :href="route('employees.show', $employee->id) . '?tab=ot-bank'" text="OT Bank" class="ot-bank" />
                         </li>
                     @endif
 

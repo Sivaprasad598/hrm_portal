@@ -1060,10 +1060,23 @@ class EmployeeController extends AccountBaseController
             break;
         case 'increment-promotions':
             $viewIncrementPermission = user()->permission('view_increment_promotion');
-            abort_403(($viewIncrementPermission == 'none'));
+            // Everyone may see their own: their released salary revision letters are here.
+            abort_403($viewIncrementPermission == 'none' && (int) $this->employee->id !== (int) user()->id);
 
             $this->manageIncrementPermission = user()->permission('manage_increment_promotion');
             $this->incrementPromotion($id);
+
+            // Salary revisions (HR -> Salary Revisions): all of them for HR / Admin / CFO / CEO,
+            // the approved and released ones (with the letter) for the employee.
+            $this->canReviseSalary = \App\Services\Payroll\SalaryRevisions::canPrepare();
+            $this->canSeeRevisions = \App\Services\Payroll\SalaryRevisions::canView();
+            $this->salaryRevisions = \Illuminate\Support\Facades\DB::table('salary_revisions as r')
+                ->join('salary_revision_batches as b', 'b.id', '=', 'r.batch_id')
+                ->leftJoin('designations as od', 'od.id', '=', 'r.old_designation_id')->leftJoin('designations as nd', 'nd.id', '=', 'r.new_designation_id')
+                ->where('r.user_id', $this->employee->id)
+                ->when(!$this->canSeeRevisions, fn ($q) => $q->where('b.status', 'approved')->whereNotNull('b.released_at'))
+                ->orderByDesc('b.effective_date')->orderByDesc('r.id')
+                ->get(['r.*', 'b.name as batch_name', 'b.status', 'b.effective_date', 'b.applies_from', 'b.released_at', 'od.name as old_designation', 'nd.name as new_designation']);
             $this->view = 'employees.ajax.increment-promotions';
             break;
         case 'appreciation':
@@ -1203,6 +1216,25 @@ class EmployeeController extends AccountBaseController
 
 
             $this->view = 'employees.ajax.activity';
+            break;
+
+        case 'ot-bank':
+            // Payroll staff see anybody's; an employee sees their own.
+            abort_403(!(user()->permission('manage_payroll') === 'all' || in_array('admin', user_roles()) || $this->employee->id == user()->id));
+            $bank = new \App\Services\Payroll\OtBank();
+            $this->otBalance = $bank->balance($this->employee->id);
+            $this->otHistory = $bank->history($this->employee->id);
+            // Overtime stored day by day, totalled per salary period (latest first).
+            $this->otMonths = \Illuminate\Support\Facades\DB::table('ot_daily')->where('user_id', $this->employee->id)
+                ->selectRaw("IF(DAY(`date`) >= ?, DATE_FORMAT(DATE_ADD(`date`, INTERVAL 1 MONTH), '%Y-%m'), DATE_FORMAT(`date`, '%Y-%m')) AS ym,
+                    COUNT(*) AS days, SUM(ot_minutes) AS ot, SUM(bank_minutes) AS bank", [\App\Services\Payroll\PayPeriod::configuredStartDay()])
+                ->groupBy('ym')->orderByDesc('ym')->get();
+            // What was held before the system counted it (entered by month, or day by day).
+            $this->otPast = (new \App\Services\Payroll\OtPast())->rows($this->employee->id);
+            $this->otPastNet = \App\Services\Payroll\OtPast::net($this->employee->id);
+            $this->otGoLive = \App\Services\Payroll\OtPast::goLive(company()->id);
+            $this->canManageOt = user()->permission('manage_payroll') === 'all' || in_array('admin', user_roles());
+            $this->view = 'employees.ajax.ot-bank';
             break;
 
         case 'assets':
@@ -1585,6 +1617,11 @@ class EmployeeController extends AccountBaseController
         $employee->marital_status = $request->marital_status;
         $employee->marriage_anniversary_date = $request->marriage_anniversary_date ? companyToYmd($request->marriage_anniversary_date) : null;
         $employee->employment_type = $request->employment_type;
+
+        // Working Hours & OT: management paid in full, whatever the punches.
+        if ($request->has('attendance_exempt') && \Illuminate\Support\Facades\Schema::hasColumn('employee_details', 'attendance_exempt')) {
+            $employee->attendance_exempt = $request->boolean('attendance_exempt');
+        }
         $employee->internship_end_date = $request->internship_end_date ? companyToYmd($request->internship_end_date) : null;
         $employee->contract_end_date = $request->contract_end_date ? companyToYmd($request->contract_end_date) : null;
         $employee->total_experience = $request->total_experience;

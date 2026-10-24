@@ -438,7 +438,8 @@ class LeaveYearEnd
     public function salaryBase(object $employee): array
     {
         $basis = $this->settings->encashment_basis ?? 'basic';
-        $divisor = (float) ($this->settings->encashment_divisor ?? 26) ?: 26.0;
+        // 0 = the days in the salary period (30 / 31); otherwise a fixed number.
+        $divisor = self::divisorDays($this->settings->encashment_divisor ?? 0);
         $source = $this->settings->encashment_salary_source ?? 'ctc';
 
         $base = null;
@@ -480,15 +481,26 @@ class LeaveYearEnd
             'base' => round($base, 2),
             'rate' => round($base / $divisor, 2),
             'exact_rate' => $base / $divisor,
-            'source' => $label . ' ÷ ' . self::fmt($divisor),
+            'source' => $label . ' ÷ ' . self::fmt($divisor) . ((float) ($this->settings->encashment_divisor ?? 0) == 0 ? ' (days in the salary period)' : ''),
         ];
+    }
+
+    /** The encashment divisor in days: 0 means the days of the salary period running now. */
+    public static function divisorDays($setting): float
+    {
+        $value = (float) $setting;
+
+        return $value >= 1 ? $value : (float) \App\Services\Payroll\PayPeriod::containing(now())->days();
     }
 
     public function settingsSummary(): array
     {
         return [
             'basis' => $this->settings->encashment_basis ?? 'basic',
-            'divisor' => (float) ($this->settings->encashment_divisor ?? 26),
+            'divisor' => self::divisorDays($this->settings->encashment_divisor ?? 0),
+            'divisor_label' => (float) ($this->settings->encashment_divisor ?? 0) >= 1
+                ? self::fmt((float) $this->settings->encashment_divisor)
+                : self::fmt(self::divisorDays(0)) . ' (days in the salary period)',
             'source' => $this->settings->encashment_salary_source ?? 'ctc',
             'basic_pct' => (float) ($this->settings->encashment_basic_pct ?? 50),
         ];
