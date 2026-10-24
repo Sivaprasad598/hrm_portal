@@ -272,6 +272,7 @@ class LeadChatController extends AccountBaseController
         $message = DB::transaction(function () use ($request, $conversation, $lead, $body, $me, $recipients, $replyTo) {
             $message = $conversation->messages()->create([
                 'lead_id' => $lead->id,
+                'group_name' => $conversation->name,
                 'user_id' => $me,
                 'body' => $body ?: null,
                 'reply_to_id' => $replyTo?->id,
@@ -461,13 +462,13 @@ class LeadChatController extends AccountBaseController
     /** The chat with the lead: "Ai Adhyapak (Lead)". */
     private function leadChatName(Lead $lead): string
     {
-        return trim(($lead->client_name ?: 'Lead') . ' (Lead)');
+        return LeadChatConversation::leadChatFor($lead)->name;
     }
 
     /** The group chat's name: the lead's project + "Team" (e.g. "Jayabheri constructions Team"). */
     private function groupName(Lead $lead): string
     {
-        return trim(($lead->leadProject?->name ?: $lead->client_name ?: 'Lead') . ' Team');
+        return LeadChatConversation::groupFor($lead)->name;
     }
 
     /** Lead owner and assigned team members. */
