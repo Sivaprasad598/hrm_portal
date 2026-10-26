@@ -35,8 +35,10 @@ class RoleAccess
         'view_increment_promotion', 'manage_increment_promotion',
         // payroll
         'manage_payroll',
-        // attendance, shifts, biometric (Biometric runs on the attendance permissions)
+        // attendance, shifts
         'view_attendance', 'add_attendance', 'edit_attendance', 'view_shift_roster', 'manage_employee_shifts',
+        // biometric: the day-to-day (device data, sync and logs - manage_biometric_system - stay with the Super Admin)
+        'view_biometric', 'manage_biometric_exceptions', 'manage_biometric_mapping',
         // holidays and leave
         'add_holiday', 'view_holiday', 'edit_holiday', 'add_leave', 'view_leave', 'edit_leave', 'approve_or_reject_leaves',
         // their settings pages
@@ -51,6 +53,9 @@ class RoleAccess
      */
     public const MODULES = ['projects', 'contracts', 'tasks'];
 
+    /** Left out for a role: the CEO looks at Biometric, HR and the Admin work it. */
+    public const NOT_FOR = ['ceo' => ['manage_biometric_exceptions', 'manage_biometric_mapping']];
+
     /** Sidebar entries granted, by route (and the group headings they sit under). */
     public const MENU_ROUTES = [
         'dashboard', 'dashboard.advanced',
@@ -63,16 +68,14 @@ class RoleAccess
         // Payroll
         'my-payslips.index', 'payslips.index', 'pay-elements.index', 'payroll-run.index', 'payslips.generated',
         'payroll-register.index', 'payroll-dashboard.index', 'income-tax.index', 'statutory-returns.index', 'settlements.index', 'ot-hours.index',
-        // Biometric
-        'biometric.overview', 'biometric.review', 'biometric.exceptions', 'biometric.attendance', 'biometric.attendance-sync',
-        'biometric.profile', 'biometric.employees', 'biometric.devices', 'biometric.shifts', 'biometric.punch-log',
-        'biometric.calendar', 'biometric.sync-logs', 'biometric.comparison', 'biometric.actions',
+        // Biometric: the day-to-day (the technical screens follow manage_biometric_system)
+        'biometric.overview', 'biometric.review', 'biometric.exceptions', 'biometric.profile', 'biometric.punch-log', 'biometric.employees', 'biometric.comparison',
         // Assets
         'assets.index', 'assets.assigned', 'asset-types.index',
         // Work
         'projects.index', 'contracts.index', 'tasks.index',
         // Settings
-        'attendance-settings.index', 'employee-shifts.index', 'biometric-settings.index', 'leaves-settings.index',
+        'attendance-settings.index', 'employee-shifts.index', 'leaves-settings.index',
         'notice-period-settings.index', 'payslip-settings.index', 'profile-settings.index',
     ];
 
@@ -106,7 +109,8 @@ class RoleAccess
     public static function apply(int $roleId): int
     {
         $all = (int) DB::table('permission_types')->where('name', 'all')->value('id');
-        $ids = DB::table('permissions')->whereIn('name', self::PERMISSIONS)->pluck('id')
+        $roleName = DB::table('roles')->where('id', $roleId)->value('name');
+        $ids = DB::table('permissions')->whereIn('name', array_diff(self::PERMISSIONS, self::NOT_FOR[$roleName] ?? []))->pluck('id')
             ->merge(self::modulePermissionIds());
 
         foreach ($ids as $permissionId) {
@@ -123,6 +127,17 @@ class RoleAccess
         foreach ($menuIds as $menuId) {
             if (!DB::table('role_menus')->where('role_id', $roleId)->where('menu_id', $menuId)->exists()) {
                 DB::table('role_menus')->insert(['role_id' => $roleId, 'menu_id' => $menuId, 'created_at' => now(), 'updated_at' => now()]);
+            }
+        }
+
+        // A linked entry the role cannot open (the CEO's Employee Mapping) comes off.
+        $levels = \App\Services\Access\MenuPermissions::roleLevels($roleId);
+
+        foreach (DB::table('sidebar_menus')->whereIn('id', $menuIds)->get(['id', 'permission_key', 'permission_rule']) as $menu) {
+            $need = \App\Services\Access\MenuPermissions::required($menu);
+
+            if ($need && !\App\Services\Access\MenuPermissions::levelPasses($levels[$need[0]] ?? 'none', $need[1])) {
+                DB::table('role_menus')->where('role_id', $roleId)->where('menu_id', $menu->id)->delete();
             }
         }
 

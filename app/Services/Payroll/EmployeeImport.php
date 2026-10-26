@@ -65,6 +65,7 @@ class EmployeeImport
         return DB::table('users as u')
             ->join('employee_details as ed', 'ed.user_id', '=', 'u.id')
             ->where('u.status', 'active')
+            ->whereNotIn('u.id', \App\Services\Access\SystemAccounts::ids())   // not the Super Admin login
             ->orderBy('u.name')
             ->get(['u.id', 'u.name', 'u.employee_ctc', 'u.basic_for_payroll', 'u.monthly_tds',
                 'u.pan_number', 'u.mobile', 'ed.employee_id', 'ed.employee_card_id',
@@ -405,6 +406,7 @@ class EmployeeImport
         $people = DB::table('users as u')
             ->join('employee_details as ed', 'ed.user_id', '=', 'u.id')
             ->where('u.status', 'active')
+            ->whereNotIn('u.id', \App\Services\Access\SystemAccounts::ids())   // not the Super Admin login
             ->get(['u.id as user_id', 'u.id', 'u.name', 'u.employee_ctc', 'u.basic_for_payroll', 'u.monthly_tds',
                 'u.pan_number', 'u.mobile', 'ed.employee_id', 'ed.employee_card_id',
                 'ed.personal_account_number', 'ed.ifsc_code', 'ed.pf_account_number', 'ed.esi_number',

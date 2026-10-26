@@ -1,15 +1,15 @@
-<div class="d-grid d-lg-flex d-md-flex action-bar justify-content-end">
-
-    <div class="btn-group mt-2 mt-lg-0 mt-md-0 ml-3" role="group" aria-label="Basic example">
-        <a href="{{ route('leaves.index') }}" class="btn btn-secondary f-14" data-toggle="tooltip"
-            data-original-title="@lang('modules.leaves.tableView')"><i class="side-icon bi bi-list-ul"></i></a>
-
-        <a href="{{ route('leaves.calendar') }}" class="btn btn-secondary f-14" data-toggle="tooltip"
-            data-original-title="@lang('app.menu.calendar')"><i class="side-icon bi bi-calendar"></i></a>
-
-        <a href="{{ route('leaves.personal') }}" class="btn btn-secondary f-14 btn-active" data-toggle="tooltip"
-            data-original-title="@lang('modules.leaves.myLeaves')"><i class="side-icon bi bi-person"></i></a>
+<div class="d-grid d-lg-flex d-md-flex action-bar">
+    {{-- Applying is self-service: everybody applies for their own leave here. --}}
+    <div class="flex-grow-1 align-items-center">
+        @if (\App\Http\Controllers\LeaveController::access()['apply'] && user()->employeeDetail)
+            <x-forms.link-primary :link="route('leaves.create')" data-redirect-url="{{ route('leaves.personal') }}"
+                class="mr-3 openRightModal float-left" icon="plus">
+                Apply leave
+            </x-forms.link-primary>
+        @endif
     </div>
+
+    @include('leaves.partials.view-switch', ['active' => 'personal', 'class' => 'ml-3'])
 </div>
 
 <!-- TAB CONTENT START -->

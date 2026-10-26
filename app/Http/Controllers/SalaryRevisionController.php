@@ -94,7 +94,7 @@ class SalaryRevisionController extends AccountBaseController
     protected function form()
     {
         $this->employees = DB::table('users as u')->join('employee_details as ed', 'ed.user_id', '=', 'u.id')
-            ->where('u.status', 'active')->orderBy('u.name')->get(['u.id', 'u.name', 'ed.employee_id', 'u.employee_ctc']);
+            ->where('u.status', 'active')->whereNotIn('u.id', \App\Services\Access\SystemAccounts::ids())->orderBy('u.name')->get(['u.id', 'u.name', 'ed.employee_id', 'u.employee_ctc']);
         $this->designations = DB::table('designations')->orderBy('name')->pluck('name', 'id');
         $this->departments = DB::table('teams')->orderBy('team_name')->pluck('team_name', 'id');
         $this->types = SalaryRevisions::TYPES;

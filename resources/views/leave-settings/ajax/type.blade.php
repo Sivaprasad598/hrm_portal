@@ -1,12 +1,35 @@
 
 
 <!-- LEAVE SETTING START -->
+@php
+    // Who a leave type applies to, in a line: "All departments", or the first
+    // two and "+N more" (the full list on hover) - not a list of every one.
+    $appliesTo = function ($json, $all, $nameField, string $noun) {
+        $ids = array_map('intval', (array) (json_decode((string) $json, true) ?: []));
+        $names = $all->whereIn('id', $ids)->pluck($nameField)->values();
+
+        if ($names->isEmpty()) {
+            return '<span class="text-lightest">None</span>';
+        }
+
+        if ($names->count() >= $all->count()) {
+            return '<span class="badge badge-light border f-12 font-weight-normal">All ' . e($noun) . '</span>';
+        }
+
+        $shown = $names->take(2)->map(fn ($n) => e($n))->implode(', ');
+        $rest = $names->count() - 2;
+
+        return $shown . ($rest > 0 ? ' <span class="badge badge-light border f-11 font-weight-normal" data-toggle="tooltip" title="'
+            . e($names->slice(2)->implode(', ')) . '">+' . $rest . ' more</span>' : '');
+    };
+    $days = fn ($v) => rtrim(rtrim(number_format((float) $v, 2), '0'), '.');
+@endphp
 <div class="col-lg-12 col-md-12 ntfcn-tab-content-left w-100 p-4">
 
     <div class="table-responsive">
         <x-table class="table-bordered">
             <x-slot name="thead">
-                <th>@lang('modules.leaves.leaveType')</th>
+                <th style="min-width: 240px">@lang('modules.leaves.leaveType')</th>
                 <th>@lang('modules.leaves.leaveAllotmentType')</th>
                 <th>@lang('modules.leaves.noOfLeaves')</th>
                 <th>@lang('modules.leaves.monthLimit')</th>
@@ -22,6 +45,9 @@
                         <p class="f-w-500 mb-0"><i class="fa fa-circle mr-1 text-yellow"
                                 style="color: {{ $leaveType->color }}"></i>{{ $leaveType->type_name }}
                         </p>
+                        @foreach (\App\Services\Leaves\LeaveRules::describe($leaveType) as $rule)
+                            <div class="f-11 text-dark-grey">{{ $rule }}</div>
+                        @endforeach
                     </td>
                     <td>
                         @if ($leaveType->isUnlimited())
@@ -30,8 +56,8 @@
                             {{ ucfirst($leaveType->leavetype) }}
                         @endif
                     </td>
-                    <td> {{ $leaveType->isUnlimited() ? '--' : $leaveType->no_of_leaves }}</td>
-                    <td> {{ ($leaveType->isUnlimited() || $leaveType->monthly_limit <= 0) ? '--' : $leaveType->monthly_limit }}</td>
+                    <td> {{ $leaveType->isUnlimited() ? '--' : $days($leaveType->no_of_leaves) }}</td>
+                    <td> {{ ($leaveType->isUnlimited() || $leaveType->monthly_limit <= 0) ? '--' : $days($leaveType->monthly_limit) }}</td>
                     <td>
                         @if ($leaveType->paid == 1)
                             @lang('modules.credit-notes.paid')
@@ -39,24 +65,8 @@
                             @lang('modules.credit-notes.unpaid')
                         @endif
                     </td>
-                    <td>
-                        <ol class="pl-3">
-                            @foreach ($departments as $department)
-                                @if(!is_null($leaveType->department) && in_array($department->id, json_decode($leaveType->department)))
-                                    <li>{{$department->team_name}}</li>
-                                @endif
-                            @endforeach
-                        </ol>
-                    </td>
-                    <td>
-                        <ol class="pl-3">
-                            @foreach ($designations as $designation)
-                                @if(!is_null($leaveType->designation) && in_array($designation->id, json_decode($leaveType->designation)))
-                                    <li>{{$designation->name}}</li>
-                                @endif
-                            @endforeach
-                        </ol>
-                    </td>
+                    <td class="f-13">{!! $appliesTo($leaveType->department, $departments, 'team_name', 'departments') !!}</td>
+                    <td class="f-13">{!! $appliesTo($leaveType->designation, $designations, 'name', 'designations') !!}</td>
                     <td class="text-right">
                         <div class="task_view">
                             <a href="javascript:;" data-leave-id="{{ $leaveType->id }}"

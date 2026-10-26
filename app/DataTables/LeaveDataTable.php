@@ -103,6 +103,11 @@ class LeaveDataTable extends BaseDataTable
                     }
                 }
 
+                // Approval steps: where a pending leave waits.
+                if ($row->status == 'pending' && $row->approval_step && $row->approval_step !== \App\Services\Leaves\LeaveApprovals::DONE) {
+                    $leaveStatus .= '<div class="f-11 text-dark-grey">with ' . e(\App\Services\Leaves\LeaveApprovals::label($row->approval_step)) . '</div>';
+                }
+
                 $leaveStatus .= ' </div>';
                 return $leaveStatus;
             })
@@ -149,8 +154,31 @@ class LeaveDataTable extends BaseDataTable
 
                 $rejectActionAdded = false;
                 $approvedActionAdded = false;
+
+                // Approval steps (manager -> department head -> HR): the step's
+                // approver approves / rejects; HR may approve ahead, with a note.
+                $chainStep = $row->status == 'pending' && $row->approval_step && $row->approval_step !== \App\Services\Leaves\LeaveApprovals::DONE;
+
+                if ($chainStep) {
+                    $mode = \App\Services\Leaves\LeaveApprovals::canAct($row);
+                    $waiting = \App\Services\Leaves\LeaveApprovals::label($row->approval_step);
+
+                    if ($mode === 'step') {
+                        $actions .= '<a class="dropdown-item leave-action-approved" data-leave-id=' . $row->id . ' data-leave-action="approved" data-user-id="' . $row->user_id . '" data-leave-type-id="' . $row->leave_type_id . '" href="javascript:;"><i class="fa fa-check mr-2"></i>' . __('app.approve') . ' (' . e($waiting) . ')</a>';
+                    }
+                    elseif ($mode === 'override') {
+                        $actions .= '<a class="dropdown-item leave-action-override" data-leave-id=' . $row->id . ' data-user-id="' . $row->user_id . '" href="javascript:;"><i class="fa fa-forward mr-2"></i>Approve now (skip ' . e(\App\Services\Leaves\LeaveApprovals::who($row->approval_step)) . ')</a>';
+                    }
+
+                    if ($mode) {
+                        $actions .= '<a data-leave-id=' . $row->id . ' data-leave-action="rejected" data-user-id="' . $row->user_id . '" data-leave-type-id="' . $row->leave_type_id . '" class="dropdown-item leave-action-reject" href="javascript:;"><i class="fa fa-times mr-2"></i>' . __('app.reject') . '</a>';
+                    }
+
+                    $rejectActionAdded = $approvedActionAdded = true;
+                }
+
                 // First Condition (Approve/Reject for all with certain permission)
-                if ($row->status == 'pending' && ($row->duration != 'multiple' || is_null($row->unique_id)) && $this->approveRejectPermission == 'all') {
+                if (!$chainStep && $row->status == 'pending' && ($row->duration != 'multiple' || is_null($row->unique_id)) && $this->approveRejectPermission == 'all') {
                     // Add reject action if not already added
                     if (!$approvedActionAdded) {
                         $actions .= '<a class="dropdown-item leave-action-approved" data-leave-id=' . $row->id . '
@@ -177,7 +205,7 @@ class LeaveDataTable extends BaseDataTable
                 }
 
                 // Second Condition (Manager specific, check for reporting permission)
-                if ($row->status == 'pending' && $this->reportingTo && $row->user_id != user()->id && !in_array('admin', user_roles())) {
+                if (!$chainStep && $row->status == 'pending' && $this->reportingTo && $row->user_id != user()->id && !in_array('admin', user_roles())) {
 
                     // Only add reject action if not already added
                     if (!$rejectActionAdded && $row->manager_status_permission == '' && !($this->reportingPermission == 'cannot-approve')) {
@@ -308,7 +336,13 @@ class LeaveDataTable extends BaseDataTable
             $leavesList->where('users.name', 'like', '%' . $safeTerm . '%');
         }
 
-        if ($this->viewLeavePermission == 'owned') {
+        // Approvers (manager / department head) see the leave of the people they approve for.
+        $approverTeam = \App\Services\Leaves\LeaveApprovals::teamUserIds();
+
+        if ($this->viewLeavePermission == 'owned' && $approverTeam) {
+            $leavesList->where(fn ($q) => $q->where('leaves.user_id', user()->id)->orWhereIn('leaves.user_id', $approverTeam));
+        }
+        elseif ($this->viewLeavePermission == 'owned') {
             $leavesList->where(function ($q) {
                 $q->orWhere('leaves.user_id', '=', user()->id);
 

@@ -5,8 +5,8 @@ $manageShiftPermission = user()->permission('manage_employee_shifts');
     <x-table class="table-bordered">
         <x-slot name="thead">
             <th>@lang('app.name')</th>
-            <th>@lang('app.time')</th>
-            <th>@lang('app.others')</th>
+            <th>Timing</th>
+            <th>Working days</th>
             @if ($manageShiftPermission == 'all')
                 <th>&nbsp;</th>
                 <th class="text-right pr-20">@lang('app.action')</th>
@@ -31,46 +31,28 @@ $manageShiftPermission = user()->permission('manage_employee_shifts');
                         <div class="f-11 text-lightest mt-1">Everyone without their own shift</div>
                     @endif
                 </td>
-                <td>
-                    @if ($shift->shift_type == 'strict')
-                        <div class="f-11">@lang('modules.employees.startTime'):
-                            {{ \Carbon\Carbon::createFromFormat('H:i:s', $shift->office_start_time)->translatedFormat(company()->time_format) }}
-                        </div>
-                        <div class="f-11">
-                            @lang('modules.attendance.halfDay'):
-                            {{ $shift->halfday_mark_time? \Carbon\Carbon::createFromFormat('H:i:s', $shift->halfday_mark_time)->translatedFormat(company()->time_format): '' }}
-                        </div>
-                        <div class="f-11">
-                            @lang('modules.employees.endTime'):
-                            {{ \Carbon\Carbon::createFromFormat('H:i:s', $shift->office_end_time)->translatedFormat(company()->time_format) }}
-                        </div>                        
+                @php
+                    $t = fn ($v) => $v && $v !== '00:00:00' ? \Carbon\Carbon::createFromFormat('H:i:s', $v)->translatedFormat(company()->time_format) : null;
+                    $h = fn ($v) => rtrim(rtrim(number_format((float) $v, 2), '0'), '.');
+                    $flexible = \App\Services\Attendance\WorkRules::isFlexible($shift);
+                @endphp
+                <td class="f-13">
+                    @if ($flexible)
+                        <span class="badge badge-light border f-11 mb-1">Flexible hours</span>
+                        <div>Full day after {{ $h($shift->flexible_total_hours) }} h including breaks, any time of day</div>
+                        <div class="text-dark-grey f-12">Half day: {{ $h($shift->flexible_half_day_hours ?: $shift->flexible_total_hours / 2) }} h &middot; no late marks</div>
                     @else
-                        <div class="f-11">@lang('modules.attendance.totalShiftHours'):
-                            {{ $shift->flexible_total_hours }} @lang('app.hrs')
-                        </div>
-                        <div class="f-11">
-                            @lang('modules.attendance.halfdayShiftHours'):
-                            {{ $shift->flexible_half_day_hours }} @lang('app.hrs')
+                        <span class="badge badge-light border f-11 mb-1">Fixed timing</span>
+                        <div>{{ $t($shift->office_start_time) }} &ndash; {{ $t($shift->office_end_time) }}</div>
+                        <div class="text-dark-grey f-12">
+                            Late after {{ (int) $shift->late_mark_duration }} min{{ $t($shift->halfday_mark_time) ? ' · half day if in after ' . $t($shift->halfday_mark_time) : '' }}
                         </div>
                     @endif
                 </td>
-                <td>
-                    @if ($shift->shift_type == 'strict')
-                    <div class="f-11">
-                        @lang('modules.attendance.lateMark'): {{ $shift->late_mark_duration }}
-                    </div>
-                    @endif
-                    
-                    <div class="f-11">
-                        @lang('modules.attendance.checkininday'): {{ $shift->clockin_in_day }}
-                    </div>
-                    <div class="f-11">
-                        @lang('modules.attendance.officeOpenDays'):
-
-                        @foreach (json_decode($shift->office_open_days) as $item)
-                            {{ $weekMap[$item] }}
-                        @endforeach
-                    </div>
+                <td class="f-13">
+                    @foreach (json_decode($shift->office_open_days) ?: [] as $item)
+                        {{ $weekMap[$item] ?? '' }}@if (!$loop->last), @endif
+                    @endforeach
                 </td>
                 @if ($manageShiftPermission == 'all')
                     <td>

@@ -22,7 +22,9 @@
                                     $langKey = str($langKey)->replace('app.', 'app.menu.')->__toString();
                                 }
                                 $segmentText = Lang::has($langKey) ? __($langKey) : ucwords(str_replace('-', ' ', Request::segment($i)));
-                                $segmentLink = str_contains(url()->current(), 'public') ? '/public' . $link : $link;
+                                // url() keeps the installation's own folder (localhost/hrm_portal/public/...);
+                                // a hand-built "/public/..." dropped it and opened a blank page.
+                                $segmentLink = url($link);
                             @endphp
 
                             @if (in_array(Request::segment($i), App\Enums\NonClickableSegments::getValues()))

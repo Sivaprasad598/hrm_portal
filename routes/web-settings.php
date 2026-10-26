@@ -165,6 +165,7 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account/settings'], function 
     Route::resource('shift-rotations', ShiftRotationController::class);
 
     Route::post('leaves-settings/encashment', [LeaveSettingController::class, 'saveEncashment'])->name('leaves-settings.encashment');
+    Route::post('leaves-settings/approval', [LeaveSettingController::class, 'saveApproval'])->name('leaves-settings.approval');
     Route::resource('leaves-settings', LeaveSettingController::class);
     Route::post('leaves-settings/change-permission', [LeaveSettingController::class, 'changePermission'])->name('leaves-settings.changePermission');
 

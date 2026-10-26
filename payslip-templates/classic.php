@@ -56,7 +56,7 @@
   .component { width: 28%; }
   .amount { width: 22%; text-align: center; }
   .summary-label { font-weight: 700; }
-  .signature-area { height: 110px; text-align: center; vertical-align: bottom; }
+  .signature-area { height: 110px; text-align: center; vertical-align: middle; color: #555; font-size: 13px; }
   .stamp {
     width: 170px; height: 170px; margin: 5px auto; display: flex; align-items: center; justify-content: center;
   }
@@ -180,7 +180,8 @@
         <td class="amount"><?= e(amt($row[1])) ?></td>
         <?php if ($index === 0): ?>
           <td rowspan="<?= count($payslip['employer']) + 4 ?>" colspan="2" class="signature-area">
-            <div class="stamp"><img src="<?= function_exists('asset') ? asset('img/sign and stamp.png') : '../img/sign and stamp.png' ?>" alt="Authorized Stamp"></div>
+            <?php /* No sign or stamp: the payslip is computer-generated. */ ?>
+            This is a computer-generated payslip.<br>No signature is required.
           </td>
         <?php endif; ?>
       </tr>
@@ -206,7 +207,7 @@
     <tr>
       <td class="summary-label">Net Salary</td>
       <td class="amount bold"><?= e(indian_number($netSalary)) ?></td>
-      <td colspan="2" class="center bold">Authorized Signature</td>
+      <td colspan="2" class="center bold">Computer-generated payslip</td>
     </tr>
     <tr>
       <td class="summary-label">Net Salary (in words)</td>

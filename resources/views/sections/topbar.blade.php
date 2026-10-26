@@ -44,7 +44,8 @@
         </span>
 
         <ul>
-            <!-- SEARCH START -->
+            {{-- Hidden: search and sticky notes are not used here (the code stays, to bring back).
+<!-- SEARCH START -->
             <li data-toggle="tooltip" data-placement="top" title="{{__('app.search')}}" class="d-none d-sm-block">
                 <div class="d-flex align-items-center">
                     <a href="javascript:;" class="d-block header-icon-box open-search">
@@ -62,6 +63,7 @@
                 </div>
             </li>
             <!-- Sticky Note END -->
+            --}}
 
         @if (!in_array('client', user_roles()))
 
@@ -91,7 +93,8 @@
                     <!-- START TIMER END -->
             @endif
 
-            <!-- ADD START -->
+            {{-- Hidden: the "Create new" shortcut menu is not used here (the code stays, to bring back).
+<!-- ADD START -->
                 <li data-toggle="tooltip" data-placement="top" title="{{__('app.createNew')}}">
                     <div class="add_box dropdown">
                         <a class="d-block dropdown-toggle header-icon-box" type="link" data-toggle="dropdown"
@@ -151,6 +154,7 @@
                     </div>
                 </li>
                 <!-- ADD END -->
+            --}}
         @endif
 
         <!-- CLOCK IN / CLOCK OUT START -->

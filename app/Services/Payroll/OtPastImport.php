@@ -108,7 +108,7 @@ class OtPastImport
         }
 
         $employees = DB::table('users as u')->join('employee_details as ed', 'ed.user_id', '=', 'u.id')
-            ->whereNotNull('ed.employee_id')->where('ed.employee_id', '<>', '')
+            ->whereNotNull('ed.employee_id')->where('ed.employee_id', '<>', '')->whereNotIn('u.id', \App\Services\Access\SystemAccounts::ids())
             ->get(['u.id', 'u.name', 'ed.employee_id'])->keyBy(fn ($e) => mb_strtolower(trim($e->employee_id)));
         $past = new OtPast();
         $goLive = OtPast::goLive($companyId);

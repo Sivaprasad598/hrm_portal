@@ -39,9 +39,12 @@
                  late mark, so they belong beside the attendance settings they
                  are read with. The page existed but had no way in other than a
                  tab. --}}
-            <x-setting-menu-item :active="$activeMenu" menu="shift_settings"
-                                 :href="route('employee-shifts.index')" text="Shift Settings"/>
+            {{-- Shifts are a tab of Attendance Settings: no separate "Shift Settings" entry. --}}
 
+        @endif
+
+        {{-- The device connection and the nightly run: technical (Roles & Permissions -> Attendance -> Biometric: Technical). --}}
+        @if (user()->permission('manage_biometric_system') == 'all' && in_array('attendance', user_modules()))
             <x-setting-menu-item :active="$activeMenu" menu="biometric_settings"
                                  :href="route('biometric-settings.index')" :text="__('app.menu.biometricSettings')"/>
         @endif

@@ -31,7 +31,11 @@ class UpdateProfile extends CoreRequest
             'password'  => 'nullable|min:8|max:50',
             'image' => 'image|max:2048',
             'mobile' => 'nullable|numeric',
-            'date_of_birth' => 'nullable|date_format:"' . $setting->date_format . '"|before_or_equal:'.now($setting->timezone)->format($setting->date_format),
+            // Staff keep their date of birth (birthday greeting); clients and the Super Admin login do not have one.
+            'date_of_birth' => [\Illuminate\Validation\Rule::requiredIf(fn () => !in_array('client', user_roles())
+                    && user()->employeeDetail && !\App\Services\Access\SystemAccounts::is((int) user()->id)),
+                'nullable', 'date_format:' . $setting->date_format, 'before_or_equal:' . now($setting->timezone)->format($setting->date_format)],
+            'marriage_anniversary_date' => 'nullable|required_if:marital_status,married|date_format:"' . $setting->date_format . '"|before_or_equal:' . now($setting->timezone)->toDateString(),
             'twitter_id' => 'nullable|unique:users,twitter_id,' . $this->route('profile'),
         ];
     }

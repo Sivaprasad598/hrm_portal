@@ -38,7 +38,7 @@ class RebuildOtDaily extends Command
         $to = Carbon::parse($this->option('to') ?: now($tz)->subDay()->toDateString(), $tz)->startOfDay();
 
         $users = DB::table('users as u')->join('employee_details as ed', 'ed.user_id', '=', 'u.id')
-            ->where('u.status', 'active')
+            ->where('u.status', 'active')->whereNotIn('u.id', \App\Services\Access\SystemAccounts::ids())   // not the Super Admin login
             ->when($this->option('user'), fn ($q, $id) => $q->where('u.id', $id))
             ->pluck('u.id');
 

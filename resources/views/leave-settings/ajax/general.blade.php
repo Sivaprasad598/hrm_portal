@@ -27,6 +27,38 @@
         </div>
     </div>
 
+    {{-- Leave approval steps (App\Services\Leaves\LeaveApprovals) --}}
+    @php
+        $chainSetting = \App\Services\Leaves\LeaveApprovals::settings();
+        $ticked = json_decode((string) ($chainSetting->approval_levels ?? ''), true) ?: [];
+        $stepHelp = [
+            'manager' => 'The employee\'s Reporting To (set on the employee).',
+            'department_head' => 'The head of the employee\'s department (set on the department).',
+            'hr' => 'Anyone with Approve / Reject Leaves (HR, Admin).',
+        ];
+    @endphp
+    <div class="border rounded p-3 mb-4" id="approval-steps">
+        <h4 class="f-15 font-weight-bold text-dark mb-1">Leave approval steps</h4>
+        <p class="f-12 text-dark-grey mb-3">A leave goes through the ticked steps in this order and counts only after the last one approves it.
+            A step with nobody for it (no manager or department head set, or the applicant themselves) is skipped.
+            HR can approve ahead of a step, with a note.</p>
+        @foreach (\App\Services\Leaves\LeaveApprovals::STEPS as $key => $label)
+            <label class="d-flex align-items-start mb-2 cursor-pointer">
+                <input type="checkbox" class="mt-1 mr-2 approval-level" value="{{ $key }}" @checked(in_array($key, $ticked, true))>
+                <span><span class="f-14 text-dark">{{ $loop->iteration }}. {{ $label }}</span>
+                    <span class="d-block f-12 text-lightest">{{ $stepHelp[$key] }}</span></span>
+            </label>
+        @endforeach
+        <div class="d-flex align-items-center flex-wrap mt-3">
+            <span class="f-14 mr-2">If the manager or department head has not decided in</span>
+            <input type="number" min="0" max="30" id="escalate_after_days" class="form-control height-35 f-14 mr-2" style="width: 80px"
+                   value="{{ (int) ($chainSetting->escalate_after_days ?? 2) }}">
+            <span class="f-14">day(s), move it on to the next step <span class="text-lightest f-12">(0: wait)</span></span>
+        </div>
+        <button type="button" class="btn btn-primary btn-sm mt-3" id="save-approval-steps"><i class="fa fa-check mr-1"></i>Save approval steps</button>
+    </div>
+
+    {{-- Replaced by the approval steps above: the old "reporting manager can pre-approve" choice (kept, hidden).
     <div class="d-block d-lg-flex d-md-flex">
         <x-alert type="info">@lang('modules.leaves.leaveSettingNote')</x-alert>
     </div>
@@ -47,12 +79,26 @@
         </div>
         <p> @lang('modules.leaves.theLeave') </p>
     </div>
+    --}}
 </div>
 
 </div>
 <!-- LEAVE GENRAL SETTING ENDS -->
 
 <script>
+    $('#save-approval-steps').click(function () {
+        $.easyAjax({
+            url: "{{ route('leaves-settings.approval') }}",
+            type: 'POST',
+            container: '#approval-steps',
+            blockUI: true,
+            data: {
+                _token: '{{ csrf_token() }}',
+                levels: $('.approval-level:checked').map(function () { return this.value; }).get(),
+                escalate_after_days: $('#escalate_after_days').val()
+            }
+        });
+    });
 
     $('input[name=leaves_start_from], #year_starts_from').on("click change", function () {
         var leaveCountFrom = $('input[name=leaves_start_from]:checked').val();

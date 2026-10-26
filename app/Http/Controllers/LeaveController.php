@@ -44,6 +44,31 @@ class LeaveController extends AccountBaseController
     }
 
     /**
+     * What the signed-in person may do with leave.
+     *
+     *   table      the list of everybody's leave - HR / Admin, or a reporting
+     *              manager who approves for a team; an employee has Calendar
+     *              and My Leaves only
+     *   apply      apply for leave (their own)
+     *   forOthers  apply for somebody else, and set the status while doing it
+     *              (Apply Leave For Others - nobody but the Super Admin by default)
+     */
+    public static function access(): array
+    {
+        $view = user()->permission('view_leave');
+        $managesTeam = $view === 'owned'
+            && (\App\Models\LeaveSetting::value('manager_permission') !== 'cannot-approve'
+                && EmployeeDetails::where('reporting_to', user()->id)->exists()
+                || \App\Services\Leaves\LeaveApprovals::isApprover());
+
+        return [
+            'table' => in_array($view, ['all', 'added', 'both'], true) || $managesTeam,
+            'apply' => in_array(user()->permission('add_leave'), ['all', 'added'], true),
+            'forOthers' => user()->permission('add_leave_for_others') === 'all',
+        ];
+    }
+
+    /**
      * Display a listing of the resource.
      *
      * @return \Illuminate\Http\Response
@@ -53,6 +78,13 @@ class LeaveController extends AccountBaseController
         $viewPermission = user()->permission('view_leave');
         $viewEmployeePermission = user()->permission('view_employees');
         abort_403(!in_array($viewPermission, ['all', 'added', 'owned', 'both']));
+
+        \App\Services\Leaves\LeaveApprovals::escalateDue();
+
+        // An employee sees their own leave and the calendar, not the list of everybody's.
+        if (!self::access()['table']) {
+            return redirect()->route('leaves.personal');
+        }
 
         $reportingTo = User::with('employeeDetail')->whereHas('employeeDetail', function ($q) {
             $q->where('reporting_to', user()->id);
@@ -104,13 +136,20 @@ class LeaveController extends AccountBaseController
         abort_403(!in_array($this->addPermission, ['all', 'added']));
 
         $this->employees = User::allEmployees(null, true, $viewEmployeePermission)->load('employeeDetail');
+        $this->canApplyForOthers = self::access()['forOthers'];
 
         $this->currentDate = now()->format('Y-m-d');
 
         $dateFormat = Company::DATE_FORMATS;
         $this->dateformat = (isset($dateFormat[$this->company->date_format])) ? $dateFormat[$this->company->date_format] : 'DD-MM-YYYY';
 
-        if ($this->addPermission == 'added' && $this->addEmployeePermission == 'none') {
+        // Everybody applies for their own leave; only Apply Leave For Others picks somebody.
+        if (!$this->canApplyForOthers) {
+            abort_403(!user()->employeeDetail);
+            $this->defaultAssign = user();
+            $this->leaveQuotas = $this->defaultAssign->leaveTypes;
+        }
+        elseif ($this->addPermission == 'added' && $this->addEmployeePermission == 'none') {
             $this->defaultAssign = user();
             $this->leaveQuotas = $this->defaultAssign->leaveTypes;
         }
@@ -226,6 +265,12 @@ class LeaveController extends AccountBaseController
         $this->addPermission = user()->permission('add_leave');
         abort_403(!in_array($this->addPermission, ['all', 'added']));
 
+        // One's own leave, applied as Pending - whatever the form sent - unless
+        // the person may apply for others.
+        if (!self::access()['forOthers']) {
+            $request->merge(['user_id' => user()->id, 'status' => 'pending']);
+        }
+
         $redirectUrl = urldecode($request->redirect_url);
 
         if ($redirectUrl == '') {
@@ -307,6 +352,18 @@ class LeaveController extends AccountBaseController
 
         if ($multiDates->isEmpty()) {
             return Reply::error(__('messages.noLeaveApplyForSelectedDate'));
+        }
+
+        // The leave type's rules (Leave Settings -> Leave type -> Rules) for
+        // one's own leave: notice, how far back, most days, the document.
+        if (!self::access()['forOthers']) {
+            $ruleDays = $duration === 'half day' ? 0.5 : (float) $multiDates->count();
+            $refusal = \App\Services\Leaves\LeaveRules::refusal($leaveType, $multiDates->all(), $ruleDays,
+                $request->boolean('has_file'), now($this->company->timezone)->startOfDay());
+
+            if ($refusal) {
+                return Reply::error($refusal);
+            }
         }
 
         $multiDatesWithoutHolidayFormatted = collect($multiDates)->map(function ($date) {
@@ -393,6 +450,9 @@ class LeaveController extends AccountBaseController
 
         DB::commit();
 
+        // Reporting manager -> department head -> HR, as Leave Settings ticks them.
+        \App\Services\Leaves\LeaveApprovals::start($leaveIds);
+
         session()->forget('leaves_duration');
         return Reply::successWithData(__('messages.leaveApplySuccess'), ['leaveIds' => $leaveIds, 'redirectUrl' => $redirectUrl]);
     }
@@ -416,7 +476,13 @@ class LeaveController extends AccountBaseController
             || ($this->viewPermission == 'added' && user()->id == $this->leave->added_by)
             || ($this->viewPermission == 'owned' && user()->id == $this->leave->user_id)
             || ($this->viewPermission == 'both' && (user()->id == $this->leave->user_id || user()->id == $this->leave->added_by)) || ($this->reportingTo)
+            // their manager or department head, deciding a step
+            || in_array((int) $this->leave->user_id, \App\Services\Leaves\LeaveApprovals::teamUserIds(), true)
         ));
+
+        // Approval steps: where it waits, who did what, what this person may do.
+        $this->approvalMode = \App\Services\Leaves\LeaveApprovals::canAct($this->leave);
+        $this->approvalTrail = \App\Services\Leaves\LeaveApprovals::trail($this->leave);
 
         $this->pageTitle = $this->leave->user->name;
         $this->reportingPermission = LeaveSetting::value('manager_permission');
@@ -626,6 +692,16 @@ class LeaveController extends AccountBaseController
         }
 
         if ($request->has('status')) {
+            if ($request->status === 'approved' && $leave->status !== 'approved'
+                && $leave->approval_step && !in_array($leave->approval_step, ['hr', \App\Services\Leaves\LeaveApprovals::DONE], true)) {
+                return Reply::error('This leave is still with the ' . \App\Services\Leaves\LeaveApprovals::who($leave->approval_step) . '. Approve it from the leave itself.');
+            }
+
+            if ($request->status === 'approved' && $leave->status !== 'approved'
+                && ($awaited = \App\Services\Leaves\LeaveRules::documentAwaited($leave))) {
+                return Reply::error($awaited);
+            }
+
             $leave->status = $request->status;
         }
 
@@ -844,6 +920,34 @@ class LeaveController extends AccountBaseController
                 continue;
             }
 
+            // Not approved while its document is awaited, nor by the person who applied.
+            if ($request->status === 'approved' && (\App\Services\Leaves\LeaveRules::documentAwaited($leave)
+                || ((int) $leave->user_id === (int) user()->id && !in_array('admin', user_roles())))) {
+                $skippedCount++;
+                continue;
+            }
+
+            // Approval steps: only the step's own approver moves it; an earlier step just moves it on.
+            if ($leave->approval_step && $leave->approval_step !== \App\Services\Leaves\LeaveApprovals::DONE && in_array($request->status, ['approved', 'rejected'], true)) {
+                if (\App\Services\Leaves\LeaveApprovals::canAct($leave) !== 'step') {
+                    $skippedCount++;
+                    continue;
+                }
+
+                try {
+                    if ($request->status === 'rejected') {
+                        \App\Services\Leaves\LeaveApprovals::reject($leave);
+                    }
+                    elseif (\App\Services\Leaves\LeaveApprovals::approve($leave) === 'advanced') {
+                        $updatedCount++;
+                        continue;
+                    }
+                } catch (\RuntimeException) {
+                    $skippedCount++;   // a document still awaited, say
+                    continue;
+                }
+            }
+
             if(!is_null($leave->unique_id) && $leave->duration == 'multiple')
             {
                 $uniqueLeaves = Leave::where('unique_id', $leave->unique_id)->get();
@@ -879,9 +983,49 @@ class LeaveController extends AccountBaseController
 
     public function leaveAction(ActionLeave $request)
     {
+        // Approval steps (manager -> department head -> HR): an earlier step
+        // moves the leave on; the last step approves it as below.
+        $chainLeave = $request->type == 'single' ? Leave::find($request->leaveId) : Leave::where('unique_id', $request->leaveId)->first();
+
+        if ($chainLeave && $chainLeave->approval_step && $chainLeave->approval_step !== \App\Services\Leaves\LeaveApprovals::DONE
+            && in_array($request->action, ['approved', 'rejected'], true)) {
+            try {
+                if ($request->action === 'rejected') {
+                    \App\Services\Leaves\LeaveApprovals::reject($chainLeave, $request->reason);
+                }
+                elseif (\App\Services\Leaves\LeaveApprovals::approve($chainLeave, $request->approveReason, $request->boolean('override')) === 'advanced') {
+                    return Reply::success('Approved. It now goes to the ' . \App\Services\Leaves\LeaveApprovals::who($chainLeave->fresh()->approval_step) . '.');
+                }
+            } catch (\RuntimeException $e) {
+                return Reply::error($e->getMessage());
+            }
+
+            $chainDecided = true;
+
+            // The whole application is decided together (every day of a multi-day leave).
+            if ($chainLeave->unique_id) {
+                $request->merge(['type' => 'multiple', 'leaveId' => $chainLeave->unique_id]);
+            }
+        }
+
         $this->reportingTo = EmployeeDetails::where('reporting_to', user()->id)->first();
 
-        abort_403(!($this->reportingTo) && user()->permission('approve_or_reject_leaves') == 'none');
+        abort_403(empty($chainDecided) && !($this->reportingTo) && user()->permission('approve_or_reject_leaves') == 'none');
+
+        if ($request->action === 'approved' && empty($chainDecided)) {
+            $target = $request->type == 'single' ? Leave::find($request->leaveId) : Leave::where('unique_id', $request->leaveId)->first();
+
+            if ($target) {
+                // Somebody else approves one's leave (the Super Admin aside).
+                if ((int) $target->user_id === (int) user()->id && !in_array('admin', user_roles())) {
+                    return Reply::error('Your own leave is approved by somebody else.');
+                }
+
+                if ($awaited = \App\Services\Leaves\LeaveRules::documentAwaited($target)) {
+                    return Reply::error($awaited);
+                }
+            }
+        }
 
         if($request->type == 'single'){
             $leave = Leave::findOrFail($request->leaveId);
@@ -954,11 +1098,15 @@ class LeaveController extends AccountBaseController
     {
         $this->reportingTo = EmployeeDetails::where('reporting_to', user()->id)->first();
 
-        abort_403(!($this->reportingTo) && (user()->permission('approve_or_reject_leaves') == 'none'));
+        $target = $request->type == 'single' || is_numeric($request->leave_id) ? Leave::find($request->leave_id) : Leave::where('unique_id', $request->leave_id)->first();
+        abort_403(!($target && \App\Services\Leaves\LeaveApprovals::canAct($target)) && !($this->reportingTo) && (user()->permission('approve_or_reject_leaves') == 'none'));
 
         $this->leaveAction = $request->leave_action;
         $this->leaveID = $request->leave_id;
         $this->type = $request->type;
+        // HR approving before the manager / department head: a note is needed.
+        $this->override = $request->boolean('override');
+        $this->waitingFor = $target ? \App\Services\Leaves\LeaveApprovals::who($target->approval_step) : '';
 
         return view('leaves.approve.index', $this->data);
     }
@@ -967,7 +1115,8 @@ class LeaveController extends AccountBaseController
     {
         $this->reportingTo = EmployeeDetails::where('reporting_to', user()->id)->first();
 
-        abort_403(!($this->reportingTo) && (user()->permission('approve_or_reject_leaves') == 'none'));
+        $target = $request->type == 'single' || is_numeric($request->leave_id) ? Leave::find($request->leave_id) : Leave::where('unique_id', $request->leave_id)->first();
+        abort_403(!($target && \App\Services\Leaves\LeaveApprovals::canAct($target)) && !($this->reportingTo) && (user()->permission('approve_or_reject_leaves') == 'none'));
 
         $this->leaveAction = $request->leave_action;
         $this->leaveID = $request->leave_id;

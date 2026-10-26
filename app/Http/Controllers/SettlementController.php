@@ -59,6 +59,7 @@ class SettlementController extends AccountBaseController
         $this->employees = DB::table('users as u')
             ->join('employee_details as ed', 'ed.user_id', '=', 'u.id')
             ->whereNotIn('u.id', $settled)
+            ->whereNotIn('u.id', \App\Services\Access\SystemAccounts::ids())   // not the Super Admin login
             ->orderBy('u.name')
             ->get(['u.id', 'u.name', 'ed.employee_card_id'])
             ->all();

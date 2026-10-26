@@ -15,6 +15,12 @@
         .bio-off { --step-color: #98a2b3; }
         .bio-switch { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; margin-right: 14px; }
         .bio-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+        .bio-today { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+        .bio-tile { border: 1px solid #eaecf0; border-radius: 6px; padding: 12px 14px; }
+        .bio-tile .n { font-size: 24px; font-weight: 600; line-height: 1.2; }
+        .bio-tile .l { font-size: 12px; color: #667085; }
+        @media (max-width: 991.98px) { .bio-today { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+        @media (max-width: 575.98px) { .bio-today { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
         @media (max-width: 991.98px) {
             .bio-flow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
             .bio-step::after { display: none; }
@@ -45,7 +51,37 @@
 
         @include('biometric.nav', ['active' => $activeTab])
 
-        {{-- Automation health --}}
+        {{-- Today: what HR looks at first --}}
+        <div class="card bg-white border-0 b-shadow-4 mb-3">
+            <div class="card-body p-3">
+                <div class="d-flex flex-wrap align-items-center justify-content-between mb-3">
+                    <div>
+                        <h5 class="f-15 f-w-500 mb-0">Today, {{ $todayStats['date']->format('D d M') }}
+                            @if ($todayStats['holiday'])
+                                <span class="badge badge-info ml-1 f-12">Holiday: {{ $todayStats['holiday'] }}</span>
+                            @elseif ($todayStats['week_off'])
+                                <span class="badge badge-light border ml-1 f-12">Weekly off</span>
+                            @endif
+                        </h5>
+                        <span class="f-12 text-lightest">Punches up to {{ $fmt($lastPull?->finished_at ?? $lastPull?->started_at) }}</span>
+                        <a href="{{ route('biometric.punch-log') }}" class="f-12 ml-2">Punch Log →</a>
+                    </div>
+                    @if ($access['resolve'])
+                        <button type="button" id="bio-latest" class="btn btn-secondary btn-sm"><i class="fa fa-sync-alt mr-1"></i> Get latest punches</button>
+                    @endif
+                </div>
+                <div class="bio-today">
+                    @foreach ([['Employees', $todayStats['active'], 'text-dark'], ['In today', $todayStats['present'], 'text-success'],
+                        ['Late', $todayStats['late'], $todayStats['late'] ? 'text-warning' : 'text-dark'], ['On leave', $todayStats['on_leave'], 'text-dark'],
+                        [$todayStats['not_in_alert'] ? 'Not in yet' : 'Not in', $todayStats['not_in'], $todayStats['not_in'] && $todayStats['not_in_alert'] ? 'text-red' : 'text-dark']] as [$label, $n, $colour])
+                        <div class="bio-tile"><div class="n {{ $colour }}">{{ number_format($n) }}</div><div class="l">{{ $label }}</div></div>
+                    @endforeach
+                </div>
+            </div>
+        </div>
+
+        @if ($access['system'])
+        {{-- Automation health (technical) --}}
         <div class="card bg-white border-0 b-shadow-4 mb-3">
             <div class="card-body p-3 d-flex flex-wrap align-items-center justify-content-between">
                 <div class="mb-2 mb-md-0">
@@ -143,9 +179,11 @@
                 </div>
             </div>
         </div>
+        @endif
 
         <div class="row">
-            {{-- Run now --}}
+            @if ($access['system'])
+            {{-- Run now (technical: any range, any one person) --}}
             <div class="col-lg-6 mb-3">
                 <div class="card bg-white border-0 b-shadow-4 h-100">
                     <div class="card-body p-3">
@@ -189,9 +227,10 @@
                     </div>
                 </div>
             </div>
+            @endif
 
             {{-- Needs attention --}}
-            <div class="col-lg-6 mb-3">
+            <div class="{{ $access['system'] ? 'col-lg-6' : 'col-lg-12' }} mb-3">
                 <div class="card bg-white border-0 b-shadow-4 h-100">
                     <div class="card-body p-3">
                         <h5 class="f-15 f-w-500 mb-3">Needs attention</h5>
@@ -203,20 +242,33 @@
                                 <i class="fa fa-clipboard-check {{ $openReviews > 0 ? 'text-warning' : 'text-primary' }} mt-1 mr-2"></i>
                                 <div class="f-13">
                                     @if (!$dailyRun || $dailyRun->status !== 'reviewed')
-                                        Yesterday ({{ $yesterday->format('D d M') }}) has not been reviewed yet{{ $dailyRun?->last_error ? ' — ' . \Illuminate\Support\Str::limit($dailyRun->last_error, 90) : '' }}.
-                                        The night runs from {{ $setting?->stepTime('pull_time') ?? '01:00' }}; a pull that fails is retried every 15 minutes until {{ $setting?->stepTime('notify_time') ?? '09:00' }}.
+                                        Yesterday ({{ $yesterday->format('D d M') }}) has not been reviewed yet.
+                                        @if ($access['system'])
+                                            {{ $dailyRun?->last_error ? \Illuminate\Support\Str::limit($dailyRun->last_error, 90) . '.' : '' }}
+                                            The night runs from {{ $setting?->stepTime('pull_time') ?? '01:00' }}; a pull that fails is retried every 15 minutes until {{ $setting?->stepTime('notify_time') ?? '09:00' }}.
+                                        @endif
                                     @else
                                         {{ $openReviews }} attendance exception(s) from {{ $yesterday->format('D d M') }} still open.
-                                        @unless ($dailyRun->device_complete)
+                                        @if (!$dailyRun->device_complete && $access['system'])
                                             <span class="text-warning">Device data was incomplete; it is pulled again automatically.</span>
-                                        @endunless
+                                        @endif
                                     @endif
                                     <a href="{{ route('biometric.review', ['date' => $yesterday->toDateString()]) }}" class="f-12 d-block">Daily Review →</a>
                                 </div>
                             </div>
                         @endif
 
-                        @if (!$status->schedulerRunning())
+                        @if ($exceptionDays > 0)
+                            @php $attention++; @endphp
+                            <div class="d-flex mb-3">
+                                <i class="fa fa-exclamation-triangle text-warning mt-1 mr-2"></i>
+                                <div class="f-13">{{ $exceptionDays }} day(s) this salary month need a look - a missing exit or a single punch.
+                                    <a href="{{ route('biometric.exceptions') }}" class="f-12 d-block">Exceptions →</a>
+                                </div>
+                            </div>
+                        @endif
+
+                        @if (!$status->schedulerRunning() && $access['system'])
                             @php $attention++; @endphp
                             <div class="d-flex mb-3">
                                 <i class="fa fa-exclamation-circle text-red mt-1 mr-2"></i>
@@ -226,18 +278,17 @@
                             </div>
                         @endif
 
-                        @if ($unmapped->isNotEmpty())
+                        @if ($unmapped->isNotEmpty() && ($access['mapping'] || $access['system']))
                             @php $attention++; @endphp
                             <div class="d-flex mb-3">
                                 <i class="fa fa-user-slash text-warning mt-1 mr-2"></i>
-                                <div class="f-13">{{ $unmapped->count() }} active employee(s) are not linked to a device code, so their days come only from web clock-ins:
-                                    <div class="f-12 text-dark-grey">{{ $unmapped->take(8)->pluck('name')->implode(', ') }}{{ $unmapped->count() > 8 ? ' …' : '' }}</div>
-                                    <a href="{{ route('biometric.employees') }}" class="f-12">Employee Mapping →</a>
+                                <div class="f-13">{{ $unmapped->count() }} active employee(s) are not linked to a device code, so their punches are not counted.
+                                    <a href="{{ route('biometric.employees') }}" class="f-12 d-block">Link them →</a>
                                 </div>
                             </div>
                         @endif
 
-                        @if ($draft > 0)
+                        @if ($draft > 0 && user()->permission('manage_payroll') === 'all')
                             @php $attention++; @endphp
                             <div class="d-flex mb-3">
                                 <i class="fa fa-file-invoice text-primary mt-1 mr-2"></i>
@@ -247,7 +298,7 @@
                             </div>
                         @endif
 
-                        @if (!empty($lastPayslipRun['waiting']))
+                        @if (!empty($lastPayslipRun['waiting']) && $access['system'])
                             @php $attention++; @endphp
                             <div class="d-flex mb-3">
                                 <i class="fa fa-hourglass-half text-warning mt-1 mr-2"></i>
@@ -261,7 +312,7 @@
                             </div>
                         @endif
 
-                        @if ($departed > 0)
+                        @if ($departed > 0 && $access['system'])
                             @php $attention++; @endphp
                             <div class="d-flex mb-3">
                                 <i class="fa fa-door-open text-warning mt-1 mr-2"></i>
@@ -284,6 +335,22 @@
 @push('scripts')
     <script>
         $('#bio-emp').selectpicker({container: 'body'});
+
+        $('#bio-latest').click(function () {
+            $.easyAjax({
+                url: "{{ route('biometric.sync') }}",
+                type: 'POST',
+                blockUI: true,
+                disableButton: true,
+                buttonSelector: '#bio-latest',
+                data: {_token: '{{ csrf_token() }}'},
+                success: function (response) {
+                    if (response.status === 'success') {
+                        setTimeout(function () { window.location.reload(); }, 1200);
+                    }
+                }
+            });
+        });
 
         $('#bio-pull').click(function () {
             $.easyAjax({

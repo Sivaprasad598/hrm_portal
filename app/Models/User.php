@@ -773,7 +773,8 @@ class User extends BaseModel implements AuthenticatableContract, AuthorizableCon
     {
         $users = User::join('employee_details', 'employee_details.user_id', '=', 'users.id')
             ->select('users.id', 'users.company_id', 'users.name', 'users.email', 'users.created_at', 'users.image', 'users.salutation', 'users.status')
-            ->where('employee_details.department_id', $teamId);
+            ->where('employee_details.department_id', $teamId)
+            ->whereNotIn('users.id', \App\Services\Access\SystemAccounts::ids());   // not the Super Admin login
 
         return $users->get();
     }

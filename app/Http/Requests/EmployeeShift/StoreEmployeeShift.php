@@ -24,31 +24,27 @@ class StoreEmployeeShift extends FormRequest
      */
     public function rules()
     {
+        // The simple shift form: fixed timing (start, end, late after) or
+        // flexible hours (a full day after so many hours, any time of day).
         $data = [];
-        $data['office_start_time'] = 'required';
-        $data['office_end_time'] = 'required';
-        $data['halfday_mark_time'] = 'required';
-        $data['shift_short_code'] = 'required';
+        $data['shift_name'] = 'required|max:100';
+        $data['shift_short_code'] = 'required|max:10';
         $data['color'] = 'required';
-        $data['clockin_in_day'] = 'required | integer | min:0';
+        $data['shift_type'] = 'required|in:strict,flexible';
+        $data['clockin_in_day'] = 'nullable|integer|min:0';
 
         if (!request()->has('office_open_days')) {
             $data['office_open_days'] = 'required';
         }
 
         if (request()->shift_type == 'flexible') {
-            $data['total_shift_hours'] = 'required';
-            $data['halfday_shift_hours'] = 'required';
-            $data['auto_clockout'] = 'required';
+            $data['total_shift_hours'] = 'required|numeric|min:1|max:23';
+            $data['halfday_shift_hours'] = 'nullable|numeric|min:0.5|max:23';
         }
-
-        if (request()->shift_type == 'strict') {
-            $data['late_mark_duration'] = 'required | integer | min:0';
-            $data['auto_clock_out_time'] = 'required';
-            $data['min_working_hours_full_day'] = 'required | numeric | min:0 | max:24';
-            $data['min_working_hours_full_day_grace'] = 'required | integer | min:0';
-            $data['min_working_hours_half_day'] = 'required | numeric | min:0 | max:24';
-            $data['min_working_hours_half_day_grace'] = 'required | integer | min:0';
+        else {
+            $data['office_start_time'] = 'required';
+            $data['office_end_time'] = 'required';
+            $data['late_mark_duration'] = 'nullable|integer|min:0|max:240';
         }
 
         return $data;

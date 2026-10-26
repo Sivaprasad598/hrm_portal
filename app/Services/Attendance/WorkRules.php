@@ -31,6 +31,11 @@ use Illuminate\Support\Facades\Schema;
  *
  * Applies from wh_effective_from: days before it keep the old reckoning, so a
  * payslip already issued can never change.
+ *
+ * A flexible shift (shift_type = flexible) has no times that matter: presence
+ * counts anywhere in the day, breaks included; a full day is its hours (9),
+ * a half day its half-day hours; there is no late mark and no half-day mark;
+ * weekday overtime is the time beyond its hours.
  */
 class WorkRules
 {
@@ -78,6 +83,12 @@ class WorkRules
         return $this->s->wh_count_mode === 'within_shift';
     }
 
+    /** Flexible hours: a full day after so many hours, any time of day. */
+    public static function isFlexible(?object $shift): bool
+    {
+        return $shift && ($shift->shift_type ?? 'strict') === 'flexible' && (float) ($shift->flexible_total_hours ?? 0) > 0;
+    }
+
     /** The breaks of a shift: the ones it picked, or the default ones. */
     public function breaksFor(?object $shift)
     {
@@ -93,6 +104,11 @@ class WorkRules
     /** All of a shift's breaks, in seconds. */
     public function breakSeconds(?object $shift): int
     {
+        // A flexible shift's hours include any breaks taken.
+        if (self::isFlexible($shift)) {
+            return 0;
+        }
+
         return (int) $this->breaksFor($shift)->sum(fn ($b) => self::duration($b));
     }
 
@@ -107,7 +123,7 @@ class WorkRules
     /** How much of the shift's breaks fell between two moments (unix seconds). */
     public function breakOverlap(?object $shift, int $from, int $to, ?string $date = null): int
     {
-        if ($to <= $from) {
+        if ($to <= $from || self::isFlexible($shift)) {
             return 0;
         }
 
@@ -134,6 +150,10 @@ class WorkRules
     /** Hours of work that make a full day: the shift's length less the break, or the setting. */
     public function workSeconds(?object $shift): int
     {
+        if (self::isFlexible($shift)) {
+            return (int) round((float) $shift->flexible_total_hours * 3600);
+        }
+
         $length = $this->hasTimes($shift) ? ShiftResolver::lengthSeconds($shift) : 0;
         $work = $length - $this->breakSeconds($shift);
 
@@ -143,6 +163,12 @@ class WorkRules
     /** A half day, in the same proportion to the day as the setting's (4h of 8h). */
     public function halfSeconds(?object $shift): int
     {
+        if (self::isFlexible($shift)) {
+            $half = (float) ($shift->flexible_half_day_hours ?? 0) ?: (float) $shift->flexible_total_hours / 2;
+
+            return (int) round($half * 3600);
+        }
+
         $ratio = (float) $this->s->wh_work_hours > 0 ? (float) $this->s->wh_half_day_hours / (float) $this->s->wh_work_hours : 0.5;
 
         return (int) round($this->workSeconds($shift) * $ratio);
@@ -151,7 +177,7 @@ class WorkRules
     /** First and last punch, kept inside the shift's times if counting is limited to them. */
     public function window(int $first, int $last, ?object $shift): array
     {
-        if ($this->withinShiftOnly() && $this->hasTimes($shift)) {
+        if ($this->withinShiftOnly() && $this->hasTimes($shift) && !self::isFlexible($shift)) {
             $first = max($first, Carbon::parse($shift->day_start, $this->tz)->getTimestamp());
             $last = min($last, Carbon::parse($shift->day_end, $this->tz)->getTimestamp());
         }
@@ -188,6 +214,11 @@ class WorkRules
     /** First punch after the late mark: the shift start + its late minutes, or one global time. */
     public function isLate(int $first, ?object $shift, string $date): bool
     {
+        // Flexible hours: whenever they come in is fine.
+        if (self::isFlexible($shift)) {
+            return false;
+        }
+
         if ($this->s->wh_late_basis === 'global' && $this->s->wh_late_time) {
             $mark = Carbon::parse($date . ' ' . $this->s->wh_late_time, $this->tz);
         } elseif ($this->hasTimes($shift) && $shift->late_mark_duration !== null) {
@@ -205,7 +236,7 @@ class WorkRules
     {
         $mark = $shift->halfday_mark_time ?? null;
 
-        if (!$mark || $mark === '00:00:00' || !$this->hasTimes($shift)) {
+        if (!$mark || $mark === '00:00:00' || !$this->hasTimes($shift) || self::isFlexible($shift)) {
             return false;
         }
 
@@ -231,7 +262,7 @@ class WorkRules
         }
 
         if ($type === 'weekday') {
-            if ($this->withinShiftOnly() && $this->hasTimes($shift)) {
+            if ($this->withinShiftOnly() && $this->hasTimes($shift) && !self::isFlexible($shift)) {
                 $extra = $last - Carbon::parse($shift->day_end, $this->tz)->getTimestamp();
             } else {
                 $extra = ($last - $first) - ($this->workSeconds($shift) + $this->breakSeconds($shift));

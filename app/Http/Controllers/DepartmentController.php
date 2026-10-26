@@ -72,6 +72,7 @@ class DepartmentController extends AccountBaseController
         $group = new Team();
         $group->team_name = $request->team_name;
         $group->parent_id = $request->parent_id;
+        $group->head_user_id = $request->head_user_id ?: null;   // approves the department's leave
         // Working Hours & OT: off = any punch is a full day for this department.
         if ($request->has('consider_attendance_hours')) {
             $group->consider_attendance_hours = $request->boolean('consider_attendance_hours');
@@ -142,6 +143,7 @@ class DepartmentController extends AccountBaseController
         $group = Team::findOrFail($id);
         $group->team_name = strip_tags($request->team_name);
         $group->parent_id = $request->parent_id ?? null;
+        $group->head_user_id = $request->head_user_id ?: null;   // approves the department's leave
         // Working Hours & OT: off = any punch is a full day for this department.
         if ($request->has('consider_attendance_hours')) {
             $group->consider_attendance_hours = $request->boolean('consider_attendance_hours');

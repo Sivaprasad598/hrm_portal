@@ -110,6 +110,27 @@ class LeaveSettingController extends AccountBaseController
         return Reply::success(__('messages.updateSuccess'));
     }
 
+    /** Leave approval steps: which of manager / department head / HR, and when a step moves on. */
+    public function saveApproval(Request $request)
+    {
+        $request->validate([
+            'levels' => 'nullable|array',
+            'levels.*' => 'in:' . implode(',', array_keys(\App\Services\Leaves\LeaveApprovals::STEPS)),
+            'escalate_after_days' => 'nullable|integer|min:0|max:30',
+        ]);
+
+        $levels = array_values(array_intersect(array_keys(\App\Services\Leaves\LeaveApprovals::STEPS), (array) $request->levels));
+
+        if (!$levels) {
+            return Reply::error('Tick at least one step.');
+        }
+
+        LeaveSetting::query()->update(['approval_levels' => json_encode($levels), 'escalate_after_days' => (int) $request->escalate_after_days]);
+        \App\Services\Leaves\LeaveApprovals::reset();
+
+        return Reply::success('Approval steps saved: ' . implode(' → ', array_map(fn ($s) => \App\Services\Leaves\LeaveApprovals::label($s), $levels)) . '.');
+    }
+
     public function changePermission(Request $request)
     {
         $permission = LeaveSetting::findOrFail($request->id);

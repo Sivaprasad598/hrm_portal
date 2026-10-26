@@ -29,6 +29,18 @@
                             </select>
                         </x-forms.input-group>
                     </div>
+                    {{-- Department head: approves this department's leave (Leave Settings -> approval steps). --}}
+                    <div class="col-md-6">
+                        <x-forms.label class="my-3" fieldId="head_user_id" fieldLabel="Department head"></x-forms.label>
+                        <x-forms.input-group>
+                            <select class="form-control select-picker" name="head_user_id" id="head_user_id" data-live-search="true" data-size="8">
+                                <option value="">--</option>
+                                @foreach (\App\Models\User::allEmployees(null, true) as $headCandidate)
+                                    <option value="{{ $headCandidate->id }}" @selected(($department->head_user_id ?? null) == $headCandidate->id)>{{ $headCandidate->name }}{{ $headCandidate->designation_name ? ' · ' . $headCandidate->designation_name : '' }}</option>
+                                @endforeach
+                            </select>
+                        </x-forms.input-group>
+                    </div>
                     <div class="col-md-12">
                         <input type="hidden" name="consider_attendance_hours" value="0">
                         <div class="custom-control custom-switch mt-3">

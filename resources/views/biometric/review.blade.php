@@ -58,8 +58,10 @@
                             @endif
                         @endif
                     </span>
-                    <button type="button" class="btn btn-secondary btn-sm mr-2 rv-run" data-pull="0"><i class="fa fa-redo mr-1"></i> Review again</button>
-                    <button type="button" class="btn btn-primary btn-sm rv-run" data-pull="1"><i class="fa fa-download mr-1"></i> Pull &amp; review</button>
+                    @if ($canAct)
+                        <button type="button" class="btn btn-secondary btn-sm mr-2 rv-run" data-pull="0"><i class="fa fa-redo mr-1"></i> Review again</button>
+                        <button type="button" class="btn btn-primary btn-sm rv-run" data-pull="1"><i class="fa fa-download mr-1"></i> Get latest punches &amp; review</button>
+                    @endif
                 </div>
             </div>
         </div>
@@ -172,8 +174,10 @@
                                         @if ($review->note)
                                             <div class="f-11 text-dark-grey">{{ $review->note }}</div>
                                         @endif
-                                        <a href="javascript:;" class="f-12 rv-reopen" data-id="{{ $review->id }}">Open again</a>
-                                    @elseif ($review->is_exception)
+                                        @if ($canAct)
+                                            <a href="javascript:;" class="f-12 rv-reopen" data-id="{{ $review->id }}">Open again</a>
+                                        @endif
+                                    @elseif ($review->is_exception && $canAct)
                                         <button type="button" class="btn btn-sm btn-secondary rv-resolve" data-id="{{ $review->id }}" data-name="{{ $review->user?->name }}">
                                             <i class="fa fa-check mr-1"></i> Resolve
                                         </button>

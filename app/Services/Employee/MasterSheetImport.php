@@ -536,6 +536,7 @@ class MasterSheetImport
     protected function matchExisting(array &$records): void
     {
         $people = DB::table('users as u')->join('employee_details as ed', 'ed.user_id', '=', 'u.id')
+            ->whereNotIn('u.id', \App\Services\Access\SystemAccounts::ids())   // not the Super Admin login
             ->get(['u.id', 'u.name', 'u.email', 'ed.employee_id', 'ed.employee_card_id']);
         $byName = $people->groupBy(fn ($p) => $this->nameKey($p->name));
 

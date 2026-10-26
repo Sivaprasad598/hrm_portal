@@ -183,6 +183,12 @@
 <!-- BODY WRAPPER END -->
 @include('sections.modals')
 
+{{-- Birthday / anniversary greeting, once on the day --}}
+@include('sections.celebration')
+
+{{-- Images and PDFs open in a preview popup --}}
+@include('sections.doc-preview')
+
 @includeIf('aitools::floating-chat-widget')
 
 <!-- Global Required Javascript -->

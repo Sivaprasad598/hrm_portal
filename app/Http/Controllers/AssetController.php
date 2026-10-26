@@ -374,6 +374,7 @@ class AssetController extends AccountBaseController
         // Anybody still holding an asset is listed too, even after leaving.
         return User::withoutGlobalScope(ActiveScope::class)
             ->join('employee_details', 'employee_details.user_id', '=', 'users.id')
+            ->whereNotIn('users.id', \App\Services\Access\SystemAccounts::ids())   // not the Super Admin login
             ->where(fn ($q) => $q->where('users.status', 'active')
                 ->when($withHolders, fn ($w) => $w->orWhereIn('users.id', AssetAssignment::whereNull('returned_on')->select('user_id'))))
             ->orderBy('users.name')

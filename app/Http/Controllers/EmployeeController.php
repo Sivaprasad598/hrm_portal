@@ -987,7 +987,7 @@ class EmployeeController extends AccountBaseController
             || ($this->viewPermission == 'both' && ($this->employee->employeeDetail->user_id == user()->id || $this->employee->employeeDetail->added_by == user()->id))
         ) {
 
-            if ($tab == '') {  // Works for profile
+            if ($tab == '' || $tab == 'profile') {  // Works for profile (also when linked with ?tab=profile)
 
                 $this->fromDate = now()->timezone($this->company->timezone)->startOfMonth()->toDateString();
                 $this->toDate = now()->timezone($this->company->timezone)->endOfMonth()->toDateString();
@@ -1358,7 +1358,8 @@ class EmployeeController extends AccountBaseController
     public function byDepartment($id)
     {
         $viewPermission = user()->permission('view_employees');
-        $users = User::with('employeeDetail')->withoutGlobalScope(ActiveScope::class)->join('employee_details', 'employee_details.user_id', '=', 'users.id');
+        $users = User::with('employeeDetail')->withoutGlobalScope(ActiveScope::class)->join('employee_details', 'employee_details.user_id', '=', 'users.id')
+            ->whereNotIn('users.id', \App\Services\Access\SystemAccounts::ids());   // not the Super Admin login
 
         if (request()->request_from == 'rotation' && request()->rotation) {
             $rotAssignedEmps = AutomateShift::where('employee_shift_rotation_id', request()->rotation)->pluck('user_id');

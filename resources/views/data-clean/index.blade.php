@@ -151,16 +151,24 @@
                 success: function (r) {
                     if (r.status !== 'success') { return; }
 
-                    var total = 0, list = '', linkedTotal = 0, linked = '';
-                    $.each(r.items, function (item, n) { total += n; list += '<div><span>' + esc(name(item)) + '</span><span>' + n.toLocaleString() + '</span></div>'; });
-                    $.each(r.linked, function (table, n) { linkedTotal += n; linked += '<div><span>' + esc(table.replace(/_/g, ' ')) + '</span><span>' + n.toLocaleString() + '</span></div>'; });
+                    var total = 0, list = '', linkedTotal = 0, linked = '', cleared = '';
+                    var line = function (label, n) { return '<div><span>' + esc(label) + '</span><span>' + n.toLocaleString() + '</span></div>'; };
+                    $.each(r.items, function (item, n) { total += n; list += line(name(item), n); });
+                    $.each(r.linked, function (table, n) { linkedTotal += n; linked += line(table.replace(/_/g, ' '), n); });
+                    $.each(r.cleared || {}, function (column, n) { cleared += line(column.replace(/_/g, ' '), n); });
 
-                    var html = '<p class="f-13 text-left mb-2">Only these will be emptied (' + total.toLocaleString() + ' rows):</p><div class="dc-preview-list">' + list + '</div>';
+                    var html = '<p class="f-13 text-left mb-2">These will be emptied (' + total.toLocaleString() + ' rows):</p><div class="dc-preview-list">' + list + '</div>';
                     if (linked) {
-                        html += '<p class="f-13 text-left text-red mt-3 mb-2"><strong>Employee accounts are ticked.</strong> These rows belong to the people being removed and go with them ('
-                            + linkedTotal.toLocaleString() + ' rows), even though their tables are not ticked:</p><div class="dc-preview-list">' + linked + '</div>';
+                        html += '<p class="f-13 text-left text-red mt-3 mb-2"><strong>Also removed with them</strong> (' + linkedTotal.toLocaleString()
+                            + ' rows): these belong to the people or records being removed, even though their tables are not ticked:</p><div class="dc-preview-list">' + linked + '</div>';
                     }
-                    html += '<p class="f-12 text-dark-grey text-left mt-3 mb-0">Rows elsewhere that point at removed rows are cleared as their database links require. A full backup is taken first.</p>';
+                    if (cleared) {
+                        html += '<p class="f-13 text-left mt-3 mb-2">Kept, with their link to a removed record emptied:</p><div class="dc-preview-list">' + cleared + '</div>';
+                    }
+                    if (r.exact === false) {
+                        html += '<p class="f-12 text-red text-left mt-3 mb-0">Some tables on this server cannot be previewed safely, so rows linked to the ticked ones are not counted here.</p>';
+                    }
+                    html += '<p class="f-12 text-dark-grey text-left mt-3 mb-0">Nothing else is touched. A full backup is taken first.</p>';
 
                     Swal.fire({
                         icon: 'warning',

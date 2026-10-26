@@ -27,8 +27,28 @@ $approveRejectPermission = user()->permission('approve_or_reject_leaves');
                                         @php
                                             $rejectActionAdded = false;
                                             $approvedActionAdded = false;
+                                            $chainStep = $leave->approval_step && $leave->approval_step !== \App\Services\Leaves\LeaveApprovals::DONE;
                                         @endphp
-                                            @if ($reportingTo && $leave->user_id != user()->id && !in_array('admin', user_roles()))
+                                        {{-- Approval steps: the step's approver decides; HR may approve ahead, with a note. --}}
+                                        @if ($chainStep)
+                                            @php $waiting = \App\Services\Leaves\LeaveApprovals::label($leave->approval_step); @endphp
+                                            @if (($approvalMode ?? null) === 'step')
+                                                <a class="dropdown-item leave-action-approved" data-leave-id="{{ $leave->id }}" data-leave-action="approved" data-user-id="{{ $leave->user_id }}" data-leave-type-id="{{ $leave->leave_type_id }}" href="javascript:;">
+                                                    <i class="fa fa-check mr-2"></i>@lang('app.approve') ({{ $waiting }})
+                                                </a>
+                                            @elseif (($approvalMode ?? null) === 'override')
+                                                <a class="dropdown-item leave-action-override" data-leave-id="{{ $leave->id }}" data-user-id="{{ $leave->user_id }}" href="javascript:;">
+                                                    <i class="fa fa-forward mr-2"></i>Approve now (skip {{ \App\Services\Leaves\LeaveApprovals::who($leave->approval_step) }})
+                                                </a>
+                                            @endif
+                                            @if ($approvalMode ?? null)
+                                                <a data-leave-id="{{ $leave->id }}" data-leave-action="rejected" data-user-id="{{ $leave->user_id }}" data-leave-type-id="{{ $leave->leave_type_id }}" class="dropdown-item leave-action-reject" href="javascript:;">
+                                                    <i class="fa fa-times mr-2"></i>@lang('app.reject')
+                                                </a>
+                                            @endif
+                                            @php $rejectActionAdded = $approvedActionAdded = true; @endphp
+                                        @endif
+                                            @if (!$chainStep && $reportingTo && $leave->user_id != user()->id && !in_array('admin', user_roles()))
                                                 @if(!$rejectActionAdded && $leave->manager_status_permission == '' && !($reportingPermission == 'cannot-approve'))
                                                     <a data-leave-id="{{ $leave->id }}" data-leave-action="rejected" data-user-id="{{ $leave->user_id }}" data-leave-type-id="{{ $leave->leave_type_id }}" class="dropdown-item leave-action-reject" href="javascript:;">
                                                             <i class="fa fa-times mr-2"></i>
@@ -52,7 +72,7 @@ $approveRejectPermission = user()->permission('approve_or_reject_leaves');
                                                 @endif
                                             @endif
 
-                                            @if ($leave->status == 'pending' && $approveRejectPermission == 'all')
+                                            @if (!$chainStep && $leave->status == 'pending' && $approveRejectPermission == 'all')
                                                 @if(!$approvedActionAdded)
                                                     <a class="dropdown-item leave-action-approved" data-leave-id="{{ $leave->id }}" data-leave-action="approved" data-user-id="{{ $leave->user_id }}" data-leave-type-id="{{ $leave->leave_type_id }}" href="javascript:;">
                                                         <i class="fa fa-check mr-2"></i>
@@ -154,6 +174,26 @@ $approveRejectPermission = user()->permission('approve_or_reject_leaves');
                     @endif
 
                     <x-cards.data-row :label="__('modules.leaves.reason')" :value="$leave->reason" html="true" />
+
+                    @if (!empty($approvalTrail) && $approvalTrail->isNotEmpty())
+                        @php
+                            $verbs = ['submitted' => 'Applied', 'approved' => 'Approved', 'override' => 'Approved by HR ahead of the step', 'rejected' => 'Rejected', 'escalated' => 'Moved on (no decision in time)'];
+                        @endphp
+                        <div class="col-12 px-0 mb-3">
+                            <p class="f-14 text-dark-grey mb-2">Approval</p>
+                            @foreach ($approvalTrail as $a)
+                                <div class="f-13 mb-1">
+                                    <span class="badge badge-light border">{{ \App\Services\Leaves\LeaveApprovals::label($a->step) }}</span>
+                                    {{ $verbs[$a->action] ?? ucfirst($a->action) }}{{ $a->user_name ? ' by ' . $a->user_name : '' }}
+                                    <span class="text-lightest f-12">· {{ \Carbon\Carbon::parse($a->created_at)->timezone(company()->timezone)->format('d M Y, h:i A') }}</span>
+                                    @if ($a->note)<div class="f-12 text-dark-grey ml-1">"{{ $a->note }}"</div>@endif
+                                </div>
+                            @endforeach
+                            @if ($leave->status === 'pending' && $leave->approval_step && $leave->approval_step !== \App\Services\Leaves\LeaveApprovals::DONE)
+                                <div class="f-13 text-warning mt-1"><i class="fa fa-hourglass-half mr-1"></i>Waiting for the {{ \App\Services\Leaves\LeaveApprovals::who($leave->approval_step) }}</div>
+                            @endif
+                        </div>
+                    @endif
 
                     @if (!is_null($leave->manager_status_permission))
                         <x-cards.data-row :label="__('modules.leaves.statusReport')" :value="$leave->manager_status_permission==='pre-approve' ? __('modules.leaves.preApproved') : ''" html="true" />
@@ -363,6 +403,12 @@ $approveRejectPermission = user()->permission('approve_or_reject_leaves');
                 });
             }
         });
+    });
+
+    $('body').on('click', '.leave-action-override', function() {
+        let url = "{{ route('leaves.show_approved_modal') }}?leave_action=approved&override=1&type=single&leave_id=" + $(this).data('leave-id');
+        $(MODAL_LG + ' ' + MODAL_HEADING).html('...');
+        $.ajaxModal(MODAL_LG, url);
     });
 
     $('body').on('click', '.leave-action-approved', function() {

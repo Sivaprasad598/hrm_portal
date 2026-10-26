@@ -43,11 +43,13 @@ class ProfileController extends AccountBaseController
         $user->country_id = $request->country_id;
         $user->country_phonecode = $request->country_phonecode;
         $user->mobile = $request->mobile;
-        $user->email_notifications = $request->email_notifications;
-        $user->locale = $request->locale;
-        $user->rtl = $request->rtl;
-        $user->google_calendar_status = $request->google_calendar_status;
-        $user->twitter_id = $request->twitter_id;
+        // Fields no longer on the form (email notifications, language, Google
+        // Calendar) keep what they were rather than being emptied.
+        foreach (['email_notifications', 'locale', 'rtl', 'google_calendar_status', 'twitter_id'] as $field) {
+            if ($request->has($field)) {
+                $user->{$field} = $request->{$field};
+            }
+        }
 
         if (!is_null($request->password)) {
             $user->password = Hash::make($request->password);
@@ -110,8 +112,15 @@ class ProfileController extends AccountBaseController
 
         $employee->date_of_birth = $request->date_of_birth ? companyToYmd($request->date_of_birth) : null;
         $employee->address = $request->address;
-        $employee->slack_username = $request->slack_username;
-        $employee->about_me = $request->about_me;
+
+        // Slack and About are no longer on the form: kept as they were.
+        if ($request->has('slack_username')) {
+            $employee->slack_username = $request->slack_username;
+        }
+
+        if ($request->has('about_me')) {
+            $employee->about_me = $request->about_me;
+        }
 
         if (in_array('employee', user_roles())) {
             $employee->marital_status = $request->marital_status;

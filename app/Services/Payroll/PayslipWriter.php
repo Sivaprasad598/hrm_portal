@@ -49,6 +49,11 @@ class PayslipWriter
             return $this->refuse('That employee no longer exists');
         }
 
+        // The Super Admin login is the system account, not staff: never paid.
+        if (\App\Services\Access\SystemAccounts::is($userId)) {
+            return $this->refuse($employee->name . ' is the Super Admin login, not an employee');
+        }
+
         if (!$employee->employee_card_id) {
             return $this->refuse($employee->name . ' has no employee code');
         }

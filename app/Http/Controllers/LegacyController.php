@@ -23,7 +23,8 @@ class LegacyController extends AccountBaseController
         $this->pageTitle = 'app.menu.leaveManagement';
 
         $viewPermission = user()->permission('view_leave');
-        abort_403(!in_array('leaves', user_modules()) || !in_array($viewPermission, ['all', 'added', 'owned', 'both']));
+        // It picks any employee: for those who see everybody's leave (an employee has My Leaves).
+        abort_403(!in_array('leaves', user_modules()) || $viewPermission !== 'all');
 
         return view('leaves.management', $this->data);
     }

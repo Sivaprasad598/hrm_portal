@@ -57,6 +57,7 @@
             <small class="form-text text-muted">@lang('modules.client.passwordUpdateNote')</small>
         </div>
 
+{{-- Hidden: email notifications and Google Calendar (kept as they are).
         <div class="col-lg-4">
             <div class="my-3 form-group">
                 <label class="mb-12 f-14 text-dark-grey w-100"
@@ -90,15 +91,22 @@
                 </div>
             </div>
         </div>
+--}}
 
         <div class="col-lg-4">
+            @php
+                // India unless the person has chosen another country / code.
+                $india = $countries->firstWhere('iso', 'IN');
+                $countryId = $user->country_id ?: $india?->id;
+                $phoneCode = $user->country_phonecode ?: ($india->phonecode ?? 91);
+            @endphp
             <x-forms.select fieldId="country_id" :fieldLabel="__('app.country')" fieldName="country_id"
                             search="true" alignRight="true">
                 <option value="">--</option>
                 @foreach ($countries as $item)
                     <option data-tokens="{{ $item->iso3 }}" data-phonecode="{{ $item->phonecode }}" data-iso="{{ $item->iso }}"
                             data-content="<span class='flag-icon flag-icon-{{ strtolower($item->iso) }} flag-icon-squared'></span> {{ $item->nicename }}"
-                            value="{{ $item->id }}" {{ $item->id == $user->country_id ? 'selected' : '' }}>
+                            value="{{ $item->id }}" {{ $item->id == $countryId ? 'selected' : '' }}>
                         {{ $item->nicename }}</option>
                 @endforeach
             </x-forms.select>
@@ -120,7 +128,7 @@
                             $selected = '';
 
                              if (($user->country && $user->country->iso == $item->iso && $user->country_phonecode == $item->phonecode) ||
-                                 ($check && $user->country_phonecode == $item->phonecode)) {
+                                 ($check && $phoneCode == $item->phonecode && (!$user->country_phonecode ? $item->iso == 'IN' : true))) {
                                  $selected = 'selected';
                                  $check = false;
                              }
@@ -140,6 +148,7 @@
             </x-forms.input-group>
         </div>
 
+        {{-- Hidden: change language (English for everybody; kept as it is).
         <div class="col-lg-4">
             <x-forms.select fieldId="locale" :fieldLabel="__('modules.accountSettings.changeLanguage')"
                             fieldName="locale" search="true">
@@ -150,6 +159,7 @@
                 @endforeach
             </x-forms.select>
         </div>
+        --}}
 
         <div class="col-md-4">
             <x-forms.select fieldId="gender" :fieldLabel="__('modules.employees.gender')" fieldName="gender">
@@ -162,9 +172,11 @@
         @if(!in_array('client', user_roles()))
             <div class="col-lg-4">
                 <x-forms.datepicker fieldId="date_of_birth" :fieldLabel="__('modules.employees.dateOfBirth')"
+                                    :fieldRequired="!\App\Services\Access\SystemAccounts::is((int) $user->id)"
                                     fieldName="date_of_birth" :fieldPlaceholder="__('placeholders.date')"
                                     :fieldValue="($user->employeeDetail->date_of_birth ? $user->employeeDetail->date_of_birth->format(company()->date_format) : '')"/>
             </div>
+            {{-- Hidden: Slack member ID (kept as it is).
             <div class="col-lg-4">
                 <x-forms.label class="my-3" fieldId="slack_username"
                                :fieldLabel="__('modules.employees.slackUsername')"></x-forms.label>
@@ -177,6 +189,7 @@
                            id="slack_username" value="{{ $user->employeeDetail->slack_username }}">
                 </x-forms.input-group>
             </div>
+            --}}
         @endif
         @if ($socialAuthSettings->twitter_status == 'enable')
             <div class="col-lg-4">
@@ -197,9 +210,15 @@
                 </x-forms.select>
             </div>
             <div class="col-lg-3 col-md-6 d-none marriage_date">
-                <x-forms.datepicker fieldId="marriage_anniversary_date" :fieldLabel="__('modules.employees.marriageAnniversaryDate')"
+                <x-forms.datepicker fieldId="marriage_anniversary_date" :fieldLabel="__('modules.employees.marriageAnniversaryDate')" fieldRequired="true"
                     fieldName="marriage_anniversary_date" :fieldPlaceholder="__('placeholders.date')"
                     :fieldValue="$user->employeeDetail->marriage_anniversary_date ? Carbon\Carbon::parse($user->employeeDetail->marriage_anniversary_date)->format(company()->date_format) : '' " />
+            </div>
+            {{-- Set by HR on the employee record; shown here, not changed here. --}}
+            <div class="col-lg-3 col-md-6">
+                <x-forms.text fieldId="joining_date_view" :fieldLabel="__('modules.employees.joiningDate')" fieldName="joining_date_view"
+                    :fieldValue="$user->employeeDetail->joining_date ? $user->employeeDetail->joining_date->format(company()->date_format) : '--'"
+                    fieldReadOnly="true" />
             </div>
         @endif
 
@@ -215,6 +234,7 @@
             </div>
         </div>
 
+        {{-- Hidden: About (kept as it is).
         @if (!in_array('client', user_roles()))
             <div class="col-md-12">
                 <div class="my-3 form-group">
@@ -225,6 +245,7 @@
                 </div>
             </div>
         @endif
+        --}}
 
         @if (function_exists('sms_setting') && sms_setting()->telegram_status)
             <div class="col-md-6">

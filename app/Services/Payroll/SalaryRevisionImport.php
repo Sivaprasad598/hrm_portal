@@ -39,7 +39,7 @@ class SalaryRevisionImport
 
         $employees = DB::table('users as u')->join('employee_details as ed', 'ed.user_id', '=', 'u.id')
             ->leftJoin('designations as d', 'd.id', '=', 'ed.designation_id')->leftJoin('teams as t', 't.id', '=', 'ed.department_id')
-            ->where('u.status', 'active')->where('u.employee_ctc', '>', 0)
+            ->where('u.status', 'active')->where('u.employee_ctc', '>', 0)->whereNotIn('u.id', \App\Services\Access\SystemAccounts::ids())
             ->when($departmentId, fn ($q) => $q->where('ed.department_id', $departmentId))
             ->orderBy('t.team_name')->orderBy('u.name')
             ->get(['ed.employee_id', 'u.name', 't.team_name', 'd.name as designation', 'u.employee_ctc']);

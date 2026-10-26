@@ -12,8 +12,9 @@ use Illuminate\Http\Request;
  *
  * A grant here only makes a menu *eligible*. Whether a given person actually
  * sees it is still decided by their own permissions, in
- * User::menuPermissionAllows(). Nothing on this screen can hand somebody a page
- * their permissions refuse.
+ * User::menuPermissionAllows(). Each entry shows the permission it needs and
+ * whether the role holds it; ticking one the role cannot open grants that
+ * permission (MenuPermissions), so the two screens never disagree.
  *
  * Role is company-scoped by its global scope, so every lookup here is already
  * limited to the signed-in company.
@@ -49,6 +50,9 @@ class AssignMenuController extends AccountBaseController
         $this->menus = $this->menuTree();
         $this->assignedMenus = $this->role->menus->pluck('id')->toArray();
         $this->isAdminRole = $this->role->name === 'admin';
+        // Each linked entry's permission and whether this role holds it.
+        $this->menuStatus = \App\Services\Access\MenuPermissions::statusFor($this->role,
+            SidebarMenu::forCompany(company()?->id)->where('is_active', 1)->get(['id', 'permission_key', 'permission_rule']));
 
         $html = view('assign-menu.ajax.assign-menus-modal', $this->data)->render();
 
@@ -67,10 +71,19 @@ class AssignMenuController extends AccountBaseController
         if ($role->name === 'admin') {
             $role->menus()->sync($this->activeMenuIds());
         } else {
-            $role->menus()->sync($this->sanitiseMenuIds($request->menu_ids));
+            $ids = $this->sanitiseMenuIds($request->menu_ids);
+            $role->menus()->sync($ids);
+            // A ticked entry the role could not open gets the permission it needs.
+            $granted = \App\Services\Access\MenuPermissions::grantForMenus($role, $ids);
         }
 
         $this->forgetRoleCaches($role);
+
+        if (!empty($granted)) {
+            $names = \Illuminate\Support\Facades\DB::table('permissions')->whereIn('name', array_keys($granted))->pluck('display_name')->implode(', ');
+
+            return Reply::success('Saved. So the ticked menus open, ' . $role->display_name . ' was also given: ' . $names . '.');
+        }
 
         return Reply::success(__('messages.updateSuccess'));
     }

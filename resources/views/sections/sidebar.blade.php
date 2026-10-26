@@ -15,16 +15,12 @@
 
                 @if (companyOrGlobalSetting()->sidebar_logo_style !== 'full')
                     <!-- SIDEBAR BRAND NAME START -->
+                    {{-- A greeting for the person signed in, in place of the company name. --}}
                     <div class="sidebar-brand-name">
                         <h1 class="mb-0 f-16 f-w-500 text-white-shade mt-0" data-placement="bottom" data-toggle="tooltip"
-                            data-original-title="{{ $appName }}">{{ $appName }}
+                            data-original-title="{{ $userName }}">Hi, {{ $userName }}
                             <i class="icon-arrow-down icons pl-2"></i>
                         </h1>
-                        <div class="mb-0 position-relative pro-name">
-                            <span class="bg-light-green rounded-circle"></span>
-                            <p class="f-13 text-lightest mb-0" data-placement="bottom" data-toggle="tooltip"
-                                data-original-title="{{ $userName }}">{{ $userName }}</p>
-                        </div>
                     </div>
                     <!-- SIDEBAR BRAND NAME END -->
                     <!-- SIDEBAR BRAND LOGO START -->
@@ -71,7 +67,8 @@
                     </a>
                 </div>
 
-                @if (!in_array('client', user_roles()) && ($sidebarUserPermissions['add_employees'] == 4 || $sidebarUserPermissions['add_employees'] == 1) && in_array('employees', user_modules()))
+                {{-- "Invite member" hidden: employees are added (or imported), not invited by email. --}}
+                @if (false && !in_array('client', user_roles()) && ($sidebarUserPermissions['add_employees'] == 4 || $sidebarUserPermissions['add_employees'] == 1) && in_array('employees', user_modules()))
                     <a class="dropdown-item d-flex justify-content-between align-items-center f-15 text-dark invite-member"
                         href="javascript:;">
                         <span>@lang('app.inviteMember') {{ $companyName }}</span>
@@ -109,7 +106,8 @@
     <div
         class="text-center d-flex justify-content-between align-items-center position-fixed sidebarTogglerBox {{ user()->dark_theme ? 'bg-dark' : '' }}">
         <button class="border-0 d-lg-block d-none text-lightest font-weight-bold" id="sidebarToggle"></button>
-        @if ($showMobileAppButton)
+        {{-- "Mobile App" button hidden (the code stays, to bring back). --}}
+        @if (false && $showMobileAppButton)
             <a href="javascript:;"
                class="btn btn-outline-primary btn-sm f-10 px-2 py-1 pull-left border-0 d-flex align-items-center text-white mobile-app-btn"
                style="background-color: rgba(0,123,255,0.18); color: #ffffff;"
@@ -119,7 +117,7 @@
                 <span>Mobile App</span>
             </a>
         @endif
-        <p class="mb-0 text-dark-grey px-1 py-0 rounded f-10">v{{ \Illuminate\Support\Facades\File::get('version.txt') }}</p>
+        <p class="mb-0 px-1 py-0 rounded f-10" style="color: #ffffff;">v{{ \Illuminate\Support\Facades\File::get('version.txt') }}</p>
     </div>
     <!-- Sidebar Toggler -->
 

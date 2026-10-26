@@ -12,6 +12,7 @@
                     <a class="nav-item nav-link f-15 type active" data-toggle="tab" href="#personal" role="tab" aria-controls="nav-type" aria-selected="true">@lang('app.general')</a>
                     <a class="nav-item nav-link f-15 type" data-toggle="tab" href="#promotion" role="tab" aria-controls="nav-type" aria-selected="true">@lang('modules.leaves.entitlement')</a>
                     <a class="nav-item nav-link f-15 type" data-toggle="tab" href="#vacation" role="tab" aria-controls="nav-type" aria-selected="true">@lang('modules.leaves.applicability')</a>
+                    <a class="nav-item nav-link f-15 type" data-toggle="tab" href="#leave-rules" role="tab" aria-controls="nav-type" aria-selected="true">Rules</a>
                 </div>
             </div>
 
@@ -266,6 +267,8 @@
                         </div>
                     </div>
                 </div>
+
+                @include('leave-settings.partials.rules-tab', ['type' => $leaveType])
             </div>
         </x-form>
     </div>

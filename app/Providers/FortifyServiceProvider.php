@@ -61,6 +61,21 @@ class FortifyServiceProvider extends ServiceProvider
             }
 
         });
+
+        // Everybody lands on their private dashboard after signing in, not on
+        // whichever page they last tried to open.
+        $this->app->instance(\Laravel\Fortify\Contracts\LoginResponse::class, new class implements \Laravel\Fortify\Contracts\LoginResponse {
+
+            public function toResponse($request)
+            {
+                session()->forget('url.intended');
+
+                return $request->wantsJson()
+                    ? response()->json(['two_factor' => false])
+                    : redirect()->route('dashboard');
+            }
+
+        });
     }
 
     /**

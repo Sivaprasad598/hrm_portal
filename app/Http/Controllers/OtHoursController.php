@@ -59,6 +59,7 @@ class OtHoursController extends AccountBaseController
             ->join('employee_details as ed', 'ed.user_id', '=', 'u.id')
             ->leftJoin('teams as t', 't.id', '=', 'ed.department_id')
             ->where('u.status', 'active')
+            ->whereNotIn('u.id', \App\Services\Access\SystemAccounts::ids())   // not the Super Admin login
             ->when($this->departmentId, fn ($q, $d) => $q->where('ed.department_id', $d))
             ->when($this->search !== '', fn ($q) => $q->where(fn ($w) => $w->where('u.name', 'like', '%' . $this->search . '%')
                 ->orWhere('ed.employee_id', 'like', '%' . $this->search . '%')))

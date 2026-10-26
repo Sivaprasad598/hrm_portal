@@ -66,10 +66,11 @@ $editDocumentPermission = user()->permission('edit_documents');
                 || ($viewDocumentPermission == 'owned' && ($file->user_id == user()->id && $file->added_by != user()->id))
                 || ($viewDocumentPermission == 'both' && ($file->added_by == user()->id || $file->user_id == user()->id)))
                     <x-file-card :fileName="$file->name" :dateAdded="$file->created_at->diffForHumans()">
+                        {{-- Click: images and PDFs open in the preview popup --}}
                         @if ($file->icon == 'images')
-                            <img src="{{ $file->doc_url }}">
+                            <a class="doc-preview" data-preview-url="{{ $file->doc_url }}" data-preview-kind="image" data-preview-name="{{ $file->name }}" href="javascript:;"><img src="{{ $file->doc_url }}"></a>
                         @else
-                            <i class="fa {{ $file->icon }} text-lightest"></i>
+                            <a data-doc-view data-preview-name="{{ $file->name }}" href="{{ $file->doc_url }}" target="_blank"><i class="fa {{ $file->icon }} text-lightest"></i></a>
                         @endif
                         <x-slot name="action">
                             <div class="dropdown ml-auto file-action">
@@ -87,7 +88,7 @@ $editDocumentPermission = user()->permission('edit_documents');
                                     || ($viewDocumentPermission == 'both' && ($file->added_by == user()->id || $file->user_id == user()->id)))
 
                                         <a class="cursor-pointer d-block text-dark-grey f-13 pt-3 px-3 "
-                                            target="_blank" href="{{ $file->doc_url }}">@lang('app.view')</a>
+                                            target="_blank" data-doc-view href="{{ $file->doc_url }}">@lang('app.view')</a>
 
                                         <a class="cursor-pointer d-block text-dark-grey f-13 py-3 px-3 "
                                             href="{{ route('employee-docs.download', md5($file->id)) }}">@lang('app.download')</a>

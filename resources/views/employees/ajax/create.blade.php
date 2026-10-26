@@ -550,7 +550,7 @@ $addDepartmentPermission = user()->permission('add_department');
                             </x-forms.select>
                         </div>
                         <div class="col-lg-3 col-md-6 d-none marriage_date">
-                            <x-forms.datepicker fieldId="marriage_anniversary_date"
+                            <x-forms.datepicker fieldId="marriage_anniversary_date" fieldRequired="true"
                                 :fieldLabel="__('modules.employees.marriageAnniversaryDate')"
                                 fieldName="marriage_anniversary_date" :fieldPlaceholder="__('placeholders.date')"/>
                         </div>

@@ -7,10 +7,15 @@
      Everything behind that - the data the run produces, the configuration and
      the history - sits in one Setup menu, grouped.
 
+     Each entry shows only to those holding its permission (Roles & Permissions
+     -> Attendance -> Biometric): HR sees the four tabs and, with the mapping
+     permission, Employee Mapping; device data, sync and logs are technical.
+
      $outstanding is the number of departed people still enrolled; the badge is
      only drawn when there are any. --}}
 @php
-    $outstanding = $outstanding ?? app(\App\Services\Iapp\Reports\DepartedEnrolments::class)->outstanding();
+    $bioAccess = \App\Http\Controllers\BiometricController::access();
+    $outstanding = $bioAccess['system'] ? ($outstanding ?? app(\App\Services\Iapp\Reports\DepartedEnrolments::class)->outstanding()) : 0;
     $openExceptions = \Illuminate\Support\Facades\Schema::hasTable('biometric_exceptions')
         ? \App\Models\BiometricException::where('status', 'open')->count() : 0;
 
@@ -19,13 +24,13 @@
         'review' => ['biometric.review', __('app.menu.dailyReview'), 'bi-clipboard-check'],
         'exceptions' => ['biometric.exceptions', __('app.menu.attendanceExceptions'), 'bi-exclamation-diamond'],
         'profile' => ['biometric.profile', __('app.menu.attendanceProfile'), 'bi-person-badge'],
+        'punch-log' => ['biometric.punch-log', __('app.menu.punchLog'), 'bi-fingerprint'],
     ];
 
     $setup = [
         'Data' => [
             'attendance' => ['biometric.attendance', __('app.menu.deviceAttendance')],
             'attendance-sync' => ['biometric.attendance-sync', __('app.menu.attendanceSync')],
-            'punch-log' => ['biometric.punch-log', __('app.menu.punchLog')],
         ],
         'Configure' => [
             'settings' => ['biometric-settings.index', __('app.menu.biometricSettings')],
@@ -40,7 +45,16 @@
             'actions' => ['biometric.actions', 'Departed enrolments'],
         ],
     ];
-    $setupKeys = array_merge(...array_map('array_keys', array_values($setup)));
+    // Who may open what: the mapping entries need the mapping permission, the rest is technical.
+    $needs = ['employees' => 'mapping', 'comparison' => 'mapping'];
+    $flow = $bioAccess['view'] ? $flow : [];
+
+    foreach ($setup as $group => $items) {
+        $setup[$group] = array_filter($items, fn ($key) => $bioAccess[$needs[$key] ?? 'system'], ARRAY_FILTER_USE_KEY);
+    }
+
+    $setup = array_filter($setup);
+    $setupKeys = $setup ? array_merge(...array_map('array_keys', array_values($setup))) : [];
 @endphp
 
 <style>
@@ -207,6 +221,7 @@
         </li>
     @endforeach
 
+    @if ($setup)
     <li class="nav-item dropdown ml-md-auto">
         <a class="nav-link dropdown-toggle {{ in_array($active, $setupKeys, true) ? 'active' : '' }}" data-toggle="dropdown" href="#" role="button">
             <i class="bi bi-gear"></i>Setup
@@ -229,4 +244,5 @@
             @endforeach
         </div>
     </li>
+    @endif
 </ul>

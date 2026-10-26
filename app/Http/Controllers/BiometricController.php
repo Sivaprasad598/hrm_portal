@@ -32,6 +32,7 @@ use App\Services\Iapp\Pipeline\AttendancePipeline;
 use App\Services\Iapp\Pipeline\PipelineStatus;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Read-only screens over the data pulled from the iApp biometric platform.
@@ -58,8 +59,36 @@ class BiometricController extends AccountBaseController
             // whole workforce's movements.
             abort_403(user()->permission('view_attendance') !== 'all');
 
+            // Then the Biometric permission this screen or action belongs to
+            // (Settings -> Roles & Permissions -> Attendance): HR sees and fixes
+            // the day-to-day; device data, sync and logs are technical.
+            $needs = self::ACTION_PERMISSIONS[$request->route()?->getActionMethod()] ?? 'manage_biometric_system';
+            abort_403(!collect((array) $needs)->contains(fn ($p) => user()->permission($p) === 'all'));
+
             return $next($request);
         });
+    }
+
+    /** Action => the permission it needs (any of a list). Anything not listed is technical. */
+    public const ACTION_PERMISSIONS = [
+        'overview' => 'view_biometric', 'review' => 'view_biometric', 'exceptions' => 'view_biometric', 'profile' => 'view_biometric',
+        'punchLog' => 'view_biometric',
+        'resolveReview' => 'manage_biometric_exceptions', 'runReview' => 'manage_biometric_exceptions',
+        'exceptionAction' => 'manage_biometric_exceptions', 'resyncDay' => 'manage_biometric_exceptions',
+        // "Get latest punches": HR's refresh, or the technical pull with any range.
+        'sync' => ['manage_biometric_exceptions', 'manage_biometric_system'],
+        'employees' => 'manage_biometric_mapping', 'syncEmployees' => 'manage_biometric_mapping', 'uploadMachineList' => 'manage_biometric_mapping',
+        'mapEmployee' => 'manage_biometric_mapping', 'bulkMapEmployees' => 'manage_biometric_mapping',
+        'comparison' => 'manage_biometric_mapping', 'createFromDevice' => 'manage_biometric_mapping',
+    ];
+
+    /** What the signed-in person may do here, for the screens to show only that. */
+    public static function access(): array
+    {
+        $can = fn ($p) => user()->permission($p) === 'all';
+
+        return ['view' => $can('view_biometric'), 'resolve' => $can('manage_biometric_exceptions'),
+            'mapping' => $can('manage_biometric_mapping'), 'system' => $can('manage_biometric_system')];
     }
 
     /**
@@ -138,6 +167,15 @@ class BiometricController extends AccountBaseController
         $to = Carbon::parse($endDate)->endOfDay();
         $empCode = trim((string) $request->emp_code) ?: null;
 
+        // HR's "Get latest punches" is yesterday and today, for everybody; a
+        // chosen range or person is the technical pull.
+        if (user()->permission('manage_biometric_system') !== 'all') {
+            $today = (new PipelineStatus())->today();
+            $from = $today->copy()->subDay()->startOfDay();
+            $to = $today->copy()->endOfDay();
+            $empCode = null;
+        }
+
         // A pull walks the feed 100 rows at a time and can run for minutes.
         // PHP holds the session file locked for a whole request, so without
         // this the rest of the UI freezes for the duration - every other page
@@ -178,6 +216,7 @@ class BiometricController extends AccountBaseController
     {
         $this->pageTitle = 'app.menu.dailyReview';
         $this->activeTab = 'review';
+        $this->canAct = user()->permission('manage_biometric_exceptions') === 'all';
 
         $tz = company()->timezone;
         $yesterday = now($tz)->subDay()->startOfDay();
@@ -318,7 +357,49 @@ class BiometricController extends AccountBaseController
             ->orderBy('employee_name')
             ->get(['emp_code', 'employee_name', 'user_id']);
 
+        $this->access = self::access();
+        $this->todayStats = $this->todayStats($status->today());
+
         return view('biometric.overview', $this->data);
+    }
+
+    /**
+     * Today at a glance, for HR: who is in, late, on leave, not in yet - as far
+     * as the punches pulled so far go.
+     */
+    protected function todayStats(Carbon $today): array
+    {
+        $tz = company()->timezone ?: 'Asia/Kolkata';
+        $from = Carbon::parse($today->toDateString(), $tz)->startOfDay()->utc();
+        $to = $from->copy()->addDay();
+
+        $active = DB::table('users as u')->join('employee_details as ed', 'ed.user_id', '=', 'u.id')
+            ->where('u.status', 'active')->whereExists(fn ($q) => $q->from('role_user as ru')->join('roles as r', 'r.id', '=', 'ru.role_id')
+                ->whereColumn('ru.user_id', 'u.id')->where('r.name', 'employee'))
+            ->where(fn ($q) => $q->whereNull('ed.joining_date')->orWhere('ed.joining_date', '<=', $today->toDateString()))
+            ->pluck('u.id');
+
+        $in = DB::table('attendances')->whereIn('user_id', $active)->whereBetween('clock_in_time', [$from, $to]);
+        $present = (clone $in)->distinct()->count('user_id');
+        $late = (clone $in)->where('late', 'yes')->distinct()->count('user_id');
+        $onLeave = DB::table('leaves')->whereIn('user_id', $active)->where('status', 'approved')
+            ->whereDate('leave_date', $today->toDateString())->distinct()->count('user_id');
+
+        // The company's default shift says whether today is worked and when it starts.
+        $shift = \App\Services\Attendance\ShiftResolver::shared((int) company()->id)->shiftOn(0, $today->toDateString());
+        $workingDay = \App\Services\Attendance\ShiftResolver::worksOn($shift, $today->toDateString());
+        $started = !$shift || empty($shift->office_start_time)
+            || now($tz)->gte(Carbon::parse($today->toDateString() . ' ' . $shift->office_start_time, $tz));
+
+        $holiday = \App\Models\Holiday::whereDate('date', $today->toDateString())->value('occassion');
+
+        return [
+            'date' => $today, 'active' => $active->count(), 'present' => $present, 'late' => $late, 'on_leave' => $onLeave,
+            'not_in' => max(0, $active->count() - $present - $onLeave),
+            'holiday' => $holiday, 'week_off' => !$workingDay,
+            // "Not in yet" is a concern only on a working day once the shift has begun.
+            'not_in_alert' => $workingDay && !$holiday && $started,
+        ];
     }
 
     /**
@@ -1294,7 +1375,7 @@ class BiometricController extends AccountBaseController
         $this->devices = $this->deviceOptions();
         $this->profileIds = IappEmployee::whereIn('emp_code', $this->exceptionRows->pluck('emp_code')->filter()->unique()->all())
             ->pluck('id', 'emp_code')->all();
-        $this->canAct = in_array(user()->permission('add_attendance'), ['all', 'added'], true);
+        $this->canAct = user()->permission('manage_biometric_exceptions') === 'all';
 
         return view('biometric.exceptions', $this->data);
     }

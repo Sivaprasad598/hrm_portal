@@ -171,36 +171,49 @@ class DataCleaner
     }
 
     /**
-     * What a clean of these items would remove, without removing anything.
-     * "linked" lists the rows of people being removed in tables not picked.
+     * What a clean of these items would remove, without removing anything: the
+     * removal itself is run inside a transaction and rolled back, so the figures
+     * are exact - the picked tables, the rows of people removed, and every row
+     * the database links take with them (a project takes its tasks, invoices
+     * and payments; a designation its promotion history).
      *
-     * @return array{items: array<string, int>, linked: array<string, int>}
+     * @return array{items: array<string, int>, linked: array<string, int>, cleared: array<string, int>, exact: bool}
      */
     public function preview(array $picked): array
     {
         $items = $this->resolve($picked);
-        $counts = $this->counts();
-        $linked = [];
+        $counts = array_intersect_key($this->counts(), array_flip($items));
 
-        if (in_array('@users', $items, true)) {
-            $keep = $this->keptUsers() ?: [0];
+        // A table that cannot roll back would really be emptied by the dry run.
+        $notTransactional = DB::table('information_schema.TABLES')->whereRaw('TABLE_SCHEMA = DATABASE()')
+            ->where('TABLE_TYPE', 'BASE TABLE')->where('ENGINE', '<>', 'InnoDB')->exists();
 
-            foreach ($this->perPersonTables() as $table) {
-                if (in_array($table, $items, true)) {
-                    continue;
-                }
-
-                $n = DB::table($table)->whereNotNull('user_id')->whereNotIn('user_id', $keep)->count();
-
-                if ($n) {
-                    $linked[$table] = $n;
-                }
-            }
-
-            arsort($linked);
+        if ($notTransactional) {
+            return ['items' => $counts, 'linked' => [], 'cleared' => [], 'exact' => false];
         }
 
-        return ['items' => array_intersect_key($counts, array_flip($items)), 'linked' => $linked];
+        DB::beginTransaction();
+
+        try {
+            $removed = $this->removeRows($items, $this->keptUsers() ?: [0], true);
+        } finally {
+            DB::rollBack();
+        }
+
+        $linked = $cleared = [];
+
+        foreach ($removed as $key => $n) {
+            if (str_ends_with($key, ' (link cleared)')) {
+                $cleared[substr($key, 0, -15)] = $n;
+            } elseif (!in_array($key, $items, true) && !in_array($key, ['users', 'roles', 'employee_shifts'], true)) {
+                $linked[$key] = $n;
+            }
+        }
+
+        arsort($linked);
+        arsort($cleared);
+
+        return ['items' => $counts, 'linked' => $linked, 'cleared' => $cleared, 'exact' => true];
     }
 
     /** Tables with a user_id column. */
@@ -272,6 +285,40 @@ class DataCleaner
     {
         $items = $this->resolve($picked);
         $keep = $this->keptUsers() ?: [$byUserId];
+        $removed = $this->removeRows($items, $keep, false);
+
+        // The Super Admin starts clean too.
+        if (in_array('@users', $items, true)) {
+            foreach ($keep as $userId) {
+                DB::table('employee_details')->where('user_id', $userId)->update(['employment_status' => 'confirmed', 'last_date' => null,
+                    'notice_period_start_date' => null, 'notice_period_end_date' => null, 'iapp_emp_code' => null]);
+                DB::table('users')->where('id', $userId)->update(['status' => 'active', 'login' => 'enable', 'inactive_date' => null]);
+                app(\App\Services\Employment\EmploymentPeriods::class)->ensure($userId);
+            }
+        }
+
+        $this->emptyFolders($items, $keep);
+
+        try {
+            Artisan::call('cache:clear');
+        } catch (\Throwable) {
+            // The data is clean either way.
+        }
+
+        Log::channel('single')->warning('Data Clean', ['by' => $byUserId, 'items' => $items, 'backup' => $backupPath, 'removed' => array_filter($removed)]);
+
+        return ['removed' => array_filter($removed), 'items' => $items, 'backup' => $backupPath];
+    }
+
+    /**
+     * The rows themselves: the picked tables and special items, then whatever
+     * the database links take with them. $dry: inside a preview's transaction,
+     * so nothing outside the database (role caches) is touched.
+     *
+     * @return array<string, int> table => rows removed; "table.column (link cleared)" => rows kept with the link emptied
+     */
+    protected function removeRows(array $items, array $keep, bool $dry): array
+    {
         $removed = [];
         $has = fn ($item) => in_array($item, $items, true);
 
@@ -299,7 +346,7 @@ class DataCleaner
                 $removed['roles'] = DB::table('roles')->whereIn('id', $custom)->delete();
 
                 // Whoever had one of them works with the base Employee role's permissions.
-                $employeeRole = Role::where('name', 'employee')->first();
+                $employeeRole = $dry ? null : Role::where('name', 'employee')->first();
                 foreach ($affected as $userId) {
                     if ($employeeRole && ($user = \App\Models\User::withoutGlobalScopes()->find($userId))) {
                         $user->assignUserRolePermission($employeeRole->id);
@@ -345,39 +392,21 @@ class DataCleaner
             // label at a deleted project). A dump of the database then fails on
             // import at "ADD CONSTRAINT" (#1452). Do what each foreign key would
             // have done: delete the row on CASCADE, clear the column on SET NULL.
-            $removed += $this->sweepOrphans();
+            foreach ($this->sweepOrphans() as $key => $n) {
+                $removed[$key] = ($removed[$key] ?? 0) + $n;
+            }
         } finally {
             DB::statement('SET FOREIGN_KEY_CHECKS=1');
         }
 
-        // The Super Admin starts clean too.
-        if ($has('@users')) {
-            foreach ($keep as $userId) {
-                DB::table('employee_details')->where('user_id', $userId)->update(['employment_status' => 'confirmed', 'last_date' => null,
-                    'notice_period_start_date' => null, 'notice_period_end_date' => null, 'iapp_emp_code' => null]);
-                DB::table('users')->where('id', $userId)->update(['status' => 'active', 'login' => 'enable', 'inactive_date' => null]);
-                app(\App\Services\Employment\EmploymentPeriods::class)->ensure($userId);
-            }
-        }
-
-        $this->emptyFolders($items, $keep);
-
-        try {
-            Artisan::call('cache:clear');
-        } catch (\Throwable) {
-            // The data is clean either way.
-        }
-
-        Log::channel('single')->warning('Data Clean', ['by' => $byUserId, 'items' => $items, 'backup' => $backupPath, 'removed' => array_filter($removed)]);
-
-        return ['removed' => array_filter($removed), 'items' => $items, 'backup' => $backupPath];
+        return $removed;
     }
 
     /**
      * Rows whose parent is gone, put right as their foreign key says.
      * Repeated until nothing changes: a delete can orphan rows further down.
      *
-     * @return array<string, int> "table.column (orphans)" => rows
+     * @return array<string, int> table => rows deleted; "table.column (link cleared)" => rows kept
      */
     public function sweepOrphans(): array
     {
@@ -397,12 +426,11 @@ class DataCleaner
                 $orphans = DB::table($fk->t)->whereNotNull($fk->c)
                     ->whereNotIn($fk->c, fn ($q) => $q->fromSub(DB::table($fk->rt)->select($fk->rc . ' as parent_id'), 'parents')->select('parent_id'));
 
-                $n = $fk->d === 'SET NULL' && $fk->n === 'YES'
-                    ? $orphans->update([$fk->c => null])
-                    : $orphans->delete();
+                $clear = $fk->d === 'SET NULL' && $fk->n === 'YES';
+                $n = $clear ? $orphans->update([$fk->c => null]) : $orphans->delete();
 
                 if ($n) {
-                    $key = $fk->t . '.' . $fk->c . ' (orphans)';
+                    $key = $clear ? $fk->t . '.' . $fk->c . ' (link cleared)' : $fk->t;
                     $fixed[$key] = ($fixed[$key] ?? 0) + $n;
                     $changed += $n;
                 }

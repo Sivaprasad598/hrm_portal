@@ -59,6 +59,7 @@ class GenerateDuePayslips extends Command
 
         $due = DB::table('users as u')
             ->join('employee_details as ed', 'ed.user_id', '=', 'u.id')
+            ->whereNotIn('u.id', \App\Services\Access\SystemAccounts::ids())   // not the Super Admin login
             ->where('u.status', 'active')
             ->where('u.employee_ctc', '>', 0)
             ->whereNotNull('ed.employee_card_id')

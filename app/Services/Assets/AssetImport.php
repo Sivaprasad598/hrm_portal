@@ -118,6 +118,7 @@ class AssetImport
         $branches = Branch::pluck('id', 'branch_name')->mapWithKeys(fn ($id, $name) => [mb_strtolower(trim($name)) => $id]);
         $existingCodes = Asset::pluck('asset_code')->map(fn ($c) => mb_strtolower($c))->flip();
         $employees = User::withoutGlobalScope(ActiveScope::class)->join('employee_details', 'employee_details.user_id', '=', 'users.id')
+            ->whereNotIn('users.id', \App\Services\Access\SystemAccounts::ids())   // not the Super Admin login
             ->get(['users.id', 'users.name', 'users.status', 'employee_details.employee_id'])
             ->filter(fn ($e) => $e->employee_id !== null && $e->employee_id !== '')
             ->keyBy(fn ($e) => mb_strtolower(trim($e->employee_id)));

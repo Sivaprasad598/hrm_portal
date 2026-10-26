@@ -169,6 +169,7 @@ class Separation
         $rows = [];
 
         foreach (DB::table('users as u')->join('employee_details as ed', 'ed.user_id', '=', 'u.id')
+            ->whereNotIn('u.id', \App\Services\Access\SystemAccounts::ids())   // not the Super Admin login
             ->orderBy('u.name')
             ->get(['u.id', 'u.name', 'u.email', 'u.status', 'u.login', 'ed.employee_card_id',
                 'ed.iapp_emp_code', 'ed.employment_status']) as $user) {

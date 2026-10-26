@@ -83,7 +83,7 @@
                 </x-forms.text>
             </div>
             <div class="col-md-4 col-sm-12">
-                <x-forms.datepicker fieldId="date_of_birth" :fieldLabel="__('modules.employees.dateOfBirth')"
+                <x-forms.datepicker fieldId="date_of_birth" :fieldLabel="__('modules.employees.dateOfBirth')" fieldRequired="true"
                     fieldName="date_of_birth" :fieldPlaceholder="__('placeholders.date')"
                     :fieldValue="$detail?->date_of_birth ? $detail->date_of_birth->format($dateFormat) : ''" />
             </div>

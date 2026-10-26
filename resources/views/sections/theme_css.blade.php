@@ -25,6 +25,13 @@
         font-size: 14px;
     }
 
+    /* The tab underline starts at the tab's own left edge: without it the bar
+       began after the link's padding and, being the tab's full width, ran into
+       the next tab (OT Bank's line under "More"). */
+    .project-header .project-menu .p-sub-menu::after {
+        left: 0;
+    }
+
     .project-header .project-menu .p-sub-menu.active:after,
     .project-header .project-menu .p-sub-menu::after,
     .qs-current, .datepicker table tr td.active.active {

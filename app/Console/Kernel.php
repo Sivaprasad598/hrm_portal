@@ -187,6 +187,8 @@ class Kernel extends ConsoleKernel
         // attendance (days already there from elsewhere are left alone), so
         // attendance is never more than an hour behind. Off with "Sync enabled".
         $schedule->command('iapp:sync-punches --scheduled --days=1 --push')->hourly()->withoutOverlapping(120)->runInBackground();
+        // Leave approval steps left undecided past the days in Leave Settings move on.
+        $schedule->command('leaves:escalate-approvals')->hourly()->withoutOverlapping(30);
         // Employees' own shifts, written into the roster 60 days ahead (ShiftAssignments).
         $schedule->command('shifts:extend')->dailyAt('00:30');
         // Asset services / warranties / renewals coming due: bell only, never email.

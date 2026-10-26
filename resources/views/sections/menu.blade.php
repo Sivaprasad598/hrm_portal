@@ -13,7 +13,32 @@
             : null;
 @endphp
 
-@if ($databaseMenus === null)
+@php
+    // Employees (anyone without a managing role) get four single links, no
+    // groups: their dashboard, leave, payslips and the assets they hold.
+    $selfService = !array_intersect(['admin', 'hr', 'manager_admin', 'ceo', 'cfo', 'client'], user_roles());
+    $selfLinks = !$selfService ? [] : array_filter([
+        ['Dashboard', route('dashboard'), 'bi bi-house', request()->routeIs('dashboard')],
+        in_array('leaves', user_modules()) && user()->permission('view_leave') !== 'none' && user()->permission('view_leave') !== false
+            ? ['Leaves', route('leaves.index'), 'bi bi-calendar-check', request()->routeIs('leaves.*')] : null,
+        ['My Payslips', route('my-payslips.index'), 'bi bi-receipt', request()->routeIs('my-payslips.*')],
+        user()->employeeDetail ? ['My Assets', route('employees.show', user()->id) . '?tab=assets', 'bi bi-laptop',
+            request()->routeIs('employees.show') && request('tab') === 'assets'] : null,
+    ]);
+@endphp
+
+@if ($selfService)
+    <ul class="list-unstyled p-0 m-0">
+        @foreach ($selfLinks as [$label, $url, $icon, $active])
+            <li class="accordionItem closeIt">
+                <a class="nav-item text-lightest f-15 sidebar-text-color {{ $active ? 'active' : '' }}" href="{{ $url }}" title="{{ $label }}">
+                    <i class="side-icon {{ $icon }}" aria-hidden="true"></i>
+                    <span class="pl-3">{{ $label }}</span>
+                </a>
+            </li>
+        @endforeach
+    </ul>
+@elseif ($databaseMenus === null)
     @include('sections.menu-legacy')
 @else
     <ul class="list-unstyled p-0 m-0">

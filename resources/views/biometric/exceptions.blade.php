@@ -151,7 +151,9 @@
                                         <a href="{{ route('biometric.profile', ['employee' => $profileIds[$row->emp_code], 'start_date' => $row->date->toDateString(), 'end_date' => $row->date->toDateString()]) }}"
                                            class="btn btn-sm btn-outline-secondary f-11">View day</a>
                                     @endif
-                                    @if ($row->type === 'unlinked_code')
+                                    @if (!user() || user()->permission('manage_biometric_mapping') !== 'all')
+                                        {{-- Linking codes is for those with Biometric: Link Device Codes --}}
+                                    @elseif ($row->type === 'unlinked_code')
                                         <a href="{{ route('biometric.employees', ['search' => $row->emp_code]) }}" class="btn btn-sm btn-outline-secondary f-11">Link</a>
                                     @elseif ($row->type === 'mapping_conflict')
                                         <a href="{{ route('biometric.employees', ['map_status' => 'attention', 'search' => $row->emp_code]) }}" class="btn btn-sm btn-outline-secondary f-11">Fix on Employee Mapping</a>

@@ -182,9 +182,11 @@
                         @lang('app.addEmployee')
                     </x-forms.link-primary>
 
+                    {{-- Hidden: employees are added (or imported), not invited by email.
                     <x-forms.button-secondary class="mr-3 invite-member mb-2 mb-lg-0" icon="plus">
                         @lang('app.inviteEmployee')
                     </x-forms.button-secondary>
+                    --}}
                 @endif
 
                 @if ($addEmployeePermission == 'all')

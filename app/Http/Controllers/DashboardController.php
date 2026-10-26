@@ -57,21 +57,21 @@ class DashboardController extends AccountBaseController
 
         $this->isCheckScript();
         session()->forget(['qr_clock_in']);
-        if (in_array('employee', user_roles())) {
-
-            $this->viewOverviewDashboard = user()->permission('view_overview_dashboard');
-            $this->viewProjectDashboard = user()->permission('view_project_dashboard');
-            $this->viewClientDashboard = user()->permission('view_client_dashboard');
-            $this->viewHRDashboard = user()->permission('view_hr_dashboard');
-            $this->viewTicketDashboard = user()->permission('view_ticket_dashboard');
-            $this->viewFinanceDashboard = user()->permission('view_finance_dashboard');
-
-            return $this->employeeDashboard();
-        }
 
         if (in_array('client', user_roles())) {
             return $this->clientPanelDashboard();
         }
+
+        // Everybody else lands on their private dashboard after login - the
+        // Super Admin too, who is not an employee (it came back empty for them).
+        $this->viewOverviewDashboard = user()->permission('view_overview_dashboard');
+        $this->viewProjectDashboard = user()->permission('view_project_dashboard');
+        $this->viewClientDashboard = user()->permission('view_client_dashboard');
+        $this->viewHRDashboard = user()->permission('view_hr_dashboard');
+        $this->viewTicketDashboard = user()->permission('view_ticket_dashboard');
+        $this->viewFinanceDashboard = user()->permission('view_finance_dashboard');
+
+        return $this->employeeDashboard();
     }
 
     /**

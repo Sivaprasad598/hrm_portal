@@ -38,6 +38,8 @@ class BiometricSettingController extends AccountBaseController
             // that connects them. manage_attendance_setting is the permission
             // that matches what this page is.
             abort_403(user()->permission('manage_attendance_setting') !== 'all');
+            // The device connection, the nightly run and the automation: technical.
+            abort_403(user()->permission('manage_biometric_system') !== 'all');
 
             return $next($request);
         });

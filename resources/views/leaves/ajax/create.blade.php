@@ -82,7 +82,7 @@
                                 @endif
                             </select>
 
-                            @if ($addLeadAgentPermission == 'all' || $addLeadAgentPermission == 'added')
+                            @if (($canApplyForOthers ?? false) && ($addLeadAgentPermission == 'all' || $addLeadAgentPermission == 'added'))
                                 <x-slot name="append">
                                     <button type="button"
                                         class="btn btn-outline-secondary border-grey add-lead-type2"
@@ -92,7 +92,8 @@
                         </x-forms.input-group>
                     </div>
 
-                    @if ($approveRejectPermission == 'all')
+                    {{-- One's own leave goes in as Pending; the status is set when it is approved. --}}
+                    @if ($approveRejectPermission == 'all' && ($canApplyForOthers ?? false))
                         <div class="col-lg-4 col-md-6">
                             <x-forms.select fieldId="status" :fieldLabel="__('app.status')" fieldName="status" search="true">
                                 <option value="pending" @selected(($prefillStatus ?? 'pending') === 'pending')>@lang('app.pending')</option>
@@ -431,7 +432,8 @@
                     disableButton: true,
                     blockUI: true,
                     buttonSelector: "#save-leave-form",
-                    data: $('#save-lead-data-form').serialize()+'&multiStartDate='+startDate + '&multiEndDate='+endDate + '&markLeave='+markleave,
+                    data: $('#save-lead-data-form').serialize()+'&multiStartDate='+startDate + '&multiEndDate='+endDate + '&markLeave='+markleave
+                        + '&has_file=' + (myDropzone.getQueuedFiles().length ? 1 : 0),
                     success: function(response) {
                         if (response.status == 'success') {
                             $('#leaveID').val(response.leaveIds);

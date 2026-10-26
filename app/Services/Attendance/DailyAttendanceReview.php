@@ -47,6 +47,7 @@ class DailyAttendanceReview
 
         $employees = DB::table('users as u')
             ->join('employee_details as ed', 'ed.user_id', '=', 'u.id')
+            ->whereNotIn('u.id', \App\Services\Access\SystemAccounts::ids())   // not the Super Admin login
             ->where('u.status', 'active')
             ->where(fn ($q) => $q->whereNull('ed.joining_date')->orWhereDate('ed.joining_date', '<=', $key))
             ->where(fn ($q) => $q->whereNull('ed.last_date')->orWhereDate('ed.last_date', '>=', $key))

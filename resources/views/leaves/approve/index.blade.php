@@ -1,5 +1,5 @@
 <div class="modal-header">
-    <h5 class="modal-title" id="modelHeading">@lang('app.leavesApproveReason')</h5>
+    <h5 class="modal-title" id="modelHeading">{{ !empty($override) ? 'Approve before the ' . ($waitingFor ?? 'manager') : __('app.leavesApproveReason') }}</h5>
     <button type="button"  class="close" data-dismiss="modal" aria-label="Close"><span
             aria-hidden="true">×</span></button>
 </div>
@@ -10,7 +10,10 @@
                 <div class="row">
                     <div class="col-md-12">
                         <div class="form-group my-3">
-                            <x-forms.textarea class="mr-0 mr-lg-2 mr-md-2" :fieldLabel="__('app.reason')"
+                            @if (!empty($override))
+                                <p class="f-13 text-dark-grey mb-2">It is still waiting for the {{ $waitingFor ?? 'manager' }}. Approving now ends the remaining steps; say why.</p>
+                            @endif
+                            <x-forms.textarea class="mr-0 mr-lg-2 mr-md-2" :fieldLabel="!empty($override) ? 'Note (required)' : __('app.reason')"
                                 fieldName="approve_reason" fieldId="approve_reason">
                             </x-forms.textarea>
                         </div>
@@ -45,7 +48,8 @@
                 '_token': '{{ csrf_token() }}',
                 'approveReason': approve_reason,
                 'userId': userId,
-                'type' : type
+                'type' : type,
+                'override': {{ !empty($override) ? 1 : 0 }}
             },
             success: function(response) {
                 if (response.status == "success") {

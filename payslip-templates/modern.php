@@ -250,12 +250,12 @@ if (!empty($ytdSource['label'])) {
   .sign .for { color: #374151; font-weight: bold; }
 
   .foot {
-    margin-top: 10px;
-    padding-top: 7px;
+    margin-top: 16px;
+    padding-top: 9px;
     border-top: 1px solid #eef1f6;
     text-align: center;
-    color: #9aa6b8;
-    font-size: 7.5px;
+    color: #6b7280;
+    font-size: 9px;
   }
 </style>
 </head>
@@ -419,25 +419,9 @@ if (!empty($ytdSource['label'])) {
     <div class="note"><?= $payslip['note'] ?></div>
   <?php } ?>
 
-  <table class="sign">
-    <tr>
-      <td width="45%" class="box"></td>
-      <td></td>
-      <td width="45%" class="box right">
-        <img src="<?= e($asset('img/sign and stamp.png')) ?>" width="108" height="72" alt="">
-      </td>
-    </tr>
-    <tr>
-      <td class="line">Employee signature</td>
-      <td></td>
-      <td class="line right">
-        <span class="for">For <?= e($company['name'] ?? 'the company') ?></span>
-      </td>
-    </tr>
-  </table>
-
+  <?php /* No sign or stamp: the payslip is computer-generated. */ ?>
   <div class="foot">
-    This is a computer-generated payslip and does not require a physical signature.
+    This is a computer-generated payslip issued by <?= e($company['name'] ?? 'the company') ?>. No signature is required.
   </div>
 
 </div>

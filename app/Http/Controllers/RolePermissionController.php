@@ -129,6 +129,10 @@ class RolePermissionController extends AccountBaseController
             );
         }
 
+        // The sidebar follows: the menus that need this permission join, or
+        // leave, the role's menus (Settings -> Assign Menus).
+        \App\Services\Access\MenuPermissions::permissionChanged((int) $roleId, (int) $permissionId, (int) $permissionType);
+
         \Illuminate\Support\Facades\Artisan::call('cache:clear');
 
         return Reply::success(__('messages.updateSuccess'));

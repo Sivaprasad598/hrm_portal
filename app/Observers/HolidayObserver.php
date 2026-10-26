@@ -32,6 +32,7 @@ class HolidayObserver
     {
         if (request()->notification_sent == 'yes') {
             $users = User::join('employee_details', 'employee_details.user_id', '=', 'users.id')
+                ->whereNotIn('users.id', \App\Services\Access\SystemAccounts::ids())   // not the Super Admin login
                 ->leftJoin('designations', 'employee_details.designation_id', '=', 'designations.id')
                 ->select('users.id', 'users.company_id', 'users.name', 'users.email', 'users.created_at', 'users.image', 'designations.name as designation_name', 'users.email_notifications', 'users.mobile', 'users.country_id', 'users.status');
 

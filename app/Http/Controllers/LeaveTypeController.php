@@ -83,6 +83,7 @@ class LeaveTypeController extends AccountBaseController
         $leaveType->designation = $request->designation ? json_encode($request->designation) : null;
         $leaveType->role = $request->role ? json_encode($request->role) : null;
         $this->applyYearEndFields($leaveType, $request);
+        \App\Services\Leaves\LeaveRules::fill($leaveType, $request);
         $leaveType->save();
 
         $leaveTypes = LeaveType::get();
@@ -177,6 +178,7 @@ class LeaveTypeController extends AccountBaseController
         $leaveType->designation = $request->designation ? json_encode($request->designation) : null;
         $leaveType->role = $request->role ? json_encode($request->role) : null;
         $this->applyYearEndFields($leaveType, $request);
+        \App\Services\Leaves\LeaveRules::fill($leaveType, $request);
         $leaveType->save();
 
         return Reply::success(__('messages.leaveTypeAdded'));

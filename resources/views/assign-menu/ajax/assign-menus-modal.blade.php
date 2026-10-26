@@ -12,6 +12,25 @@
         </div>
     @endif
 
+    @php
+        // The permission a linked entry needs, as a badge: grey when the role holds it,
+        // red when it does not (saving with the entry ticked grants it).
+        $needBadge = function ($id) use ($menuStatus) {
+            $s = $menuStatus[$id] ?? null;
+
+            return $s ? '<span class="badge ' . ($s['holds'] ? 'badge-light border text-dark-grey' : 'badge-danger') . ' ml-2 f-10 font-weight-normal" title="'
+                . e($s['holds'] ? 'The role holds this permission.' : 'The role does not hold this permission: the menu stays hidden. Save with it ticked to grant it.') . '">'
+                . ($s['holds'] ? '' : 'needs ') . e($s['label']) . '</span>' : '';
+        };
+    @endphp
+
+    @if ($role->id != 1)
+        <div class="alert alert-light border f-12 mb-3 flex-shrink-0">
+            Each menu shows the permission it needs. <span class="badge badge-danger f-10">needs …</span> means this role cannot open it yet;
+            save with it ticked and the permission is given. Changing a permission in Roles &amp; Permissions updates these menus too.
+        </div>
+    @endif
+
     {{-- ==================== QUICK ACTIONS ==================== --}}
     @if ($role->id != 1)
         <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap flex-shrink-0">
@@ -46,7 +65,7 @@
                     <label class="custom-control-label font-weight-bold text-dark"
                            for="menu_{{ $mainMenu->id }}" style="cursor: pointer; font-size: 15px;">
                         <i class="fa fa-folder{{ $mainMenu->children->count() > 0 ? '-open' : '' }} text-warning mr-1"></i>
-                        {{ $mainMenu->name }}
+                        {{ $mainMenu->name }}{!! $needBadge($mainMenu->id) !!}
                     </label>
                 </div>
 
@@ -63,7 +82,7 @@
                                     <label class="custom-control-label text-secondary"
                                            for="menu_{{ $subMenu->id }}" style="cursor: pointer;">
                                         <i class="fa fa-level-up-alt fa-rotate-90 text-info mr-1"></i>
-                                        {{ $subMenu->name }}
+                                        {{ $subMenu->name }}{!! $needBadge($subMenu->id) !!}
                                     </label>
                                 </div>
 
@@ -80,7 +99,7 @@
                                                     <label class="custom-control-label text-muted"
                                                            for="menu_{{ $childMenu->id }}" style="cursor: pointer;">
                                                         <i class="fa fa-circle-notch text-muted mr-1" style="font-size: 10px;"></i>
-                                                        {{ $childMenu->name }}
+                                                        {{ $childMenu->name }}{!! $needBadge($childMenu->id) !!}
                                                     </label>
                                                 </div>
                                             </div>

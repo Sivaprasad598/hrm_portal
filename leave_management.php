@@ -89,16 +89,22 @@ if ($companyId > 0) {
             $noOfLeaves = (float) $leaveTypeRow->no_of_leaves;
             $monthlyLimit = (float) $leaveTypeRow->monthly_limit;
 
+            // The exact monthly share (8 a year is 0.666.. a month, not 0.67):
+            // rounded, twelve months of it came to 8.04. Rounding is for display.
             if ($leaveTypeRow->leavetype === 'monthly') {
                 $monthlyAllocation = $noOfLeaves;
+                $yearlyAllocation = $noOfLeaves * 12;
             } elseif ($leaveTypeRow->leavetype === 'yearly') {
-                $monthlyAllocation = $monthlyLimit > 0 ? $monthlyLimit : round($noOfLeaves / 12, 2);
+                $monthlyAllocation = $monthlyLimit > 0 ? $monthlyLimit : $noOfLeaves / 12;
+                $yearlyAllocation = $noOfLeaves;
             } else {
                 $monthlyAllocation = 999999; // unlimited
+                $yearlyAllocation = null;
             }
 
             $policy[$key] = [
                 'monthlyAllocation' => $monthlyAllocation,
+                'yearlyAllocation' => $yearlyAllocation,
                 'carryForward' => $leaveTypeRow->unused_leave === 'carry forward',
                 'halfDayRate' => 2, // matches the app-wide 0.5-day half-day convention (LeaveHelper.php)
                 'fixedDays' => $noOfLeaves,
@@ -1492,14 +1498,14 @@ $employeesJson = json_encode(array_map(function ($employee) {
                 icon: 'fa-calendar-alt',
                 color: 'blue',
                 label: 'Total CL (alloc.)',
-                value: totals.totalCLAllocated,
-                sub: 'per month'
+                value: POLICY.cl.yearlyAllocation ?? totals.totalCLAllocated,
+                sub: 'for the year'
             }, {
                 icon: 'fa-calendar-check',
                 color: 'green',
                 label: 'Total SL (alloc.)',
-                value: totals.totalSLAllocated,
-                sub: 'per month'
+                value: POLICY.sl.yearlyAllocation ?? totals.totalSLAllocated,
+                sub: 'for the year'
             }, {
                 icon: 'fa-clock',
                 color: 'amber',
@@ -1546,7 +1552,7 @@ $employeesJson = json_encode(array_map(function ($employee) {
                         </div>
                         <div class="info">
                             <div class="label">${item.label}</div>
-                            <div class="value">${item.value} <span class="sub">${item.sub}</span></div>
+                            <div class="value">${num(item.value)} <span class="sub">${item.sub}</span></div>
                         </div>
                     </div>
                 `).join('');
@@ -1561,14 +1567,14 @@ $employeesJson = json_encode(array_map(function ($employee) {
                 cls: 'cl',
                 icon: 'fa-user-check',
                 name: 'Casual Leave (CL)',
-                desc: `${POLICY.cl.carryForward ? 'Carries forward' : 'No carry forward'} • ${POLICY.cl.monthlyAllocation} per month`,
-                badge: `${totals.totalCLRemaining} remaining`
+                desc: `${POLICY.cl.carryForward ? 'Carries forward' : 'No carry forward'} • ${num(POLICY.cl.monthlyAllocation)} per month`,
+                badge: `${num(totals.totalCLRemaining)} remaining`
             }, {
                 cls: 'sl',
                 icon: 'fa-user-md',
                 name: 'Sick Leave (SL)',
-                desc: `${POLICY.sl.carryForward ? 'Carries forward' : 'No carry forward'} • ${POLICY.sl.monthlyAllocation} per month`,
-                badge: `${totals.totalSLRemaining} remaining`
+                desc: `${POLICY.sl.carryForward ? 'Carries forward' : 'No carry forward'} • ${num(POLICY.sl.monthlyAllocation)} per month`,
+                badge: `${num(totals.totalSLRemaining)} remaining`
             }, {
                 cls: 'marriage',
                 icon: 'fa-ring',
@@ -1580,7 +1586,7 @@ $employeesJson = json_encode(array_map(function ($employee) {
                 icon: 'fa-exclamation-circle',
                 name: 'Loss of Pay (LOP)',
                 desc: 'Unpaid leave when balances exhausted',
-                badge: `${totals.totalLOP} days`
+                badge: `${num(totals.totalLOP)} days`
             }, ];
 
             const leaveTypesContainer = document.getElementById('leaveTypes');
@@ -1608,7 +1614,7 @@ $employeesJson = json_encode(array_map(function ($employee) {
         if (policyNote) {
             policyNote.innerHTML = `
                 <span class="highlight">CL</span> ${POLICY.cl.carryForward ? 'carries forward (unused accumulates)' : 'does <strong>not</strong> carry forward'}.
-                <span class="highlight">SL</span> ${POLICY.sl.carryForward ? 'carries forward' : 'does <strong>not</strong> carry forward — resets to ' + POLICY.sl.monthlyAllocation + ' each month'}.
+                <span class="highlight">SL</span> ${POLICY.sl.carryForward ? 'carries forward' : 'does <strong>not</strong> carry forward — resets to ' + num(POLICY.sl.monthlyAllocation) + ' each month'}.
                 <span class="highlight">${POLICY.sl.halfDayRate} Half‑Days</span> = 1 SL. If SL exhausted, deduct from CL → then Carry Fwd CL → else <span class="highlight-danger">LOP</span>.
                 <span class="highlight">Marriage Leave</span>: ${POLICY.marriage.fixedDays} days paid (one‑time).
             `;
@@ -1618,7 +1624,14 @@ $employeesJson = json_encode(array_map(function ($employee) {
         //  RENDER TABLE
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+        // Every figure shown: at most two decimals, no floating-point tail (8.04000000000001).
+        function num(value) {
+            const n = Number(value);
+            return Number.isFinite(n) ? Math.round(n * 100) / 100 : value;
+        }
+
         function badgeHtml(value, type) {
+            value = num(value);
             if (type === 'pending' && value > 0) return `<span class="badge-pending">${value}</span>`;
             if (type === 'used' && value > 0) return `<span class="badge-used">${value}</span>`;
             if (type === 'available' && value > 0) return `<span class="badge-available">${value}</span>`;
@@ -1703,7 +1716,7 @@ $employeesJson = json_encode(array_map(function ($employee) {
                         </div>
                         <div class="info">
                             <div class="label">${item.label}</div>
-                            <div class="value">${item.value} <span class="sub">${item.sub}</span></div>
+                            <div class="value">${num(item.value)} <span class="sub">${item.sub}</span></div>
                         </div>
                     </div>
                 `).join('');

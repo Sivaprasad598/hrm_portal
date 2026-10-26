@@ -308,6 +308,7 @@ class PayrollRunController extends AccountBaseController
             ->leftJoin('designations as d', 'd.id', '=', 'ed.designation_id')
             ->leftJoin('teams as t', 't.id', '=', 'ed.department_id')
             ->where('u.status', 'active')
+            ->whereNotIn('u.id', \App\Services\Access\SystemAccounts::ids())   // not the Super Admin login
             // People created from the biometric devices have no salary on record
             // yet; payroll is about who is being paid, so they are left out
             // unless they are asked for by name or "include everyone" is ticked.
@@ -435,7 +436,8 @@ class PayrollRunController extends AccountBaseController
     {
         $active = DB::table('users as u')
             ->join('employee_details as ed', 'ed.user_id', '=', 'u.id')
-            ->where('u.status', 'active');
+            ->where('u.status', 'active')
+            ->whereNotIn('u.id', \App\Services\Access\SystemAccounts::ids());   // not the Super Admin login
 
         $noCtc = (clone $active)
             ->where(fn ($q) => $q->whereNull('u.employee_ctc')->orWhere('u.employee_ctc', '<=', 0))
@@ -503,6 +505,7 @@ class PayrollRunController extends AccountBaseController
         return DB::table('users as u')
             ->join('employee_details as ed', 'ed.user_id', '=', 'u.id')
             ->where('u.status', 'active')
+            ->whereNotIn('u.id', \App\Services\Access\SystemAccounts::ids())   // not the Super Admin login
             ->orderBy('u.name')
             ->get(['u.id', 'u.name', 'ed.employee_id']);
     }

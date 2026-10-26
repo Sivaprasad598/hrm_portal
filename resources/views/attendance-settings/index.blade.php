@@ -24,7 +24,7 @@ $manageShiftPermission = user()->permission('manage_employee_shifts');
                             @if ($manageShiftPermission == 'all')
                                 <a class="nav-item nav-link f-15 shift"
                                     href="{{ route('attendance-settings.index') }}?tab=shift" role="tab"
-                                    aria-controls="nav-ticketTypes" aria-selected="true">@lang('app.menu.employeeShifts')
+                                    aria-controls="nav-ticketTypes" aria-selected="true">Shifts
                                 </a>
                                 <a class="nav-item nav-link f-15 shift-rotation"
                                     href="{{ route('attendance-settings.index') }}?tab=shift-rotation" role="tab"
@@ -32,15 +32,7 @@ $manageShiftPermission = user()->permission('manage_employee_shifts');
                                 </a>
                             @endif
 
-                            <a class="nav-item nav-link f-15 qrcode"
-                            href="{{ route('attendance-settings.index') }}?tab=qrcode"  role="tab"
-                            aria-controls="nav-ticketTy" aria-selected="true">@lang('app.qrCode')
-                            </a>
-
-                            <a class="nav-item nav-link f-15 regularisation"
-                            href="{{ route('attendance-settings.index') }}?tab=regularisation"  role="tab"
-                            aria-controls="nav-ticketTy" aria-selected="true">@lang('clan.attendance.attendanceRegularisation')
-                            </a>
+                            {{-- QR Code and Attendance Regularisation are not used here (hidden; the code stays). --}}
 
                             <a class="nav-item nav-link f-15 working-hours"
                             href="{{ route('attendance-settings.index') }}?tab=working-hours"  role="tab"
