@@ -86,8 +86,14 @@ class Handler extends ExceptionHandler
     public function render($request, Throwable $exception)
     {
         if ($exception instanceof TokenMismatchException) {
+            // A background request from a page whose session has since changed
+            // (signed out, or signed in as someone else in another tab): say so
+            // to that page, rather than leaving the message for the next login page
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json(['status' => 'fail', 'message' => __('Your session has ended. Please refresh the page and sign in again.')], 419);
+            }
 
-            return redirect(route('login'))->with('message', 'You page session expired. Please try again');
+            return redirect(route('login'))->with('message', 'Your session expired. Please sign in again.');
         }
 
         return parent::render($request, $exception);

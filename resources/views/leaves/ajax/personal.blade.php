@@ -15,50 +15,62 @@
 <!-- TAB CONTENT START -->
 <div class="tab-pane fade show active mt-5" role="tabpanel" aria-labelledby="nav-email-tab">
 
-    <div class="row mb-4">
-        <div class="col-lg-4">
-            <x-cards.user :image="$employee->image_url">
-                <div class="row">
-                    <div class="col-10">
-                        <h4 class="card-title f-15 f-w-500 text-darkest-grey mb-0">
-                            {{ ($employee->salutation ? $employee->salutation->label() . ' ' : '') . $employee->name }}
-                            @isset($employee->country)
-                                <x-flag :country="$employee->country" />
-                            @endisset
-                        </h4>
+    {{-- The balance at a glance: the total left, then each leave type - what is
+         left of what was given and a bar of what is used. The person's own
+         details are not repeated here (they are in the profile). --}}
+    @php
+        $balanceTypes = collect($hasLeaveQuotas ? $allowedEmployeeLeavesQuotas : [])
+            ->filter(fn ($quota) => $quota->leaveType && !$quota->leaveType->deleted_at)
+            ->map(function ($quota) {
+                $type = $quota->leaveType;
+                $unlimited = method_exists($type, 'isUnlimited') && $type->isUnlimited();
+                $breakdown = $quota->quotaDisplay['breakdown'];
+                $given = (float) $breakdown['total_allocated'];
+
+                return [
+                    'name' => $type->type_name,
+                    'color' => $type->color,
+                    'paid' => $type->paid == 1,
+                    'unlimited' => $unlimited,
+                    'left' => $breakdown['total_remaining'],
+                    'given' => $breakdown['total_allocated'],
+                    'used' => $quota->leaves_used,
+                    'usedPct' => $unlimited || $given <= 0 ? 0 : min(100, round($quota->leaves_used / $given * 100)),
+                ];
+            })->values();
+    @endphp
+
+    <div class="leave-balance bg-white mb-4">
+        <div class="leave-balance__total">
+            <span class="leave-balance__label">@lang('modules.leaves.remainingLeaves')</span>
+            <span class="leave-balance__figure">{{ $allowedLeaves }}</span>
+            <span class="leave-balance__sub">days left this year, all types</span>
+        </div>
+
+        <div class="leave-balance__types">
+            @forelse ($balanceTypes as $type)
+                <div class="leave-balance__type">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="leave-balance__name">
+                            <i style="background: {{ $type['color'] }}"></i>{{ $type['name'] }}
+                        </span>
+                        <span class="leave-balance__tag {{ $type['paid'] ? '' : 'is-unpaid' }}">{{ $type['paid'] ? __('app.paid') : __('app.unpaid') }}</span>
                     </div>
 
+                    @if ($type['unlimited'])
+                        <div class="leave-balance__left">&infin;</div>
+                        <div class="leave-balance__of">{{ $type['used'] }} taken</div>
+                    @else
+                        <div class="leave-balance__left">{{ $type['left'] }} <small>of {{ $type['given'] }}</small></div>
+                        <div class="leave-balance__bar"><span style="width: {{ $type['usedPct'] }}%; background: {{ $type['color'] }}"></span></div>
+                        <div class="leave-balance__of">{{ $type['used'] }} taken</div>
+                    @endif
                 </div>
-
-                <p class="f-13 font-weight-normal text-dark-grey mb-0">
-                    {{ !is_null($employee->employeeDetail) && !is_null($employee->employeeDetail->designation) ? $employee->employeeDetail->designation->name : '' }}
-                    &bull;
-                    {{ isset($employee->employeeDetail) && !is_null($employee->employeeDetail->department) && !is_null($employee->employeeDetail->department) ? $employee->employeeDetail->department->team_name : '' }}
-                </p>
-
-                @if ($employee->status == 'active')
-                    <p class="card-text f-12 text-lightest">@lang('app.lastLogin')
-
-                        @if (!is_null($employee->last_login))
-                            {{ $employee->last_login->timezone(company()->timezone)->translatedFormat(company()->date_format . ' ' . company()->time_format) }}
-                        @else
-                            --
-                        @endif
-                    </p>
-
-                @else
-                    <p class="card-text f-12 text-lightest">
-                        <x-status :value="__('app.inactive')" color="red" />
-                    </p>
-                @endif
-
-            </x-cards.user>
-        </div>
-        <div class="col-lg-4">
-            <x-cards.widget icon="sign-out-alt" :title="__('modules.leaves.remainingLeaves')" :value="$allowedLeaves" />
+            @empty
+                <p class="text-dark-grey mb-0">No leave types are given to you yet.</p>
+            @endforelse
         </div>
     </div>
-
 
     <x-cards.data :title="__('app.menu.leavesQuota')">
 

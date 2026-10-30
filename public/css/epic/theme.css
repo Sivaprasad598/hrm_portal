@@ -1,0 +1,1910 @@
+/* ==========================================================================
+   Epic HR (theme1) look for the portal.
+
+   Only the look: the portal's own markup, classes and scripts are untouched,
+   and this file is loaded last so it wins. Everything sits under body.epic,
+   which the layout sets for the light theme - the dark theme keeps its own.
+
+   Taken from theme-src/epic_theme/html-version/assets/css (main.css and
+   theme1.css): the 60px green icon strip, the white menu panel to 280px,
+   the dark top bar, the #f3f3f9 page, flat white cards with gradient titles,
+   blue primary and green secondary.
+   ========================================================================== */
+
+:root {
+    --app-font: 'Plus Jakarta Sans', 'Segoe UI', Arial, sans-serif;
+    /* The colours: set here as the template's, replaced by Settings > Theme
+       Settings > Epic colours (sections/epic-colors) when chosen there */
+    --epic-blue: #3d78e3;
+    --epic-green: #67b173;
+    --epic-dark: #212529;
+    --epic-strip-bg: var(--epic-green);
+    /* the open item in the strip: white on the template's green; the primary
+       colour once colours are chosen (EpicColors::css) */
+    --epic-strip-active: #fff;
+    --epic-strip-active-text: var(--epic-dark);
+    --epic-blue-hover: color-mix(in srgb, var(--epic-blue) 82%, #000);
+    --epic-gradient: linear-gradient(145deg, var(--epic-blue), var(--epic-green));
+    --epic-page: #f3f3f9;
+    --epic-line: #e8e9e9;
+    --epic-muted: #878a99;
+    --epic-text: #212529;
+    --epic-strip: 60px;
+    --epic-panel: 280px;
+
+    /* The portal's own theme variables, pointed at the same colours */
+    --brand-primary: var(--epic-blue);
+    --brand-hover: var(--epic-blue-hover);
+    --sidebar-active: var(--epic-blue);
+    --page-bg: #f3f3f9;
+    --header_color: var(--epic-blue);
+}
+
+/* --------------------------------------------------------------------------
+   Page
+   -------------------------------------------------------------------------- */
+body.epic {
+    background: var(--epic-page);
+    color: var(--epic-text);
+}
+
+body.epic .main-container,
+body.epic .bg-additional-grey,
+body.epic .content-wrapper {
+    background: var(--epic-page) !important;
+}
+
+body.epic a { color: var(--epic-green); }
+body.epic a:hover { color: var(--epic-blue); }
+
+/* --------------------------------------------------------------------------
+   Icon strip (sections/epic-strip)
+   -------------------------------------------------------------------------- */
+body.epic .epic-strip {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: var(--epic-strip);
+    z-index: 1030;
+    background: var(--epic-strip-bg);
+    box-shadow: 0 2px 4px rgba(15, 34, 58, .12);
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+}
+
+body.epic .epic-strip__top,
+body.epic .epic-strip__bottom {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+body.epic .epic-strip__brand {
+    width: 44px;
+    height: 44px;
+    border-radius: 5px;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    margin-bottom: 6px;
+}
+
+body.epic .epic-strip__brand img { max-width: 32px; max-height: 32px; object-fit: contain; }
+
+body.epic .epic-strip__link {
+    width: 44px;
+    height: 44px;
+    border-radius: 5px;
+    background: rgba(255, 255, 255, .1);
+    color: #fff !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    transition: background .2s, color .2s;
+}
+
+body.epic .epic-strip__link:hover,
+body.epic .epic-strip__link.active {
+    background: var(--epic-strip-active);
+    color: var(--epic-strip-active-text) !important;
+    text-decoration: none;
+}
+
+body.epic .epic-strip__avatar img {
+    width: 40px;
+    height: 40px;
+    border-radius: 4px;
+    object-fit: cover;
+}
+
+/* On My Profile the picture is the open item: a white ring round it */
+body.epic .epic-strip__avatar.active img { box-shadow: 0 0 0 2px var(--epic-strip-bg), 0 0 0 4px var(--epic-strip-active); }
+
+/* --------------------------------------------------------------------------
+   Menu panel (sections/sidebar): white, to the right of the strip
+   -------------------------------------------------------------------------- */
+@media (min-width: 992px) {
+    body.epic .main-sidebar {
+        left: var(--epic-strip);
+        width: calc(var(--epic-panel) - var(--epic-strip)) !important;
+    }
+
+    body.epic .main-header,
+    body.epic .main-container {
+        margin-left: var(--epic-panel);
+    }
+
+    body.epic .sidebarTogglerBox {
+        left: var(--epic-strip);
+        width: calc(var(--epic-panel) - var(--epic-strip)) !important;
+    }
+
+    /* Menu hidden: only the strip stays, the page takes the room */
+    body.epic.sidebar-toggled .main-sidebar,
+    body.epic.sidebar-toggled .main-sidebar:hover,
+    body.epic.sidebar-toggled .sidebarTogglerBox,
+    body.epic.sidebar-toggled .main-sidebar:hover ~ .sidebarTogglerBox {
+        width: 0 !important;
+        overflow: hidden;
+        border: 0;
+    }
+
+    body.epic.sidebar-toggled .main-header,
+    body.epic.sidebar-toggled .main-container {
+        margin-left: var(--epic-strip);
+    }
+
+    /* The loading cover starts where the page does, not at the old 240px
+       sidebar (settings pages: after their 270px side menu too) */
+    body.epic .preloader-container {
+        margin-left: var(--epic-panel) !important;
+        width: calc(100% - var(--epic-panel)) !important;
+    }
+
+    body.epic.sidebar-toggled .preloader-container {
+        margin-left: var(--epic-strip) !important;
+        width: calc(100% - var(--epic-strip)) !important;
+    }
+
+    body.epic:has(.settings-sidebar) .preloader-container {
+        margin-left: calc(var(--epic-panel) + 270px) !important;
+        width: calc(100% - var(--epic-panel) - 270px) !important;
+    }
+
+    body.epic.sidebar-toggled:has(.settings-sidebar) .preloader-container {
+        margin-left: calc(var(--epic-strip) + 270px) !important;
+        width: calc(100% - var(--epic-strip) - 270px) !important;
+    }
+}
+
+body.epic .main-sidebar,
+body.epic .sidebar-menu,
+body.epic .sidebar-brand-box,
+body.epic .sidebarTogglerBox,
+body.epic aside[class^="sidebar-"] .main-sidebar {
+    background: #fff !important;
+    border-right: 1px solid #e6e9ed;
+}
+
+body.epic .main-sidebar { box-shadow: 0 2px 4px rgba(15, 34, 58, .12); }
+
+/* The brand row: the template's "Epic HR" heading */
+body.epic .sidebar-brand-box {
+    border-bottom: 0 !important;
+    padding-top: 6px;
+}
+
+body.epic .sidebar-brand-box .sidebar-brand-name h1,
+body.epic .sidebar-brand-box h1,
+body.epic .sidebar-brand-box .text-white-shade,
+body.epic .sidebar-brand-box i {
+    color: var(--epic-dark) !important;
+    font-size: 17px !important;
+    font-weight: 600 !important;
+}
+
+/* Section heading before the menu, as "DIRECTORIES" in the template */
+body.epic .sidebar-menu > ul:first-child::before,
+body.epic #sideMenuScroll > ul:first-child::before {
+    content: 'Menu';
+    display: block;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .02em;
+    color: var(--epic-dark);
+    opacity: .7;
+    padding: 6px 15px 4px;
+}
+
+/* Top level entries */
+body.epic .sidebar-menu .nav-item,
+body.epic .sidebar-menu .accordionItemHeading {
+    color: var(--epic-text) !important;
+    font-size: 15px !important;
+    font-weight: 400;
+    background: transparent !important;
+    border-radius: 0 !important;
+    border-right: 2px solid transparent;
+    padding-top: 9px !important;
+    padding-bottom: 9px !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+}
+
+body.epic .sidebar-menu .nav-item .side-icon,
+body.epic .sidebar-menu .nav-item i {
+    color: var(--epic-text) !important;
+    font-size: 17px;
+}
+
+body.epic .sidebar-menu .nav-item:hover,
+body.epic .sidebar-menu .nav-item:hover i {
+    color: var(--epic-blue) !important;
+    background: transparent !important;
+}
+
+body.epic .sidebar-menu .nav-item.active,
+body.epic .sidebar-menu .openIt > .nav-item,
+body.epic .sidebar-menu .nav-item.active i,
+body.epic .sidebar-menu .openIt > .nav-item i {
+    color: var(--epic-blue) !important;
+    font-weight: 600;
+    background: transparent !important;
+}
+
+body.epic .sidebar-menu .nav-item.active,
+body.epic .sidebar-menu .openIt > .nav-item {
+    border-right-color: var(--epic-blue);
+}
+
+/* The group's open / closed arrow: the template's plus and minus */
+body.epic .sidebar-menu .accordionItemHeading::after {
+    color: #babdbf !important;
+}
+
+/* Pages inside a group: "- Employees" */
+body.epic .sidebar-menu .accordionItemContent {
+    background: transparent !important;
+    padding-left: 0;
+}
+
+body.epic .sidebar-menu .accordionItemContent a {
+    position: relative;
+    display: block;
+    color: #4d5052 !important;
+    font-size: 14px !important;
+    font-weight: 400 !important;
+    padding: 6px 15px 6px 46px !important;
+    margin: 0 !important;
+    background: transparent !important;
+    border-radius: 0 !important;
+    border-right: 2px solid transparent;
+    box-shadow: none !important;
+}
+
+body.epic .sidebar-menu .accordionItemContent a::before {
+    content: '-';
+    position: absolute;
+    left: 30px;
+    top: 5px;
+}
+
+body.epic .sidebar-menu .accordionItemContent a:hover { color: var(--epic-blue) !important; }
+
+body.epic .sidebar-menu .accordionItemContent a.active {
+    color: var(--epic-blue) !important;
+    font-weight: 600 !important;
+    border-right-color: var(--epic-blue);
+}
+
+body.epic .sidebar-menu .sidebar-submenu-children a::before { left: 40px; }
+body.epic .sidebar-menu .sidebar-submenu-children a { padding-left: 56px !important; }
+
+/* Foot of the panel: collapse arrow and version */
+body.epic .sidebarTogglerBox {
+    border-top: 1px solid #e6e9ed !important;
+}
+
+body.epic .sidebarTogglerBox #sidebarToggle,
+body.epic .sidebarTogglerBox .app-version {
+    color: var(--epic-muted) !important;
+    background: transparent !important;
+}
+
+/* --------------------------------------------------------------------------
+   Top bar (sections/topbar): dark, as the template's page_top
+   -------------------------------------------------------------------------- */
+body.epic .main-header {
+    background: var(--epic-dark) !important;
+    border-bottom: 0;
+    color: #fff;
+}
+
+/* Its pop-ups (app launcher, menus) live in its layer, so while one is open it
+   rises above the page's raised filter cards - below the strip (1030), side
+   panels and modals */
+body.epic .main-header:has(.app-launcher-popup.show),
+body.epic .main-header:has(.dropdown-menu.show) { z-index: 1029; }
+
+/* The bar stays over the page as it scrolls under it: the filter cards (raised
+   so their own drop-downs open over the list) used to slide over it */
+body.epic .main-header { z-index: 1020; }
+
+body.epic .main-header .page-title h2,
+body.epic .main-header .page-heading h2,
+body.epic .main-header .page-heading h2 .text-dark,
+body.epic .main-header .page-heading h2 > span:first-child {
+    color: #fff !important;
+    font-size: 17px !important;
+    font-weight: 600 !important;
+}
+
+body.epic .main-header .page-heading .text-lightest,
+body.epic .main-header .page-heading a { color: #9aa0a6 !important; }
+
+body.epic .main-header .header-icon-box i,
+body.epic .main-header .text-dark-grey,
+body.epic .main-header .page-header-right i,
+body.epic .main-header .app-launcher i,
+body.epic .main-header #timer-clock,
+body.epic .main-header .menu-collapse .mcw-line {
+    color: #fff !important;
+}
+
+body.epic .main-header .menu-collapse .mcw-line { background: #fff !important; }
+
+body.epic .main-header .header-icon-box:hover i { color: var(--epic-green) !important; }
+
+body.epic .main-header .dropdown-menu,
+body.epic .main-header .dropdown-menu * { color: var(--epic-text); }
+
+/* --------------------------------------------------------------------------
+   Tabs: page tabs, the employee page tabs, Bootstrap tabs
+   -------------------------------------------------------------------------- */
+body.epic .page-tabs {
+    background: var(--epic-page) !important;
+    border-bottom: 0 !important;
+    padding-top: 14px !important;
+}
+
+body.epic .page-tabs a {
+    color: var(--epic-muted) !important;
+    font-size: 15px !important;
+    border-bottom-width: 2px;
+}
+
+body.epic .page-tabs a:hover { color: var(--epic-text) !important; }
+
+body.epic .page-tabs a.active {
+    color: var(--epic-blue) !important;
+    border-bottom-color: var(--epic-blue) !important;
+    font-weight: 500;
+}
+
+body.epic .project-header,
+body.epic .project-header .project-menu {
+    background: #fff !important;
+}
+
+body.epic .project-header .project-menu .p-sub-menu { color: var(--epic-muted) !important; }
+body.epic .project-header .project-menu .p-sub-menu.active,
+body.epic .project-header .project-menu .p-sub-menu:hover { color: var(--epic-blue) !important; }
+
+body.epic .project-header .project-menu .p-sub-menu.active::after,
+body.epic .project-header .project-menu .p-sub-menu::after {
+    background: var(--epic-blue) !important;
+    border-color: var(--epic-blue) !important;
+}
+
+body.epic .nav-tabs { border-bottom-color: var(--epic-line); }
+
+body.epic .nav-tabs .nav-link {
+    color: var(--epic-muted);
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+}
+
+body.epic .nav-tabs .nav-link.active,
+body.epic .nav-tabs .nav-link:hover {
+    color: var(--epic-blue);
+    border-bottom-color: var(--epic-blue);
+    background: transparent;
+}
+
+/* --------------------------------------------------------------------------
+   Filter bar above lists
+   -------------------------------------------------------------------------- */
+body.epic .filter-box,
+body.epic .filter-box.bg-white {
+    background: #fff !important;
+    border-bottom: 1px solid var(--epic-line) !important;
+    box-shadow: 0 1px 2px rgba(56, 65, 74, .08);
+}
+
+/* --------------------------------------------------------------------------
+   Cards
+   -------------------------------------------------------------------------- */
+body.epic .card,
+body.epic .b-shadow-4,
+body.epic .bg-white.rounded {
+    border: 0 !important;
+    border-radius: 2px !important;
+    box-shadow: 0 1px 2px rgba(56, 65, 74, .15) !important;
+}
+
+body.epic .card-header {
+    background: #fff !important;
+    border-bottom: 1px solid var(--epic-line) !important;
+}
+
+/* Card titles: the template's blue to green gradient text */
+body.epic .card-header h4,
+body.epic .card-header .card-title,
+body.epic .card-header h3,
+body.epic .card .card-title {
+    font-size: 18px !important;
+    font-weight: 700 !important;
+    color: var(--epic-blue) !important;
+    background: var(--epic-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    display: inline-block;
+}
+
+body.epic .card-header h4 *,
+body.epic .card-header .card-title * { -webkit-text-fill-color: initial; }
+
+/* Number tiles (dashboards, widgets) */
+body.epic .arw-stat,
+body.epic .widget-box,
+body.epic .dashboard-stats {
+    border-radius: 2px !important;
+    box-shadow: 0 1px 2px rgba(56, 65, 74, .15) !important;
+}
+
+/* --------------------------------------------------------------------------
+   Buttons
+   -------------------------------------------------------------------------- */
+body.epic .btn { border-radius: 2px !important; }
+
+body.epic .btn-primary,
+body.epic .btn-primary:not(:disabled):not(.disabled):active,
+body.epic .btn-primary.disabled:hover,
+body.epic .btn-primary:disabled:hover {
+    background-color: var(--epic-blue) !important;
+    border-color: var(--epic-blue) !important;
+    color: #fff !important;
+    box-shadow: none !important;
+}
+
+body.epic .btn-primary:hover,
+body.epic .btn-primary:focus {
+    background-color: var(--epic-blue-hover) !important;
+    border-color: var(--epic-blue-hover) !important;
+    color: #fff !important;
+}
+
+body.epic .btn-success,
+body.epic .btn-info {
+    background-color: var(--epic-green) !important;
+    border-color: var(--epic-green) !important;
+    color: #fff !important;
+}
+
+body.epic .btn-success:hover,
+body.epic .btn-info:hover {
+    background-color: #579f63 !important;
+    border-color: #579f63 !important;
+}
+
+body.epic .btn-outline-primary {
+    color: var(--epic-blue) !important;
+    border-color: var(--epic-blue) !important;
+    background: transparent !important;
+}
+
+body.epic .btn-outline-primary:hover {
+    color: #fff !important;
+    background: var(--epic-blue) !important;
+}
+
+body.epic .btn-secondary,
+body.epic .btn-cancel,
+body.epic .btn-outline-secondary {
+    background: #fff !important;
+    color: var(--epic-text) !important;
+    border: 1px solid #d5d8dc !important;
+}
+
+body.epic .btn-secondary:hover,
+body.epic .btn-cancel:hover,
+body.epic .btn-outline-secondary:hover {
+    border-color: var(--epic-blue) !important;
+    color: var(--epic-blue) !important;
+}
+
+/* Row buttons (sections/row-actions) */
+body.epic .row-actions .row-action {
+    border-radius: 2px !important;
+    border-color: #d5d8dc !important;
+    color: var(--epic-text) !important;
+}
+
+body.epic .row-actions .row-action:hover {
+    border-color: var(--epic-blue) !important;
+    color: var(--epic-blue) !important;
+}
+
+body.epic .row-actions .row-action-danger { color: #d9534f !important; }
+body.epic .row-actions .row-action-success { color: var(--epic-green) !important; }
+
+/* --------------------------------------------------------------------------
+   Tables: grey capital headings, light rows, alternate shading
+   -------------------------------------------------------------------------- */
+body.epic .table thead th,
+body.epic table.dataTable thead th {
+    color: var(--epic-muted) !important;
+    font-weight: 500 !important;
+    font-size: 13px !important;
+    text-transform: uppercase;
+    background: #fff !important;
+    border-top: 0 !important;
+    border-bottom: 1px solid var(--epic-line) !important;
+}
+
+body.epic .table td,
+body.epic .table th { border-color: var(--epic-line); }
+
+body.epic .table td { color: var(--epic-text); font-size: 14px; }
+
+body.epic .table tbody tr:nth-of-type(even) { background: #f8f8fc; }
+body.epic .table-hover tbody tr:hover,
+body.epic .table tbody tr:hover { background: var(--epic-page); }
+
+/* --------------------------------------------------------------------------
+   Forms
+   -------------------------------------------------------------------------- */
+body.epic .form-control,
+body.epic .custom-select,
+body.epic .bootstrap-select > .dropdown-toggle,
+body.epic .select2-container .select2-selection {
+    border-radius: 2px !important;
+    border-color: var(--epic-line) !important;
+}
+
+body.epic .form-control:focus,
+body.epic .custom-select:focus {
+    border-color: var(--epic-blue) !important;
+    box-shadow: 0 0 0 .2rem color-mix(in srgb, var(--epic-blue) 25%, transparent) !important;
+}
+
+body.epic .custom-control-input:checked ~ .custom-control-label::before {
+    background-color: var(--epic-blue) !important;
+    border-color: var(--epic-blue) !important;
+}
+
+/* --------------------------------------------------------------------------
+   Badges, progress, pagination, modals
+   -------------------------------------------------------------------------- */
+body.epic .badge { border-radius: 2px; font-weight: 500; }
+body.epic .badge-primary,
+body.epic .bg-primary { background-color: var(--epic-blue) !important; }
+body.epic .badge-success { background-color: var(--epic-green) !important; }
+body.epic .text-primary { color: var(--epic-blue) !important; }
+body.epic .progress-bar { background-color: var(--epic-blue); }
+
+body.epic .page-item.active .page-link {
+    background: var(--epic-blue) !important;
+    border-color: var(--epic-blue) !important;
+    color: #fff !important;
+}
+
+body.epic .page-link { color: var(--epic-blue); border-radius: 2px !important; }
+
+body.epic .modal-content {
+    border: 0;
+    border-radius: 2px;
+    box-shadow: 0 8px 30px rgba(15, 34, 58, .2);
+}
+
+body.epic .modal-header { border-bottom: 1px solid var(--epic-line); }
+body.epic .modal-title { font-weight: 700; color: var(--epic-text); }
+
+/* Right-hand slide-in panel used for add / edit */
+body.epic .task-overlay-header,
+body.epic #task-detail-section .task-header { background: #fff; }
+
+/* Date picker and dropdown highlights */
+body.epic .datepicker table tr td.active.active,
+body.epic .qs-current,
+body.epic .dropdown-item.active,
+body.epic .dropdown-item:active {
+    background: var(--epic-blue) !important;
+    color: #fff !important;
+}
+
+/* --------------------------------------------------------------------------
+   Phones and tablets: no strip, the menu slides in as before
+   -------------------------------------------------------------------------- */
+@media (max-width: 991.98px) {
+    body.epic .main-sidebar { left: 0; }
+}
+
+/* --------------------------------------------------------------------------
+   Fit and finish: Plus Jakarta Sans is wider than Open Sans, so dense spots
+   get a size down to stay on one line.
+   -------------------------------------------------------------------------- */
+
+/* Brand row: the name only - the logo already heads the strip */
+body.epic .sidebar-brand-box .sidebar-brand-logo img,
+body.epic .sidebar-brand-box img:not(.h-100) { display: none !important; }
+
+body.epic .sidebar-brand-box .sidebar-brand,
+body.epic .sidebar-brand-box h1 {
+    border: 0 !important;
+    box-shadow: none !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+body.epic .sidebar-brand-box .sidebar-brand { padding: 0 15px !important; }
+
+/* Menu rows as compact as the template's */
+body.epic .sidebar-menu .accordionItem { margin: 0 !important; padding: 0 !important; }
+body.epic .sidebar-menu .nav-item,
+body.epic .sidebar-menu .accordionItemHeading {
+    padding: 8px 15px !important;
+    line-height: 1.5;
+}
+body.epic .sidebar-menu .nav-item span { padding-left: 12px !important; }
+
+/* Tables: one size down, actions kept in view */
+body.epic .table td { font-size: 13.5px; }
+body.epic .table thead th,
+body.epic table.dataTable thead th { font-size: 12px !important; letter-spacing: .02em; }
+body.epic .table td .f-14 { font-size: 13.5px !important; }
+body.epic .row-actions .row-action { height: 26px !important; padding: 0 8px !important; font-size: 12px !important; }
+
+/* Number widgets: the label under a figure stays small */
+body.epic p.f-21 > span.f-12,
+body.epic p.f-21.d-grid > span {
+    font-size: 12px !important;
+    font-weight: 400 !important;
+    line-height: 1.4;
+}
+
+body.epic .table td,
+body.epic .table th { padding-left: 10px !important; padding-right: 10px !important; }
+
+/* The select-all / row checkbox column: room off the table edge and before the next column */
+body.epic .table th:has(> #select-all-table),
+body.epic .table td:has(> .select-table-row) {
+    width: 56px;
+    padding-left: 22px !important;
+    padding-right: 12px !important;
+}
+body.epic .table #select-all-table,
+body.epic .table .select-table-row { vertical-align: middle; cursor: pointer; }
+body.epic .sidebar-brand-box h1,
+body.epic .sidebar-brand-box .sidebar-brand-name h1 { font-size: 15px !important; }
+
+/* Row actions as the template's icon buttons; the label shows on hover.
+   An action without an icon keeps its words. */
+body.epic .row-actions { gap: 4px !important; }
+body.epic .row-actions .row-action:has(> i),
+body.epic .row-actions .row-action:has(> svg) {
+    font-size: 0 !important;
+    width: 28px;
+    height: 28px !important;
+    padding: 0 !important;
+    justify-content: center;
+    align-items: center;
+    /* the hidden label is still a flex item; a gap before it pushes the icon off centre */
+    gap: 0 !important;
+}
+body.epic .row-actions .row-action > i { font-size: 13px !important; }
+body.epic .row-actions .row-action > svg,
+body.epic .row-actions .row-action > i {
+    font-size: 13px !important;
+    width: 13px;
+    height: 13px;
+    margin: 0 !important;
+}
+body.epic .table td:has(> svg.fa-circle),
+body.epic .table td:has(> i.fa-circle) { white-space: nowrap; }
+
+/* --------------------------------------------------------------------------
+   Forms, as the template's Form Elements page: bold dark labels, 36px
+   fields with a light border, plain input-group boxes
+   -------------------------------------------------------------------------- */
+body.epic label:not(.custom-control-label):not(.form-check-label):not(.btn),
+body.epic .form-label {
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    color: var(--epic-text) !important;
+}
+
+body.epic label .text-red,
+body.epic label sup { color: #d9534f !important; }
+
+body.epic .form-control:not(textarea),
+body.epic .custom-select,
+body.epic .bootstrap-select > .btn.dropdown-toggle,
+body.epic .input-group > .input-group-prepend > .btn,
+body.epic .input-group > .input-group-append > .btn,
+body.epic .input-group-text {
+    height: 38px !important;
+    min-height: 38px;
+}
+
+body.epic .form-control,
+body.epic .custom-select,
+body.epic .bootstrap-select > .btn.dropdown-toggle {
+    font-size: 14px !important;
+    color: var(--epic-text) !important;
+    background-color: #fff;
+    border: 1px solid var(--epic-line) !important;
+    border-radius: 2px !important;
+    box-shadow: none !important;
+    padding-top: .375rem;
+    padding-bottom: .375rem;
+}
+
+body.epic .form-control::placeholder { color: #adb5bd !important; }
+
+body.epic .form-control:disabled,
+body.epic .form-control[readonly]:not(.datepicker):not([id*="date"]) {
+    background-color: #eef0f3 !important;
+}
+
+body.epic .bootstrap-select > .btn.dropdown-toggle .filter-option-inner-inner { color: var(--epic-text); font-size: 14px; }
+
+body.epic .bootstrap-select > .btn.dropdown-toggle:focus,
+body.epic .bootstrap-select.show > .btn.dropdown-toggle {
+    border-color: var(--epic-blue) !important;
+    box-shadow: 0 0 0 .2rem color-mix(in srgb, var(--epic-blue) 25%, transparent) !important;
+    outline: 0 !important;
+}
+
+body.epic .input-group-text {
+    background: transparent !important;
+    border-color: var(--epic-line) !important;
+    border-radius: 2px !important;
+    color: var(--epic-muted);
+}
+
+body.epic .input-group > .input-group-append > .btn,
+body.epic .input-group > .input-group-prepend > .btn {
+    border-color: var(--epic-line) !important;
+    background: #fff !important;
+    color: var(--epic-text) !important;
+}
+
+body.epic .custom-control-label { font-size: 14px; color: var(--epic-text); }
+
+body.epic .custom-switch .custom-control-input:checked ~ .custom-control-label::before {
+    background-color: var(--epic-blue) !important;
+    border-color: var(--epic-blue) !important;
+}
+
+/* File drop boxes */
+body.epic .dropify-wrapper { border: 1px dashed #d5d8dc !important; border-radius: 2px !important; }
+
+/* --------------------------------------------------------------------------
+   Settings side menu: as the template's menu panel
+   -------------------------------------------------------------------------- */
+body.epic .settings-sidebar { background: #fff !important; box-shadow: 0 1px 2px rgba(56, 65, 74, .15); }
+body.epic .settings-menu li a { color: var(--epic-text) !important; font-size: 14px !important; border-right: 2px solid transparent; }
+body.epic .settings-menu li a:hover { color: var(--epic-blue) !important; background: transparent !important; }
+body.epic .settings-menu li.active > a,
+body.epic .settings-menu li.active > div > a {
+    color: var(--epic-blue) !important;
+    font-weight: 600;
+    background: transparent !important;
+    border-right-color: var(--epic-blue) !important;
+}
+body.epic .settings-menu li.active,
+body.epic .settings-menu li.active > div { background: transparent !important; border-right-color: var(--epic-blue) !important; }
+
+/* --------------------------------------------------------------------------
+   Glitches
+   -------------------------------------------------------------------------- */
+/* The "Hi, name" menu opened under the strip and was cut off */
+body.epic .sidebar-brand-dropdown {
+    z-index: 1050 !important;
+    left: 8px !important;
+    right: auto !important;
+    margin-left: 0 !important;
+    transform: translate3d(0, 46px, 0) !important;
+}
+
+/* Its arrow, a plain small chevron */
+body.epic .sidebar-brand-box .icon-arrow-down,
+body.epic .sidebar-brand-box .sidebar-brand-logo i {
+    font-size: 10px !important;
+    font-weight: 400 !important;
+    vertical-align: middle;
+}
+
+/* The app launcher (grid in the top bar) above the page, under the top bar */
+body.epic .app-launcher-popup,
+body.epic #app-launcher-popup,
+body.epic .main-header .dropdown-menu { z-index: 1040 !important; }
+
+/* --------------------------------------------------------------------------
+   App launcher (grid in the top bar): the template's shortcut tiles,
+   a pale green square with a green icon
+   -------------------------------------------------------------------------- */
+body.epic .app-launcher-popup {
+    top: 63px !important;
+    width: 980px !important;
+}
+
+body.epic .app-launcher-box {
+    background: #fff !important;
+    border: 0 !important;
+    border-radius: 2px !important;
+    box-shadow: 0 8px 30px rgba(15, 34, 58, .2) !important;
+}
+
+body.epic .app-launcher-search {
+    border: 1px solid var(--epic-line) !important;
+    border-radius: 2px !important;
+    box-shadow: none !important;
+}
+
+body.epic .app-launcher-search:focus-within { border-color: var(--epic-blue) !important; }
+
+body.epic .app-launcher-icon {
+    background: color-mix(in srgb, var(--epic-green) 14%, transparent) !important;
+    color: var(--epic-green) !important;
+    border-radius: 5px !important;
+    box-shadow: none !important;
+}
+
+body.epic .app-launcher-icon i,
+body.epic .app-launcher-icon svg { color: var(--epic-green) !important; }
+
+body.epic .app-launcher-tile:hover .app-launcher-icon {
+    background: var(--epic-green) !important;
+    color: #fff !important;
+    transform: none !important;
+}
+
+body.epic .app-launcher-tile:hover .app-launcher-icon i,
+body.epic .app-launcher-tile:hover .app-launcher-icon svg { color: #fff !important; }
+
+body.epic .app-launcher-label { color: var(--epic-text) !important; font-size: 13.5px !important; }
+
+/* --------------------------------------------------------------------------
+   Popups
+   -------------------------------------------------------------------------- */
+/* Slide-in add / edit panel (openRightModal) */
+body.epic .task-overlay,
+body.epic #task-detail-section,
+body.epic .right-modal .modal-content { background: var(--epic-page) !important; }
+
+body.epic .right-modal .modal-header,
+body.epic #task-detail-section .border-bottom-grey,
+body.epic .task-detail-panel .border-bottom-grey {
+    background: #fff !important;
+}
+
+body.epic .right-modal .close-task-detail,
+body.epic .close-task-detail {
+    background: var(--epic-dark) !important;
+    color: #fff !important;
+    border-radius: 2px 0 0 2px !important;
+}
+
+/* Bootstrap modals: the template's flat white box, dark header line */
+body.epic .modal-header {
+    background: #fff;
+    padding: 18px 20px;
+}
+
+body.epic .modal-header .modal-title,
+body.epic .modal-header h5 {
+    font-size: 17px !important;
+    font-weight: 700 !important;
+    color: var(--epic-blue) !important;
+    background: var(--epic-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+body.epic .modal-footer { border-top: 1px solid var(--epic-line); background: #fff; }
+body.epic .modal-backdrop.show { opacity: .45; }
+
+/* Confirm and message dialogs (SweetAlert) */
+body.epic .swal2-popup {
+    border-radius: 2px !important;
+    font-family: var(--app-font) !important;
+    padding: 28px 24px 22px !important;
+}
+
+body.epic .swal2-title { color: var(--epic-text) !important; font-size: 20px !important; font-weight: 700 !important; }
+body.epic .swal2-html-container,
+body.epic .swal2-content { color: #4d5052 !important; font-size: 14.5px !important; }
+
+body.epic .swal2-styled.swal2-confirm,
+body.epic .swal2-confirm.btn-primary,
+body.epic .swal2-actions .btn-primary {
+    background: var(--epic-blue) !important;
+    border: 0 !important;
+    border-radius: 2px !important;
+    box-shadow: none !important;
+}
+
+body.epic .swal2-styled.swal2-cancel,
+body.epic .swal2-actions .btn-secondary,
+body.epic .swal2-actions .btn-cancel {
+    background: #fff !important;
+    color: var(--epic-text) !important;
+    border: 1px solid #d5d8dc !important;
+    border-radius: 2px !important;
+}
+
+body.epic .swal2-icon.swal2-warning { border-color: #f0b144 !important; color: #f0b144 !important; }
+body.epic .swal2-icon.swal2-success { border-color: var(--epic-green) !important; }
+body.epic .swal2-icon.swal2-success [class^="swal2-success-line"] { background-color: var(--epic-green) !important; }
+
+/* Toasts */
+body.epic .swal2-toast { border-radius: 2px !important; box-shadow: 0 6px 18px rgba(15, 34, 58, .18) !important; }
+
+/* Dropdowns: notifications, quick add, row menus, pickers */
+body.epic .dropdown-menu {
+    border: 0 !important;
+    border-radius: 2px !important;
+    box-shadow: 0 6px 24px rgba(15, 34, 58, .16) !important;
+}
+
+body.epic .dropdown-item { color: var(--epic-text); font-size: 14px; }
+body.epic .dropdown-item:hover,
+body.epic .dropdown-item:focus { background: var(--epic-page) !important; color: var(--epic-blue) !important; }
+
+/* Select lists (bootstrap-select, select2) */
+body.epic .bootstrap-select .dropdown-menu li.selected a,
+body.epic .bootstrap-select .dropdown-menu li a.active,
+body.epic .select2-results__option--highlighted,
+body.epic .select2-container--default .select2-results__option--highlighted[aria-selected] {
+    background: var(--epic-blue) !important;
+    color: #fff !important;
+}
+
+/* Date pickers */
+body.epic .datepicker,
+body.epic .qs-datepicker-container,
+body.epic .daterangepicker {
+    border: 0 !important;
+    border-radius: 2px !important;
+    box-shadow: 0 6px 24px rgba(15, 34, 58, .16) !important;
+    font-family: var(--app-font) !important;
+}
+
+body.epic .daterangepicker td.active,
+body.epic .daterangepicker td.active:hover,
+body.epic .qs-active,
+body.epic .qs-num.qs-active { background: var(--epic-blue) !important; color: #fff !important; }
+
+body.epic .daterangepicker .ranges li.active { background: var(--epic-blue) !important; }
+
+/* Tooltips */
+body.epic .tooltip-inner { background: var(--epic-dark); border-radius: 2px; font-size: 12.5px; }
+
+/* --------------------------------------------------------------------------
+   Calendar (FullCalendar)
+   -------------------------------------------------------------------------- */
+/* Its arrows are an icon font, which the site-wide font rule had replaced
+   (they showed as empty boxes) */
+body .fc-icon,
+body .fc-icon::before { font-family: 'fcicons' !important; }
+
+body.epic .fc .fc-button,
+body.epic .fc .fc-button-primary {
+    background: #fff !important;
+    color: var(--epic-text) !important;
+    border: 1px solid var(--epic-line) !important;
+    border-radius: 2px !important;
+    box-shadow: none !important;
+    text-transform: capitalize;
+}
+
+body.epic .fc .fc-button-primary:not(:disabled).fc-button-active,
+body.epic .fc .fc-button-primary:not(:disabled):active {
+    background: var(--epic-blue) !important;
+    border-color: var(--epic-blue) !important;
+    color: #fff !important;
+}
+
+body.epic .fc .fc-toolbar-title { font-size: 18px !important; font-weight: 700; color: var(--epic-text); }
+body.epic .fc .fc-daygrid-day.fc-day-today,
+body.epic .fc .fc-timegrid-col.fc-day-today { background: color-mix(in srgb, var(--epic-green) 8%, transparent) !important; }
+body.epic .fc .fc-col-header-cell-cushion { color: var(--epic-muted); text-transform: uppercase; font-size: 12px; font-weight: 500; }
+
+/* Small buttons in table rows (Issued Payslips' view / PDF / approve / paid /
+   email / revoke): icon buttons like the row actions, the label on hover */
+body.epic .table td .btn-xs:has(> i),
+body.epic .table td .btn-xs:has(> svg) {
+    font-size: 0 !important;
+    width: 28px;
+    height: 28px;
+    padding: 0 !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 2px !important;
+    vertical-align: middle;
+}
+
+body.epic .table td .btn-xs > i,
+body.epic .table td .btn-xs > svg {
+    font-size: 13px !important;
+    width: 13px;
+    height: 13px;
+    margin: 0 !important;
+}
+
+body.epic .table td .btn-outline-info { color: var(--epic-blue) !important; border-color: var(--epic-blue) !important; }
+body.epic .table td .btn-outline-success { color: var(--epic-green) !important; border-color: var(--epic-green) !important; }
+
+/* The number widgets' small label ("Pending", "In Progress") - theme-custom.css
+   blew it up to 28px with a long selector; this one is longer */
+body.epic .b-shadow-4.d-flex.justify-content-between.align-items-center p.f-21.d-grid > span,
+body.epic .b-shadow-4.d-flex.justify-content-between.align-items-center a > p.d-grid > span {
+    font-size: 12px !important;
+    font-weight: 400 !important;
+    line-height: 1.4 !important;
+}
+
+/* The launcher centred over the page, clear of the menu panel */
+@media (min-width: 992px) {
+    body.epic .app-launcher-popup {
+        left: calc(50% + 140px) !important;
+        max-width: calc(100vw - 320px) !important;
+    }
+    body.epic.sidebar-toggled .app-launcher-popup { left: calc(50% + 30px) !important; }
+}
+
+/* A cell of several small row buttons wraps onto two lines rather than
+   running past the table's edge (Issued Payslips) */
+body.epic .table td.text-nowrap:has(> .btn-xs ~ .btn-xs ~ .btn-xs ~ .btn-xs) {
+    white-space: normal !important;
+    min-width: 104px;
+}
+body.epic .table td .btn-xs { margin: 1px 0; }
+
+/* --------------------------------------------------------------------------
+   Add / edit forms (openRightModal): the template's centred modal - a white
+   box over a dark backdrop, title as its header, x top right - instead of a
+   full-height panel sliding in from the side. Same content, same scripts.
+   -------------------------------------------------------------------------- */
+body.epic .task-overlay.in {
+    z-index: 1040 !important;
+    background: rgba(33, 37, 41, .55) !important;
+}
+
+body.epic .task-detail-panel {
+    z-index: 1041 !important;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s ease, transform .2s ease !important;
+}
+
+body.epic .task-detail-panel.in {
+    opacity: 1;
+    pointer-events: auto;
+    left: 50% !important;
+    right: auto !important;
+    top: 32px !important;
+    transform: translateX(-50%);
+    width: min(1000px, calc(100vw - 40px)) !important;
+    height: auto !important;
+    max-height: calc(100vh - 64px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: #fff !important;
+    border: 0 !important;
+    border-radius: 2px;
+    box-shadow: 0 12px 40px rgba(15, 34, 58, .3);
+}
+
+body.epic .task-detail-panel .t-d-inner-panel { padding: 0 !important; }
+
+/* Header: the title, a line under it, the x on the right */
+body.epic .task-detail-panel #right-modal-title {
+    font-size: 20px !important;
+    font-weight: 600 !important;
+    color: var(--epic-text) !important;
+    padding: 20px 60px 18px 24px;
+    margin: 0 !important;
+    border-bottom: 1px solid var(--epic-line);
+}
+
+body.epic .task-detail-panel #right-modal-content {
+    margin: 0 !important;
+    padding: 0 0 4px;
+    background: #fff;
+}
+
+body.epic .task-detail-panel .close-task-detail,
+body.epic .task-detail-panel .close-task-detail.in {
+    position: absolute !important;
+    top: 18px !important;
+    right: 20px !important;
+    left: auto !important;
+    width: 28px;
+    height: 28px;
+    padding: 0 !important;
+    background: transparent !important;
+    border-radius: 2px !important;
+    color: var(--epic-text) !important;
+    z-index: 2 !important;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+body.epic .task-detail-panel .close-task-detail span {
+    border: 0 !important;
+    width: auto;
+    height: auto;
+    display: flex;
+}
+
+body.epic .task-detail-panel .close-task-detail .fa-times,
+body.epic .task-detail-panel .close-task-detail svg {
+    position: static !important;
+    color: var(--epic-text) !important;
+    font-size: 18px;
+    width: 14px;
+    height: 14px;
+}
+
+body.epic .task-detail-panel .close-task-detail:hover { background: var(--epic-page) !important; }
+
+/* The form inside: no card of its own, the box is the card */
+body.epic .task-detail-panel .add-client,
+body.epic .task-detail-panel #right-modal-content > div > .bg-white.rounded,
+body.epic .task-detail-panel #right-modal-content .bg-white.rounded {
+    box-shadow: none !important;
+    border-radius: 0 !important;
+}
+
+body.epic .task-detail-panel #right-modal-content h4.border-bottom-grey,
+body.epic .task-detail-panel #right-modal-content .add-client > h4 {
+    font-size: 16px !important;
+    font-weight: 600 !important;
+    color: var(--epic-muted) !important;
+    padding: 16px 24px 10px !important;
+    border-bottom: 0 !important;
+}
+
+/* Footer: Close in grey, Save in blue, as in the template */
+body.epic .task-detail-panel .btn-cancel,
+body.epic .task-detail-panel .btn-secondary,
+body.epic .modal .modal-footer .btn-cancel,
+body.epic .modal .modal-footer .btn-secondary {
+    background: #868e96 !important;
+    border-color: #868e96 !important;
+    color: #fff !important;
+}
+
+body.epic .task-detail-panel .btn-cancel:hover,
+body.epic .task-detail-panel .btn-secondary:hover,
+body.epic .modal .modal-footer .btn-cancel:hover,
+body.epic .modal .modal-footer .btn-secondary:hover {
+    background: #727b84 !important;
+    border-color: #727b84 !important;
+    color: #fff !important;
+}
+
+@media (max-width: 767.98px) {
+    body.epic .task-detail-panel.in {
+        top: 0 !important;
+        width: 100vw !important;
+        max-height: 100vh;
+        border-radius: 0;
+    }
+}
+
+/* Larger modal for add / edit: most of the screen, still with a margin */
+@media (min-width: 768px) {
+    body.epic .task-detail-panel.in {
+        top: 24px !important;
+        width: min(1280px, calc(100vw - 80px)) !important;
+        max-height: calc(100vh - 48px);
+    }
+
+    body.epic .task-detail-panel #right-modal-title { padding: 22px 64px 20px 32px; font-size: 22px !important; }
+    body.epic .task-detail-panel #right-modal-content { padding: 4px 8px 8px; }
+}
+
+/* --------------------------------------------------------------------------
+   Count cards, as the template's ("Total Employee 614"): plain white, the
+   label in normal case, a large light figure, the icon in a soft square.
+   epic-count and its parts are tagged by sections/epic-ui.
+   -------------------------------------------------------------------------- */
+body.epic .epic-count {
+    background: #fff !important;
+    border: 0 !important;
+    border-radius: 2px !important;
+    box-shadow: 0 1px 2px rgba(56, 65, 74, .15) !important;
+    transition: box-shadow .2s ease;
+}
+
+body.epic .epic-count:hover { box-shadow: 0 4px 14px rgba(56, 65, 74, .16) !important; }
+
+body.epic .epic-count .epic-count__label {
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+    font-size: 15px !important;
+    font-weight: 400 !important;
+    color: var(--epic-text) !important;
+    line-height: 1.35 !important;
+}
+
+body.epic .epic-count .epic-count__value {
+    font-size: 28px !important;
+    font-weight: 400 !important;
+    line-height: 1.2 !important;
+}
+
+body.epic .epic-count .epic-count__icon {
+    border-radius: 5px !important;
+    width: 44px !important;
+    height: 44px !important;
+    flex: 0 0 44px;
+}
+
+body.epic .epic-count .epic-count__icon i,
+body.epic .epic-count .epic-count__icon svg { font-size: 18px !important; }
+body.epic .epic-count::before,
+body.epic .epic-count::after { display: none !important; }
+body.epic .epic-count .epic-count__label { word-break: normal !important; overflow-wrap: normal !important; }
+
+/* --------------------------------------------------------------------------
+   Dashboard, as the template's HR Dashboard
+   -------------------------------------------------------------------------- */
+/* "Welcome Jason Porter!" and the line under it */
+body.epic .heading-h3.f-21 { font-size: 26px !important; font-weight: 700 !important; color: var(--epic-text) !important; }
+body.epic .epic-welcome-sub { font-size: 14px; color: var(--epic-text); margin-top: 4px; }
+
+/* Shortcut tiles (dashboard/epic-shortcuts) */
+body.epic .epic-shortcuts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+}
+
+body.epic .epic-shortcut {
+    background: #fff;
+    border-radius: 2px;
+    box-shadow: 0 1px 2px rgba(56, 65, 74, .15);
+    padding: 20px 10px 18px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    color: var(--epic-text) !important;
+    text-decoration: none !important;
+    transition: box-shadow .2s ease;
+}
+
+body.epic .epic-shortcut:hover { box-shadow: 0 6px 18px rgba(56, 65, 74, .16); }
+
+body.epic .epic-shortcut__icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 5px;
+    background: color-mix(in srgb, var(--epic-green) 16%, transparent);
+    color: var(--epic-green);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    transition: background .2s ease, color .2s ease;
+}
+
+body.epic .epic-shortcut:hover .epic-shortcut__icon { background: var(--epic-green); color: #fff; }
+body.epic .epic-shortcut__label { font-size: 16px; font-weight: 500; }
+
+/* Number widgets (Tasks, Projects, Assets...): template titles and figures */
+body.epic .emp-dash-detail h5.f-15,
+body.epic .emp-dash-detail .b-shadow-4 h5 {
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+    font-size: 18px !important;
+    font-weight: 700 !important;
+    color: var(--epic-blue) !important;
+    background: var(--epic-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    display: inline-block;
+}
+
+body.epic .emp-dash-detail p.f-21,
+body.epic .emp-dash-detail .f-21.font-weight-bold {
+    font-size: 28px !important;
+    font-weight: 400 !important;
+}
+
+body.epic .emp-dash-detail .b-shadow-4 h5 i,
+body.epic .emp-dash-detail .card-header h4 i { -webkit-text-fill-color: initial; }
+
+/* Flat badges, as the template's (no gradients) */
+body.epic .badge { background-image: none !important; box-shadow: none !important; }
+
+/* Card header options: collapse and fullscreen (sections/epic-ui) */
+body.epic .epic-card-options { display: flex; gap: 14px; margin-left: auto; align-items: center; }
+body.epic .epic-card-options a { color: var(--epic-muted) !important; font-size: 15px; cursor: pointer; }
+body.epic .epic-card-options a:hover { color: var(--epic-blue) !important; }
+body.epic .epic-collapsed > *:not(.card-header) { display: none !important; }
+body.epic .epic-full {
+    position: fixed !important;
+    inset: 16px;
+    z-index: 1045;
+    overflow: auto;
+    max-height: none !important;
+    box-shadow: 0 12px 40px rgba(15, 34, 58, .3) !important;
+}
+
+/* Personal dashboard (dashboard/employee/personal): template cards */
+body.epic .pd-card { border-radius: 2px !important; box-shadow: 0 1px 2px rgba(56, 65, 74, .15) !important; }
+body.epic .pd-label {
+    text-transform: none !important; letter-spacing: 0 !important;
+    font-size: 15px !important; font-weight: 400 !important; color: var(--epic-text) !important;
+}
+body.epic .pd-big { font-weight: 400 !important; font-size: 28px !important; }
+body.epic .pd-head > :first-child,
+body.epic .pd-head:not(:has(> *)) {
+    font-size: 18px; font-weight: 700; color: var(--epic-blue);
+    background: var(--epic-gradient); -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+body.epic .pd-head a { -webkit-text-fill-color: initial; }
+body.epic .pd-day { border-radius: 2px !important; }
+
+/* Admin dashboard widgets: small capital titles in the template's case */
+body.epic .emp-dash-detail .b-shadow-4 .text-uppercase,
+body.epic .emp-dash-detail .b-shadow-4 h5 { text-transform: none !important; }
+
+/* Long lists inside dashboard cards (probation, birthdays...) scroll inside the card */
+body.epic .emp-dash-detail .card > .card-body,
+body.epic .emp-dash-detail .card > div:not(.card-header) { max-height: 420px; overflow-y: auto; }
+
+/* A header that already has its own button keeps the title on one line */
+body.epic .card-header h4 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+body.epic .card-header .btn + .epic-card-options,
+body.epic .card-header .epic-card-options { flex-shrink: 0; }
+body.epic .card-header > .btn,
+body.epic .card-header > a.btn { margin-left: auto; flex-shrink: 0; }
+/* The title is the header's own text; its link stays a plain green link */
+body.epic .pd-head {
+    font-size: 18px !important; font-weight: 700 !important; color: var(--epic-blue) !important;
+    background: var(--epic-gradient); -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+body.epic .pd-head > :first-child { background: none !important; -webkit-text-fill-color: var(--epic-green) !important; font-size: 13px; font-weight: 500; }
+body.epic .card-header h4 { margin-right: 14px !important; }
+body.epic .emp-dash-detail .b-shadow-4 *:not(.badge) { text-transform: none !important; letter-spacing: 0 !important; }
+body.epic .emp-dash-detail .b-shadow-4 h5,
+body.epic .emp-dash-detail .b-shadow-4 .f-13.text-dark-grey { font-size: 16px !important; }
+
+/* "Hi, name": a greeting only, with no menu under it, so no arrow either */
+body.epic .sidebar-brand-box .icon-arrow-down,
+body.epic .sidebar-brand-box .sidebar-brand::after { display: none !important; }
+
+body.epic .sidebar-brand-box .sidebar-brand-name { min-width: 0; }
+body.epic .sidebar-brand-box,
+body.epic .sidebar-brand-box .sidebar-brand { cursor: default !important; }
+
+/* Its menu: as wide as the menu panel, picture beside the name, rows alike */
+body.epic .sidebar-brand-dropdown {
+    width: calc(var(--epic-panel) - var(--epic-strip) - 16px) !important;
+    min-width: 0 !important;
+}
+
+body.epic .sidebar-brand-dropdown .profile-box { padding: 14px 16px !important; }
+body.epic .sidebar-brand-dropdown .profile-box > a:first-child { min-width: 0; flex: 1 1 auto; }
+body.epic .sidebar-brand-dropdown .profileInfo { flex-wrap: nowrap !important; }
+body.epic .sidebar-brand-dropdown .profileImg { flex-shrink: 0; border-radius: 100% !important; }
+body.epic .sidebar-brand-dropdown .ProfileData { min-width: 0; }
+body.epic .sidebar-brand-dropdown .ProfileData h3 { width: auto !important; margin-bottom: 2px !important; }
+
+body.epic .sidebar-brand-dropdown a.dropdown-item {
+    padding: 8px 16px !important;
+    color: var(--epic-text) !important;
+    font-size: 15px !important;
+    font-weight: 400 !important;
+}
+
+body.epic .sidebar-brand-dropdown a.dropdown-item label:not(.custom-control-label) {
+    font-size: 15px !important;
+    font-weight: 400 !important;
+    margin: 0;
+    cursor: pointer;
+}
+
+body.epic .sidebar-brand-dropdown a.dropdown-item:hover,
+body.epic .sidebar-brand-dropdown a.dropdown-item:hover label:not(.custom-control-label) { color: #fff !important; }
+body.epic .sidebar-brand-dropdown a.dropdown-item:hover { background: var(--epic-blue) !important; }
+
+/* Profile page opened from the picture: the form takes the full width */
+body.epic .settings-box:only-child,
+body.epic .w-100.d-flex > .settings-box:first-child { width: 100% !important; margin-left: 0 !important; }
+
+/* --------------------------------------------------------------------------
+   Page tabs as the template's page-header tabs (hr-accounts): plain words on
+   the page background, no underline, the open one in blue with a short rule
+   above it
+   -------------------------------------------------------------------------- */
+body.epic .page-tabs {
+    background: transparent !important;
+    border-bottom: 0 !important;
+    padding: 6px 28px 0 !important;
+    gap: 30px !important;
+}
+
+body.epic .page-tabs a {
+    padding: 14px 0 12px !important;
+    font-size: 15px !important;
+    font-weight: 400 !important;
+    color: var(--epic-muted) !important;
+    border: 0 !important;
+    border-top: 2px solid transparent !important;
+    transition: .3s border-color, .3s color;
+}
+
+body.epic .page-tabs a:hover { color: var(--epic-text) !important; border-top-color: var(--epic-line) !important; }
+
+body.epic .page-tabs a.active {
+    color: var(--epic-blue) !important;
+    border-top-color: var(--epic-blue) !important;
+}
+
+/* --------------------------------------------------------------------------
+   Filter bar as the template's filter card (job-positions): a white card in
+   line with the content, each filter's name above its field, the fields
+   lined up along the bottom, the filters button in blue
+   -------------------------------------------------------------------------- */
+body.epic .filter-box:not(.filter-box .filter-box) {
+    position: relative !important;
+    top: 0 !important;
+    width: auto !important;
+    margin: 12px 28px 0;
+    background: #fff !important;
+    border: 0 !important;
+    border-radius: 2px;
+    box-shadow: 0 1px 2px rgba(56, 65, 74, .15) !important;
+    z-index: 3;
+}
+
+body.epic .filter-box .filter-box {
+    position: static !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    padding: 16px 20px !important;
+    gap: 14px 20px;
+    align-items: flex-end;
+}
+
+body.epic .filter-box .filter-box > * {
+    border: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+
+/* Each filter: its name on top, the field under it */
+body.epic .filter-box .select-box {
+    flex-direction: column;
+    align-items: stretch !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+}
+
+body.epic .filter-box .select-box > p,
+body.epic .filter-box .select-box > label {
+    display: block !important;
+    padding: 0 !important;
+    margin: 0 0 8px !important;
+    font-size: 14px !important;
+    font-weight: 500;
+    color: var(--epic-text) !important;
+    white-space: nowrap;
+}
+
+body.epic .filter-box .select-box > :not(p):not(label) { min-width: 170px; }
+
+body.epic .filter-box .select-box .bootstrap-select > .dropdown-toggle,
+body.epic .filter-box .select-box .bootstrap-select .btn-light.dropdown-toggle,
+body.epic .filter-box .select-box input.form-control,
+body.epic .filter-box .select-box .select2-selection {
+    height: 38px !important;
+    border: 1px solid var(--epic-line) !important;
+    border-radius: 2px !important;
+    background: #fff !important;
+    padding-left: 12px !important;
+}
+
+body.epic .filter-box .select-box .bootstrap-select > .dropdown-toggle { display: flex; align-items: center; }
+body.epic .filter-box .bootstrap-select .dropdown-toggle .filter-option-inner-inner { font-weight: 400 !important; }
+
+/* The search box, named like the others */
+body.epic .filter-box .task-search {
+    flex: 1 1 240px;
+    max-width: 360px;
+    flex-direction: column;
+    align-items: stretch !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+}
+
+body.epic .filter-box .task-search::before {
+    content: 'Search';
+    margin-bottom: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--epic-text);
+}
+
+body.epic .filter-box .task-search form { margin: 0 !important; }
+
+body.epic .filter-box .task-search .input-group {
+    height: 38px;
+    background: #fff !important;
+    border: 1px solid var(--epic-line);
+    border-radius: 2px !important;
+}
+
+body.epic .filter-box .task-search .input-group-text,
+body.epic .filter-box .task-search .form-control {
+    height: 36px !important;
+    min-height: 36px;   /* the 38px field minimum would cover the box's bottom border */
+    background: #fff !important;
+    border: 0 !important;
+}
+
+/* Reset sits with the fields; More Filters becomes the template's Filter button */
+body.epic .filter-box .select-box:has(> #reset-filters.d-none) { display: none !important; }
+
+body.epic .filter-box .more-filters { padding: 0 !important; }
+
+/* (display is left to the d-none / d-lg-block on each of the two links) */
+body.epic .filter-box .more-filters > a {
+    height: 38px;
+    line-height: 38px;
+    white-space: nowrap;
+    padding: 0 18px;
+    border-radius: 2px;
+    background: var(--epic-blue);
+    color: #fff !important;
+    font-size: 14px !important;
+    cursor: pointer;
+}
+
+body.epic .filter-box .more-filters > a:hover { background: var(--epic-blue-hover); }
+body.epic .filter-box .more-filters > a i,
+body.epic .filter-box .more-filters > a svg { color: #fff !important; margin-top: 0 !important; }
+
+@media (max-width: 991.98px) {
+    body.epic .page-tabs { padding: 4px 16px 0 !important; gap: 20px !important; }
+    body.epic .filter-box:not(.filter-box .filter-box) { margin: 10px 16px 0; }
+    body.epic .filter-box .task-search { max-width: none; }
+}
+
+/* --------------------------------------------------------------------------
+   Employee page (employees.show), as the template's profile page: the tabs
+   look like the page tabs - plain words on the page, the open one in blue
+   with a short rule above it - and the photo is the round profile picture
+   -------------------------------------------------------------------------- */
+@media (min-width: 992px) {
+    body.epic .project-header.filter-box:not(.filter-box .filter-box) {
+        margin: 6px 28px 0;
+        background: transparent !important;
+        border: 0 !important;
+        box-shadow: none !important;
+    }
+
+    body.epic .project-header .project-menu { background: transparent !important; }
+    body.epic .project-header .tabs .-primary { gap: 30px; }
+    body.epic .project-header .tabs .-primary > li { flex-grow: 0; }
+    body.epic .project-header .tabs .-more > button { background: transparent !important; }
+
+    body.epic .project-header .project-menu .p-sub-menu {
+        border: 0 !important;
+        border-top: 2px solid transparent !important;
+        color: var(--epic-muted) !important;
+        transition: .3s border-color, .3s color;
+    }
+
+    body.epic .project-header .project-menu .p-sub-menu span {
+        padding: 14px 0 12px;
+        font-size: 15px;
+    }
+
+    body.epic .project-header .project-menu .p-sub-menu:hover {
+        color: var(--epic-text) !important;
+        border-top-color: var(--epic-line) !important;
+    }
+
+    body.epic .project-header .project-menu .p-sub-menu.active {
+        color: var(--epic-blue) !important;
+        border-top-color: var(--epic-blue) !important;
+    }
+
+    body.epic .project-header .project-menu .p-sub-menu::after { display: none !important; }
+}
+
+body.epic .card-horizontal > .card-img {
+    width: auto;
+    height: auto;
+    padding: 20px 24px;
+    flex-shrink: 0;
+}
+
+body.epic .card-horizontal > .card-img img {
+    width: 96px;
+    height: 96px;
+    object-fit: cover;
+    border: 3px solid #fff;
+    border-radius: 100%;
+    box-shadow: 0 1px 1px rgba(41, 43, 48, .3);
+}
+
+/* --------------------------------------------------------------------------
+   My Profile (profile settings opened from the picture): the template's
+   page-profile - the person's card on top, tabs on the page under it, the
+   tab's content in a card of its own
+   -------------------------------------------------------------------------- */
+body.epic .epic-profile-head {
+    margin: 20px 28px 0;
+    padding: 28px 20px 24px;
+    text-align: center;
+    border-radius: 2px;
+    box-shadow: 0 1px 2px rgba(56, 65, 74, .15);
+}
+
+body.epic .epic-profile-head img {
+    width: 92px;
+    height: 92px;
+    border-radius: 50%;
+    object-fit: cover;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, .15);
+    margin-bottom: 14px;
+}
+
+body.epic .epic-profile-head h2 {
+    font-size: 24px !important;
+    font-weight: 400 !important;
+    color: var(--epic-text);
+    margin: 0 0 6px;
+}
+
+body.epic .epic-profile-head__role { color: var(--epic-muted); font-size: 15px; margin: 0 0 12px; }
+
+body.epic .epic-profile-head__meta {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px 22px;
+    margin: 0;
+    font-size: 14px;
+    color: var(--epic-text);
+}
+
+body.epic .epic-profile-head__meta i { color: var(--epic-blue); margin-right: 6px; }
+
+body.epic .epic-profile { padding: 0 28px 20px !important; }
+body.epic .epic-profile .settings-box { padding: 0 !important; background: transparent !important; position: relative; }
+
+/* The tab's own button (Create New on Emergency Contacts) at the end of the
+   tab row, like the template's Add */
+body.epic .epic-profile .settings-box > .row {
+    position: absolute;
+    top: 23px;
+    right: 15px;
+    z-index: 2;
+}
+body.epic .epic-profile .settings-box > .row > [class*="col"] { margin: 0 !important; padding: 0 !important; }
+
+body.epic .epic-profile .s-b-inner {
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+/* The tabs: words on the page, the open one blue and underlined */
+body.epic .epic-profile .s-b-n-header .tabs {
+    background: transparent !important;
+    border-bottom: 1px solid var(--epic-line) !important;
+    padding: 0 !important;
+    margin-top: 18px;
+}
+
+body.epic .epic-profile .s-b-n-header .nav { gap: 26px; }
+
+body.epic .epic-profile .s-b-n-header .nav-link {
+    padding: 14px 0 12px !important;
+    font-size: 15px !important;
+    color: var(--epic-muted) !important;
+    background: transparent !important;
+    border: 0 !important;
+    border-bottom: 2px solid transparent !important;
+    margin-bottom: -1px;
+}
+
+body.epic .epic-profile .s-b-n-header .nav-link:hover { color: var(--epic-text) !important; }
+
+body.epic .epic-profile .s-b-n-header .nav-link.active {
+    color: var(--epic-blue) !important;
+    border-bottom-color: var(--epic-blue) !important;
+}
+
+body.epic .epic-profile .s-b-n-header .nav-link.active::after,
+body.epic .epic-profile .s-b-n-header .nav-link::after { display: none !important; }
+
+body.epic .epic-profile .s-b-n-content {
+    margin-top: 16px;
+    background: #fff;
+    border-radius: 2px;
+    box-shadow: 0 1px 2px rgba(56, 65, 74, .15);
+}
+
+@media (max-width: 991.98px) {
+    body.epic .epic-profile-head { margin: 12px 16px 0; }
+    body.epic .epic-profile { padding: 0 16px 16px !important; }
+}
+
+/* View switches (table / calendar / my leaves, list / board...): each button's
+   name beside its icon, from the tooltip text it already carries */
+body.epic .main-container .btn-group > .btn.btn-secondary[data-original-title]:has(> i, > svg):not(.table *) {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    width: auto !important;
+    padding: 0 12px !important;
+    white-space: nowrap;
+}
+
+body.epic .main-container .btn-group > .btn.btn-secondary[data-original-title]:has(> i, > svg):not(.table *)::after {
+    content: attr(data-original-title);
+    font-size: 13px;
+    font-weight: 500;
+}
+
+body.epic .main-container .btn-group > .btn.btn-secondary.btn-active[data-original-title] {
+    background: var(--epic-blue) !important;
+    border-color: var(--epic-blue) !important;
+    color: #fff !important;
+}
+
+body.epic .main-container .btn-group > .btn.btn-secondary.btn-active[data-original-title] i,
+body.epic .main-container .btn-group > .btn.btn-secondary.btn-active[data-original-title] svg { color: #fff !important; }
+
+/* New / edit forms: radio choices (Full Day, First Half...) on one line each */
+body.epic .custom-control.custom-radio,
+body.epic .form-check-inline { white-space: nowrap; }
+/* ...and a row of them wraps onto the next line when the column is narrow */
+body.epic .form-group .d-flex:has(> .custom-radio),
+body.epic .form-group .d-lg-flex:has(> .custom-radio),
+body.epic .form-group .d-md-flex:has(> .custom-radio) { flex-wrap: wrap; row-gap: 4px; }
+
+/* My Leaves: the balance card - the total on the left, each leave type's
+   balance with a bar of what is used */
+body.epic .leave-balance {
+    display: flex;
+    flex-wrap: wrap;
+    border-radius: 2px;
+    box-shadow: 0 1px 2px rgba(56, 65, 74, .15);
+    overflow: hidden;
+}
+
+body.epic .leave-balance__total {
+    flex: 0 0 240px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 24px 28px;
+    color: #fff;
+    background:
+        radial-gradient(260px 200px at 0% 0%, color-mix(in srgb, var(--epic-blue) 45%, transparent), transparent 70%),
+        var(--epic-dark);
+}
+
+body.epic .leave-balance__label { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--epic-blue); }
+body.epic .leave-balance__figure { font-size: 52px; font-weight: 300; line-height: 1.1; margin: 6px 0 2px; }
+body.epic .leave-balance__sub { font-size: 13px; color: rgba(255, 255, 255, .6); }
+
+body.epic .leave-balance__types {
+    flex: 1 1 400px;
+    display: grid;
+    /* auto-fit: however many leave types there are, the tiles share the row
+       with no empty cell left over; past five or so they wrap onto a second row */
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    background: #fff;
+}
+
+body.epic .leave-balance__type { background: #fff; padding: 18px 20px; border-right: 1px solid var(--epic-line); border-bottom: 1px solid var(--epic-line); margin-bottom: -1px; }
+
+body.epic .leave-balance__name { font-size: 14px; font-weight: 600; color: var(--epic-text); display: inline-flex; align-items: center; }
+body.epic .leave-balance__name i { width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; display: inline-block; }
+
+body.epic .leave-balance__tag {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    color: var(--epic-green);
+    background: color-mix(in srgb, var(--epic-green) 14%, #fff);
+}
+body.epic .leave-balance__tag.is-unpaid { color: var(--epic-muted); background: #f1f1f4; }
+
+body.epic .leave-balance__left { font-size: 28px; font-weight: 400; color: var(--epic-text); line-height: 1.2; }
+body.epic .leave-balance__left small { font-size: 14px; color: var(--epic-muted); }
+
+body.epic .leave-balance__bar { height: 6px; border-radius: 3px; background: #eef0f3; margin: 10px 0 6px; overflow: hidden; }
+body.epic .leave-balance__bar span { display: block; height: 100%; border-radius: 3px; }
+
+body.epic .leave-balance__of { font-size: 12px; color: var(--epic-muted); }
+
+@media (max-width: 767.98px) {
+    body.epic .leave-balance__total { flex-basis: 100%; }
+}
+
+/* The filter card's Clear button: as wide as its words, not a field's width */
+body.epic .filter-box .select-box:has(> #reset-filters) > * { min-width: 0; }
+body.epic .filter-box #reset-filters { height: 38px; display: inline-flex; align-items: center; }
+
+/* The birthday / anniversary greeting (sections/celebration) in the theme's colours */
+body.epic #celebrate-card { border-radius: 4px; overflow: hidden; padding-top: 34px; }
+body.epic #celebrate-card::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 5px;
+    background: linear-gradient(90deg, var(--epic-blue), var(--epic-green), var(--epic-blue));
+}
+body.epic #celebrate-card h3 {
+    font-family: var(--app-font);
+    background: var(--epic-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+body.epic #celebrate-card button {
+    border-radius: 4px;
+    background: var(--epic-blue);
+    box-shadow: 0 6px 14px color-mix(in srgb, var(--epic-blue) 30%, transparent);
+}
+body.epic #celebrate-card button:hover { background: var(--epic-blue-hover); }
+
+/* Holidays on the leave calendar: the day tinted, its name in the accent colour */
+body.epic .fc .epic-holiday-day { background: color-mix(in srgb, var(--epic-green) 12%, transparent) !important; opacity: 1; }
+body.epic .fc .fc-event.epic-holiday,
+body.epic .fc .fc-daygrid-event.epic-holiday {
+    background: transparent !important;
+    border: 0 !important;
+    color: var(--epic-green) !important;
+    font-weight: 600;
+    cursor: default;
+}
+body.epic .fc .epic-holiday .fc-event-title::before { content: '\2605  '; }
+body.epic .fc .epic-holiday .fc-daygrid-event-dot { display: none; }
+body.epic .fc .fc-daygrid-event.epic-holiday .fc-event-title,
+body.epic .fc .fc-daygrid-event.epic-holiday .fc-event-main,
+body.epic .fc .fc-list-event.epic-holiday td { color: var(--epic-green) !important; font-weight: 600; }

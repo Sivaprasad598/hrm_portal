@@ -41,7 +41,8 @@ class DesignationDataTable extends BaseDataTable
             // View and Edit as buttons on the row, delete beside them (no menu to open).
             ->addColumn('action', function ($row) {
                 $action = '<div class="row-actions">'
-                    . '<a href="' . route('designations.show', [$row->id]) . '" class="row-action openRightModal">' . __('app.view') . '</a>';
+                    . '<a href="' . route('designations.show', [$row->id]) . '" class="row-action openRightModal">'
+                    . '<i class="fa fa-eye mr-1"></i>' . __('app.view') . '</a>';
 
                 if ($this->editDesignationPermission == 'all') {
                     $action .= '<a href="' . route('designations.edit', [$row->id]) . '" class="row-action openRightModal">'

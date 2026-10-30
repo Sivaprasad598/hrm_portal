@@ -106,6 +106,15 @@ class ThemeSettingController extends AccountBaseController
         $setting->sidebar_logo_style = $request->sidebar_logo_style;
 
         $setting->save();
+
+        // The Epic HR colours live on global settings, so the sign-in page has them too
+        $global = \App\Models\GlobalSetting::first();
+
+        if ($global) {
+            $global->epic_colors = \App\Services\Theme\EpicColors::forSaving((array) $request->input('epic_colors', []));
+            $global->save();
+        }
+
         session()->forget(['admin_theme', 'employee_theme', 'client_theme', 'company', 'companyOrGlobalSetting', 'user.company']);
         cache()->forget('global_setting');
 

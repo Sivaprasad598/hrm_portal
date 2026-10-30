@@ -546,7 +546,7 @@
                 "me"
               ]
             },
-            "description": "The signed-in employee: personal and job details, emergency contacts, today's shift."
+            "description": "The signed-in employee: personal and job details, emergency contacts, today's shift.\n\n`modules` lists the modules this person has (`key` never changes, `name` is the label), for showing or hiding screens. HR and admin accounts get more, e.g. `biometric`, `employee_management`."
           },
           "response": [
             {
@@ -560,7 +560,7 @@
                 }
               ],
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"success\": true,\n  \"message\": \"OK\",\n  \"data\": {\n    \"id\": 4919,\n    \"name\": \"Test Employee (Payroll)\",\n    \"employee_id\": \"TEST001\",\n    \"photo_url\": \"https://your-hrm-domain/img/gravatar.png\",\n    \"email\": \"employee@company.com\",\n    \"mobile\": null,\n    \"gender\": \"male\",\n    \"designation\": \"CAD Engineer\",\n    \"division\": \"IT Department\",\n    \"sub_division\": null,\n    \"reporting_manager\": null,\n    \"employment_type\": \"full_time\",\n    \"date_of_joining\": \"2025-01-01\",\n    \"probation_end_date\": null,\n    \"date_of_birth\": null,\n    \"marital_status\": \"single\",\n    \"marriage_date\": null,\n    \"address\": null,\n    \"emergency_contacts\": [],\n    \"shift_today\": {\n      \"name\": \"General Shift\",\n      \"type\": \"strict\",\n      \"start\": \"09:30\",\n      \"end\": \"18:30\",\n      \"working_day\": true\n    }\n  }\n}"
+              "body": "{\n  \"success\": true,\n  \"message\": \"OK\",\n  \"data\": {\n    \"id\": 4919,\n    \"name\": \"Test Employee (Payroll)\",\n    \"employee_id\": \"TEST001\",\n    \"photo_url\": \"https://your-hrm-domain/img/gravatar.png\",\n    \"email\": \"employee@company.com\",\n    \"mobile\": null,\n    \"gender\": \"male\",\n    \"designation\": \"CAD Engineer\",\n    \"division\": \"IT Department\",\n    \"sub_division\": null,\n    \"reporting_manager\": null,\n    \"employment_type\": \"full_time\",\n    \"date_of_joining\": \"2025-01-01\",\n    \"probation_end_date\": null,\n    \"date_of_birth\": null,\n    \"marital_status\": \"single\",\n    \"marriage_date\": null,\n    \"address\": null,\n    \"emergency_contacts\": [],\n    \"shift_today\": {\n      \"name\": \"General Shift\",\n      \"type\": \"strict\",\n      \"start\": \"09:30\",\n      \"end\": \"18:30\",\n      \"working_day\": true\n    },\n    \"modules\": [\n      {\n        \"key\": \"attendance\",\n        \"name\": \"Attendance\"\n      },\n      {\n        \"key\": \"leave_management\",\n        \"name\": \"Leave Management\"\n      },\n      {\n        \"key\": \"payroll\",\n        \"name\": \"Payroll\"\n      },\n      {\n        \"key\": \"asset_management\",\n        \"name\": \"Asset Management\"\n      },\n      {\n        \"key\": \"holidays\",\n        \"name\": \"Holidays\"\n      },\n      {\n        \"key\": \"events\",\n        \"name\": \"Events\"\n      }\n    ]\n  }\n}"
             },
             {
               "name": "No token",

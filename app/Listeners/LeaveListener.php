@@ -48,13 +48,26 @@ class LeaveListener
         }
 
         if ($event->status == 'created') {
+            // A pending leave goes through the approval steps (LeaveApprovals),
+            // which tell the approver of each step when it is their turn - the
+            // reporting manager first, HR only once it reaches them. Telling every
+            // admin and HR here as well asked people who were not to decide yet.
+            // A leave recorded as already decided still tells them.
+            $toApprovers = $event->leave->status !== 'pending';
+
             if (!is_null($event->multiDates)) {
                 Notification::send($event->leave->user, new MultipleLeaveApplication($event->leave, $event->multiDates));
-                Notification::send($adminUsers, new NewMultipleLeaveRequest($event->leave, $event->multiDates));
+
+                if ($toApprovers) {
+                    Notification::send($adminUsers, new NewMultipleLeaveRequest($event->leave, $event->multiDates));
+                }
             }
             else {
                 Notification::send($event->leave->user, new LeaveApplication($event->leave));
-                Notification::send($adminUsers, new NewLeaveRequest($event->leave));
+
+                if ($toApprovers) {
+                    Notification::send($adminUsers, new NewLeaveRequest($event->leave));
+                }
             }
         }
         elseif ($event->status == 'statusUpdated') {

@@ -6,6 +6,7 @@ use App\Enums\MaritalStatus;
 use App\Helper\Files;
 use App\Models\EmployeeDetails;
 use App\Models\Team;
+use App\Services\Access\AssignedModules;
 use App\Services\Attendance\ShiftResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -21,6 +22,20 @@ use Illuminate\Validation\Rule;
  */
 class ProfileController extends MobileController
 {
+    /** Module => [stable key for the app, name to show], in the order the app lists them. */
+    const MODULES = [
+        'attendance' => ['attendance', 'Attendance'],
+        'leaves' => ['leave_management', 'Leave Management'],
+        'payroll' => ['payroll', 'Payroll'],
+        'assets' => ['asset_management', 'Asset Management'],
+        'holidays' => ['holidays', 'Holidays'],
+        'events' => ['events', 'Events'],
+        'biometric' => ['biometric', 'Biometric'],
+        'employees' => ['employee_management', 'Employee Management'],
+        'notices' => ['notice_board', 'Notice Board'],
+        'appreciation' => ['appreciation', 'Appreciation'],
+    ];
+
     public function update(Request $request)
     {
         $tz = $this->tz();
@@ -38,6 +53,15 @@ class ProfileController extends MobileController
 
         $user = $this->me();
         $detail = EmployeeDetails::where('user_id', $user->id)->firstOrFail();
+
+        // A wedding date only goes with "married": sent now, or already stored.
+        $status = $request->exists('marital_status') ? $request->marital_status : $detail->marital_status?->value;
+
+        if ($request->filled('marriage_date') && $status !== 'married') {
+            $message = 'Send marital_status = married with the marriage date.';
+
+            return $this->fail($message, 422, ['marriage_date' => [$message]]);
+        }
 
         foreach (['mobile', 'country_phonecode', 'gender'] as $field) {
             if ($request->exists($field)) {
@@ -120,6 +144,35 @@ class ProfileController extends MobileController
                 'end' => $shift->office_end_time ? substr((string) $shift->office_end_time, 0, 5) : null,
                 'working_day' => ShiftResolver::worksOn($shift, $today),
             ] : null,
+            'modules' => $this->modules(),
         ], $message);
+    }
+
+    /**
+     * The modules this person has: the ones behind their web sidebar, plus what
+     * every employee gets in the app - own attendance and payslips, and the
+     * holidays and events on the calendar - where the module is switched on.
+     */
+    private function modules(): array
+    {
+        $enabled = user_modules();
+        $have = array_flip(AssignedModules::forUser());
+        $have['payroll'] = true;   // own payslips
+
+        foreach (['attendance', 'holidays', 'events'] as $module) {
+            if (in_array($module, $enabled, true)) {
+                $have[$module] = true;
+            }
+        }
+
+        $known = array_intersect_key(self::MODULES, $have);
+        $other = array_diff_key($have, self::MODULES);
+        ksort($other);
+
+        return collect(array_merge(array_keys($known), array_keys($other)))
+            ->map(fn ($module) => [
+                'key' => self::MODULES[$module][0] ?? $module,
+                'name' => self::MODULES[$module][1] ?? ucwords(str_replace(['_', '-'], ' ', $module)),
+            ])->values()->all();
     }
 }

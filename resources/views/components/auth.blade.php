@@ -38,11 +38,16 @@
         }
     </style>
     @include('sections.theme_css')
-    @if(file_exists(public_path().'/css/login-custom.css'))
-        <link href="{{ asset('css/login-custom.css') }}" rel="stylesheet">
-    @endif
+    {{-- The earlier Arowana sign-in sheet (public/css/login-custom.css) is not
+         loaded: the Epic HR one below replaces it (kept, to bring back) --}}
     {{-- Open Sans everywhere (public/css/open-sans.css) --}}
     <link href="{{ asset('css/open-sans.css') }}?v={{ filemtime(public_path('css/open-sans.css')) }}" rel="stylesheet">
+
+    {{-- Epic HR sign-in look (public/css/epic) --}}
+    <link href="{{ asset('css/epic/fonts.css') }}?v={{ filemtime(public_path('css/epic/fonts.css')) }}" rel="stylesheet">
+    <link href="{{ asset('css/epic/login.css') }}?v={{ filemtime(public_path('css/epic/login.css')) }}" rel="stylesheet">
+    @include('sections.epic-colors')
+    <style>:root { --app-font: 'Plus Jakarta Sans', 'Segoe UI', Arial, sans-serif; }</style>
 
     @if ($globalSetting->sidebar_logo_style == 'full')
         <style>
@@ -55,7 +60,7 @@
 </head>
 
 <body
-    class="{{ $globalSetting->auth_theme == 'dark' ? 'dark-theme' : '' }} {{ isRtl() ? (session('changedRtl') === false ? '' : 'rtl') : (session('changedRtl') == true ? 'rtl' : '') }}">
+    class="epic-auth {{ $globalSetting->auth_theme == 'dark' ? 'epic-auth--dark' : '' }} {{ isRtl() ? (session('changedRtl') === false ? '' : 'rtl') : (session('changedRtl') == true ? 'rtl' : '') }}">
 
 {{-- The top bar with the logo and company name is not shown: the logo sits
      above the login card instead (the bar's code stays, to bring back).
@@ -70,6 +75,16 @@
 
 <section class="py-5 bg-grey login_section"
          @if ($globalSetting->login_background_url) style="background: url('{{ $globalSetting->login_background_url }}') center center/cover no-repeat;" @endif>
+    @unless ($globalSetting->login_background_url)
+        <div class="epic-auth-art d-none d-lg-block">
+            {{-- The company's line, from its logo, over the illustration --}}
+            <p class="epic-auth-art__tagline">Precision <i>&#9650;</i> Innovation <i>&#9650;</i> Success</p>
+            <p class="epic-auth-art__name">{{ $globalSetting->global_app_name ?? $globalSetting->app_name }}</p>
+            @include('sections.epic-login-art')
+            <p class="epic-auth-art__foot">&copy; {{ now()->year }} {{ $globalSetting->global_app_name ?? $globalSetting->app_name }}</p>
+        </div>
+    @endunless
+
     <div class="container">
         <div class="row">
             <div class="text-center col-md-12">

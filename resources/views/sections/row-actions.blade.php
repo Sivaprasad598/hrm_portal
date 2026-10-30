@@ -100,6 +100,11 @@
             $(root).find('table td .task_view').each(function () {
                 $(this).addClass('row-actions').children('.taskView').addClass('row-action');
             });
+
+            // Each button names itself on hover, for when it shows as an icon.
+            $(root).find('.row-actions .row-action:not([title])').each(function () {
+                $(this).attr('title', $.trim($(this).text()));
+            });
         }
 
         var queued = false;

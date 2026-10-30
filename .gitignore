@@ -50,3 +50,6 @@ hrm_portal.sql
 
 # Database / upload backups hold personal data
 development_resourses/
+
+# Epic HR template package (licensed source, used only to copy styles from)
+/theme-src/

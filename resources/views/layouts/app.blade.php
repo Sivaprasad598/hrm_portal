@@ -130,6 +130,11 @@
     {{-- Open Sans everywhere (public/css/open-sans.css) --}}
     <link href="{{ asset('css/open-sans.css') }}?v={{ filemtime(public_path('css/open-sans.css')) }}" rel="stylesheet">
 
+    {{-- Epic HR look (public/css/epic): its font and theme, loaded last --}}
+    <link href="{{ asset('css/epic/fonts.css') }}?v={{ filemtime(public_path('css/epic/fonts.css')) }}" rel="stylesheet">
+    <link href="{{ asset('css/epic/theme.css') }}?v={{ filemtime(public_path('css/epic/theme.css')) }}" rel="stylesheet">
+    @include('sections.epic-colors')
+
     <script src="{{ asset('vendor/jquery/jquery.min.js') }}"></script>
     <script src="{{ asset('vendor/jquery/modernizr.min.js') }}"></script>
     <script src="{{ asset('vendor/jquery/bootstrap-colorpicker.js') }}"></script>
@@ -149,7 +154,7 @@
 </head>
 
 
-<body id="body" class="{{ user()->dark_theme ? 'dark-theme' : '' }} {{ isRtl('rtl') }}">
+<body id="body" class="{{ user()->dark_theme ? 'dark-theme' : 'epic' }} {{ isRtl('rtl') }}">
 <script>
     if (checkMiniSidebar == "yes" || checkMiniSidebar == "") {
         $('body').addClass('sidebar-toggled');
@@ -157,6 +162,11 @@
 </script>
 {{-- include topbar --}}
 @include('sections.topbar')
+
+{{-- Epic HR icon strip, left of the menu (light theme) --}}
+@unless (user()->dark_theme)
+    @include('sections.epic-strip')
+@endunless
 
 {{-- include sidebar menu --}}
 @include('sections.sidebar')
@@ -200,6 +210,9 @@
 
 {{-- A table row's actions as buttons on the row, not in a "⋮" menu --}}
 @include('sections.row-actions')
+
+{{-- Epic HR look: strip menu button, plain count cards --}}
+@include('sections.epic-ui')
 
 @includeIf('aitools::floating-chat-widget')
 

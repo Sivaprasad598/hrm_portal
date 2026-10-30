@@ -6,10 +6,38 @@ $viewClientDocumentPermission = user()->permission('view_client_document');
 
 @section('content')
 
-    <!-- SETTINGS START -->
-    <div class="w-100 d-flex">
+    @php
+        // Opened from the profile picture: just the profile, no settings menu, with
+        // the person's card on top (the Epic HR "My Profile" page)
+        $profileOnly = request('view') === 'profile';
+        $tabUrl = fn (?string $tab = null) => route('profile-settings.index', array_filter(['tab' => $tab, 'view' => $profileOnly ? 'profile' : null]));
+    @endphp
 
-        <x-setting-sidebar :activeMenu="$activeSettingMenu" />
+    @if ($profileOnly)
+        <div class="epic-profile-head bg-white">
+            <img src="{{ user()->image_url }}" alt="{{ user()->name }}">
+            <h2>{{ user()->name }}</h2>
+            <p class="epic-profile-head__role">
+                {{ collect([user()->employeeDetail?->designation?->name, user()->employeeDetail?->department?->team_name])->filter()->implode(' · ') }}
+            </p>
+            <p class="epic-profile-head__meta">
+                @if (user()->employeeDetail?->employee_id)
+                    <span><i class="bi bi-person-badge"></i> {{ user()->employeeDetail->employee_id }}</span>
+                @endif
+                <span><i class="bi bi-envelope"></i> {{ user()->email }}</span>
+                @if (user()->mobile)
+                    <span><i class="bi bi-telephone"></i> {{ user()->mobile }}</span>
+                @endif
+            </p>
+        </div>
+    @endif
+
+    <!-- SETTINGS START -->
+    <div class="w-100 d-flex {{ $profileOnly ? 'epic-profile' : '' }}">
+
+        @unless ($profileOnly)
+            <x-setting-sidebar :activeMenu="$activeSettingMenu" />
+        @endunless
 
         <x-setting-card>
 
@@ -28,20 +56,20 @@ $viewClientDocumentPermission = user()->permission('view_client_document');
                     <nav class="tabs px-4 border-bottom-grey">
                         <div class="nav" id="nav-tab" role="tablist">
                             <a class="nav-item nav-link f-15 active profile"
-                                href="{{ route('profile-settings.index') }}" role="tab" aria-controls="nav-profiles"
+                                href="{{ $tabUrl() }}" role="tab" aria-controls="nav-profiles"
                                 aria-selected="true">@lang('app.profile')
                             </a>
 
                             @if (!in_array('client', user_roles()))
                                 <a class="nav-item nav-link f-15 emergency-contacts"
-                                href="{{ route('profile-settings.index') }}?tab=emergency-contacts" role="tab"
+                                href="{{ $tabUrl('emergency-contacts') }}" role="tab"
                                 aria-controls="nav-profile" aria-selected="true" ajax="false">@lang('modules.emergencyContact.emergencyContact')
                                 </a>
                             @endif
 
                             @if ($viewClientDocumentPermission != 'none' || $viewDocumentPermission != 'none')
                                 <a class="nav-item nav-link f-15 documents"
-                                href="{{ route('profile-settings.index') }}?tab=documents" role="tab"
+                                href="{{ $tabUrl('documents') }}" role="tab"
                                 aria-controls="documents" aria-selected="true" ajax="false">@lang('app.menu.documents')
                                 </a>
                             @endif

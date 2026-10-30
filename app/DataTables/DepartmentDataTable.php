@@ -35,7 +35,8 @@ class DepartmentDataTable extends BaseDataTable
             // View and Edit as buttons on the row, delete beside them (no menu to open).
             ->addColumn('action', function ($row) {
                 $action = '<div class="row-actions">'
-                    . '<a href="' . route('departments.show', [$row->id]) . '" class="row-action openRightModal">' . __('app.view') . '</a>';
+                    . '<a href="' . route('departments.show', [$row->id]) . '" class="row-action openRightModal">'
+                    . '<i class="fa fa-eye mr-1"></i>' . __('app.view') . '</a>';
 
                 if ($this->editDepartmentPermission == 'all') {
                     $action .= '<a href="' . route('departments.edit', [$row->id]) . '" class="row-action openRightModal">'

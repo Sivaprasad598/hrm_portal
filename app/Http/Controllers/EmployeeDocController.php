@@ -36,6 +36,11 @@ class EmployeeDocController extends AccountBaseController
 
     public function store(CreateRequest $request)
     {
+        abort_403(user()->permission('add_documents') != 'all');
+
+        // Someone who sees only their own documents adds only to their own
+        abort_403(user()->permission('view_documents') != 'all' && (int) $request->user_id !== (int) user()->id);
+
         $fileFormats = explode(',', global_setting()->allowed_file_types);
 
         foreach ($request->file as $fFormat) {

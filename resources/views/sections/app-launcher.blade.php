@@ -216,6 +216,31 @@
             $colorIndex++;
         }
     }
+    // ---- only what this person's sidebar offers ----------------------------
+    // The flags above follow the permissions; the sidebar is narrower (the
+    // role's menus), and a tile it would not show led to a page that refused
+    // them. Each tile is checked against the sidebar by the page it opens.
+    $routeOf = function (string $url) {
+        try {
+            // matched by path within the portal (it runs in a sub-folder)
+            $base = rtrim(url('/'), '/');
+            $path = str_starts_with($url, $base) ? substr($url, strlen($base)) : $url;
+
+            return app('router')->getRoutes()->match(\Illuminate\Http\Request::create($path ?: '/'))->getName();
+        } catch (\Throwable $e) {
+            return null;
+        }
+    };
+
+    $alwaysOpen = array_filter(['dashboard', 'my-calendar.index',
+        $sidebarUserPermissions['manage_company_setting'] == 4 ? 'company-settings.index' : null]);
+
+    $visibleTiles = array_values(array_filter($visibleTiles, function ($tile) use ($routeOf, $alwaysOpen) {
+        $route = $routeOf($tile['url']);
+
+        // A tile pointing outside the portal is the launcher settings' own choice
+        return $route === null || in_array($route, $alwaysOpen, true) || user()->hasMenuAccess($route);
+    }));
 @endphp
 
 @if (count($visibleTiles))

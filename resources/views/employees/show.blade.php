@@ -36,6 +36,9 @@ if ($viewPermission == 'all'
 @endphp
 
 @section('filter-section')
+    {{-- An employee sent to one part of their own record (My Assets, the OT bank
+         from the dashboard): just that part, not the whole record's tabs --}}
+    @unless (\App\Services\Access\AssignedModules::selfService() && request()->filled('tab') && $employee->id === user()->id)
     <!-- FILTER START -->
     <!-- PROJECT HEADER START -->
 
@@ -56,6 +59,7 @@ if ($viewPermission == 'all'
     </div>
 
     <!-- PROJECT HEADER END -->
+    @endunless
 @endsection
 
 @section('content')

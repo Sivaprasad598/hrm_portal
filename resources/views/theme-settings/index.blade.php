@@ -29,6 +29,42 @@
                         @lang($pageTitle)</h2>
                 </div>
             </x-slot>
+            {{-- The Epic HR look's colours: everywhere, the sign-in page included --}}
+            @php($epicColors = \App\Services\Theme\EpicColors::current())
+            <div class="col-lg-12 p-4 border-bottom-grey epic-colors-box">
+                <h4 class="f-16 mb-1">Epic colours</h4>
+                <p class="f-13 text-dark-grey mb-3">The colours of the whole portal and the sign-in page. Pick a set, or choose each colour.</p>
+
+                <div class="d-flex flex-wrap mb-3" style="gap: 10px;">
+                    @foreach (\App\Services\Theme\EpicColors::PRESETS as $key => $preset)
+                        <button type="button" class="btn btn-secondary epic-preset" data-colors='@json(array_intersect_key($preset, array_flip(\App\Services\Theme\EpicColors::FIELDS)))'>
+                            @foreach (\App\Services\Theme\EpicColors::FIELDS as $field)
+                                <span class="d-inline-block align-middle" style="width:14px;height:14px;border-radius:2px;background:{{ $preset[$field] }};margin-right:2px;"></span>
+                            @endforeach
+                            <span class="ml-1">{{ $preset['label'] }}</span>
+                        </button>
+                    @endforeach
+                </div>
+
+                <div class="row">
+                    @foreach (['primary' => ['Primary', 'Buttons, links, the open tab'], 'accent' => ['Accent', 'Second colour of titles, highlights'], 'dark' => ['Dark', 'Top bar and sign-in page band'], 'strip' => ['Icon strip', 'The strip down the left']] as $field => [$label, $hint])
+                        <div class="col-lg-3 col-md-6">
+                            <div class="form-group my-2">
+                                <x-forms.label :fieldId="'epic_' . $field" :fieldLabel="$label"></x-forms.label>
+                                <x-forms.input-group class="color-picker">
+                                    <input type="text" class="form-control height-35 f-14 epic-color" id="epic_{{ $field }}"
+                                           name="epic_colors[{{ $field }}]" value="{{ $epicColors[$field] }}" data-field="{{ $field }}">
+                                    <x-slot name="append">
+                                        <span class="input-group-text height-35 colorpicker-input-addon"><i></i></span>
+                                    </x-slot>
+                                </x-forms.input-group>
+                                <small class="text-dark-grey">{{ $hint }}</small>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+
             <div class="col-lg-6 mr-5">
                 <x-forms.text class="mr-0 mr-lg-2 mr-md-2" :fieldLabel="__('modules.accountSettings.appName')"
                               :fieldPlaceholder="__('placeholders.company')" fieldRequired="true" fieldName="app_name"
@@ -221,7 +257,33 @@
             document.documentElement.style.setProperty('--header_color', e.target.value);
         });
 
+        // Epic colours: a set fills the four pickers; any change shows on this page at once
+        var epicVars = { primary: '--epic-blue', accent: '--epic-green', dark: '--epic-dark', strip: '--epic-strip-bg' };
+
+        function epicPreview(field, value) {
+            if (/^#[0-9a-f]{6}$/i.test(value)) {
+                document.documentElement.style.setProperty(epicVars[field], value);
+            }
+        }
+
+        $('.epic-preset').on('click', function () {
+            $.each($(this).data('colors'), function (field, value) {
+                $('#epic_' + field).val(value).trigger('change');
+                $('#epic_' + field).closest('.color-picker').colorpicker('setValue', value);
+            });
+        });
+
+        $('.epic-color').on('change keyup', function () {
+            epicPreview($(this).data('field'), this.value);
+        });
+
+        $('.epic-colors-box .color-picker').on('colorpickerChange changeColor', function (e) {
+            var input = $(this).find('.epic-color');
+            epicPreview(input.data('field'), input.val());
+        });
+
         $('#reset-colors').click(function () {
+            $('.epic-preset').first().trigger('click');
             $('.header_color').val('#1d82f5');
             $('.sidebar_theme .custom-control-input').val('dark');
             $('.auth_theme .custom-control-input .auth_theme_text').val('light');

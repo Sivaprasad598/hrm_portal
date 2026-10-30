@@ -166,7 +166,15 @@ A forgotten password is reset with a **6-digit code sent by e-mail**, typed into
     "emergency_contacts": [
       { "name": "R. Kumar", "relation": "Father", "mobile": "9876500000", "email": null }
     ],
-    "shift_today": { "name": "General Shift", "type": "strict", "start": "09:30", "end": "18:30", "working_day": true }
+    "shift_today": { "name": "General Shift", "type": "strict", "start": "09:30", "end": "18:30", "working_day": true },
+    "modules": [
+      { "key": "attendance", "name": "Attendance" },
+      { "key": "leave_management", "name": "Leave Management" },
+      { "key": "payroll", "name": "Payroll" },
+      { "key": "asset_management", "name": "Asset Management" },
+      { "key": "holidays", "name": "Holidays" },
+      { "key": "events", "name": "Events" }
+    ]
   }
 }
 ```
@@ -175,6 +183,24 @@ A forgotten password is reset with a **6-digit code sent by e-mail**, typed into
 - `probation_end_date` is `null` when the employee is not on probation.
 - Any field can be `null` when HR has not filled it in.
 - `mobile` is for display. `mobile_number` and `country_phonecode` hold the stored values, for the edit form.
+- `modules`: the modules this person has, for showing or hiding screens in the app. Check `key`, which never changes; `name` is the label to show. The list holds:
+  - the modules behind their pages on the website (Settings > Access), and
+  - what every employee gets in the app where the module is switched on: `attendance`, `payroll` (own payslips), `holidays` and `events`.
+
+  | `key` | Module |
+  |---|---|
+  | `attendance` | Attendance |
+  | `leave_management` | Leave Management |
+  | `payroll` | Payroll |
+  | `asset_management` | Asset Management |
+  | `holidays` | Holidays |
+  | `events` | Events |
+  | `biometric` | Biometric |
+  | `employee_management` | Employee Management |
+  | `notice_board` | Notice Board |
+  | `appreciation` | Appreciation |
+
+  Any other module comes with its own lower-case name as the key, for example `projects`, `tasks` or `contracts`. HR and admin accounts get more modules than a plain employee.
 
 ### POST `/me` (multipart/form-data): update my profile
 
@@ -187,7 +213,7 @@ Changes **only the fields sent**. The answer is the full profile, the same as `G
 | `gender` | `male`, `female` or `others` |
 | `date_of_birth` | `YYYY-MM-DD`, not in the future |
 | `marital_status` | `single`, `married`, `widower`, `widow`, `separate`, `divorced` or `engaged` |
-| `marriage_date` | `YYYY-MM-DD`. Required when `married`, and cleared for any other status. |
+| `marriage_date` | `YYYY-MM-DD`. Required when `married`, and cleared for any other status. Send it with `marital_status = married`, unless the stored status is already married; otherwise 422. |
 | `address` | Up to 500 characters |
 | `photo` | Profile photo: jpg / png / webp, max 2 MB |
 | `remove_photo` | `1` removes the photo |
@@ -764,5 +790,5 @@ An application that isn't this employee's answers `404`.
 - **Database:** the API needs one new migration, `2026_10_27_100001_attendance_break_logs`. It runs with the other migrations.
 - **Login tokens:** stored in `personal_access_tokens` (Laravel Sanctum). HR can revoke a phone's access by disabling the employee's login.
 - **Clock-in photos:** saved under `storage/app/public/attendance-photos/{employee}/{YYYY-MM}/`. The server needs the `public/storage` link (`php artisan storage:link`) for the photo URLs to open.
-- **Address:** the base URL has **no `/public`** in it. The server's `.env` must have `APP_URL` without `/public`, e.g. `https://<domain>/arowanauk/hrm`. Old `/public/...` addresses are redirected.
+- **Address:** the base URL has **no `/public`** in it. The server's `.env` must have `APP_URL` without `/public`, e.g. `https://arowanauk.com/hrm`. Old `/public/...` addresses are redirected.
 - **Clock-in rules:** app clock-ins use the same photo/location settings as the website clock-in (*Attendance Settings*). They count in attendance and payroll like any other punch.

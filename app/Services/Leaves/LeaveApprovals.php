@@ -201,7 +201,7 @@ class LeaveApprovals
 
             static::guardFinal($leave);
             static::log($leave, $step, 'override', null, $note);
-            static::finish($leave);
+            static::finish($leave, 'approved');
 
             return 'final';
         }
@@ -212,7 +212,7 @@ class LeaveApprovals
         if ($next === null) {
             static::guardFinal($leave);
             static::log($leave, $step, 'approved', null, $note);
-            static::finish($leave);
+            static::finish($leave, 'approved');
 
             return 'final';
         }
@@ -236,7 +236,7 @@ class LeaveApprovals
         }
 
         static::log($leave, $leave->approval_step, 'rejected', null, $reason);
-        static::finish($leave);
+        static::finish($leave, 'rejected');
     }
 
     /** Steps left undecided too long move on to the next. @return int applications moved */
@@ -286,9 +286,27 @@ class LeaveApprovals
         }
     }
 
-    protected static function finish(Leave $leave): void
+    protected static function finish(Leave $leave, ?string $outcome = null): void
     {
         Leave::whereIn('id', static::group($leave)->pluck('id'))->update(['approval_step' => self::DONE]);
+
+        if ($outcome) {
+            static::notifyEarlierApprovers($leave, $outcome);
+        }
+    }
+
+    /** Those who approved an earlier step (the reporting manager...) hear how it ended. */
+    protected static function notifyEarlierApprovers(Leave $leave, string $outcome): void
+    {
+        $ids = DB::table('leave_approvals')->where(static::groupKey($leave))->where('action', 'approved')
+            ->whereNotNull('user_id')->pluck('user_id')->map(fn ($id) => (int) $id)->unique()
+            ->reject(fn ($id) => $id === (int) user()?->id || $id === (int) $leave->user_id);
+
+        $detail = ($outcome === 'approved' ? 'approved' : 'rejected') . ' by ' . (user()?->name ?: 'the approver') . '.';
+
+        foreach (\App\Models\User::whereIn('id', $ids)->get() as $user) {
+            $user->notify(new \App\Notifications\LeaveApprovalUpdate($leave, 'decided', $detail));
+        }
     }
 
     protected static function moveTo(Leave $leave, string $step): void

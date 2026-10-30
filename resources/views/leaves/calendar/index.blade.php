@@ -6,10 +6,21 @@
 
 @section('filter-section')
 
+    @php
+        $calendarHolidays = \App\Models\Holiday::getHolidayByDates(
+            now()->subYear()->startOfYear()->toDateString(), now()->addYear()->endOfYear()->toDateString(),
+            \App\Services\Access\AssignedModules::selfService() ? user()->id : null
+        )->flatMap(fn ($h) => [
+            ['start' => $h->holiday_date, 'allDay' => true, 'display' => 'background', 'classNames' => ['epic-holiday-day'], 'holiday' => true],
+            ['title' => $h->occassion, 'start' => $h->holiday_date, 'allDay' => true, 'classNames' => ['epic-holiday'], 'holiday' => true],
+        ])->values();
+    @endphp
+
     <x-filters.filter-box>
 
         <!-- EMPLOYEE FILTER START -->
-        <div class="select-box d-flex py-2 px-lg-2 px-md-2 px-0 border-right-grey border-right-grey-sm-0">
+        {{-- Only themselves to pick (an employee): no drop-down, the one choice stays selected --}}
+        <div class="select-box {{ $employees->count() > 1 || in_array('admin', user_roles()) ? 'd-flex' : 'd-none' }} py-2 px-lg-2 px-md-2 px-0 border-right-grey border-right-grey-sm-0">
             <p class="mb-0 pr-2 f-14 text-dark-grey d-flex align-items-center">@lang('app.employee')</p>
             <div class="select-status">
                 <select class="form-control select-picker" name="employee_id" id="employee_id" data-live-search="true"
@@ -174,11 +185,20 @@ $addLeavePermission = user()->permission('add_leave');
             selectable: false,
             selectMirror: true,
             eventClick: function(arg) {
+                // Holidays are shown, not opened
+                if (arg.event.extendedProps.holiday) {
+                    return;
+                }
+
                 getEventDetail(arg.event.id);
             },
             editable: false,
             dayMaxEvents: true, // allow "more" link when too many events
-            events: {
+            eventSources: [{
+                // Holidays (last year to next), the ones that apply to this
+                // person for an employee: a tinted day and its name on it
+                events: @json($calendarHolidays),
+            }, {
                 url: "{{ route('leaves.calendar') }}",
                 extraParams: function() {
                     var employeeId = $('#employee_id').val();
@@ -193,7 +213,7 @@ $addLeavePermission = user()->permission('add_leave');
                         searchText: searchText,
                     };
                 }
-            },
+            }],
             eventTimeFormat: {
                 hour: company.time_format == 'H:i' ? '2-digit' : 'numeric',
                 minute: '2-digit',

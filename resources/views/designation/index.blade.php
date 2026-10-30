@@ -31,6 +31,21 @@
         </div>
         <!-- SEARCH BY TASK END -->
 
+        <!-- DESIGNATION START -->
+        <div class="select-box d-flex py-2 px-lg-2 px-md-2 px-0 border-right-grey border-right-grey-sm-0">
+            <p class="mb-0 pr-2 f-14 text-dark-grey d-flex align-items-center">@lang('app.menu.designation')</p>
+            <div class="select-status">
+                <select class="form-control select-picker" name="parent_id" id="parent_id"
+                        data-live-search="true" data-size="8">
+                    <option value="all">@lang('app.all')</option>
+                    @foreach ($designations as $designation)
+                        <option value="{{ $designation->id }}">{{ $designation->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+        </div>
+        <!-- DESIGNATION END -->
+
         <!-- RESET START -->
         <div class="select-box d-flex py-1 px-lg-2 px-md-2 px-0">
             <x-forms.button-secondary class="btn-xs d-none" id="reset-filters" icon="times-circle">
@@ -38,28 +53,6 @@
             </x-forms.button-secondary>
         </div>
         <!-- RESET END -->
-
-        <!-- MORE FILTERS START -->
-        <x-filters.more-filter-box>
-
-            <div class="more-filter-items">
-                <label class="f-14 text-dark-grey mb-12 " for="usr">@lang('app.menu.designation')</label>
-                <div class="select-filter mb-4">
-                    <div class="select-others">
-                        <select class="form-control select-picker" name="parent_id" id="parent_id"
-                                data-live-search="true" data-size="8">
-                            <option value="all">@lang('app.all')</option>
-                            @foreach ($designations as $designation)
-                                <option value="{{ $designation->id }}">{{ $designation->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                </div>
-            </div>
-
-
-        </x-filters.more-filter-box>
-        <!-- MORE FILTERS END -->
 
     </x-filters.filter-box>
 @endsection

@@ -1,0 +1,107 @@
+/* Epic HR look for the older pages shown in a frame (LegacyPageController adds
+   this after their own styles). They keep their own layout; this brings their
+   font, page colour, buttons and tables in line with the rest. */
+
+:root {
+    --app-font: 'Plus Jakarta Sans', 'Segoe UI', Arial, sans-serif;
+    --epic-blue: #3d78e3;
+    --epic-green: #67b173;
+    --epic-dark: #212529;
+    --epic-strip-bg: var(--epic-green);
+    --epic-blue-hover: color-mix(in srgb, var(--epic-blue) 82%, #000);
+    --epic-gradient: linear-gradient(145deg, var(--epic-blue), var(--epic-green));
+    /* Leave Management's own palette, pointed at the theme's colours */
+    --primary: var(--epic-blue);
+    --primary-dark: var(--epic-blue-hover);
+    --primary-light: color-mix(in srgb, var(--epic-blue) 14%, #fff);
+    --secondary: var(--epic-green);
+}
+
+html body { background-color: #f3f3f9; color: #212529; }
+
+.btn-primary,
+button.btn-primary,
+.btn.btn-primary {
+    background: var(--epic-blue) !important;
+    border-color: var(--epic-blue) !important;
+    color: #fff !important;
+    border-radius: 2px !important;
+}
+
+.btn-primary:hover { background: var(--epic-blue-hover) !important; border-color: var(--epic-blue-hover) !important; }
+
+.btn-success { background: var(--epic-green) !important; border-color: var(--epic-green) !important; border-radius: 2px !important; }
+
+.card { border-radius: 2px !important; box-shadow: 0 1px 2px rgba(56, 65, 74, .15) !important; border: 0 !important; }
+
+.card-header h1, .card-header h2, .card-header h3, .card-header h4, .card-header h5 {
+    font-weight: 700;
+    background: var(--epic-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+table thead th {
+    color: #878a99;
+    font-weight: 500;
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: .02em;
+}
+
+.form-control, .form-select, select, input[type="text"], input[type="date"], input[type="number"] {
+    border-radius: 2px;
+}
+
+/* The pages' own action buttons (Identity Card's purple "Generate ID Card",
+   Offer Letter's orange "Submit", ...) in the theme's blue */
+.btn-generate,
+.submit-btn,
+.btn-submit,
+button[type="submit"]:not(.btn-danger):not(.btn-secondary):not(.btn-light):not(.btn-outline-secondary),
+input[type="submit"] {
+    background: var(--epic-blue) !important;
+    background-image: none !important;
+    border: 1px solid var(--epic-blue) !important;
+    color: #fff !important;
+    border-radius: 2px !important;
+    box-shadow: none !important;
+}
+
+.btn-generate:hover,
+.submit-btn:hover,
+.btn-submit:hover,
+button[type="submit"]:not(.btn-danger):not(.btn-secondary):hover,
+input[type="submit"]:hover {
+    background: var(--epic-blue-hover) !important;
+    border-color: var(--epic-blue-hover) !important;
+}
+
+.btn-generate:disabled,
+.submit-btn:disabled { background: #9db8ec !important; border-color: #9db8ec !important; }
+
+/* Leave Management: its cards had too little room in the frame, so names and
+   figures were cut off ("Casu...", "0.67 thi...") */
+.leave-types { grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)) !important; }
+.summary-grid { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)) !important; }
+.monthly-dashboard-body .summary-grid { grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)) !important; }
+
+/* The other primary buttons these pages define (in the portal's old indigo) */
+.btn-save,
+.modal-btn,
+.print-btn,
+.view-payslip-btn,
+.floating-btn {
+    background: var(--epic-blue) !important;
+    border-color: var(--epic-blue) !important;
+    color: #fff !important;
+    border-radius: 2px !important;
+}
+
+.btn-save:hover, .modal-btn:hover, .print-btn:hover, .view-payslip-btn:hover, .floating-btn:hover {
+    background: var(--epic-blue-hover) !important;
+}
+
+.approve-btn { background: var(--epic-green) !important; border-color: var(--epic-green) !important; color: #fff !important; border-radius: 2px !important; }
+.btn-cancel, .btn-reset, .modal-close-btn { border-radius: 2px !important; }

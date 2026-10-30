@@ -139,6 +139,17 @@ class LegacyPageController extends AccountBaseController
         // The app's font, Open Sans, in these pages too (they write their own <head>).
         if (!str_contains($html, 'css/open-sans.css')) {
             $font = '<link rel="stylesheet" href="' . asset('css/open-sans.css') . '?v=' . @filemtime(public_path('css/open-sans.css')) . '">';
+
+            // The Epic HR look on top, unless the person uses the dark theme.
+            if (!user()?->dark_theme) {
+                foreach (['fonts', 'legacy'] as $sheet) {
+                    $font .= '<link rel="stylesheet" href="' . asset('css/epic/' . $sheet . '.css') . '?v=' . @filemtime(public_path('css/epic/' . $sheet . '.css')) . '">';
+                }
+
+                if ($colors = \App\Services\Theme\EpicColors::css()) {
+                    $font .= '<style id="epic-colors">' . $colors . '</style>';
+                }
+            }
             $html = preg_replace('#</head>#i', $font . '$0', $html, 1);
         }
 

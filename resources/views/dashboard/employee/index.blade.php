@@ -112,6 +112,7 @@
             <!-- WELOCOME NAME START -->
             <div>
                 <h3 class="heading-h3 mb-0 f-21 font-weight-bold">@lang('app.welcome') {{ $user->name }}</h3>
+                <p class="epic-welcome-sub mb-0">{{ now()->timezone(company()->timezone)->translatedFormat('l, d F Y') }} &middot; here is your day at a glance.</p>
             </div>
             <!-- WELOCOME NAME END -->
 
@@ -252,6 +253,11 @@
             <!-- CLOCK IN CLOCK OUT END -->
         </div>
         <!-- WELOCOME END -->
+
+         {{-- Shortcut tiles, as on the Epic HR dashboard --}}
+         @unless (user()->dark_theme)
+            @include('dashboard.epic-shortcuts')
+         @endunless
 
          {{-- Everyone but the Super Admin, Admin and HR: their own dashboard only. --}}
          @if (\App\Services\Employee\PersonalDashboard::applies())

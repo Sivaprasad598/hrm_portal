@@ -6,7 +6,10 @@
     <div class="navbar-left float-left d-flex align-items-center">
         <x-app-title class="d-none d-lg-flex" :pageTitle="$pageTitle"></x-app-title>
 
-        @include('sections.app-launcher-popup')
+        {{-- Not for the self-service (employee) menu: its few pages are all in the sidebar --}}
+        @unless (\App\Services\Access\AssignedModules::selfService())
+            @include('sections.app-launcher-popup')
+        @endunless
 
         <div class="d-block d-lg-none menu-collapse cursor-pointer position-relative" onclick="openMobileMenu()">
             <div class="mc-wrap">

@@ -5,9 +5,9 @@
 
     RewriteEngine On
     # No RewriteBase: the same file works wherever the app sits
-    # (/hrm_portal/public locally, /arowanauk/hrm/public on the server).
+    # (/hrm_portal/public locally, /hrm/public on https://arowanauk.com).
     # Only if a host insists on one, set it to the URL path of this folder:
-    # RewriteBase /arowanauk/hrm/public/
+    # RewriteBase /hrm/public/
 
     # Old links and bookmarks with "/public" in them go to the same address
     # without it (see ../.htaccess; 308 keeps a form post a post). Only what the

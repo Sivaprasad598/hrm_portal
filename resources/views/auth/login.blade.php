@@ -192,6 +192,50 @@
 
             $(document).ready(function () {
 
+                // The page may have been open a while, and the session behind it
+                // changed since (signed out or in elsewhere): take a fresh token
+                // just before signing in, so the sign-in is not refused as expired.
+                // Already signed in by then (another tab): straight to the portal.
+                let freshToken = false;
+
+                $("form#login-form").on('submit', function (event) {
+                    if (freshToken) {
+                        return;
+                    }
+
+                    event.preventDefault();
+                    const form = this;
+
+                    fetch("{{ route('login') }}", { credentials: 'same-origin', cache: 'no-store' })
+                        .then(function (response) {
+                            if (response.redirected && response.url.indexOf('/login') === -1) {
+                                window.location = response.url;
+                                return null;
+                            }
+
+                            return response.text();
+                        })
+                        .then(function (html) {
+                            if (html === null) {
+                                return;
+                            }
+
+                            const match = html.match(/name="_token" value="([^"]+)"/);
+
+                            if (match) {
+                                $(form).find('input[name="_token"]').val(match[1]);
+                                $('meta[name="csrf-token"]').attr('content', match[1]);
+                            }
+
+                            freshToken = true;
+                            $(form).trigger('submit');
+                        })
+                        .catch(function () {
+                            freshToken = true;
+                            $(form).trigger('submit');
+                        });
+                });
+
                 $("form#login-form").submit(function () {
                     const button = $('form#login-form').find('#submit-login');
 

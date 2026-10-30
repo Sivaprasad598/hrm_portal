@@ -1,7 +1,8 @@
-# Project root (e.g. public_html/arowanauk/hrm on the server, /hrm_portal locally).
+# Project root: public_html/arowanauk/hrm on the server (served as
+# https://arowanauk.com/hrm), C:/wamp64/www/hrm_portal locally.
 #
 # The application lives in public/, but the address has no "/public" in it:
-#   https://<domain>/arowanauk/hrm/login   (locally http://localhost/hrm_portal/login)
+#   https://arowanauk.com/hrm/login   (locally http://localhost/hrm_portal/login)
 # Every request is handed to public/ internally, so nothing outside public/ is
 # ever served: .env (database password), storage/ and its backups, vendor/,
 # the source code, the HR Excel sheets in development_resourses/ and the
@@ -14,6 +15,13 @@ Options -Indexes
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
+
+    # Plain http goes to https (the password and the API token travel in the
+    # request). Not on this machine, which has no certificate.
+    RewriteCond %{HTTPS} !=on
+    RewriteCond %{HTTP:X-Forwarded-Proto} !https
+    RewriteCond %{HTTP_HOST} !^(localhost|127\.0\.0\.1)(:\d+)?$ [NC]
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,NE,L]
 
     # The API's bearer token must reach PHP.
     RewriteCond %{HTTP:Authorization} .
