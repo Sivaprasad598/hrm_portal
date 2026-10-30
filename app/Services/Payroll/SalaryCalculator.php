@@ -19,10 +19,13 @@ use Illuminate\Support\Facades\DB;
  *   ESI            = IF(Gross <= threshold, Gross x (employee % + employer %), 0)
  *   ESI after LOP  = ROUND(ESI x present / days)
  *   PT             = by salary band, on the full gross
- *   Net Salary     = Gross - PF after LOP - ESI after LOP - PT - TDS
- *   Per day        = Net Salary / days in the cycle
+ *   Before tax     = Gross - PF after LOP - ESI after LOP - PT
+ *   Per day        = Before tax / days in the cycle
  *   After LOP      = LOP days x Per day
- *   Final          = ROUND(Net Salary - After LOP)
+ *   Final          = ROUND(Before tax - After LOP) - TDS
+ *
+ * TDS comes off after the attendance deduction, as on the company's payslips:
+ * the day's pay is not lowered by the month's income tax.
  *
  * Every rate is a setting (payroll_calculations); charging PF and ESI on the
  * days paid and rounding to the rupee are settings too, so a company can turn
@@ -106,31 +109,50 @@ class SalaryCalculator
         $ceiling = (float) ($s->pf_wage_ceiling ?? 0);
         $pfWages = $ceiling > 0 ? min($basic, $ceiling) : $basic;
         $pfFull = $pfWages * ($pfEmployeePct + $pfEmployerPct) / 100;
-        $pf = $prorate ? $money($pfFull * $paidShare) : $pfFull;
-        [$pfEmployee, $pfEmployer] = $this->split($pf, $pfEmployeePct, $pfEmployerPct);
+        $statutoryShare = $prorate ? $paidShare : 1.0;
+
+        // Rounded to the rupee, each side is rounded on its own, as on the
+        // payslip: PF to the nearest rupee, ESI up to the next (ESIC's rule).
+        if ($round) {
+            $pfEmployee = round($pfWages * $pfEmployeePct / 100 * $statutoryShare);
+            $pfEmployer = round($pfWages * $pfEmployerPct / 100 * $statutoryShare);
+            $pf = $pfEmployee + $pfEmployer;
+        } else {
+            $pf = $prorate ? $money($pfFull * $paidShare) : $pfFull;
+            [$pfEmployee, $pfEmployer] = $this->split($pf, $pfEmployeePct, $pfEmployerPct);
+        }
 
         // ESI, both sides, while gross is within the limit; then on the days paid.
         $esiEmployeePct = (float) $s->esi_pct;
         $esiEmployerPct = (float) ($s->esi_employer_pct ?? $s->esi_pct);
         $esiFull = $gross <= (float) $s->esi_threshold ? $gross * ($esiEmployeePct + $esiEmployerPct) / 100 : 0.0;
-        $esi = $prorate ? $money($esiFull * $paidShare) : $esiFull;
-        [$esiEmployee, $esiEmployer] = $this->split($esi, $esiEmployeePct, $esiEmployerPct);
+        if ($round) {
+            $esiOn = $gross <= (float) $s->esi_threshold ? $gross * $statutoryShare : 0.0;
+            $esiEmployee = ceil(round($esiOn * $esiEmployeePct / 100, 6));
+            $esiEmployer = ceil(round($esiOn * $esiEmployerPct / 100, 6));
+            $esi = $esiEmployee + $esiEmployer;
+        } else {
+            $esi = $prorate ? $money($esiFull * $paidShare) : $esiFull;
+            [$esiEmployee, $esiEmployer] = $this->split($esi, $esiEmployeePct, $esiEmployerPct);
+        }
 
         $pt = $this->professionalTax($gross);
         // Income tax is a figure per employee, set by the accountant.
         $tds = max(0.0, $tds);
 
-        $net = $gross - $pf - $esi - $pt - $tds;
+        $beforeTax = $gross - $pf - $esi - $pt;
+        $net = $beforeTax - $tds;
         $unpaidDays = max(0.0, $days - $present);
-        $perDay = $days > 0 ? $net / $days : 0.0;
+        $perDay = $days > 0 ? $beforeTax / $days : 0.0;
         $afterLop = $unpaidDays * $perDay;
 
-        // The final figure is rounded to the rupee, as on the sheet. The
-        // attendance deduction printed on the slip is whatever takes Net down
-        // to it, so the slip adds up from its own lines. With no unpaid day
-        // there is nothing to round against, so Net stands as it is.
-        $finalNet = $unpaidDays > 0 ? max(0.0, $money($net - $afterLop)) : $net;
-        $lopAmount = $net - $finalNet;
+        // The pay for the days worked is rounded to the rupee, as on the sheet,
+        // and TDS comes off that. The attendance deduction printed on the slip
+        // is whatever takes the pay down to the rounded figure, so the slip adds
+        // up from its own lines. With no unpaid day there is nothing to round
+        // against, so Net stands as it is.
+        $lopAmount = $unpaidDays > 0 ? $beforeTax - max(0.0, $money($beforeTax - $afterLop)) : 0.0;
+        $finalNet = $net - $lopAmount;
 
         return [
             'gross' => $gross, 'basic' => $basic, 'basic_pct' => $pct, 'hra' => $hra, 'ca' => $ca,

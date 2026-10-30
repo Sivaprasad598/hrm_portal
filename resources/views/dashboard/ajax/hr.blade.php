@@ -5,13 +5,13 @@
 {{-- arw-dash scopes public/css/app-custom.css to this screen; arw-stats lets the five figures share a row evenly --}}
 <div class="arw-dash">
 <div class="arw-stats">
-    @if (in_array('leaves', user_modules()) && in_array('total_leaves_approved', $activeWidgets))
+    @if (in_array('leaves', dashboard_modules()) && in_array('total_leaves_approved', $activeWidgets))
         <x-cards.stat accent="indigo" icon="plane-departure" link-id="total-leaves-approved"
             :label="__('modules.dashboard.totalLeavesApproved')" :value="$totalLeavesApproved"
             :info="__('messages.leaveInfo')" />
     @endif
 
-    @if (in_array('employees', user_modules()) && in_array('total_new_employee', $activeWidgets))
+    @if (in_array('employees', dashboard_modules()) && in_array('total_new_employee', $activeWidgets))
         <x-cards.stat accent="emerald" icon="users" link-class="total-employees" :link-data="['status' => 'open']"
             :label="__('app.menu.employees')" :value="$totalEmployee"
             :info="__('messages.totalEmployeeInfo')"
@@ -20,26 +20,26 @@
             sub-link-class="total-new-employees" :sub-link-data="['status' => 'resolved']" />
     @endif
 
-    @if (in_array('employees', user_modules()) && in_array('total_employee_exits', $activeWidgets))
+    @if (in_array('employees', dashboard_modules()) && in_array('total_employee_exits', $activeWidgets))
         <x-cards.stat accent="amber" icon="sign-out-alt" link-id="total-ex-employees"
             :label="__('modules.dashboard.totalEmployeeExits')" :value="$totalEmployeeExits"
             :info="__('messages.employeeExitInfo')" />
     @endif
 
-    @if (in_array('attendance', user_modules()) && in_array('total_today_attendance', $activeWidgets))
+    @if (in_array('attendance', dashboard_modules()) && in_array('total_today_attendance', $activeWidgets))
         <x-cards.stat accent="sky" icon="calendar-check" :href="route('attendances.index')" link-class="arw-stat__go"
             :label="__('modules.dashboard.totalTodayAttendance')"
             :value="$counts->totalTodayAttendance.'/'.$counts->totalEmployees" />
     @endif
 
-    @if (in_array('attendance', user_modules()) && in_array('average_attendance', $activeWidgets))
+    @if (in_array('attendance', dashboard_modules()) && in_array('average_attendance', $activeWidgets))
         <x-cards.stat accent="violet" icon="fingerprint" :href="route('attendances.index')" link-class="arw-stat__go"
             :label="__('modules.dashboard.averageAttendance')" :value="$averageAttendance" />
     @endif
 </div>
 
 <div class="row">
-    @if (in_array('employees', user_modules()) && in_array('department_wise_employee', $activeWidgets))
+    @if (in_array('employees', dashboard_modules()) && in_array('department_wise_employee', $activeWidgets))
         <div class="col-sm-12 col-lg-6 mt-3">
             <x-cards.data :title="__('modules.dashboard.departmentWiseEmployee').' <i class=\'fa fa-question-circle\' data-toggle=\'popover\' data-placement=\'top\' data-content=\''.__('messages.dateFilterNotApplied').'\' data-trigger=\'hover\'></i>'">
                 @if (array_sum($departmentWiseChart['values']) > 0)
@@ -53,7 +53,7 @@
         </div>
     @endif
 
-    @if (in_array('employees', user_modules()) && in_array('designation_wise_employee', $activeWidgets))
+    @if (in_array('employees', dashboard_modules()) && in_array('designation_wise_employee', $activeWidgets))
         <div class="col-sm-12 col-lg-6 mt-3">
             <x-cards.data :title="__('modules.dashboard.designationWiseEmployee').' <i class=\'fa fa-question-circle\' data-toggle=\'popover\' data-placement=\'top\' data-content=\''.__('messages.dateFilterNotApplied').'\' data-trigger=\'hover\'></i>'">
                 @if (array_sum($designationWiseChart['values']) > 0)
@@ -67,7 +67,7 @@
         </div>
     @endif
 
-    @if (in_array('employees', user_modules()) && in_array('gender_wise_employee', $activeWidgets))
+    @if (in_array('employees', dashboard_modules()) && in_array('gender_wise_employee', $activeWidgets))
         <div class="col-sm-12 col-lg-6 mt-3">
             <x-cards.data :title="__('modules.dashboard.genderWiseEmployee').' <i class=\'fa fa-question-circle\' data-toggle=\'popover\' data-placement=\'top\' data-content=\''.__('messages.dateFilterNotApplied').'\' data-trigger=\'hover\'></i>'">
                 @if (array_sum($genderWiseChart['values']) > 0)
@@ -81,7 +81,7 @@
         </div>
     @endif
 
-    @if (in_array('employees', user_modules()) && in_array('role_wise_employee', $activeWidgets))
+    @if (in_array('employees', dashboard_modules()) && in_array('role_wise_employee', $activeWidgets))
         <div class="col-sm-12 col-lg-6 mt-3">
             <x-cards.data :title="__('modules.dashboard.roleWiseEmployee').' <i class=\'fa fa-question-circle\' data-toggle=\'popover\' data-placement=\'top\' data-content=\''.__('messages.dateFilterNotApplied').'\' data-trigger=\'hover\'></i>'">
                 @if (array_sum($roleWiseChart['values']) > 0)
@@ -95,7 +95,7 @@
         </div>
     @endif
 
-    @if (in_array('employees', user_modules()) && in_array('headcount', $activeWidgets))
+    @if (in_array('employees', dashboard_modules()) && in_array('headcount', $activeWidgets))
     <div class="col-sm-12 col-lg-12 mt-3">
         <x-cards.data :title="__('modules.dashboard.headcount').' <i class=\'fa fa-question-circle\' data-toggle=\'popover\' data-placement=\'top\' data-content=\''.__('app.lastTweleveMonths').' \' data-trigger=\'hover\'></i>'">
             <x-bar-chart id="task-chart6" :chartData="$headCountChart" height="300"></x-bar-chart>
@@ -103,7 +103,7 @@
     </div>
     @endif
 
-    @if (in_array('employees', user_modules()) && in_array('joining_vs_attrition', $activeWidgets))
+    @if (in_array('employees', dashboard_modules()) && in_array('joining_vs_attrition', $activeWidgets))
     <div class="col-sm-12 col-lg-12 mt-3">
         <x-cards.data :title="__('modules.dashboard.joiningVsAttrition').' <i class=\'fa fa-question-circle\' data-toggle=\'popover\' data-placement=\'top\' data-content=\''.__('app.lastTweleveMonths').' \' data-trigger=\'hover\'></i>'">
             <x-line-chart id="task-chart5" :chartData="$joiningVsAttritionChart" height="250" multiple="true" />
@@ -112,7 +112,7 @@
     @endif
 
 
-    @if (in_array('leaves', user_modules()) && in_array('leaves_taken', $activeWidgets))
+    @if (in_array('leaves', dashboard_modules()) && in_array('leaves_taken', $activeWidgets))
         <div class="col-sm-12 col-lg-6 mt-3">
             <x-cards.data :title="__('modules.dashboard.leavesTaken')" padding="false" otherClasses="h-200">
                 <x-table>
@@ -193,7 +193,7 @@
         </div>
     @endif
 
-    @if (in_array('attendance', user_modules()) && in_array('late_attendance_mark', $activeWidgets))
+    @if (in_array('attendance', dashboard_modules()) && in_array('late_attendance_mark', $activeWidgets))
         <div class="col-sm-12 col-lg-6 mt-3">
             <x-cards.data :title="__('modules.dashboard.lateAttendanceMark')" padding="false" otherClasses="h-200">
                 <x-table>

@@ -10,6 +10,13 @@ $editDocumentPermission = user()->permission('edit_documents');
         visibility: hidden;
     }
 
+    .doc-type-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+    .doc-type-tabs a { padding: 6px 14px; border: 1px solid #e4e7ec; border-radius: 18px; font-size: 13px; color: #475467; background: #fff; }
+    .doc-type-tabs a span { margin-left: 4px; color: #98a2b3; font-size: 12px; }
+    .doc-type-tabs a:hover { text-decoration: none; border-color: #1d82f5; color: #1d82f5; }
+    .doc-type-tabs a.active { background: #1d82f5; border-color: #1d82f5; color: #fff; }
+    .doc-type-tabs a.active span { color: #e0edff; }
+
     .file-card:hover .file-action {
         visibility: visible;
     }
@@ -33,7 +40,14 @@ $editDocumentPermission = user()->permission('edit_documents');
             <x-form id="save-taskfile-data-form" class="d-none">
                 <input type="hidden" name="user_id" id="doc_user_id" value="{{ $employee->id }}">
                 <div class="row">
-                    <div class="col-md-12">
+                    <div class="col-md-6">
+                        <x-forms.select fieldId="doc_type" fieldName="doc_type" fieldLabel="Document Type" fieldRequired="true">
+                            @foreach (\App\Services\Employee\DocumentTypes::TYPES as $typeKey => $typeLabel)
+                                <option value="{{ $typeKey }}" @selected($typeKey === 'other')>{{ $typeLabel }}</option>
+                            @endforeach
+                        </x-forms.select>
+                    </div>
+                    <div class="col-md-6">
                         <x-forms.text :fieldLabel="__('modules.projects.fileName')" fieldName="name"
                             fieldRequired="true" fieldId="file_name" />
                     </div>
@@ -55,17 +69,32 @@ $editDocumentPermission = user()->permission('edit_documents');
             </x-form>
         @endif
 
-        <div class="d-flex flex-wrap mt-3" id="task-file-list">
-            @php
-                $totalDocuments = ($user->clientDocuments) ? count($user->clientDocuments) : 0;
-                $permission = 0; // assuming we do have permission for all uploaded files
-            @endphp
-            @forelse($employee->documents as $file)
-                @if ($viewDocumentPermission == 'all'
+        @php
+            // The files this person may see, with a tab for each type that has any
+            // (App\Services\Employee\DocumentTypes): Aadhaar, PAN, SSC and so on.
+            $docTypes = \App\Services\Employee\DocumentTypes::class;
+            $visibleDocs = $employee->documents->filter(fn ($file) => $viewDocumentPermission == 'all'
                 || ($viewDocumentPermission == 'added' && $file->added_by == user()->id)
                 || ($viewDocumentPermission == 'owned' && ($file->user_id == user()->id && $file->added_by != user()->id))
-                || ($viewDocumentPermission == 'both' && ($file->added_by == user()->id || $file->user_id == user()->id)))
-                    <x-file-card :fileName="$file->name" :dateAdded="$file->created_at->diffForHumans()">
+                || ($viewDocumentPermission == 'both' && ($file->added_by == user()->id || $file->user_id == user()->id)));
+            $typeOrder = array_keys($docTypes::TYPES);
+            $byType = $visibleDocs->groupBy(fn ($file) => $docTypes::of($file))
+                ->sortBy(fn ($files, $type) => array_search($type, $typeOrder));
+        @endphp
+
+        @if ($visibleDocs->isNotEmpty())
+            <div class="doc-type-tabs mt-4">
+                <a href="javascript:;" class="active" data-doc-filter="all">All <span>{{ $visibleDocs->count() }}</span></a>
+                @foreach ($byType as $type => $files)
+                    <a href="javascript:;" data-doc-filter="{{ $type }}">{{ $docTypes::label($type) }} <span>{{ $files->count() }}</span></a>
+                @endforeach
+            </div>
+        @endif
+
+        <div class="d-flex flex-wrap mt-3" id="task-file-list">
+            @forelse ($visibleDocs as $file)
+                    <x-file-card :fileName="$file->name" data-doc-type="{{ $docTypes::of($file) }}"
+                        :dateAdded="$docTypes::label($docTypes::of($file)) . ' · ' . $file->created_at->translatedFormat(company()->date_format)">
                         {{-- Click: images and PDFs open in the preview popup --}}
                         @if ($file->icon == 'images')
                             <a class="doc-preview" data-preview-url="{{ $file->doc_url }}" data-preview-kind="image" data-preview-name="{{ $file->name }}" href="javascript:;"><img src="{{ $file->doc_url }}"></a>
@@ -114,29 +143,15 @@ $editDocumentPermission = user()->permission('edit_documents');
                             </div>
                         </x-slot>
                     </x-file-card>
-                @else
-                    @php
-                        $permission++;
-                    @endphp
-                @endif
             @empty
                 <div class="align-items-center d-flex flex-column text-lightest p-20 w-100">
                     <i class="fa fa-file f-21 w-100"></i>
 
                     <div class="f-15 mt-4">
-                        - @lang('messages.noFileUploaded')
-                    </div>
-                </div>
-            @endforelse
-            @if (isset($user->clientDocuments) && $totalDocuments > 0 && $totalDocuments == $permission)
-                <div class="align-items-center d-flex flex-column text-lightest p-20 w-100">
-                    <i class="fa fa-file-excel f-21 w-100"></i>
-
-                    <div class="f-15 mt-4">
                         - @lang('messages.noFileUploaded') -
                     </div>
                 </div>
-            @endif
+            @endforelse
         </div>
     </x-cards.data>
 
@@ -191,6 +206,16 @@ $editDocumentPermission = user()->permission('edit_documents');
         $.ajaxModal(MODAL_DEFAULT, url);
     });
 
+    // Type tabs: show one kind of document, or all.
+    $('body').off('click', '[data-doc-filter]').on('click', '[data-doc-filter]', function () {
+        var type = $(this).data('doc-filter');
+        $('[data-doc-filter]').removeClass('active');
+        $(this).addClass('active');
+        $('#task-file-list [data-doc-type]').each(function () {
+            $(this).toggleClass('d-none', type !== 'all' && $(this).data('doc-type') !== type);
+        });
+    });
+
     $('#cancel-document').click(function() {
         $('#save-taskfile-data-form').addClass('d-none');
         $('#add-task-file').closest('.row').removeClass('d-none');
@@ -209,10 +234,8 @@ $editDocumentPermission = user()->permission('edit_documents');
             data: $('#editSettings').serialize(),
             success: function(response) {
                 if (response.status == 'success') {
-                    $('#task-file-list').html(response.view);
-                    $('#save-taskfile-data-form')[0].reset();
-                    $(".dropify-clear").trigger("click");
-                    $('.invalid-feedback').addClass('d-none');
+                    // A new file can bring a new type tab: draw the tab again.
+                    window.location.reload();
                 }
             }
         })

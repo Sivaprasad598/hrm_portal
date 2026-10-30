@@ -12,6 +12,23 @@
     ];
 @endphp
 
+@push('styles')
+    <style>
+        .ye-table thead th {
+            position: sticky;
+            top: 63px;                 /* under the page's top bar (.main-header) */
+            z-index: 3;
+            background: #f8f9fa;
+            box-shadow: inset 0 -1px 0 #e4e7ec;
+        }
+
+        @media (max-width: 991.98px) {
+            .ye-table-wrap { overflow-x: auto; }
+            .ye-table thead th { position: static; }
+        }
+    </style>
+@endpush
+
 @section('content')
     {{-- Standard page gutter, matching the rest of the app --}}
     <div class="content-wrapper arw-dash">
@@ -121,8 +138,11 @@
                 @endunless
             </div>
 
-            <div class="table-responsive">
-                <table class="table mb-0 f-13">
+            {{-- The header row stays in view under the top bar once the table reaches
+                 it, while the rows scroll on (not on a phone, where the table scrolls
+                 sideways instead). --}}
+            <div class="ye-table-wrap">
+                <table class="table mb-0 f-13 ye-table">
                     <thead>
                         <tr class="bg-light">
                             <th>Employee / leave</th>

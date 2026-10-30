@@ -1,22 +1,29 @@
 # Project root (e.g. public_html/arowanauk/hrm on the server, /hrm_portal locally).
 #
-# The application is served only from public/:
-#   https://<domain>/arowanauk/hrm/public/
-# Opening the folder itself goes there, and nothing else outside public/ is
+# The application lives in public/, but the address has no "/public" in it:
+#   https://<domain>/arowanauk/hrm/login   (locally http://localhost/hrm_portal/login)
+# Every request is handed to public/ internally, so nothing outside public/ is
 # ever served: .env (database password), storage/ and its backups, vendor/,
 # the source code, the HR Excel sheets in development_resourses/ and the
-# legacy PHP pages (those run only through the application, after sign-in).
+# legacy PHP pages (those run only through the application, after sign-in) -
+# asked for by name they simply come back "not found".
+# public/index.php tells the framework it sits at this folder, so every link it
+# builds leaves "/public" out too (APP_URL in .env must match: no /public).
 
 Options -Indexes
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
-    # The folder itself -> public/ (works under any path: no RewriteBase needed).
-    RewriteRule ^$ %{REQUEST_URI}public/ [R=302,L]
+    # The API's bearer token must reach PHP.
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 
-    # Everything that is not under public/ is refused.
-    RewriteRule ^(?!public(/|$)) - [F,L]
+    # (Old links with "/public" in them are sent to the clean address by
+    # public/.htaccess: Apache runs only that file for anything under public/.)
+
+    # Everything else is served from public/, without it showing.
+    RewriteRule ^(?!public(/|$))(.*)$ public/$2 [L]
 </IfModule>
 
 # Without mod_rewrite, refuse the dangerous files at least.

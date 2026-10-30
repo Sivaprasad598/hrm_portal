@@ -20,6 +20,9 @@ return [
 
     'name' => 'Arowana HR Portal',
 
+    // The HRM's version, shown at the foot of the sidebar.
+    'hrm_version' => env('HRM_VERSION', '1.0'),
+
 
     // We will use this for email copyright message
     'global_app_name' => 'Arowana HR Portal',

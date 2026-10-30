@@ -461,21 +461,6 @@ $probationMonths = (int) (\Illuminate\Support\Facades\DB::table('probation_perio
                         </div>
 
                         <div class="col-md-4">
-                            <x-forms.label class="my-3" fieldId="hourly_rate"
-                                :fieldLabel="__('modules.employees.hourlyRate')"></x-forms.label>
-                            <x-forms.input-group>
-                                <x-slot name="prepend">
-                                    <span
-                                        class="input-group-text f-14 bg-white-shade">{{ company()->currency->currency_symbol }}</span>
-                                </x-slot>
-
-                                <input type="number" step=".01" min="0" class="form-control height-35 f-14"
-                                    value="{{ $employee->employeeDetail->hourly_rate ?? '' }}" name="hourly_rate"
-                                    id="hourly_rate">
-                            </x-forms.input-group>
-                        </div>
-
-                        <div class="col-md-4">
                             <x-forms.label class="my-3" fieldId="slack_username"
                                 :fieldLabel="__('modules.employees.slackUsername')"></x-forms.label>
                             <x-forms.input-group>
@@ -487,12 +472,6 @@ $probationMonths = (int) (\Illuminate\Support\Facades\DB::table('probation_perio
                                     value="{{ $employee->employeeDetail->slack_username ?? '' }}" name="slack_username"
                                     id="slack_username">
                             </x-forms.input-group>
-                        </div>
-
-                        <div class="col-md-12">
-                            <x-forms.text class="tagify_tags" fieldId="tags" :fieldLabel="__('app.skills')"
-                                fieldName="tags" :fieldPlaceholder="__('placeholders.skills')"
-                                :fieldValue="implode(',', $employee->skills())" />
                         </div>
 
                         @if (function_exists('sms_setting') && sms_setting()->telegram_status)
@@ -1095,11 +1074,6 @@ $probationMonths = (int) (\Illuminate\Support\Facades\DB::table('probation_perio
             toggleProbationEndDate($(this).val() === '1');
         });
 
-        var input = document.querySelector('input[name=tags]'),
-            // init Tagify script on the above inputs
-            tagify = new Tagify(input, {
-                whitelist: {!! json_encode($skills) !!},
-            });
 
         var marital_status = $('#marital_status').val();
         if(marital_status == '{{ \App\Enums\MaritalStatus::Married->value }}') {
@@ -1924,7 +1898,6 @@ $probationMonths = (int) (\Illuminate\Support\Facades\DB::table('probation_perio
             h += '<p class="review-section-title"><i class="fa fa-cog mr-2"></i>Other Details</p>';
             h += r('Login Enabled',        radioLabel('login', {enable: 'Yes', disable: 'No'}));
             h += r('Email Notifications',  radioLabel('email_notifications', {'1': 'Yes', '0': 'No'}));
-            h += r('Hourly Rate',          val('hourly_rate'));
             h += r('Slack Username',       val('slack_username'));
             h += r('Probation End Date',   val('probation_end_date'));
             h += r('Notice Period Start',  val('notice_period_start_date'));

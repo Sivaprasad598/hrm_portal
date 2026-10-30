@@ -27,6 +27,7 @@ class StatutoryReturnExport implements WithMultipleSheets
         protected array $esi,
         protected array $pt,
         protected PayPeriod $cycle,
+        protected array $tds = ['lines' => [], 'problems' => []],
     ) {
     }
 
@@ -52,6 +53,12 @@ class StatutoryReturnExport implements WithMultipleSheets
             $sheets[] = new StatutorySheet('Professional Tax', $this->cycle,
                 ['Employee', 'Code', 'Gross', 'Professional Tax'],
                 $this->pt['lines'], []);
+        }
+
+        if (in_array($this->which, ['all', 'tds'], true)) {
+            $sheets[] = new StatutorySheet('Income Tax (TDS)', $this->cycle,
+                ['Employee', 'PAN', 'Gross', 'TDS Deducted'],
+                $this->tds['lines'], $this->tds['problems'] ?? []);
         }
 
         return $sheets;

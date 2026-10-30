@@ -13,6 +13,66 @@
     {{-- Standard page gutter, matching the rest of the app --}}
     <div class="content-wrapper arw-dash">
 
+        {{-- Filters first: the totals below are for what they select --}}
+        <div class="card bg-white border-0 b-shadow-4 mb-3">
+            <div class="card-body p-3">
+                <form method="GET" action="{{ route('payslips.generated') }}">
+                    <div class="form-row align-items-end">
+                        <div class="col-md-3 mb-2">
+                            <label class="f-12 text-dark-grey">Period</label>
+                            <select name="period" class="form-control form-control-sm filter-picker">
+                                <option value="">All periods</option>
+                                @foreach ($periods as $value => $label)
+                                    <option value="{{ $value }}" @selected($filters['period'] === $value)>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div class="col-md-3 mb-2">
+                            <label class="f-12 text-dark-grey">Employee</label>
+                            <select name="employee" class="form-control form-control-sm filter-picker">
+                                <option value="">All employees</option>
+                                @foreach ($employees as $cardId => $name)
+                                    <option value="{{ $cardId }}" @selected((string) $filters['employee'] === (string) $cardId)>
+                                        {{ $name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div class="col-md-3 mb-2">
+                            <label class="f-12 text-dark-grey">Department</label>
+                            <select name="department" class="form-control form-control-sm filter-picker">
+                                <option value="">All departments</option>
+                                @foreach ($departments as $id => $name)
+                                    <option value="{{ $id }}" @selected((string) $filters['department'] === (string) $id)>
+                                        {{ $name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div class="col-md-2 mb-2">
+                            <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="all_versions"
+                                       name="all_versions" value="1" @checked($filters['all_versions'])>
+                                <label class="custom-control-label f-12" for="all_versions">
+                                    Show every version
+                                </label>
+                            </div>
+                            <span class="f-11 text-lightest">
+                                Generating appends a row; by default only the newest per month is shown.
+                            </span>
+                        </div>
+
+                        <div class="col-md-1 mb-2">
+                            <button type="submit" class="btn btn-sm btn-primary btn-block">@lang('app.apply')</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
         {{-- Summary --}}
         @php
             $money = fn ($v) => '₹' . number_format((float) $v, 2);
@@ -135,79 +195,26 @@
             month is released so a corrected payslip can be issued.
         </div>
 
-        {{-- Filters --}}
-        <div class="card bg-white border-0 b-shadow-4 mb-3">
-            <div class="card-body p-3">
-                <form method="GET" action="{{ route('payslips.generated') }}">
-                    <div class="form-row align-items-end">
-                        <div class="col-md-3 mb-2">
-                            <label class="f-12 text-dark-grey">Period</label>
-                            <select name="period" class="form-control form-control-sm filter-picker">
-                                <option value="">All periods</option>
-                                @foreach ($periods as $value => $label)
-                                    <option value="{{ $value }}" @selected($filters['period'] === $value)>{{ $label }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-
-                        <div class="col-md-3 mb-2">
-                            <label class="f-12 text-dark-grey">Employee</label>
-                            <select name="employee" class="form-control form-control-sm filter-picker">
-                                <option value="">All employees</option>
-                                @foreach ($employees as $cardId => $name)
-                                    <option value="{{ $cardId }}" @selected((string) $filters['employee'] === (string) $cardId)>
-                                        {{ $name }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
-
-                        <div class="col-md-3 mb-2">
-                            <label class="f-12 text-dark-grey">Department</label>
-                            <select name="department" class="form-control form-control-sm filter-picker">
-                                <option value="">All departments</option>
-                                @foreach ($departments as $id => $name)
-                                    <option value="{{ $id }}" @selected((string) $filters['department'] === (string) $id)>
-                                        {{ $name }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
-
-                        <div class="col-md-2 mb-2">
-                            <div class="custom-control custom-checkbox">
-                                <input type="checkbox" class="custom-control-input" id="all_versions"
-                                       name="all_versions" value="1" @checked($filters['all_versions'])>
-                                <label class="custom-control-label f-12" for="all_versions">
-                                    Show every version
-                                </label>
-                            </div>
-                            <span class="f-11 text-lightest">
-                                Generating appends a row; by default only the newest per month is shown.
-                            </span>
-                        </div>
-
-                        <div class="col-md-1 mb-2">
-                            <button type="submit" class="btn btn-sm btn-primary btn-block">@lang('app.apply')</button>
-                        </div>
-                    </div>
-                </form>
-            </div>
-        </div>
-
         {{-- The list --}}
         <div class="card bg-white border-0 b-shadow-4">
             <div class="card-header bg-white border-bottom d-flex align-items-center flex-wrap p-3">
                 @php
-                    $active = collect($payslips)->filter(fn ($s) => $s->status === 'active');
+                    // Over every payslip the filters select, not just this page.
+                    $active = collect($allPayslips ?? $payslips)->filter(fn ($s) => $s->status === 'active');
                     // Drafts waiting for someone to approve them, and approved
                     // payslips nobody has been sent yet.
                     $drafts = $active->where('approval_status', 'draft');
                     $unsent = $active->where('approval_status', '!=', 'draft')->filter(fn ($s) => !$s->sent_at);
                 @endphp
                 <h6 class="mb-0 f-14 mr-auto">Generated payslips</h6>
+                @php
+                    // Each button needs its payroll switch (Settings -> Access).
+                    $canApprove = \App\Services\Access\PayrollAccess::can('approve');
+                    $canRevoke = \App\Services\Access\PayrollAccess::can('revoke');
+                    $canPrepare = \App\Services\Access\PayrollAccess::can('prepare');
+                @endphp
 
-                @if ($drafts->isNotEmpty())
+                @if ($canApprove && $drafts->isNotEmpty())
                     <button type="button" class="btn btn-sm btn-outline-info mr-2" id="approve-drafts"
                             data-ids="{{ $drafts->pluck('id')->implode(',') }}">
                         <i class="fa fa-check-double mr-1"></i>
@@ -215,7 +222,7 @@
                     </button>
                 @endif
 
-                @if ($unsent->isNotEmpty())
+                @if ($canApprove && $unsent->isNotEmpty())
                     <button type="button" class="btn btn-sm btn-outline-primary mr-2" id="email-unsent"
                             data-ids="{{ $unsent->pluck('id')->implode(',') }}">
                         <i class="fa fa-paper-plane mr-1"></i>
@@ -223,9 +230,11 @@
                     </button>
                 @endif
 
-                <a href="{{ route('payslips.index') }}" class="btn btn-sm btn-outline-secondary">
-                    <i class="fa fa-calculator mr-1"></i> Payslip calculator
-                </a>
+                @if ($canPrepare)
+                    <a href="{{ route('payslips.index') }}" class="btn btn-sm btn-outline-secondary">
+                        <i class="fa fa-calculator mr-1"></i> Payslip calculator
+                    </a>
+                @endif
             </div>
 
             <div class="table-responsive">
@@ -364,7 +373,7 @@
                                         <i class="fa fa-file-pdf"></i>
                                     </a>
 
-                                    @if ($slip->status === 'active' && $slip->approval_status === 'draft')
+                                    @if ($canApprove && $slip->status === 'active' && $slip->approval_status === 'draft')
                                         <button type="button" class="btn btn-xs btn-outline-info approve-btn"
                                                 data-id="{{ $slip->id }}"
                                                 data-name="{{ $slip->emp_name }}"
@@ -374,7 +383,7 @@
                                         </button>
                                     @endif
 
-                                    @if ($slip->status === 'active' && $slip->approval_status === 'approved')
+                                    @if ($canApprove && $slip->status === 'active' && $slip->approval_status === 'approved')
                                         <button type="button" class="btn btn-xs btn-outline-success paid-btn"
                                                 data-id="{{ $slip->id }}"
                                                 data-name="{{ $slip->emp_name }}"
@@ -383,7 +392,7 @@
                                         </button>
                                     @endif
 
-                                    @if ($slip->status === 'active' && $slip->approval_status !== 'draft')
+                                    @if ($canApprove && $slip->status === 'active' && $slip->approval_status !== 'draft')
                                         <button type="button" class="btn btn-xs btn-outline-secondary email-btn"
                                                 data-id="{{ $slip->id }}"
                                                 data-name="{{ $slip->emp_name }}"
@@ -394,7 +403,7 @@
                                         </button>
                                     @endif
 
-                                    @if ($slip->status === 'active')
+                                    @if ($canRevoke && $slip->status === 'active')
                                         <button type="button" class="btn btn-xs btn-outline-warning revoke-btn"
                                                 data-id="{{ $slip->id }}"
                                                 data-name="{{ $slip->emp_name }}"
@@ -404,13 +413,15 @@
                                         </button>
                                     @endif
 
-                                    <button type="button" class="btn btn-xs btn-outline-danger delete-btn"
-                                            data-id="{{ $slip->id }}"
-                                            data-name="{{ $slip->emp_name }}"
-                                            data-period="{{ $slip->period_label }}"
-                                            title="Delete this payslip">
-                                        <i class="fa fa-trash"></i>
-                                    </button>
+                                    @if ($canRevoke)
+                                        <button type="button" class="btn btn-xs btn-outline-danger delete-btn"
+                                                data-id="{{ $slip->id }}"
+                                                data-name="{{ $slip->emp_name }}"
+                                                data-period="{{ $slip->period_label }}"
+                                                title="Delete this payslip">
+                                            <i class="fa fa-trash"></i>
+                                        </button>
+                                    @endif
                                 </td>
                             </tr>
                         @empty
@@ -423,6 +434,27 @@
                     </tbody>
                 </table>
             </div>
+
+            {{-- A page at a time --}}
+            @if ($payslips instanceof \Illuminate\Pagination\LengthAwarePaginator && $payslips->total() > 0)
+                <div class="card-footer bg-white d-flex flex-wrap align-items-center justify-content-between p-3">
+                    <form method="GET" action="{{ route('payslips.generated') }}" class="d-flex align-items-center f-13 text-dark-grey mb-2 mb-md-0">
+                        @foreach (request()->except(['page', 'per_page']) as $key => $value)
+                            @if (!is_array($value))
+                                <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+                            @endif
+                        @endforeach
+                        Show
+                        <select name="per_page" class="form-control form-control-sm mx-2 w-auto" onchange="this.form.submit()">
+                            @foreach ([25, 50, 100] as $n)
+                                <option value="{{ $n }}" @selected($perPage === $n)>{{ $n }}</option>
+                            @endforeach
+                        </select>
+                        per page &middot; {{ $payslips->firstItem() }}–{{ $payslips->lastItem() }} of {{ $payslips->total() }}
+                    </form>
+                    {{ $payslips->onEachSide(1)->links('pagination::bootstrap-4') }}
+                </div>
+            @endif
         </div>
     </div>
 @endsection

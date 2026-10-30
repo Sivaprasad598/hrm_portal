@@ -1,4 +1,4 @@
-@if (in_array('attendance', user_modules()) && in_array('shift_schedule', $activeWidgets) && $sidebarUserPermissions['view_shift_roster'] != 5 && $sidebarUserPermissions['view_shift_roster'] != 'none' && in_array('attendance', user_modules()))
+@if (in_array('attendance', dashboard_modules()) && in_array('shift_schedule', $activeWidgets) && $sidebarUserPermissions['view_shift_roster'] != 5 && $sidebarUserPermissions['view_shift_roster'] != 'none' && in_array('attendance', dashboard_modules()))
     <div class="col-sm-12">
         <x-cards.data class="mb-3" :title="__('modules.attendance.shiftSchedule')" padding="false" otherClasses="h-200">
             <x-slot name="action">

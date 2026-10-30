@@ -35,10 +35,10 @@ class LegacyPageController extends AccountBaseController
      * holding salary data keep the role test.
      */
     public const PAGES = [
-        'reductions' => ['file' => 'Reductions.php', 'access' => 'admin', 'permission' => 'manage_payroll', 'title' => 'Payslip Calculation'],
-        'payslips' => ['file' => 'payslips.php', 'access' => 'admin', 'permission' => 'manage_payroll', 'title' => 'Payslip'],
-        'payslip_entry' => ['file' => 'payslip_entry.php', 'access' => 'admin', 'permission' => 'manage_payroll', 'title' => 'Payslip Entry'],
-        'payslip_inputs' => ['file' => 'payslip_inputs.php', 'access' => 'admin', 'permission' => 'manage_payroll', 'title' => 'Payslip Settings'],
+        'reductions' => ['file' => 'Reductions.php', 'access' => 'admin', 'permission' => 'payroll_prepare', 'title' => 'Payslip Calculation'],
+        'payslips' => ['file' => 'payslips.php', 'access' => 'admin', 'permission' => 'payroll_any', 'title' => 'Payslip'],
+        'payslip_entry' => ['file' => 'payslip_entry.php', 'access' => 'admin', 'permission' => 'payroll_prepare', 'title' => 'Payslip Entry'],
+        'payslip_inputs' => ['file' => 'payslip_inputs.php', 'access' => 'admin', 'permission' => 'payroll_settings', 'title' => 'Payslip Settings'],
         'offer_letter' => ['file' => 'offer-letter.php', 'access' => 'admin', 'permission' => 'edit_employees', 'title' => 'Offer Letter'],
         'termination' => ['file' => 'Termination.php', 'access' => 'admin', 'permission' => 'edit_employees', 'title' => 'Termination'],
         'termination_dashboard' => ['file' => 'TerminationDashboard.php', 'access' => 'admin', 'permission' => 'edit_employees', 'title' => 'Termination Dashboard'],
@@ -68,7 +68,11 @@ class LegacyPageController extends AccountBaseController
         // A permission, where the page names one, decides on its own; the
         // administrator role passes everything regardless.
         if (isset($definition['permission'])) {
-            abort_403(user()->permission($definition['permission']) !== 'all' && !in_array('admin', user_roles()));
+            // payroll_any: any payroll switch (App\Services\Access\PayrollAccess).
+            $allowed = $definition['permission'] === 'payroll_any'
+                ? \App\Services\Access\PayrollAccess::any()
+                : (user()->permission($definition['permission']) === 'all' || in_array('admin', user_roles()));
+            abort_403(!$allowed);
         } else {
             abort_403($definition['access'] === 'admin' && !in_array('admin', user_roles()));
         }
@@ -130,6 +134,12 @@ class LegacyPageController extends AccountBaseController
                 route('legacy.page', $key),
                 $html
             );
+        }
+
+        // The app's font, Open Sans, in these pages too (they write their own <head>).
+        if (!str_contains($html, 'css/open-sans.css')) {
+            $font = '<link rel="stylesheet" href="' . asset('css/open-sans.css') . '?v=' . @filemtime(public_path('css/open-sans.css')) . '">';
+            $html = preg_replace('#</head>#i', $font . '$0', $html, 1);
         }
 
         // Their forms predate CSRF protection; a POST without the token was

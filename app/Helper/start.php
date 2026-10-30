@@ -306,6 +306,19 @@ if (!function_exists('user_modules')) {
     }
 }
 
+if (!function_exists('dashboard_modules')) {
+
+    /**
+     * The modules this person's dashboard shows graphs and counts for: only
+     * those assigned to them (App\Services\Access\AssignedModules).
+     */
+    // @codingStandardsIgnoreLine
+    function dashboard_modules()
+    {
+        return \App\Services\Access\AssignedModules::forUser();
+    }
+}
+
 if (!function_exists('arowana_plugins')) {
 
     // @codingStandardsIgnoreLine

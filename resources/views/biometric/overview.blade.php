@@ -288,7 +288,7 @@
                             </div>
                         @endif
 
-                        @if ($draft > 0 && user()->permission('manage_payroll') === 'all')
+                        @if ($draft > 0 && \App\Services\Access\PayrollAccess::can('approve'))
                             @php $attention++; @endphp
                             <div class="d-flex mb-3">
                                 <i class="fa fa-file-invoice text-primary mt-1 mr-2"></i>

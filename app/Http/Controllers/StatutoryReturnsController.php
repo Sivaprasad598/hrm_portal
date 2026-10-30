@@ -26,7 +26,7 @@ class StatutoryReturnsController extends AccountBaseController
         $this->pageTitle = 'Statutory Returns';
 
         $this->middleware(function ($request, $next) {
-            abort_403(!in_array('admin', user_roles()) && user()->permission('manage_payroll') !== 'all');
+            abort_403(!\App\Services\Access\PayrollAccess::can('settings'));
 
             return $next($request);
         });
@@ -60,7 +60,7 @@ class StatutoryReturnsController extends AccountBaseController
     {
         [$month, $year] = $this->period($request);
         $cycle = PayPeriod::forMonth($month, $year);
-        $return = $returns->providentFund($payouts->forCycle($cycle));
+        $return = $returns->providentFund($payouts->forCycle($cycle, $request->boolean('include_drafts')));
 
         return response($return['text'], 200, [
             'Content-Type' => 'text/plain; charset=UTF-8',
@@ -74,23 +74,55 @@ class StatutoryReturnsController extends AccountBaseController
      */
     public function spreadsheet(Request $request, PayoutQuery $payouts, StatutoryReturns $returns)
     {
-        $request->validate(['which' => 'required|in:esi,pt,all']);
+        $request->validate(['which' => 'required|in:pf,esi,pt,tds,all']);
 
         [$month, $year] = $this->period($request);
         $cycle = PayPeriod::forMonth($month, $year);
-        $rows = $payouts->forCycle($cycle);
+        $export = $this->export($request->which, $payouts->forCycle($cycle, $request->boolean('include_drafts')), $returns, $cycle);
 
-        $export = new StatutoryReturnExport(
-            $request->which,
+        $name = ['pf' => 'pf-return', 'esi' => 'esi-return', 'pt' => 'professional-tax', 'tds' => 'tds-return',
+            'all' => 'statutory-returns'][$request->which];
+
+        return Excel::download($export, $name . '-' . Carbon::create($year, $month, 1)->format('Y-m') . '.xlsx');
+    }
+
+    /**
+     * Every return for the month in one ZIP: the PF ECR text file the portal
+     * takes, and one workbook per return (PF, ESI, PT, TDS) plus all together.
+     */
+    public function bundle(Request $request, PayoutQuery $payouts, StatutoryReturns $returns)
+    {
+        [$month, $year] = $this->period($request);
+        $cycle = PayPeriod::forMonth($month, $year);
+        $rows = $payouts->forCycle($cycle, $request->boolean('include_drafts'));
+        $stamp = Carbon::create($year, $month, 1)->format('Y-m');
+
+        $path = tempnam(sys_get_temp_dir(), 'returns');
+        $zip = new \ZipArchive();
+        $zip->open($path, \ZipArchive::OVERWRITE);
+        $zip->addFromString('ecr-' . $stamp . '.txt', $returns->providentFund($rows)['text']);
+
+        foreach (['pf' => 'pf-return', 'esi' => 'esi-return', 'pt' => 'professional-tax', 'tds' => 'tds-return',
+            'all' => 'statutory-returns'] as $which => $name) {
+            $zip->addFromString($name . '-' . $stamp . '.xlsx',
+                Excel::raw($this->export($which, $rows, $returns, $cycle), \Maatwebsite\Excel\Excel::XLSX));
+        }
+
+        $zip->close();
+
+        return response()->download($path, 'statutory-returns-' . $stamp . '.zip')->deleteFileAfterSend();
+    }
+
+    protected function export(string $which, array $rows, StatutoryReturns $returns, PayPeriod $cycle): StatutoryReturnExport
+    {
+        return new StatutoryReturnExport(
+            $which,
             $returns->providentFund($rows),
             $returns->employeeInsurance($rows),
             $returns->professionalTax($rows),
-            $cycle
+            $cycle,
+            $returns->incomeTax($rows),
         );
-
-        $name = ['esi' => 'esi-return', 'pt' => 'professional-tax', 'all' => 'statutory-returns'][$request->which];
-
-        return Excel::download($export, $name . '-' . Carbon::create($year, $month, 1)->format('Y-m') . '.xlsx');
     }
 
     /** Month and year from the request, defaulting to last month. */

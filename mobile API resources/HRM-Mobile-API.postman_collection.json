@@ -1,0 +1,1000 @@
+{
+  "info": {
+    "name": "HRM Employee Mobile API (v1)",
+    "description": "Employee mobile app API. Import the environment too, set email and password, then run \"Login\" first: it saves the token for every other request. Full documentation: README.md in the same folder.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost/hrm_portal/api/mobile/v1"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Auth",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Sign in with e-mail and password. Saves the token to the environment.",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "email",
+                  "value": "{{email}}",
+                  "type": "text",
+                  "description": ""
+                },
+                {
+                  "key": "password",
+                  "value": "{{password}}",
+                  "type": "text",
+                  "description": ""
+                },
+                {
+                  "key": "device_name",
+                  "value": "Postman",
+                  "type": "text",
+                  "description": "Optional: shown as the token name"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [
+            {
+              "name": "Logged in",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"Logged in.\",\n  \"data\": {\n    \"token\": \"12|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",\n    \"token_type\": \"Bearer\",\n    \"employee\": {\n      \"id\": 4919,\n      \"name\": \"Test Employee (Payroll)\",\n      \"email\": \"employee@company.com\",\n      \"employee_id\": \"TEST001\",\n      \"photo_url\": \"https://your-hrm-domain/img/gravatar.png\"\n    }\n  }\n}"
+            },
+            {
+              "name": "Wrong password",
+              "status": "Unauthorized",
+              "code": 401,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"The e-mail or password is not correct.\",\n  \"errors\": {}\n}"
+            },
+            {
+              "name": "Invalid e-mail",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"The email must be a valid email address.\",\n  \"errors\": {\n    \"email\": [\n      \"The email must be a valid email address.\"\n    ]\n  }\n}"
+            },
+            {
+              "name": "Login disabled by HR",
+              "status": "Forbidden",
+              "code": 403,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"This account cannot use the app. Please contact HR.\",\n  \"errors\": {}\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r = pm.response.json();",
+                  "if (r.success && r.data && r.data.token) {",
+                  "  pm.environment.set('token', r.data.token);",
+                  "  pm.collectionVariables.set('token', r.data.token);",
+                  "}",
+                  "pm.test('signed in', () => pm.expect(r.success).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/logout",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Ends this token."
+          },
+          "response": [
+            {
+              "name": "Logged out",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"Logged out.\",\n  \"data\": null\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.unset('token');"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Profile",
+      "item": [
+        {
+          "name": "My profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "me"
+              ]
+            },
+            "description": "The signed-in employee: personal and job details, emergency contacts, today's shift."
+          },
+          "response": [
+            {
+              "name": "Profile",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"OK\",\n  \"data\": {\n    \"id\": 4919,\n    \"name\": \"Test Employee (Payroll)\",\n    \"employee_id\": \"TEST001\",\n    \"photo_url\": \"https://your-hrm-domain/img/gravatar.png\",\n    \"email\": \"employee@company.com\",\n    \"mobile\": null,\n    \"gender\": \"male\",\n    \"designation\": \"CAD Engineer\",\n    \"division\": \"IT Department\",\n    \"sub_division\": null,\n    \"reporting_manager\": null,\n    \"employment_type\": \"full_time\",\n    \"date_of_joining\": \"2025-01-01\",\n    \"probation_end_date\": null,\n    \"date_of_birth\": null,\n    \"marital_status\": \"single\",\n    \"marriage_date\": null,\n    \"address\": null,\n    \"emergency_contacts\": [],\n    \"shift_today\": {\n      \"name\": \"General Shift\",\n      \"type\": \"strict\",\n      \"start\": \"09:30\",\n      \"end\": \"18:30\",\n      \"working_day\": true\n    }\n  }\n}"
+            },
+            {
+              "name": "No token",
+              "status": "Unauthorized",
+              "code": 401,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"Please log in again.\",\n  \"errors\": {}\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Assets",
+      "item": [
+        {
+          "name": "Assigned assets",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/assets",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "assets"
+              ]
+            },
+            "description": "Assets the employee holds now. Saves the first id as asset_id."
+          },
+          "response": [
+            {
+              "name": "Assets",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"OK\",\n  \"data\": [\n    {\n      \"id\": 97,\n      \"name\": \"Test Laptop\",\n      \"asset_code\": \"API-TEST-01\",\n      \"type\": \"API Test Laptop\",\n      \"brand\": \"Dell\",\n      \"model\": \"Latitude 5440\",\n      \"serial_number\": \"SN123\",\n      \"image_url\": null,\n      \"assigned_on\": \"2026-10-27\",\n      \"expected_return_on\": null\n    }\n  ]\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r = pm.response.json();",
+                  "if (r.data && r.data.length) pm.environment.set('asset_id', r.data[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Asset detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/assets/{{asset_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "assets",
+                "{{asset_id}}"
+              ]
+            },
+            "description": "One asset, if it is or was assigned to the employee; otherwise 404."
+          },
+          "response": [
+            {
+              "name": "Not theirs",
+              "status": "Not Found",
+              "code": 404,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"Not found.\",\n  \"errors\": {}\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Payslips",
+      "item": [
+        {
+          "name": "Payslips",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/payslips?year=2026",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payslips"
+              ],
+              "query": [
+                {
+                  "key": "year",
+                  "value": "2026"
+                }
+              ]
+            },
+            "description": "Issued (approved / paid) payslips, newest first. Saves the first id as payslip_id."
+          },
+          "response": [
+            {
+              "name": "Payslips",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"OK\",\n  \"data\": [\n    {\n      \"id\": 65,\n      \"payslip_number\": \"AROW/2026-27/000001\",\n      \"month\": \"October - 2026\",\n      \"period_start\": \"2026-09-21\",\n      \"period_end\": \"2026-10-20\",\n      \"net_pay\": 28865,\n      \"status\": \"approved\"\n    }\n  ]\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r = pm.response.json();",
+                  "if (r.data && r.data.length) pm.environment.set('payslip_id', r.data[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Payslip detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/payslips/{{payslip_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payslips",
+                "{{payslip_id}}"
+              ]
+            },
+            "description": "Earnings, deductions, employer contributions, attendance and net pay."
+          },
+          "response": [
+            {
+              "name": "Payslip",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"OK\",\n  \"data\": {\n    \"id\": 65,\n    \"payslip_number\": \"AROW/2026-27/000001\",\n    \"month\": \"October - 2026\",\n    \"period_start\": \"2026-09-21\",\n    \"period_end\": \"2026-10-20\",\n    \"status\": \"approved\",\n    \"issued_at\": \"2026-10-24T15:01:59+05:30\",\n    \"paid_at\": null,\n    \"attendance\": {\n      \"working_days\": 30,\n      \"days_present\": 29,\n      \"lop_days\": 1,\n      \"per_day\": 900.53\n    },\n    \"earnings\": [\n      {\n        \"label\": \"Basic\",\n        \"amount\": 12000\n      },\n      {\n        \"label\": \"House Rent Allowance\",\n        \"amount\": 4800\n      },\n      {\n        \"label\": \"Conveyance Allowance\",\n        \"amount\": 800\n      },\n      {\n        \"label\": \"Leave Travel Allowance\",\n        \"amount\": 1200\n      },\n      {\n        \"label\": \"Children's Education Allowance\",\n        \"amount\": 1200\n      },\n      {\n        \"label\": \"Special Allowance\",\n        \"amount\": 10000\n      },\n      {\n        \"label\": \"Incentive\",\n        \"amount\": 1500\n      },\n      {\n        \"label\": \"Reimbursement\",\n        \"amount\": 750\n      },\n      {\n        \"label\": \"OT encashed (20h)\",\n        \"amount\": 2500\n      }\n    ],\n    \"total_earnings\": 34750,\n    \"deductions\": [\n      {\n        \"label\": \"Employee PF\",\n        \"amount\": 1392\n      },\n      {\n        \"label\": \"Professional Tax\",\n        \"amount\": 200\n      },\n      {\n        \"label\": \"Loss of Pay\",\n        \"amount\": 901\n      },\n      {\n        \"label\": \"Salary Advance\",\n        \"amount\": 2000\n      }\n    ],\n    \"total_deductions\": 4493,\n    \"employer_contributions\": [\n      {\n        \"label\": \"Employer PF\",\n        \"amount\": 1392\n      },\n      {\n        \"label\": \"Employer ESI\",\n        \"amount\": 0\n      }\n    ],\n    \"total_employer_contributions\": 1392,\n    \"leave_encashment\": null,\n    \"overtime\": {\n      \"encashed_hours\": 20,\n      \"encashed_amount\": 2500,\n      \"lop_days_covered\": 2,\n      \"balance_hours\": 66.92\n    },\n    \"net_pay\": 28865,\n    \"net_pay_with_encashment\": 28865,\n    \"download_url\": \"https://your-hrm-domain/api/mobile/v1/payslips/65/download\"\n  }\n}"
+            },
+            {
+              "name": "Not issued / not theirs",
+              "status": "Not Found",
+              "code": 404,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"Not found.\",\n  \"errors\": {}\n}"
+            }
+          ]
+        },
+        {
+          "name": "Download payslip (PDF)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/payslips/{{payslip_id}}/download",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payslips",
+                "{{payslip_id}}",
+                "download"
+              ]
+            },
+            "description": "The payslip PDF, the same as the website. In Postman use \"Send and Download\"."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5. Attendance",
+      "item": [
+        {
+          "name": "Today",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance/today",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "today"
+              ]
+            },
+            "description": "Clocked in? On a break? Today's sessions and breaks, and whether photo / location are required."
+          },
+          "response": [
+            {
+              "name": "Clocked in, on a break",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"OK\",\n  \"data\": {\n    \"date\": \"2026-10-27\",\n    \"shift\": {\n      \"name\": \"General Shift\",\n      \"type\": \"strict\",\n      \"start\": \"09:30\",\n      \"end\": \"18:30\",\n      \"working_day\": true\n    },\n    \"clocked_in\": true,\n    \"open_session\": {\n      \"id\": 17990,\n      \"clock_in\": \"2026-10-27T08:20:30+05:30\",\n      \"clock_out\": null,\n      \"source\": \"mobile_app\",\n      \"work_from\": \"office\",\n      \"minutes\": null\n    },\n    \"on_break\": true,\n    \"running_break\": {\n      \"id\": 8,\n      \"type\": \"lunch\",\n      \"label\": \"Lunch break\",\n      \"note\": \"canteen\",\n      \"started_at\": \"2026-10-27T08:20:33+05:30\",\n      \"ended_at\": null,\n      \"minutes\": null\n    },\n    \"sessions\": [\n      {\n        \"id\": 17990,\n        \"clock_in\": \"2026-10-27T08:20:30+05:30\",\n        \"clock_out\": null,\n        \"source\": \"mobile_app\",\n        \"work_from\": \"office\",\n        \"minutes\": null\n      }\n    ],\n    \"breaks\": [\n      {\n        \"id\": 8,\n        \"type\": \"lunch\",\n        \"label\": \"Lunch break\",\n        \"note\": \"canteen\",\n        \"started_at\": \"2026-10-27T08:20:33+05:30\",\n        \"ended_at\": null,\n        \"minutes\": null\n      }\n    ],\n    \"worked_minutes\": 0,\n    \"requirements\": {\n      \"photo\": \"optional\",\n      \"location\": \"optional\"\n    }\n  }\n}"
+            },
+            {
+              "name": "Not clocked in",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"OK\",\n  \"data\": {\n    \"date\": \"2026-10-27\",\n    \"shift\": {\n      \"name\": \"General Shift\",\n      \"type\": \"strict\",\n      \"start\": \"09:30\",\n      \"end\": \"18:30\",\n      \"working_day\": true\n    },\n    \"clocked_in\": false,\n    \"open_session\": null,\n    \"on_break\": false,\n    \"running_break\": null,\n    \"sessions\": [],\n    \"breaks\": [],\n    \"worked_minutes\": 0,\n    \"requirements\": {\n      \"photo\": \"optional\",\n      \"location\": \"optional\"\n    }\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Clock in",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance/clock-in",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "clock-in"
+              ]
+            },
+            "description": "Clock in with photo and location (multipart/form-data). Pick an image file for \"photo\".",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "photo",
+                  "type": "file",
+                  "src": [],
+                  "description": "Camera image (jpg/png/webp, max 2 MB). Required when /attendance/today says requirements.photo = mandatory."
+                },
+                {
+                  "key": "latitude",
+                  "value": "17.7231",
+                  "type": "text",
+                  "description": "Decimal degrees"
+                },
+                {
+                  "key": "longitude",
+                  "value": "83.3012",
+                  "type": "text",
+                  "description": "Decimal degrees"
+                },
+                {
+                  "key": "accuracy",
+                  "value": "12",
+                  "type": "text",
+                  "description": "GPS accuracy in metres (optional)"
+                },
+                {
+                  "key": "address",
+                  "value": "Murali Nagar, Visakhapatnam",
+                  "type": "text",
+                  "description": "Reverse-geocoded place (optional)"
+                },
+                {
+                  "key": "work_from_type",
+                  "value": "office",
+                  "type": "text",
+                  "description": "office | home | other"
+                },
+                {
+                  "key": "working_from",
+                  "value": "",
+                  "type": "text",
+                  "description": "Required when work_from_type = other",
+                  "disabled": true
+                },
+                {
+                  "key": "photo_base64",
+                  "value": "",
+                  "type": "text",
+                  "description": "Alternative to photo: the image as base64",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Clocked in",
+              "status": "Created",
+              "code": 201,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"Clocked in at 08:20 AM.\",\n  \"data\": {\n    \"id\": 17990,\n    \"clock_in\": \"2026-10-27T08:20:30+05:30\",\n    \"clock_out\": null,\n    \"source\": \"mobile_app\",\n    \"work_from\": \"office\",\n    \"minutes\": null\n  }\n}"
+            },
+            {
+              "name": "Already clocked in",
+              "status": "Conflict",
+              "code": 409,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"You are already clocked in since 2026-10-27T08:20:30+05:30.\",\n  \"errors\": {}\n}"
+            }
+          ]
+        },
+        {
+          "name": "Start break",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance/breaks/start",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "breaks",
+                "start"
+              ]
+            },
+            "description": "Start a lunch / tea / other break. Recorded only: worked hours are not reduced.",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "type",
+                  "value": "lunch",
+                  "type": "text",
+                  "description": "lunch | tea | other"
+                },
+                {
+                  "key": "note",
+                  "value": "",
+                  "type": "text",
+                  "description": "Optional",
+                  "disabled": true
+                },
+                {
+                  "key": "latitude",
+                  "value": "17.7231",
+                  "type": "text",
+                  "description": ""
+                },
+                {
+                  "key": "longitude",
+                  "value": "83.3012",
+                  "type": "text",
+                  "description": ""
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Break started",
+              "status": "Created",
+              "code": 201,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"Lunch break started.\",\n  \"data\": {\n    \"id\": 8,\n    \"type\": \"lunch\",\n    \"label\": \"Lunch break\",\n    \"note\": \"canteen\",\n    \"started_at\": \"2026-10-27T08:20:33+05:30\",\n    \"ended_at\": null,\n    \"minutes\": null\n  }\n}"
+            },
+            {
+              "name": "A break is already running",
+              "status": "Conflict",
+              "code": 409,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"A lunch break is already running since 2026-10-27T08:20:33+05:30.\",\n  \"errors\": {}\n}"
+            },
+            {
+              "name": "Not clocked in",
+              "status": "Conflict",
+              "code": 409,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"Clock in before starting a break.\",\n  \"errors\": {}\n}"
+            }
+          ]
+        },
+        {
+          "name": "End break",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance/breaks/end",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "breaks",
+                "end"
+              ]
+            },
+            "description": "End the running break.",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "latitude",
+                  "value": "17.7231",
+                  "type": "text",
+                  "description": ""
+                },
+                {
+                  "key": "longitude",
+                  "value": "83.3012",
+                  "type": "text",
+                  "description": ""
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Break ended",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"Lunch break ended.\",\n  \"data\": {\n    \"id\": 8,\n    \"type\": \"lunch\",\n    \"label\": \"Lunch break\",\n    \"note\": \"canteen\",\n    \"started_at\": \"2026-10-27T08:20:33+05:30\",\n    \"ended_at\": \"2026-10-27T08:20:37+05:30\",\n    \"minutes\": 0\n  }\n}"
+            },
+            {
+              "name": "No break running",
+              "status": "Conflict",
+              "code": 409,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"No break is running.\",\n  \"errors\": {}\n}"
+            }
+          ]
+        },
+        {
+          "name": "Clock out",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance/clock-out",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "clock-out"
+              ]
+            },
+            "description": "Clock out with photo and location (multipart/form-data). Ends a running break too.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "photo",
+                  "type": "file",
+                  "src": [],
+                  "description": "Camera image (jpg/png/webp, max 2 MB). Required when /attendance/today says requirements.photo = mandatory."
+                },
+                {
+                  "key": "latitude",
+                  "value": "17.7231",
+                  "type": "text",
+                  "description": "Decimal degrees"
+                },
+                {
+                  "key": "longitude",
+                  "value": "83.3012",
+                  "type": "text",
+                  "description": "Decimal degrees"
+                },
+                {
+                  "key": "accuracy",
+                  "value": "12",
+                  "type": "text",
+                  "description": "GPS accuracy in metres (optional)"
+                },
+                {
+                  "key": "address",
+                  "value": "Murali Nagar, Visakhapatnam",
+                  "type": "text",
+                  "description": "Reverse-geocoded place (optional)"
+                },
+                {
+                  "key": "work_from_type",
+                  "value": "office",
+                  "type": "text",
+                  "description": "office | home | other"
+                },
+                {
+                  "key": "working_from",
+                  "value": "",
+                  "type": "text",
+                  "description": "Required when work_from_type = other",
+                  "disabled": true
+                },
+                {
+                  "key": "photo_base64",
+                  "value": "",
+                  "type": "text",
+                  "description": "Alternative to photo: the image as base64",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Clocked out",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"Clocked out at 08:20 AM.\",\n  \"data\": {\n    \"id\": 17990,\n    \"clock_in\": \"2026-10-27T08:20:30+05:30\",\n    \"clock_out\": \"2026-10-27T08:20:39+05:30\",\n    \"source\": \"mobile_app\",\n    \"work_from\": \"office\",\n    \"minutes\": 0\n  }\n}"
+            },
+            {
+              "name": "Not clocked in",
+              "status": "Conflict",
+              "code": 409,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"You are not clocked in.\",\n  \"errors\": {}\n}"
+            }
+          ]
+        },
+        {
+          "name": "Month calendar",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance/calendar?month=10&year=2026",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "calendar"
+              ],
+              "query": [
+                {
+                  "key": "month",
+                  "value": "10"
+                },
+                {
+                  "key": "year",
+                  "value": "2026"
+                }
+              ]
+            },
+            "description": "Every day of the month as payroll counts it: status, punches, late, leave, holiday, breaks, plus month totals."
+          },
+          "response": [
+            {
+              "name": "October 2026",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"OK\",\n  \"data\": {\n    \"month\": 10,\n    \"year\": 2026,\n    \"summary\": {\n      \"days_counted\": 27,\n      \"days_paid\": 18,\n      \"lop_days\": 9,\n      \"worked_days\": 11.5,\n      \"week_offs\": 4,\n      \"holidays\": 2,\n      \"paid_leave_days\": 1,\n      \"unpaid_leave_days\": 1,\n      \"absent_days\": 7.5,\n      \"late_marks\": 3,\n      \"late_half_days\": 0\n    },\n    \"legend\": [\n      {\n        \"status\": \"present\",\n        \"label\": \"Present\"\n      },\n      {\n        \"status\": \"half_day\",\n        \"label\": \"Half day\"\n      },\n      {\n        \"status\": \"half_day_leave\",\n        \"label\": \"Half day + leave\"\n      },\n      {\n        \"status\": \"week_off\",\n        \"label\": \"Week off (paid)\"\n      },\n      {\n        \"status\": \"holiday\",\n        \"label\": \"Holiday (paid)\"\n      },\n      {\n        \"status\": \"paid_leave\",\n        \"label\": \"Paid leave\"\n      },\n      {\n        \"status\": \"half_leave\",\n        \"label\": \"Half-day leave\"\n      },\n      {\n        \"status\": \"lop_leave\",\n        \"label\": \"Unpaid leave (LOP)\"\n      },\n      {\n        \"status\": \"absent\",\n        \"label\": \"Absent (LOP)\"\n      },\n      {\n        \"status\": \"not_employed\",\n        \"label\": \"Not employed\"\n      },\n      {\n        \"status\": \"upcoming\",\n        \"label\": \"Not yet\"\n      },\n      {\n        \"status\": \"in_progress\",\n        \"label\": \"In progress (today)\"\n      }\n    ],\n    \"days\": [\n      {\n        \"date\": \"2026-10-01\",\n        \"weekday\": \"Thursday\",\n        \"status\": \"half_day\",\n        \"status_label\": \"Half day\",\n        \"paid_day\": 0.5,\n        \"shift\": \"General Shift\",\n        \"shift_hours\": \"09:30–18:30\",\n        \"first_in\": \"09:30\",\n        \"last_out\": \"15:00\",\n        \"worked_minutes\": 285,\n        \"late\": false,\n        \"late_note\": null,\n        \"overtime_minutes\": 0,\n        \"holiday\": null,\n        \"note\": null,\n        \"leaves\": [],\n        \"breaks\": {\n          \"count\": 0,\n          \"minutes\": 0\n        }\n      },\n      {\n        \"date\": \"2026-10-02\",\n        \"weekday\": \"Friday\",\n        \"status\": \"holiday\",\n        \"status_label\": \"Holiday (paid)\",\n        \"paid_day\": 1,\n        \"shift\": \"General Shift\",\n        \"shift_hours\": \"09:30–18:30\",\n        \"first_in\": \"10:00\",\n        \"last_out\": \"13:00\",\n        \"worked_minutes\": 180,\n        \"late\": false,\n        \"late_note\": null,\n        \"overtime_minutes\": 180,\n        \"holiday\": \"Ghandi Jayanthi\",\n        \"note\": null,\n        \"leaves\": [],\n        \"breaks\": {\n          \"count\": 0,\n          \"minutes\": 0\n        }\n      },\n      {\n        \"date\": \"2026-10-03\",\n        \"weekday\": \"Saturday\",\n        \"status\": \"present\",\n        \"status_label\": \"Present\",\n        \"paid_day\": 1,\n        \"shift\": \"General Shift\",\n        \"shift_hours\": \"09:30–18:30\",\n        \"first_in\": \"09:25\",\n        \"last_out\": \"18:35\",\n        \"worked_minutes\": 490,\n        \"late\": false,\n        \"late_note\": null,\n        \"overtime_minutes\": 0,\n        \"holiday\": null,\n        \"note\": null,\n        \"leaves\": [],\n        \"breaks\": {\n          \"count\": 0,\n          \"minutes\": 0\n        }\n      },\n      {\n        \"date\": \"2026-10-04\",\n        \"weekday\": \"Sunday\",\n        \"status\": \"week_off\",\n        \"status_label\": \"Week off (paid)\",\n        \"paid_day\": 1,\n        \"shift\": \"General Shift\",\n        \"shift_hours\": \"09:30–18:30\",\n        \"first_in\": null,\n        \"last_out\": null,\n        \"worked_minutes\": 0,\n        \"late\": false,\n        \"late_note\": null,\n        \"overtime_minutes\": 0,\n        \"holiday\": null,\n        \"note\": null,\n        \"leaves\": [],\n        \"breaks\": {\n          \"count\": 0,\n          \"minutes\": 0\n        }\n      },\n      {\n        \"date\": \"2026-10-05\",\n        \"weekday\": \"Monday\",\n        \"status\": \"present\",\n        \"status_label\": \"Present\",\n        \"paid_day\": 1,\n        \"shift\": \"General Shift\",\n        \"shift_hours\": \"09:30–18:30\",\n        \"first_in\": \"09:25\",\n        \"last_out\": \"18:35\",\n        \"worked_minutes\": 490,\n        \"late\": false,\n        \"late_note\": null,\n        \"overtime_minutes\": 0,\n        \"holiday\": null,\n        \"note\": null,\n        \"leaves\": [],\n        \"breaks\": {\n          \"count\": 0,\n          \"minutes\": 0\n        }\n      },\n      {\n        \"date\": \"2026-10-06\",\n        \"weekday\": \"Tuesday\",\n        \"status\": \"present\",\n        \"status_label\": \"Present\",\n        \"paid_day\": 1,\n        \"shift\": \"General Shift\",\n        \"shift_hours\": \"09:30–18:30\",\n        \"first_in\": \"10:00\",\n        \"last_out\": \"19:00\",\n        \"worked_minutes\": 480,\n        \"late\": true,\n        \"late_note\": \"late\",\n        \"overtime_minutes\": 0,\n        \"holiday\": null,\n        \"note\": null,\n        \"leaves\": [],\n        \"breaks\": {\n          \"count\": 0,\n          \"minutes\": 0\n        }\n      },\n      {\n        \"date\": \"2026-10-07\",\n        \"weekday\": \"Wednesday\",\n        \"status\": \"present\",\n        \"status_label\": \"Present\",\n        \"paid_day\": 1,\n        \"shift\": \"General Shift\",\n        \"shift_hours\": \"09:30–18:30\",\n        \"first_in\": \"10:05\",\n        \"last_out\": \"19:10\",\n        \"worked_minutes\": 485,\n        \"late\": true,\n        \"late_note\": \"late\",\n        \"overtime_minutes\": 0,\n        \"holiday\": null,\n        \"note\": null,\n        \"leaves\": [],\n        \"breaks\": {\n          \"count\": 0,\n          \"minutes\": 0\n        }\n      },\n      {\n        \"date\": \"2026-10-08\",\n        \"weekday\": \"Thursday\",\n        \"status\": \"present\",\n        \"status_label\": \"Present\",\n        \"paid_day\": 1,\n        \"shift\": \"General Shift\",\n        \"shift_hours\": \"09:30–18:30\",\n        \"first_in\": \"10:10\",\n        \"last_out\": \"19:30\",\n        \"worked_minutes\": 500,\n        \"late\": true,\n        \"late_note\": \"late\",\n        \"overtime_minutes\": 0,\n        \"holiday\": null,\n        \"note\": null,\n        \"leaves\": [],\n        \"breaks\": {\n          \"count\": 0,\n          \"minutes\": 0\n        }\n      },\n      {\n        \"date\": \"2026-10-09\",\n        \"weekday\": \"Friday\",\n        \"status\": \"paid_leave\",\n        \"status_label\": \"Paid leave\",\n        \"paid_day\": 1,\n        \"shift\": \"General Shift\",\n        \"shift_hours\": \"09:30–18:30\",\n        \"first_in\": null,\n        \"last_out\": null,\n        \"worked_minutes\": 0,\n        \"late\": false,\n        \"late_note\": null,\n        \"overtime_minutes\": 0,\n        \"holiday\": null,\n        \"note\": null,\n        \"leaves\": [\n          {\n            \"type\": \"Sick\",\n            \"duration\": \"single\",\n            \"half\": null,\n            \"status\": \"approved\",\n            \"paid\": true\n          }\n        ],\n        \"breaks\": {\n          \"count\": 0,\n          \"minutes\": 0\n        }\n      },\n      {\n        \"date\": \"2026-10-10\",\n        \"weekday\": \"Saturday\",\n        \"status\": \"present\",\n        \"status_label\": \"Present\",\n        \"paid_day\": 1,\n        \"shift\": \"General Shift\",\n        \"shift_hours\": \"09:30–18:30\",\n        \"first_in\": \"09:25\",\n        \"last_out\": \"18:35\",\n        \"worked_minutes\": 490,\n        \"late\": false,\n        \"late_note\": null,\n        \"overtime_minutes\": 0,\n        \"holiday\": null,\n        \"note\": null,\n        \"leaves\": [],\n        \"breaks\": {\n          \"count\": 0,\n          \"minutes\": 0\n        }\n      },\n      {\n        \"date\": \"2026-10-11\",\n        \"weekday\": \"Sunday\",\n        \"status\": \"week_off\",\n        \"status_label\": \"Week off (paid)\",\n        \"paid_day\": 1,\n        \"shift\": \"General Shift\",\n        \"shift_hours\": \"09:30–18:30\",\n        \"first_in\": null,\n        \"last_out\": null,\n        \"worked_minutes\": 0,\n        \"late\": false,\n        \"late_note\": null,\n        \"overtime_minutes\": 0,\n        \"holiday\": null,\n        \"note\": null,\n        \"leaves\": [],\n        \"breaks\": {\n          \"count\": 0,\n          \"minutes\": 0\n        }\n      },\n      {\n        \"date\": \"2026-10-12\",\n        \"weekday\": \"Monday\",\n        \"status\": \"lop_leave\",\n        \"status_label\": \"Unpaid leave (LOP)\",\n        \"paid_day\": 0,\n        \"shift\": \"General Shift\",\n        \"shift_hours\": \"09:30–18:30\",\n        \"first_in\": null,\n        \"last_out\": null,\n        \"worked_minutes\": 0,\n        \"late\": false,\n        \"late_note\": null,\n        \"overtime_minutes\": 0,\n        \"holiday\": null,\n        \"note\": null,\n        \"leaves\": [\n          {\n            \"type\": \"LOP\",\n            \"duration\": \"single\",\n            \"half\": null,\n            \"status\": \"approved\",\n            \"paid\": false\n          }\n        ],\n        \"breaks\": {\n          \"count\": 0,\n          \"minutes\": 0\n        }\n      },\n      {\n        \"date\": \"2026-10-13\",\n        \"weekday\": \"Tuesday\",\n        \"status\": \"absent\",\n        \"status_label\": \"Absent (LOP)\",\n        \"paid_day\": 0,\n        \"shift\": \"General Shift\",\n        \"shift_hours\": \"09:30–18:30\",\n        \"first_in\": null,\n        \"last_out\": null,\n        \"worked_minutes\": 0,\n        \"late\": false,\n        \"late_note\": null,\n        \"overtime_minutes\": 0,\n        \"holiday\": null,\n        \"note\": null,\n        \"leaves\": [],\n        \"breaks\": {\n          \"count\": 0,\n          \"minutes\": 0\n        }\n      },\n      {\n        \"date\": \"2026-10-14\",\n        \"weekday\": \"Wednesday\",\n        \"status\": \"present\",\n        \"status_label\": \"Present\",\n        \"paid_day\": 1,\n        \"shift\": \"General Shift\",\n        \"shift_hours\": \"09:30–18:30\",\n        \"first_in\": \"09:25\",\n        \"last_out\": \"18:35\",\n        \"worked_minutes\": 490,\n        \"late\": false,\n        \"late_note\": null,\n        \"overtime_minutes\": 0,\n        \"holiday\": null,\n        \"note\": null,\n        \"leaves\": [],\n        \"breaks\": {\n          \"count\": 0,\n          \"minutes\": 0\n        }\n      },\n      {\n        \"date\": \"2026-10-15\",\n        \"weekday\": \"Thursday\",\n        \"status\": \"present\",\n        \"status_label\": \"Present\",\n        \"paid_day\": 1,\n        \"shift\": \"General Shift\",\n        \"shift_hours\": \"09:30–18:30\",\n        \"first_in\": \"09:30\",\n        \"last_out\": \"21:30\",\n        \"worked_minutes\": 660,\n        \"late\": false,\n        \"late_note\": null,\n        \"overtime_minutes\": 180,\n        \"holiday\": null,\n        \"note\": null,\n        \"leaves\": [],\n        \"breaks\": {\n          \"count\": 0,\n          \"minutes\": 0\n        }\n      },\n      {\n        \"date\": \"2026-10-16\",\n        \"weekday\": \"Friday\",\n        \"status\": \"present\",\n        \"status_label\": \"Present\",\n        \"paid_day\": 1,\n        \"shift\": \"General Shift\",\n        \"shift_hours\": \"09:30–18:30\",\n        \"first_in\": \"09:25\",\n        \"last_out\": \"18:35\",\n        \"worked_minutes\": 490,\n        \"late\": false,\n        \"late_note\": null,\n        \"overtime_minutes\": 0,\n        \"holiday\": null,\n        \"note\": null,\n        \"leaves\": [],\n        \"breaks\": {\n          \"count\": 0,\n          \"minutes\": 0\n        }\n      },\n      {\n        \"date\": \"2026-10-17\",\n        \"weekday\": \"Saturday\",\n        \"status\": \"present\",\n        \"status_label\": \"Present\",\n        \"paid_day\": 1,\n        \"shift\": \"General Shift\",\n        \"shift_hours\": \"09:30–18:30\",\n        \"first_in\": \"09:25\",\n        \"last_out\": \"18:35\",\n        \"worked_minutes\": 490,\n        \"late\": false,\n        \"late_note\": null,\n        \"overtime_minutes\": 0,\n        \"holiday\": null,\n        \"note\": null,\n        \"leaves\": [],\n        \"breaks\": {\n          \"count\": 0,\n          \"minutes\": 0\n        }\n      },\n      {\n        \"date\": \"2026-10-18\",\n        \"weekday\": \"Sunday\",\n        \"status\": \"week_off\",\n        \"status_label\": \"Week off (paid)\",\n        \"paid_day\": 1,\n        \"shift\": \"General Shift\",\n        \"shift_hours\": \"09:30–18:30\",\n        \"first_in\": \"09:00\",\n        \"last_out\": \"15:00\",\n        \"worked_minutes\": 315,\n        \"late\": false,\n        \"late_note\": null,\n        \"overtime_minutes\": 315,\n        \"holiday\": null,\n        \"note\": null,\n        \"leaves\": [],\n        \"breaks\": {\n          \"count\": 0,\n          \"minutes\": 0\n        }\n      },\n      {\n        \"date\": \"2026-10-19\",\n        \"weekday\": \"Monday\",\n        \"status\": \"present\",\n        \"status_label\": \"Present\",\n        \"paid_day\": 1,\n        \"shift\": \"General Shift\",\n        \"shift_hours\": \"09:30–18:30\",\n        \"first_in\": \"09:25\",\n        \"last_out\": \"18:35\",\n        \"worked_minutes\": 490,\n        \"late\": false,\n        \"late_note\": null,\n        \"overtime_minutes\": 0,\n        \"holiday\": null,\n        \"note\": null,\n        \"leaves\": [],\n        \"breaks\": {\n          \"count\": 0,\n          \"minutes\": 0\n        }\n      },\n      {\n        \"date\": \"2026-10-20\",\n        \"weekday\": \"Tuesday\",\n        \"status\": \"holiday\",\n        \"status_label\": \"Holiday (paid)\",\n        \"paid_day\": 1,\n        \"shift\": \"General Shift\",\n        \"shift_hours\": \"09:30–18:30\",\n        \"first_in\": null,\n        \"last_out\": null,\n        \"worked_minutes\": 0,\n        \"late\": false,\n        \"late_note\": null,\n        \"overtime_minutes\": 0,\n        \"holiday\": \"Dusshera\",\n        \"note\": null,\n        \"leaves\": [],\n        \"breaks\": {\n          \"count\": 0,\n          \"minutes\": 0\n        }\n      },\n      {\n        \"date\": \"2026-10-21\",\n        \"weekday\": \"Wednesday\",\n        \"status\": \"absent\",\n        \"status_label\": \"Absent (LOP)\",\n        \"paid_day\": 0,\n        \"shift\": \"General Shift\",\n        \"shift_hours\": \"09:30–18:30\",\n        \"first_in\": null,\n        \"last_out\": null,\n        \"worked_minutes\": 0,\n        \"late\": false,\n        \"late_note\": null,\n        \"overtime_minutes\": 0,\n        \"holiday\": null,\n        \"note\": null,\n        \"leaves\": [],\n        \"breaks\": {\n          \"count\": 0,\n          \"minutes\": 0\n        }\n      },\n      {\n        \"date\": \"2026-10-22\",\n        \"weekday\": \"Thursday\",\n        \"status\": \"absent\",\n        \"status_label\": \"Absent (LOP)\",\n        \"paid_day\": 0,\n        \"shift\": \"General Shift\",\n        \"shift_hours\": \"09:30–18:30\",\n        \"first_in\": null,\n        \"last_out\": null,\n        \"worked_minutes\": 0,\n        \"late\": false,\n        \"late_note\": null,\n        \"overtime_minutes\": 0,\n        \"holiday\": null,\n        \"note\": null,\n        \"leaves\": [],\n        \"breaks\": {\n          \"count\": 0,\n          \"minutes\": 0\n        }\n      },\n      {\n        \"date\": \"2026-10-23\",\n        \"weekday\": \"Friday\",\n        \"status\": \"absent\",\n        \"status_label\": \"Absent (LOP)\",\n        \"paid_day\": 0,\n        \"shift\": \"General Shift\",\n        \"shift_hours\": \"09:30–18:30\",\n        \"first_in\": null,\n        \"last_out\": null,\n        \"worked_minutes\": 0,\n        \"late\": false,\n        \"late_note\": null,\n        \"overtime_minutes\": 0,\n        \"holiday\": null,\n        \"note\": null,\n        \"leaves\": [],\n        \"breaks\": {\n          \"count\": 0,\n          \"minutes\": 0\n        }\n      },\n      {\n        \"date\": \"2026-10-24\",\n        \"weekday\": \"Saturday\",\n        \"status\": \"absent\",\n        \"status_label\": \"Absent (LOP)\",\n        \"paid_day\": 0,\n        \"shift\": \"General Shift\",\n        \"shift_hours\": \"09:30–18:30\",\n        \"first_in\": null,\n        \"last_out\": null,\n        \"worked_minutes\": 0,\n        \"late\": false,\n        \"late_note\": null,\n        \"overtime_minutes\": 0,\n        \"holiday\": null,\n        \"note\": null,\n        \"leaves\": [],\n        \"breaks\": {\n          \"count\": 0,\n          \"minutes\": 0\n        }\n      },\n      {\n        \"date\": \"2026-10-25\",\n        \"weekday\": \"Sunday\",\n        \"status\": \"week_off\",\n        \"status_label\": \"Week off (paid)\",\n        \"paid_day\": 1,\n        \"shift\": \"General Shift\",\n        \"shift_hours\": \"09:30–18:30\",\n        \"first_in\": null,\n        \"last_out\": null,\n        \"worked_minutes\": 0,\n        \"late\": false,\n        \"late_note\": null,\n        \"overtime_minutes\": 0,\n        \"holiday\": null,\n        \"note\": null,\n        \"leaves\": [],\n        \"breaks\": {\n          \"count\": 0,\n          \"minutes\": 0\n        }\n      },\n      {\n        \"date\": \"2026-10-26\",\n        \"weekday\": \"Monday\",\n        \"status\": \"absent\",\n        \"status_label\": \"Absent (LOP)\",\n        \"paid_day\": 0,\n        \"shift\": \"General Shift\",\n        \"shift_hours\": \"09:30–18:30\",\n        \"first_in\": null,\n        \"last_out\": null,\n        \"worked_minutes\": 0,\n        \"late\": false,\n        \"late_note\": null,\n        \"overtime_minutes\": 0,\n        \"holiday\": null,\n        \"note\": null,\n        \"leaves\": [],\n        \"breaks\": {\n          \"count\": 0,\n          \"minutes\": 0\n        }\n      },\n      {\n        \"date\": \"2026-10-27\",\n        \"weekday\": \"Tuesday\",\n        \"status\": \"in_progress\",\n        \"status_label\": \"In progress (today)\",\n        \"paid_day\": 0,\n        \"shift\": \"General Shift\",\n        \"shift_hours\": \"09:30–18:30\",\n        \"first_in\": \"08:20\",\n        \"last_out\": \"08:20\",\n        \"worked_minutes\": 0,\n        \"late\": false,\n        \"late_note\": null,\n        \"overtime_minutes\": 0,\n        \"holiday\": null,\n        \"note\": null,\n        \"leaves\": [],\n        \"breaks\": {\n          \"count\": 1,\n          \"minutes\": 0\n        }\n      },\n      {\n        \"date\": \"2026-10-28\",\n        \"weekday\": \"Wednesday\",\n        \"status\": \"upcoming\",\n        \"status_label\": \"Not yet\",\n        \"paid_day\": 0,\n        \"shift\": \"General Shift\",\n        \"shift_hours\": \"09:30–18:30\",\n        \"first_in\": null,\n        \"last_out\": null,\n        \"worked_minutes\": 0,\n        \"late\": false,\n        \"late_note\": null,\n        \"overtime_minutes\": 0,\n        \"holiday\": null,\n        \"note\": null,\n        \"leaves\": [],\n        \"breaks\": {\n          \"count\": 0,\n          \"minutes\": 0\n        }\n      },\n      {\n        \"date\": \"2026-10-29\",\n        \"weekday\": \"Thursday\",\n        \"status\": \"upcoming\",\n        \"status_label\": \"Not yet\",\n        \"paid_day\": 0,\n        \"shift\": \"General Shift\",\n        \"shift_hours\": \"09:30–18:30\",\n        \"first_in\": null,\n        \"last_out\": null,\n        \"worked_minutes\": 0,\n        \"late\": false,\n        \"late_note\": null,\n        \"overtime_minutes\": 0,\n        \"holiday\": null,\n        \"note\": null,\n        \"leaves\": [],\n        \"breaks\": {\n          \"count\": 0,\n          \"minutes\": 0\n        }\n      },\n      {\n        \"date\": \"2026-10-30\",\n        \"weekday\": \"Friday\",\n        \"status\": \"upcoming\",\n        \"status_label\": \"Not yet\",\n        \"paid_day\": 0,\n        \"shift\": \"General Shift\",\n        \"shift_hours\": \"09:30–18:30\",\n        \"first_in\": null,\n        \"last_out\": null,\n        \"worked_minutes\": 0,\n        \"late\": false,\n        \"late_note\": null,\n        \"overtime_minutes\": 0,\n        \"holiday\": null,\n        \"note\": null,\n        \"leaves\": [],\n        \"breaks\": {\n          \"count\": 0,\n          \"minutes\": 0\n        }\n      },\n      {\n        \"date\": \"2026-10-31\",\n        \"weekday\": \"Saturday\",\n        \"status\": \"upcoming\",\n        \"status_label\": \"Not yet\",\n        \"paid_day\": 0,\n        \"shift\": \"General Shift\",\n        \"shift_hours\": \"09:30–18:30\",\n        \"first_in\": null,\n        \"last_out\": null,\n        \"worked_minutes\": 0,\n        \"late\": false,\n        \"late_note\": null,\n        \"overtime_minutes\": 0,\n        \"holiday\": null,\n        \"note\": null,\n        \"leaves\": [],\n        \"breaks\": {\n          \"count\": 0,\n          \"minutes\": 0\n        }\n      }\n    ]\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Day detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance/day/2026-10-27",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "day",
+                "2026-10-27"
+              ]
+            },
+            "description": "One day: how it was counted, every session with photos and locations, and breaks."
+          },
+          "response": [
+            {
+              "name": "Day",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"OK\",\n  \"data\": {\n    \"day\": {\n      \"date\": \"2026-10-27\",\n      \"weekday\": \"Tuesday\",\n      \"status\": \"in_progress\",\n      \"status_label\": \"In progress (today)\",\n      \"paid_day\": 0,\n      \"shift\": \"General Shift\",\n      \"shift_hours\": \"09:30–18:30\",\n      \"first_in\": \"08:20\",\n      \"last_out\": \"08:20\",\n      \"worked_minutes\": 0,\n      \"late\": false,\n      \"late_note\": null,\n      \"overtime_minutes\": 0,\n      \"holiday\": null,\n      \"note\": null,\n      \"leaves\": [],\n      \"breaks\": {\n        \"count\": 1,\n        \"minutes\": 0\n      }\n    },\n    \"sessions\": [\n      {\n        \"id\": 17990,\n        \"clock_in\": \"2026-10-27T08:20:30+05:30\",\n        \"clock_out\": \"2026-10-27T08:20:39+05:30\",\n        \"source\": \"mobile_app\",\n        \"work_from\": \"office\",\n        \"minutes\": 0,\n        \"clock_in_photo_url\": \"https://your-hrm-domain/storage/attendance-photos/4919/2026-10/20261027-025030-xZJayS.png\",\n        \"clock_in_location\": {\n          \"latitude\": 17.7231,\n          \"longitude\": 83.3012,\n          \"address\": \"Murali Nagar, Visakhapatnam\"\n        },\n        \"clock_out_photo_url\": \"https://your-hrm-domain/storage/attendance-photos/4919/2026-10/20261027-025039-z8z5gX.png\",\n        \"clock_out_location\": {\n          \"latitude\": 17.724,\n          \"longitude\": 83.302,\n          \"address\": \"Murali Nagar, Visakhapatnam\"\n        }\n      }\n    ],\n    \"breaks\": [\n      {\n        \"id\": 8,\n        \"type\": \"lunch\",\n        \"label\": \"Lunch break\",\n        \"note\": \"canteen\",\n        \"started_at\": \"2026-10-27T08:20:33+05:30\",\n        \"ended_at\": \"2026-10-27T08:20:37+05:30\",\n        \"minutes\": 0\n      }\n    ]\n  }\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

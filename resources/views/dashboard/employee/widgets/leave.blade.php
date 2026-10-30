@@ -1,4 +1,4 @@
-@if (in_array('leave', $activeWidgets) && $sidebarUserPermissions['view_leave'] != 5 && $sidebarUserPermissions['view_leave'] != 'none' && in_array('employees', user_modules()))
+@if (in_array('leave', $activeWidgets) && $sidebarUserPermissions['view_leave'] != 5 && $sidebarUserPermissions['view_leave'] != 'none' && in_array('employees', dashboard_modules()))
     <!-- EMP DASHBOARD BIRTHDAY START -->
     <div class="col-sm-12">
         <x-cards.data class="e-d-info mb-2" :title="__('modules.dashboard.leave')" padding="false" otherClasses="h-200">

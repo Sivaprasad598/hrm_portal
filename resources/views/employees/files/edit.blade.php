@@ -10,6 +10,14 @@
         @method('PUT')
         <div class="row">
             <div class="col-md-12">
+                <x-forms.select fieldId="edit_doc_type" fieldName="doc_type" fieldLabel="Document Type" fieldRequired="true">
+                    @php $currentType = \App\Services\Employee\DocumentTypes::of($file); @endphp
+                    @foreach (\App\Services\Employee\DocumentTypes::TYPES as $typeKey => $typeLabel)
+                        <option value="{{ $typeKey }}" @selected($typeKey === $currentType)>{{ $typeLabel }}</option>
+                    @endforeach
+                </x-forms.select>
+            </div>
+            <div class="col-md-12">
                 <x-forms.text :fieldLabel="__('modules.projects.fileName')" fieldName="name"
                               fieldRequired="true" fieldId="name" :fieldValue="$file->name"/>
             </div>

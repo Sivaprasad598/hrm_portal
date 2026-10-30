@@ -1,4 +1,4 @@
-@if (in_array('my_task', $activeWidgets) && (!is_null($viewTaskPermission) && $viewTaskPermission != 'none' && in_array('tasks', user_modules())))
+@if (in_array('my_task', $activeWidgets) && (!is_null($viewTaskPermission) && $viewTaskPermission != 'none' && in_array('tasks', dashboard_modules())))
     <div class="row">
         <div class="col-sm-12">
             <div class="card border-0 b-shadow-4 mb-3 e-d-info">

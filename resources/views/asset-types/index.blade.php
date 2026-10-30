@@ -3,16 +3,23 @@
 @section('content')
 <div class="content-wrapper">
     <div class="row">
-        <div class="col-lg-7">
+        {{-- Full width; what types are for, in a line under the title. --}}
+        <div class="col-12">
             <div class="bg-white rounded b-shadow-4">
-                <div class="p-20 border-bottom-grey d-flex justify-content-between align-items-center">
-                    <h4 class="f-18 font-weight-normal mb-0">Asset Types</h4>
-                    <span class="f-13 text-dark-grey">{{ $types->count() }} types</span>
+                <div class="p-20 border-bottom-grey d-flex justify-content-between align-items-start">
+                    <div>
+                        <h4 class="f-18 font-weight-normal mb-1">Asset Types</h4>
+                        <p class="f-13 text-dark-grey mb-0">
+                            Every asset is filed under a type, so the Asset List and Assigned Assets can be filtered by it
+                            (all laptops, all SIM cards...). A type that still has assets cannot be deleted: move those assets first.
+                        </p>
+                    </div>
+                    <span class="f-13 text-dark-grey text-nowrap ml-3">{{ $types->count() }} types</span>
                 </div>
 
                 <form id="add-type-form" class="p-20 border-bottom-grey d-flex" onsubmit="return false">
                     @csrf
-                    <input type="text" name="name" class="form-control f-14 mr-2" placeholder="New type, e.g. Tablet" maxlength="100">
+                    <input type="text" name="name" class="form-control f-14 mr-2" style="max-width: 420px" placeholder="New type, e.g. Tablet" maxlength="100">
                     <button type="button" id="add-type" class="btn btn-primary rounded f-14 text-nowrap"><i class="fa fa-plus mr-1"></i>Add Type</button>
                 </form>
 
@@ -40,13 +47,6 @@
                     @endforelse
                     </tbody>
                 </table>
-            </div>
-        </div>
-        <div class="col-lg-5">
-            <div class="bg-white rounded b-shadow-4 p-20 f-14 text-dark-grey">
-                <h5 class="f-15 text-dark mb-2">How types are used</h5>
-                Every asset can be filed under a type, so the Asset List and Assigned Assets can be filtered by it
-                (all laptops, all SIM cards...). A type that still has assets cannot be deleted; move those assets first.
             </div>
         </div>
     </div>

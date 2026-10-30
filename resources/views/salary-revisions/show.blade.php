@@ -106,7 +106,7 @@
                 @foreach ($revisions as $r)
                     @php $inc = $r->new_ctc - $r->old_ctc; @endphp
                     <tr>
-                        <td><a href="{{ route('employees.show', $r->user_id) }}?tab=increment-promotions" class="font-weight-500 text-darkest-grey">{{ $r->name }}</a>
+                        <td><a href="{{ route('employees.show', $r->user_id) }}" class="font-weight-500 text-darkest-grey">{{ $r->name }}</a>
                             <br><span class="f-11 text-lightest">{{ $r->code }}{{ $r->old_department ? ' · ' . $r->old_department : '' }}</span>
                             @if ($r->reason)<br><span class="f-11 text-dark-grey">{{ $r->reason }}</span>@endif</td>
                         <td>{{ $types[$r->type] ?? $r->type }}</td>

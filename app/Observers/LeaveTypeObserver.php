@@ -18,6 +18,11 @@ class LeaveTypeObserver
         }
     }
 
+    public function saved(LeaveType $leaveType)
+    {
+        \App\Services\Payroll\AttendanceDays::forgetShared();
+    }
+
     public function created(LeaveType $leaveType)
     {
         if (!isRunningInConsoleOrSeeding()) {

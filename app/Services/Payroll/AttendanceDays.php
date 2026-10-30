@@ -46,6 +46,60 @@ class AttendanceDays
      * The attendance screens explain a payslip from it, so what they show is
      * exactly what was counted.
      */
+    /** Rows loaded ahead for many employees at once (preload()), for one range. */
+    protected ?array $pre = null;
+
+    /**
+     * Load what forRange() reads, for many employees at once: the payroll run
+     * counts every employee in turn, and one query per table beats one per
+     * employee per table. forRange() for a preloaded employee and the same
+     * range reads from here; anything else is read as before.
+     *
+     * @param  int[] $userIds
+     */
+    public function preload(array $userIds, Carbon $from, Carbon $to): void
+    {
+        $tz = $this->timezone;
+        $from = $from->copy()->setTimezone($tz)->startOfDay();
+        $to = $to->copy()->setTimezone($tz)->startOfDay();
+        $userIds = array_values(array_unique(array_map('intval', $userIds)));
+
+        if (!$userIds) {
+            return;
+        }
+
+        $pre = ['range' => $from->toDateString() . '|' . $to->toDateString(), 'users' => array_flip($userIds)];
+
+        $pre['employees'] = DB::table('employee_details')->whereIn('user_id', $userIds)
+            ->get(['user_id', 'joining_date', 'last_date', 'company_id'])->keyBy('user_id')->all();
+        $pre['flags'] = DB::table('employee_details as ed')->leftJoin('teams as t', 't.id', '=', 'ed.department_id')
+            ->whereIn('ed.user_id', $userIds)->get(['ed.user_id', 'ed.attendance_exempt', 't.consider_attendance_hours'])
+            ->keyBy('user_id')->all();
+        $pre['leaves'] = DB::table('leaves')->whereIn('user_id', $userIds)->where('status', 'approved')
+            ->whereBetween('leave_date', [$from->toDateString(), $to->toDateString()])
+            ->get(['user_id', 'leave_date', 'duration', 'leave_type_id'])->groupBy('user_id')->all();
+        $pre['attendances'] = DB::table('attendances')->whereIn('user_id', $userIds)
+            ->whereBetween('clock_in_time', [$from->copy()->subDay()->startOfDay()->utc(), $to->copy()->addDay()->endOfDay()->utc()])
+            ->get(['user_id', 'clock_in_time', 'clock_out_time'])->groupBy('user_id')->all();
+
+        foreach (collect($pre['employees'])->groupBy('company_id') as $companyId => $rows) {
+            \App\Services\Attendance\ShiftResolver::shared($companyId ?: null)->preload($rows->pluck('user_id')->all());
+        }
+
+        $this->pre = $pre;
+    }
+
+    /** The preloaded rows of one kind for this employee and range, or null to read them as usual. */
+    protected function preloaded(string $kind, int $userId, Carbon $from, Carbon $to)
+    {
+        if (!$this->pre || !isset($this->pre['users'][$userId])
+            || $this->pre['range'] !== $from->toDateString() . '|' . $to->toDateString()) {
+            return null;
+        }
+
+        return $this->pre[$kind][$userId] ?? ($kind === 'leaves' || $kind === 'attendances' ? collect() : false);
+    }
+
     public function forRange(int $userId, Carbon $from, Carbon $to): array
     {
         $tz = $this->timezone;
@@ -53,8 +107,10 @@ class AttendanceDays
         $to = $to->copy()->setTimezone($tz)->startOfDay();
         $today = Carbon::now($tz)->startOfDay();
 
-        $employee = DB::table('employee_details')->where('user_id', $userId)
-            ->first(['joining_date', 'last_date', 'company_id']);
+        $employee = $this->preloaded('employees', $userId, $from, $to);
+        $employee = $employee === null
+            ? DB::table('employee_details')->where('user_id', $userId)->first(['joining_date', 'last_date', 'company_id'])
+            : ($employee ?: null);
         $joinedOn = $employee?->joining_date ? substr((string) $employee->joining_date, 0, 10) : null;
         $leftOn = $employee?->last_date ? substr((string) $employee->last_date, 0, 10) : null;
 
@@ -94,8 +150,15 @@ class AttendanceDays
         // attendance-exempt is paid in full but for leave; a department that
         // does not consider hours takes any punch as a full day.
         $rules = \App\Services\Attendance\WorkRules::forCompany($employee?->company_id, $tz);
-        $flags = $rules ? DB::table('employee_details as ed')->leftJoin('teams as t', 't.id', '=', 'ed.department_id')
-            ->where('ed.user_id', $userId)->first(['ed.attendance_exempt', 't.consider_attendance_hours']) : null;
+        $flags = null;
+
+        if ($rules) {
+            $flags = $this->preloaded('flags', $userId, $from, $to);
+            $flags = $flags === null
+                ? DB::table('employee_details as ed')->leftJoin('teams as t', 't.id', '=', 'ed.department_id')
+                    ->where('ed.user_id', $userId)->first(['ed.attendance_exempt', 't.consider_attendance_hours'])
+                : ($flags ?: null);
+        }
         $exempt = (bool) ($flags->attendance_exempt ?? false);
         $hoursOff = $flags && $flags->consider_attendance_hours !== null && !(bool) $flags->consider_attendance_hours;
         $basis = !$rules ? 'standard' : ($exempt ? 'exempt' : ($hoursOff ? 'hours_off' : 'rules'));
@@ -286,9 +349,23 @@ class AttendanceDays
     protected array $bounds = [];
 
     /** @return array<int, string> dates */
+    /** Holidays and leave types, read once per request (see holidays() and leave()). */
+    protected static array $holidayRows = [];
+
+    protected static $leaveTypes = null;
+
+    /** Forget them - after holidays or leave types change within the same process. */
+    public static function forgetShared(): void
+    {
+        self::$holidayRows = [];
+        self::$leaveTypes = null;
+    }
+
     protected function holidays(?int $companyId, Carbon $from, Carbon $to): array
     {
-        $rows = DB::table('holidays')
+        // The same for every employee: the payroll run asks for each of them.
+        $key = (int) $companyId . '|' . $from->toDateString() . '|' . $to->toDateString();
+        $rows = self::$holidayRows[$key] ??= DB::table('holidays')
             ->when($companyId, fn ($q) => $q->where('company_id', $companyId))
             ->whereBetween('date', [$from->toDateString(), $to->toDateString()])
             ->get(['date', 'occassion']);
@@ -309,7 +386,7 @@ class AttendanceDays
         // unpaid), otherwise the name or the type's own paid flag.
         $unpaid = [];
 
-        foreach (DB::table('leave_types')->get(['id', 'type_name', 'code', 'paid']) as $type) {
+        foreach (self::$leaveTypes ??= DB::table('leave_types')->get(['id', 'type_name', 'code', 'paid']) as $type) {
             $code = strtoupper(trim((string) $type->code));
             $unpaid[(int) $type->id] = $code !== ''
                 ? $code === 'LOP'
@@ -318,9 +395,12 @@ class AttendanceDays
 
         $byDay = [];
 
-        foreach (DB::table('leaves')->where('user_id', $userId)->where('status', 'approved')
-            ->whereBetween('leave_date', [$from->toDateString(), $to->toDateString()])
-            ->get(['leave_date', 'duration', 'leave_type_id']) as $leave) {
+        $leaves = $this->preloaded('leaves', $userId, $from, $to)
+            ?? DB::table('leaves')->where('user_id', $userId)->where('status', 'approved')
+                ->whereBetween('leave_date', [$from->toDateString(), $to->toDateString()])
+                ->get(['leave_date', 'duration', 'leave_type_id']);
+
+        foreach ($leaves as $leave) {
             $key = substr((string) $leave->leave_date, 0, 10);
             $portion = $leave->duration === 'half day' ? 0.5 : 1.0;
             $kind = ($unpaid[(int) $leave->leave_type_id] ?? false) ? 'unpaid' : 'paid';
@@ -362,9 +442,12 @@ class AttendanceDays
         $toUtc = $to->copy()->addDay()->endOfDay()->utc();
         $bounds = [];
 
-        foreach (DB::table('attendances')->where('user_id', $userId)
-            ->whereBetween('clock_in_time', [$fromUtc, $toUtc])
-            ->get(['clock_in_time', 'clock_out_time']) as $row) {
+        $sessions = $this->preloaded('attendances', $userId, $from, $to)
+            ?? DB::table('attendances')->where('user_id', $userId)
+                ->whereBetween('clock_in_time', [$fromUtc, $toUtc])
+                ->get(['clock_in_time', 'clock_out_time']);
+
+        foreach ($sessions as $row) {
             $in = Carbon::parse($row->clock_in_time, 'UTC');
             // The day the session belongs to: its shift's day, not just its calendar date.
             $key = $resolver ? $resolver->shiftDayOf($userId, $in, $tz) : $in->copy()->setTimezone($tz)->toDateString();

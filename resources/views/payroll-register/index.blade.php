@@ -6,6 +6,9 @@
         .register-table thead th { position: sticky; top: 0; background: #f8f9fa; z-index: 2; }
         .register-table tfoot td { font-weight: 600; background: #f8f9fa; }
         .remit-card { border-left: 3px solid #1d9e6f; }
+        .ss-bar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px; }
+        .ss-bar select { min-width: 160px; }
+        .ss-drafts { padding-bottom: 8px; }
     </style>
 @endpush
 
@@ -22,59 +25,56 @@
 
     <div class="content-wrapper arw-dash">
 
-        {{-- Which month is being accounted for --}}
+        {{-- Which month: one row, Excel on the right --}}
         <div class="card bg-white border-0 b-shadow-4 mb-3">
             <div class="card-body p-3">
-                <form method="GET" action="{{ route('payroll-register.index') }}">
-                    <div class="row align-items-end">
-                        <div class="col-md-3 mb-2">
-                            <label class="f-12 text-dark-grey">@lang('app.month')</label>
-                            <select name="month" class="form-control f-14">
-                                @foreach (range(1, 12) as $m)
-                                    <option value="{{ $m }}" @selected($m === $month)>
-                                        {{ \Carbon\Carbon::create(null, $m, 1)->format('F') }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-md-2 mb-2">
-                            <label class="f-12 text-dark-grey">@lang('app.year')</label>
-                            <select name="year" class="form-control f-14">
-                                @foreach (range(now()->year - 3, now()->year) as $y)
-                                    <option value="{{ $y }}" @selected($y === $year)>{{ $y }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-md-3 mb-2">
-                            <button type="submit" class="btn btn-primary f-14 w-100">@lang('app.apply')</button>
-                        </div>
-                        <div class="col-md-2 mb-2">
-                            {{-- The same figures over a date range, card by card. --}}
-                            <a href="{{ route('payroll-dashboard.index') }}"
-                               class="btn btn-outline-secondary f-14 w-100">
-                                <i class="fa fa-chart-pie mr-1"></i> Dashboard
-                            </a>
-                        </div>
-                        <div class="col-md-2 mb-2">
-                            <a href="{{ route('payroll-register.export', request()->query()) }}"
-                               class="btn btn-outline-secondary f-14 w-100">
-                                <i class="fa fa-file-excel mr-1"></i> Export (register, PF, ESI, summary)
-                            </a>
-                        </div>
-                        <div class="col-12">
-                            {{-- A draft has had nothing paid against it, so it is not
-                                 part of the record unless it is asked for. --}}
-                            <label class="f-12 text-lightest mb-0">
-                                <input type="checkbox" name="include_unapproved" value="1" @checked($includeUnapproved)
-                                       onchange="this.form.submit()">
-                                Include payslips still in draft
-                            </label>
-                        </div>
+                <form method="GET" action="{{ route('payroll-register.index') }}" class="ss-bar">
+                    <div>
+                        <label class="f-12 text-dark-grey mb-1">@lang('app.month')</label>
+                        <select name="month" class="form-control f-14">
+                            @foreach (range(1, 12) as $m)
+                                <option value="{{ $m }}" @selected($m === $month)>{{ \Carbon\Carbon::create(null, $m, 1)->format('F') }}</option>
+                            @endforeach
+                        </select>
                     </div>
+                    <div>
+                        <label class="f-12 text-dark-grey mb-1">@lang('app.year')</label>
+                        <select name="year" class="form-control f-14">
+                            @foreach (range(now()->year - 3, now()->year) as $y)
+                                <option value="{{ $y }}" @selected($y === $year)>{{ $y }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    {{-- A draft has had nothing paid against it, so it is left out unless asked for. --}}
+                    <div class="custom-control custom-switch ss-drafts">
+                        <input type="checkbox" class="custom-control-input" id="include_unapproved" name="include_unapproved" value="1"
+                               @checked($includeUnapproved) onchange="this.form.submit()">
+                        <label class="custom-control-label f-13" for="include_unapproved">Include drafts</label>
+                    </div>
+                    <button type="submit" class="btn btn-primary f-14 px-4">@lang('app.apply')</button>
+                    <a href="{{ route('payroll-register.export', request()->query()) }}" class="btn btn-outline-secondary f-14 ml-md-auto"
+                       title="The salary statement, PF, ESI and the summary, one sheet each">
+                        <i class="fa fa-file-excel mr-1"></i> Export to Excel
+                    </a>
                 </form>
             </div>
         </div>
 
+        @if ((int) $totals['payslips'] === 0)
+            {{-- Nothing issued for the month: say so once, instead of a page of zeros. --}}
+            <div class="card bg-white border-0 b-shadow-4 mb-3">
+                <div class="card-body text-center py-5">
+                    <i class="fa fa-file-invoice f-21 text-lightest"></i>
+                    <h6 class="f-15 mt-3 mb-1">No payslips issued for {{ $monthName }}</h6>
+                    <p class="f-13 text-dark-grey mb-3">
+                        {{ $cycle->start->format('d M Y') }} to {{ $cycle->end->format('d M Y') }}.
+                        @unless ($includeUnapproved) Drafts are not counted here until they are approved. @endunless
+                    </p>
+                    <a href="{{ route('payroll-run.index', ['month' => $month, 'year' => $year]) }}" class="btn btn-primary btn-sm mr-2">Run Payroll</a>
+                    <a href="{{ route('payslips.generated') }}" class="btn btn-outline-secondary btn-sm">Issued Payslips</a>
+                </div>
+            </div>
+        @else
         {{-- What has to be remitted --}}
         <div class="row mb-3">
             @php
@@ -107,8 +107,8 @@
             <div class="col-md-5 mb-2">
                 <div class="card bg-white border-0 b-shadow-4 h-100">
                     <div class="card-header bg-white border-bottom p-3">
-                        <h6 class="mb-0 f-14">To remit for {{ $monthName }}</h6>
-                        <p class="mb-0 f-12 text-lightest">Taken from the payslips as issued — nothing is recalculated here.</p>
+                        <h6 class="mb-0 f-14">To pay over for {{ $monthName }}</h6>
+                        <p class="mb-0 f-12 text-lightest">PF, ESI, professional tax and income tax to deposit, from the payslips as issued.</p>
                     </div>
                     <table class="table table-sm mb-0 f-13">
                         <tbody>
@@ -147,14 +147,14 @@
             <div class="col-md-7 mb-2">
                 <div class="card bg-white border-0 b-shadow-4 h-100">
                     <div class="card-header bg-white border-bottom p-3">
-                        <h6 class="mb-0 f-14">By department</h6>
+                        <h6 class="mb-0 f-14">By division</h6>
                         <p class="mb-0 f-12 text-lightest">Largest cost first.</p>
                     </div>
                     <div class="table-responsive">
                         <table class="table table-sm mb-0 f-13">
                             <thead>
                                 <tr>
-                                    <th>Department</th>
+                                    <th>Division</th>
                                     <th class="text-center">People</th>
                                     <th class="text-right">Gross</th>
                                     <th class="text-right">Paid</th>
@@ -185,7 +185,7 @@
         {{-- The register itself --}}
         <div class="card bg-white border-0 b-shadow-4 mb-3">
             <div class="card-header bg-white border-bottom p-3">
-                <h6 class="mb-0 f-14">{{ $monthName }} register</h6>
+                <h6 class="mb-0 f-14">{{ $monthName }} salary statement</h6>
                 <p class="mb-0 f-12 text-lightest">
                     {{ $cycle->start->format('d M Y') }} to {{ $cycle->end->format('d M Y') }}
                     &middot; one line per payslip issued. A figure that looks wrong means the payslip is wrong:
@@ -287,5 +287,6 @@
                 </table>
             </div>
         </div>
+        @endif
     </div>
 @endsection

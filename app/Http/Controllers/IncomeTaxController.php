@@ -29,7 +29,7 @@ class IncomeTaxController extends AccountBaseController
         $this->pageTitle = 'Income Tax';
 
         $this->middleware(function ($request, $next) {
-            abort_403(!in_array('admin', user_roles()) && user()->permission('manage_payroll') !== 'all');
+            abort_403(!\App\Services\Access\PayrollAccess::can('settings'));
 
             return $next($request);
         });

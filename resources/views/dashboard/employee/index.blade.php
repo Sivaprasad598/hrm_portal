@@ -253,6 +253,10 @@
         </div>
         <!-- WELOCOME END -->
 
+         {{-- Everyone but the Super Admin, Admin and HR: their own dashboard only. --}}
+         @if (\App\Services\Employee\PersonalDashboard::applies())
+            @include('dashboard.employee.personal')
+         @else
          <!-- EMPLOYEE DASHBOARD DETAIL START -->
          <div class="row emp-dash-detail">
             <!-- EMP DASHBOARD INFO NOTICES START -->
@@ -280,7 +284,7 @@
 
                                 <div class="card-footer bg-white border-top-grey py-3">
                                     <div class="d-flex flex-wrap justify-content-between">
-                                        @if(in_array('tasks', user_modules()))
+                                        @if(in_array('tasks', dashboard_modules()))
                                             <span>
                                                 <label class="f-12 text-dark-grey mb-12 " for="usr">
                                                     @lang('app.openTasks') </label>
@@ -292,7 +296,7 @@
                                                 </p>
                                             </span>
                                         @endif
-                                        @if(in_array('projects', user_modules()))
+                                        @if(in_array('projects', dashboard_modules()))
                                             <span>
                                                 <label class="f-12 text-dark-grey mb-12 " for="usr">
                                                     @lang('app.menu.projects') </label>
@@ -302,7 +306,7 @@
                                                 </p>
                                             </span>
                                         @endif
-                                        @if (isset($totalOpenTickets) && in_array('tickets', user_modules()))
+                                        @if (isset($totalOpenTickets) && in_array('tickets', dashboard_modules()))
                                             <span>
                                                 <label class="f-12 text-dark-grey mb-12 " for="usr">
                                                     @lang('modules.dashboard.totalOpenTickets') </label>
@@ -319,7 +323,7 @@
                         <!-- EMP DASHBOARD INFO END -->
                         @endif
 
-                        @if (!is_null($myActiveTimer) && in_array('tasks', user_modules()))
+                        @if (!is_null($myActiveTimer) && in_array('tasks', dashboard_modules()))
                             <div class="col-sm-12" id="myActiveTimerSection">
                                 <x-cards.data class="mb-3" :title="__('modules.timeLogs.myActiveTimer')">
                                     <div class="row">
@@ -412,7 +416,7 @@
             <div class="col-xl-7 col-lg-12 col-md-12 e-d-tasks-projects-events">
                 <!-- EMP DASHBOARD TASKS PROJECTS START -->
                 <div class="row mb-3 mt-xl-0 mt-lg-4 mt-md-4 mt-4">
-                    @if (in_array('tasks', $activeWidgets) && (!is_null($viewTaskPermission) && $viewTaskPermission != 'none') && in_array('tasks', user_modules()))
+                    @if (in_array('tasks', $activeWidgets) && (!is_null($viewTaskPermission) && $viewTaskPermission != 'none') && in_array('tasks', dashboard_modules()))
                         <div class="col-md-6 mb-3">
                             <div
                                 class="bg-white p-20 rounded b-shadow-4 d-flex justify-content-between align-items-center mb-4 mb-md-0 mb-lg-0">
@@ -458,6 +462,7 @@
             <!-- EMP DASHBOARD TASKS PROJECTS EVENTS END -->
         </div>
         <!-- EMPLOYEE DASHBOARD DETAIL END -->
+         @endif
 
     </div>
     <!-- CONTENT WRAPPER END -->

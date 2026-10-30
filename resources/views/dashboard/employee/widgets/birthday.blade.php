@@ -1,4 +1,4 @@
-@if (in_array('birthday', $activeWidgets) && in_array('employees', user_modules()))
+@if (in_array('birthday', $activeWidgets) && in_array('employees', dashboard_modules()))
     <!-- EMP DASHBOARD BIRTHDAY START -->
     <div class="col-sm-12">
         @if (in_array('admin', user_roles()) && !is_null(user()->employeeDetail) && !is_null(user()->employeeDetail->designation_id))

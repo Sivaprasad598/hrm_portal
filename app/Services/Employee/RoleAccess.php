@@ -34,7 +34,7 @@ class RoleAccess
         'add_appreciation', 'view_appreciation', 'edit_appreciation', 'manage_award',
         'view_increment_promotion', 'manage_increment_promotion',
         // payroll
-        'manage_payroll',
+        'manage_payroll', 'payroll_prepare', 'payroll_approve', 'payroll_revoke', 'payroll_settings',
         // attendance, shifts
         'view_attendance', 'add_attendance', 'edit_attendance', 'view_shift_roster', 'manage_employee_shifts',
         // biometric: the day-to-day (device data, sync and logs - manage_biometric_system - stay with the Super Admin)

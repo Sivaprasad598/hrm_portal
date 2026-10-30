@@ -200,7 +200,7 @@
             </div>
         @endif
         @if (in_array('employee', user_roles()))
-            <div class="col-md-4">
+            <div class="col-lg-4 col-md-6">
                 <x-forms.select fieldId="marital_status" :fieldLabel="__('modules.employees.maritalStatus')"
                         fieldName="marital_status" :fieldPlaceholder="__('placeholders.date')">
                         @foreach (\App\Enums\MaritalStatus::cases() as $status)
@@ -209,16 +209,24 @@
                         @endforeach
                 </x-forms.select>
             </div>
-            <div class="col-lg-3 col-md-6 d-none marriage_date">
+            <div class="col-lg-4 col-md-6 d-none marriage_date">
                 <x-forms.datepicker fieldId="marriage_anniversary_date" :fieldLabel="__('modules.employees.marriageAnniversaryDate')" fieldRequired="true"
                     fieldName="marriage_anniversary_date" :fieldPlaceholder="__('placeholders.date')"
                     :fieldValue="$user->employeeDetail->marriage_anniversary_date ? Carbon\Carbon::parse($user->employeeDetail->marriage_anniversary_date)->format(company()->date_format) : '' " />
             </div>
-            {{-- Set by HR on the employee record; shown here, not changed here. --}}
-            <div class="col-lg-3 col-md-6">
-                <x-forms.text fieldId="joining_date_view" :fieldLabel="__('modules.employees.joiningDate')" fieldName="joining_date_view"
-                    :fieldValue="$user->employeeDetail->joining_date ? $user->employeeDetail->joining_date->format(company()->date_format) : '--'"
-                    fieldReadOnly="true" />
+            {{-- The joining date drives payroll and leave, so HR sets it: with the
+                 calendar for someone who may edit employees, shown read-only to others. --}}
+            <div class="col-lg-4 col-md-6">
+                @if (user()->permission('edit_employees') === 'all')
+                    <x-forms.datepicker fieldId="joining_date" :fieldLabel="__('modules.employees.joiningDate')"
+                        fieldName="joining_date" :fieldPlaceholder="__('placeholders.date')"
+                        :fieldValue="$user->employeeDetail->joining_date ? $user->employeeDetail->joining_date->format(company()->date_format) : ''" />
+                @else
+                    <x-forms.text fieldId="joining_date_view" :fieldLabel="__('modules.employees.joiningDate')" fieldName="joining_date_view"
+                        :fieldValue="$user->employeeDetail->joining_date ? $user->employeeDetail->joining_date->format(company()->date_format) : '--'"
+                        fieldReadOnly="true" fieldHelp="Set by HR" />
+                    <style>#joining_date_view[readonly] { background: #f2f4f7; cursor: not-allowed; }</style>
+                @endif
             </div>
         @endif
 
@@ -297,6 +305,13 @@
                 position: 'bl',
                 ...datepickerConfig
             });
+
+            if (document.getElementById('joining_date')) {
+                datepicker('#joining_date', {
+                    position: 'bl',
+                    ...datepickerConfig
+                });
+            }
 
         @endif
 

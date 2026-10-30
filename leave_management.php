@@ -401,16 +401,16 @@ $employeesJson = json_encode(array_map(function ($employee) {
         .employee-badge {
             display: flex;
             align-items: center;
-            gap: 14px;
+            gap: 8px;
             background: var(--gray-50);
-            padding: 8px 16px 8px 14px;
-            border-radius: 50px;
+            padding: 4px 12px 4px 5px;
+            border-radius: var(--radius-sm);
             border: 1px solid var(--gray-200);
         }
 
         .employee-avatar {
-            width: 40px;
-            height: 40px;
+            width: 28px;
+            height: 28px;
             border-radius: 50%;
             background: linear-gradient(135deg, var(--primary), var(--secondary));
             color: white;
@@ -418,7 +418,7 @@ $employeesJson = json_encode(array_map(function ($employee) {
             align-items: center;
             justify-content: center;
             font-weight: 600;
-            font-size: 16px;
+            font-size: 11px;
             flex-shrink: 0;
         }
 
@@ -429,12 +429,14 @@ $employeesJson = json_encode(array_map(function ($employee) {
 
         .employee-meta .name {
             font-weight: 600;
-            font-size: 14px;
+            font-size: 13px;
+            line-height: 1.2;
             color: var(--gray-900);
         }
 
         .employee-meta .detail {
-            font-size: 12px;
+            font-size: 11px;
+            line-height: 1.2;
             color: var(--gray-500);
         }
 
@@ -479,14 +481,23 @@ $employeesJson = json_encode(array_map(function ($employee) {
         .summary-card {
             background: white;
             border-radius: var(--radius);
-            padding: 16px 18px 14px;
+            padding: 14px 14px 12px;
             box-shadow: var(--shadow);
             border: 1px solid rgba(226, 232, 240, 0.6);
             transition: var(--transition);
             display: flex;
-            align-items: center;
-            gap: 12px;
+            flex-direction: column;
+            gap: 10px;
+            min-width: 0;
             cursor: default;
+        }
+
+        /* Label across the top, on one line; icon and number underneath. */
+        .summary-card .card-body {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
         }
 
         .summary-card:hover {
@@ -495,13 +506,13 @@ $employeesJson = json_encode(array_map(function ($employee) {
         }
 
         .summary-card .icon-wrap {
-            width: 42px;
-            height: 42px;
+            width: 32px;
+            height: 32px;
             border-radius: var(--radius-sm);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 18px;
+            font-size: 16px;
             flex-shrink: 0;
         }
 
@@ -539,30 +550,35 @@ $employeesJson = json_encode(array_map(function ($employee) {
             min-width: 0;
         }
 
-        .summary-card .info .label {
+        .summary-card .label {
             font-size: 11px;
-            font-weight: 500;
+            font-weight: 600;
             color: var(--gray-500);
             text-transform: uppercase;
             letter-spacing: 0.3px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
-        .summary-card .info .value {
+        .summary-card .value {
             font-size: 20px;
             font-weight: 700;
             color: var(--gray-900);
-            line-height: 1.3;
-            margin-top: 1px;
+            line-height: 1.2;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
-        .summary-card .info .value .sub {
+        .summary-card .value .sub {
             font-size: 12px;
             font-weight: 400;
             color: var(--gray-400);
             margin-left: 4px;
         }
 
-        .summary-card .info .value .lop-badge {
+        .summary-card .value .lop-badge {
             font-size: 13px;
             font-weight: 700;
             color: var(--danger);
@@ -570,6 +586,48 @@ $employeesJson = json_encode(array_map(function ($employee) {
             padding: 0 10px;
             border-radius: 50px;
             margin-left: 4px;
+        }
+
+        /* Hover tooltip for the cards (filled by the script) */
+        .card-tip {
+            position: absolute;
+            z-index: 1000;
+            max-width: 260px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            background: #101828;
+            color: #fff;
+            box-shadow: 0 8px 24px rgba(16, 24, 40, 0.25);
+            pointer-events: none;
+            opacity: 0;
+            transform: translateY(4px);
+            transition: opacity 0.12s ease, transform 0.12s ease;
+        }
+
+        .card-tip.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .card-tip-title {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+            color: #98a2b3;
+        }
+
+        .card-tip-value {
+            font-size: 15px;
+            font-weight: 700;
+            margin-top: 2px;
+        }
+
+        .card-tip-hint {
+            font-size: 12px;
+            line-height: 1.4;
+            color: #d0d5dd;
+            margin-top: 4px;
         }
 
         /* ───────────────────────────── LEAVE TYPES ROW ───────────────────────────── */
@@ -583,12 +641,13 @@ $employeesJson = json_encode(array_map(function ($employee) {
         .leave-type-card {
             background: white;
             border-radius: var(--radius);
-            padding: 18px 22px;
+            padding: 16px 18px;
             box-shadow: var(--shadow);
             border: 1px solid rgba(226, 232, 240, 0.6);
             display: flex;
-            align-items: center;
-            gap: 16px;
+            flex-direction: column;
+            gap: 8px;
+            min-width: 0;
             transition: var(--transition);
             cursor: default;
             position: relative;
@@ -623,9 +682,17 @@ $employeesJson = json_encode(array_map(function ($employee) {
             box-shadow: var(--shadow-md);
         }
 
+        /* Icon, name and badge on one line; the description under it, also one line. */
+        .leave-type-card .lt-head {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+        }
+
         .leave-type-card .lt-icon {
-            width: 44px;
-            height: 44px;
+            width: 36px;
+            height: 36px;
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -651,20 +718,23 @@ $employeesJson = json_encode(array_map(function ($employee) {
             color: var(--danger);
         }
 
-        .leave-type-card .lt-info {
+        .leave-type-card .lt-name {
             flex: 1;
-        }
-
-        .leave-type-card .lt-info .lt-name {
+            min-width: 0;
             font-weight: 600;
             font-size: 15px;
             color: var(--gray-900);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
-        .leave-type-card .lt-info .lt-desc {
+        .leave-type-card .lt-desc {
             font-size: 13px;
             color: var(--gray-500);
-            margin-top: 1px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .leave-type-card .lt-badge {
@@ -901,6 +971,15 @@ $employeesJson = json_encode(array_map(function ($employee) {
             margin-bottom: 0;
         }
 
+        /* Eleven cards in a narrower box: a touch smaller so value and word fit. */
+        .monthly-dashboard-body .summary-card .value {
+            font-size: 18px;
+        }
+
+        .monthly-dashboard-body .summary-card .value .sub {
+            font-size: 11.5px;
+        }
+
         /* ───────────────────────────── RESPONSIVE ───────────────────────────── */
         @media (max-width: 1024px) {
             .summary-grid {
@@ -934,13 +1013,7 @@ $employeesJson = json_encode(array_map(function ($employee) {
             }
 
             .employee-badge {
-                padding: 6px 14px 6px 12px;
-            }
-
-            .employee-avatar {
-                width: 34px;
-                height: 34px;
-                font-size: 14px;
+                padding: 4px 10px 4px 5px;
             }
 
             .header-actions button {
@@ -955,9 +1028,7 @@ $employeesJson = json_encode(array_map(function ($employee) {
 
             .summary-card {
                 padding: 12px 12px 10px;
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 6px;
+                gap: 8px;
             }
 
             .summary-card .icon-wrap {
@@ -966,11 +1037,11 @@ $employeesJson = json_encode(array_map(function ($employee) {
                 font-size: 14px;
             }
 
-            .summary-card .info .value {
+            .summary-card .value {
                 font-size: 17px;
             }
 
-            .summary-card .info .label {
+            .summary-card .label {
                 font-size: 10px;
             }
 
@@ -1006,7 +1077,7 @@ $employeesJson = json_encode(array_map(function ($employee) {
                 grid-template-columns: 1fr;
             }
 
-            .summary-card .info .value {
+            .summary-card .value {
                 font-size: 15px;
             }
 
@@ -1066,11 +1137,11 @@ $employeesJson = json_encode(array_map(function ($employee) {
                 font-size: 12px;
             }
 
-            .summary-card .info .value {
+            .summary-card .value {
                 font-size: 13px;
             }
 
-            .summary-card .info .label {
+            .summary-card .label {
                 font-size: 9px;
             }
         }
@@ -1493,6 +1564,79 @@ $employeesJson = json_encode(array_map(function ($employee) {
         //  RENDER SUMMARY CARDS
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        //  CARD TOOLTIP — on hover a card shows its full label, value
+        //  and what it means, so a squeezed card never hides anything.
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        const CARD_HINTS = {
+            'Total CL (alloc.)': 'Casual leave given for the whole year.',
+            'Total SL (alloc.)': 'Sick leave given for the whole year.',
+            'CL Used': 'Casual leave days already taken.',
+            'SL Used': 'Sick leave days already taken.',
+            'Half‑Days Used': 'Half-day leaves taken (each counts as 0.5 day).',
+            'Half‑Days': 'Half-day leaves taken this month (each counts as 0.5 day).',
+            'Carry Fwd CL': 'Unused casual leave brought forward from earlier months.',
+            'Pending': 'Leave requests still waiting for approval.',
+            'LOP Days': 'Leave taken beyond the balance — not paid.',
+            'LOP': 'Leave taken this month beyond the balance — not paid.',
+            'CL Allocated': 'Casual leave added for this month.',
+            'SL Allocated': 'Sick leave added for this month.',
+            'CL Pending': 'Casual leave requests waiting for approval.',
+            'SL Pending': 'Sick leave requests waiting for approval.',
+            'Remaining CL': 'Casual leave still available to take.',
+            'Remaining SL': 'Sick leave still available to take.',
+        };
+
+        function tipEsc(text) {
+            return String(text ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        // Packed into one attribute: title|value|meaning
+        function cardTip(title, value, hint) {
+            return tipEsc([title, value, hint ?? CARD_HINTS[title] ?? ''].join('|'));
+        }
+
+        (function () {
+            const tip = document.createElement('div');
+            tip.className = 'card-tip';
+            document.body.appendChild(tip);
+
+            function show(card) {
+                const [title, value, hint] = card.getAttribute('data-tip').split('|');
+                tip.innerHTML = '<div class="card-tip-title"></div><div class="card-tip-value"></div><div class="card-tip-hint"></div>';
+                tip.children[0].textContent = title;
+                tip.children[1].textContent = value;
+                tip.children[2].textContent = hint;
+                tip.children[2].style.display = hint ? '' : 'none';
+                tip.classList.add('show');
+
+                const box = card.getBoundingClientRect();
+                const width = tip.offsetWidth;
+                const left = Math.min(Math.max(8, box.left + box.width / 2 - width / 2), window.innerWidth - width - 8);
+                let top = box.top - tip.offsetHeight - 8;
+                tip.classList.toggle('below', top < 8);
+                if (top < 8) {
+                    top = box.bottom + 8;
+                }
+                tip.style.left = left + window.scrollX + 'px';
+                tip.style.top = top + window.scrollY + 'px';
+            }
+
+            document.addEventListener('mouseover', function (e) {
+                const card = e.target.closest('[data-tip]');
+                if (card) {
+                    show(card);
+                }
+            });
+            document.addEventListener('mouseout', function (e) {
+                const card = e.target.closest('[data-tip]');
+                if (card && !card.contains(e.relatedTarget)) {
+                    tip.classList.remove('show');
+                }
+            });
+            window.addEventListener('scroll', function () { tip.classList.remove('show'); }, true);
+        })();
+
         function renderSummary(totals) {
             const summaryConfig = [{
                 icon: 'fa-calendar-alt',
@@ -1546,13 +1690,15 @@ $employeesJson = json_encode(array_map(function ($employee) {
 
             const summaryGrid = document.getElementById('summaryGrid');
             summaryGrid.innerHTML = summaryConfig.map(item => `
-                    <div class="summary-card">
-                        <div class="icon-wrap ${item.color}">
-                            <i class="fas ${item.icon}"></i>
-                        </div>
-                        <div class="info">
-                            <div class="label">${item.label}</div>
-                            <div class="value">${num(item.value)} <span class="sub">${item.sub}</span></div>
+                    <div class="summary-card" data-tip="${cardTip(item.label, num(item.value) + ' ' + item.sub)}">
+                        <div class="label">${item.label}</div>
+                        <div class="card-body">
+                            <div class="icon-wrap ${item.color}">
+                                <i class="fas ${item.icon}"></i>
+                            </div>
+                            <div class="info">
+                                <div class="value">${num(item.value)} <span class="sub">${item.sub}</span></div>
+                            </div>
                         </div>
                     </div>
                 `).join('');
@@ -1591,15 +1737,15 @@ $employeesJson = json_encode(array_map(function ($employee) {
 
             const leaveTypesContainer = document.getElementById('leaveTypes');
             leaveTypesContainer.innerHTML = leaveTypesConfig.map(item => `
-                    <div class="leave-type-card ${item.cls}">
-                        <div class="lt-icon">
-                            <i class="fas ${item.icon}"></i>
-                        </div>
-                        <div class="lt-info">
+                    <div class="leave-type-card ${item.cls}" data-tip="${cardTip(item.name, item.badge, item.desc)}">
+                        <div class="lt-head">
+                            <div class="lt-icon">
+                                <i class="fas ${item.icon}"></i>
+                            </div>
                             <div class="lt-name">${item.name}</div>
-                            <div class="lt-desc">${item.desc}</div>
+                            <span class="lt-badge">${item.badge}</span>
                         </div>
-                        <span class="lt-badge">${item.badge}</span>
+                        <div class="lt-desc">${item.desc}</div>
                     </div>
                 `).join('');
         }
@@ -1710,13 +1856,15 @@ $employeesJson = json_encode(array_map(function ($employee) {
             ];
 
             monthlySummaryGrid.innerHTML = config.map(item => `
-                    <div class="summary-card">
-                        <div class="icon-wrap ${item.color}">
-                            <i class="fas ${item.icon}"></i>
-                        </div>
-                        <div class="info">
-                            <div class="label">${item.label}</div>
-                            <div class="value">${num(item.value)} <span class="sub">${item.sub}</span></div>
+                    <div class="summary-card" data-tip="${cardTip(item.label, num(item.value) + ' ' + item.sub)}">
+                        <div class="label">${item.label}</div>
+                        <div class="card-body">
+                            <div class="icon-wrap ${item.color}">
+                                <i class="fas ${item.icon}"></i>
+                            </div>
+                            <div class="info">
+                                <div class="value">${num(item.value)} <span class="sub">${item.sub}</span></div>
+                            </div>
                         </div>
                     </div>
                 `).join('');

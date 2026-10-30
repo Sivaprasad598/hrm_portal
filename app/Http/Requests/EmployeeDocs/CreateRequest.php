@@ -31,6 +31,7 @@ class CreateRequest extends FormRequest
         return [
             'name'  => 'required',
             'file'  => 'required',
+            'doc_type' => 'nullable|in:' . implode(',', array_keys(\App\Services\Employee\DocumentTypes::TYPES)),
         ];
 
     }

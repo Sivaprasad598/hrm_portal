@@ -229,12 +229,23 @@ class EmployeeAttendanceProfile
         [$coverFrom, $coverTo] = $this->coverage();
         $expected = 0;
         $absentDates = [];
+        // How the covered days split, for "Days Present": the days left once
+        // the shift's week-offs, holidays and full-day leave are taken out.
+        $split = ['covered_days' => 0, 'week_off_days' => 0, 'holiday_days' => 0, 'leave_days' => 0];
 
         if ($coverFrom && $coverTo && $coverFrom->lte($coverTo)) {
             for ($date = $coverFrom->copy(); $date->lte($coverTo); $date->addDay()) {
                 $key = $date->toDateString();
+                $split['covered_days']++;
+                $resolved = $calendar->resolve($this->userId(), $key);
 
-                if (!$calendar->resolve($this->userId(), $key)['working']) {
+                if (!$resolved['working']) {
+                    match ($resolved['reason'] ?? null) {
+                        ShiftCalendar::REASON_HOLIDAY => $split['holiday_days']++,
+                        ShiftCalendar::REASON_LEAVE => $split['leave_days']++,
+                        default => $split['week_off_days']++,
+                    };
+
                     continue;
                 }
 
@@ -248,7 +259,9 @@ class EmployeeAttendanceProfile
 
         $judged = $totals['on_time_days'] + $totals['late_days'];
 
-        return $totals + [
+        return $totals + $split + [
+            // Days with punches that were not working days (week-off, holiday, leave).
+            'off_day_present' => max(0, count($days) - count($attendedWorking)),
             'shift_assigned' => ShiftCalendar::label($assigned),
             'shift_source' => $sourceCounts
                 ? array_key_first($sourceCounts)

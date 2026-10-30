@@ -34,7 +34,8 @@
     $showHoliday = $showHRGroup && in_array('holidays', user_modules()) && $sidebarUserPermissions['view_holiday'] != 5 && $sidebarUserPermissions['view_holiday'] != 'none';
     $showDesignation = $showHRGroup && isset($sidebarUserPermissions['view_designation']) && $sidebarUserPermissions['view_designation'] == 4;
     $showDepartment = $showHRGroup && isset($sidebarUserPermissions['view_department']) && $sidebarUserPermissions['view_department'] == 4;
-    $showAppreciation = $showHRGroup && ((isset($sidebarUserPermissions['view_appreciation']) && $sidebarUserPermissions['view_appreciation'] != 5)
+    // Appreciation is switched off (2026_10_26_100003_remove_appreciation).
+    $showAppreciation = false && $showHRGroup && ((isset($sidebarUserPermissions['view_appreciation']) && $sidebarUserPermissions['view_appreciation'] != 5)
         || (isset($sidebarUserPermissions['view_appreciation']) && $sidebarUserPermissions['view_appreciation'] == 5 && isset($sidebarUserPermissions['manage_award']) && $sidebarUserPermissions['manage_award'] == 4));
     $appreciationRoute = (isset($sidebarUserPermissions['view_appreciation']) && $sidebarUserPermissions['view_appreciation'] == 5) ? 'awards.index' : 'appreciations.index';
 

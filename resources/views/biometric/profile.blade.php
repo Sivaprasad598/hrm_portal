@@ -96,8 +96,26 @@
 
             {{-- Headline KPIs --}}
             @php
+                // Days Present: out of the working days by the employee's shift
+                // (week-offs, holidays and full-day leave taken out), over the
+                // days the device has data for - the same days Absent counts.
+                if ($k['expected_working_days'] > 0) {
+                    $presentValue = $k['attended_working_days'] . ' / ' . $k['expected_working_days'];
+                    $parts = [$k['covered_days'] . ' days'];
+                    foreach (['week_off_days' => 'week-off', 'holiday_days' => 'holiday', 'leave_days' => 'on leave'] as $key => $word) {
+                        if ($k[$key]) {
+                            $parts[] = $k[$key] . ' ' . ($word === 'on leave' ? $word : \Illuminate\Support\Str::plural($word, $k[$key]));
+                        }
+                    }
+                    $presentSub = implode(' − ', $parts) . ' · to ' . \Carbon\Carbon::parse($k['coverage_to'])->format('d M')
+                        . ($k['off_day_present'] ? ' · +' . $k['off_day_present'] . ' on off day' . ($k['off_day_present'] > 1 ? 's' : '') : '');
+                } else {
+                    $presentValue = $k['days_present'];
+                    $presentSub = 'no working days with device data';
+                }
+
                 $tiles = [
-                    ['Days Present', $k['days_present'] . ' / ' . $k['calendar_days'], 'text-dark-grey', 'calendar days in range'],
+                    ['Days Present', $presentValue, 'text-dark-grey', $presentSub],
                     ['Time Inside', Profile::humanMinutes($k['total_inside_minutes']), 'text-primary', 'avg ' . Profile::humanMinutes($k['avg_inside_minutes']) . ' / day'],
                     ['Time Outside', Profile::humanMinutes($k['total_outside_minutes']), 'text-yellow', 'avg ' . Profile::humanMinutes($k['avg_outside_minutes']) . ' / day'],
                     ['Check-ins', $k['total_check_ins'], 'text-dark-grey', 'avg ' . $k['avg_check_ins'] . ' / day'],

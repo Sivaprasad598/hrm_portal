@@ -47,6 +47,7 @@ class EmployeeDocController extends AccountBaseController
         $file = new EmployeeDocument();
 
         $file->name = $request->name;
+        $file->doc_type = \App\Services\Employee\DocumentTypes::clean($request->doc_type);
         $filename = Files::uploadLocalOrS3($request->file, EmployeeDocument::FILE_PATH . '/' . $request->user_id);
 
         $file->user_id = $request->user_id;
@@ -79,6 +80,10 @@ class EmployeeDocController extends AccountBaseController
         $file = EmployeeDocument::findOrFail($id);
 
         $file->name = $request->name;
+
+        if ($request->has('doc_type')) {
+            $file->doc_type = \App\Services\Employee\DocumentTypes::clean($request->doc_type);
+        }
 
         if ($request->file) {
             $filename = Files::uploadLocalOrS3($request->file, EmployeeDocument::FILE_PATH . '/' . $file->user_id);

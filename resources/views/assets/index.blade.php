@@ -12,7 +12,8 @@
                 <select class="form-control select-picker" id="filter_status">
                     <option value="all">All</option>
                     @foreach (\App\Models\Asset::STATUSES as $key => [$label])
-                        <option value="{{ $key }}">{{ $label }}</option>
+                        {{-- ?status= preselects it (the dashboard's counts link here) --}}
+                        <option value="{{ $key }}" @selected(request('status') === $key)>{{ $label }}</option>
                     @endforeach
                 </select>
             </div>
@@ -201,6 +202,7 @@
                     || ($('#filter_branch').val() || 'all') !== 'all' || $('#search-text-field').val() !== '';
                 $('#reset-filters').toggleClass('d-none', !filtered);
             }
+            toggleReset();   // a status chosen through the address shows the reset button at once
 
             $('#filter_status, #filter_type, #filter_branch, #filter_holder, #filter_warranty, #filter_due').on('change', function () {
                 toggleReset();

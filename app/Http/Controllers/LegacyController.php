@@ -78,7 +78,7 @@ class LegacyController extends AccountBaseController
 
         // This browses departments and employees and jumps into any employee's
         // payslip, so it asks the same question the payslip screens ask.
-        if (!in_array('admin', user_roles()) && user()->permission('manage_payroll') !== 'all') {
+        if (!\App\Services\Access\PayrollAccess::can('prepare')) {
             abort(403);
         }
 
@@ -87,17 +87,17 @@ class LegacyController extends AccountBaseController
 
     public function payslips()
     {
-        $this->pageTitle = 'app.menu.payslips';
+        $this->pageTitle = 'Payslip Calculator';
 
-        // Only allow users with role 'employee' to view this page
-        if (!in_array('employee', user_roles())) {
+        // Staff only (the Super Admin holds the admin role alone, not employee).
+        if (!array_intersect(['employee', 'admin'], user_roles())) {
             abort(403);
         }
 
         // This page embeds the payslip calculator, which holds whole-company
         // salary data. An employee asking for their payslip wants their own, so
         // that is what they are given; whoever runs payroll gets the calculator.
-        if (!in_array('admin', user_roles()) && user()->permission('manage_payroll') !== 'all') {
+        if (!\App\Services\Access\PayrollAccess::can('prepare')) {
             return redirect()->route('my-payslips.index');
         }
 

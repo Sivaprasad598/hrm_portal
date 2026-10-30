@@ -78,6 +78,10 @@ if (!empty($ytdSource['label'])) {
 <meta charset="UTF-8">
 <title>Salary Slip<?= !empty($payslip['period']) ? ' — ' . e($payslip['period']) : '' ?></title>
 <style>
+  /* Open Sans, the app's font. TTF so the PDF (DomPDF) can embed it too. */
+  @font-face { font-family: 'Open Sans'; font-style: normal; font-weight: 400; src: url('<?= e($asset('fonts/open-sans/OpenSans-Regular.ttf')) ?>') format('truetype'); }
+  @font-face { font-family: 'Open Sans'; font-style: normal; font-weight: 600; src: url('<?= e($asset('fonts/open-sans/OpenSans-SemiBold.ttf')) ?>') format('truetype'); }
+  @font-face { font-family: 'Open Sans'; font-style: normal; font-weight: 700; src: url('<?= e($asset('fonts/open-sans/OpenSans-Bold.ttf')) ?>') format('truetype'); }
   @page { size: A4; margin: 11mm 9mm; }
 
   * { box-sizing: border-box; }
@@ -86,7 +90,7 @@ if (!empty($ytdSource['label'])) {
     margin: 0;
     padding: 0;
     background: #ffffff;
-    font-family: Arial, Helvetica, sans-serif;
+    font-family: 'Open Sans', Arial, Helvetica, sans-serif;
     font-size: 10px;
     line-height: 1.45;
     color: #1f2937;
@@ -111,7 +115,7 @@ if (!empty($ytdSource['label'])) {
     .actions {
       display: flex; gap: 10px; justify-content: flex-end;
       width: 210mm; max-width: 100%; margin: 0 auto 12px;
-      font-family: Arial, Helvetica, sans-serif;
+      font-family: 'Open Sans', Arial, Helvetica, sans-serif;
     }
     .actions a, .actions button {
       font: inherit; font-size: 13px; padding: 7px 16px; border-radius: 20px;

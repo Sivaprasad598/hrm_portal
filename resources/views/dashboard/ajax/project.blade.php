@@ -3,7 +3,7 @@
 
 
 <div class="row">
-    @if (in_array('projects', user_modules()) && in_array('total_project', $activeWidgets))
+    @if (in_array('projects', dashboard_modules()) && in_array('total_project', $activeWidgets))
         <div class="col-xl-3 col-lg-6 col-md-6 mb-3">
             <a href="javascript:;" id="totalProjectsCount">
                 <x-cards.widget :title="__('modules.dashboard.totalProjects')" :value="$totalProject"
@@ -12,7 +12,7 @@
         </div>
     @endif
 
-    @if (in_array('projects', user_modules()) && in_array('total_overdue_project', $activeWidgets))
+    @if (in_array('projects', dashboard_modules()) && in_array('total_overdue_project', $activeWidgets))
         <div class="col-xl-3 col-lg-6 col-md-6 mb-3">
             <a href="javascript:;" id="overDue">
                 <x-cards.widget :title="__('modules.tickets.overDueProjects')" :value="$totalOverdueProject"
@@ -21,7 +21,7 @@
         </div>
     @endif
 
-    @if (in_array('timelogs', user_modules()) && in_array('total_hours_logged', $activeWidgets))
+    @if (in_array('timelogs', dashboard_modules()) && in_array('total_hours_logged', $activeWidgets))
         <div class="col-xl-3 col-lg-6 col-md-6 mb-3">
             <a href="{{ route('time-log-report.index') . '?project=required' }}">
                 <x-cards.widget :title="__('modules.dashboard.totalHoursLogged')" :value="$totalHoursLogged"
@@ -33,7 +33,7 @@
 </div>
 
 <div class="row">
-    @if (in_array('projects', user_modules()) && in_array('status_wise_project', $activeWidgets))
+    @if (in_array('projects', dashboard_modules()) && in_array('status_wise_project', $activeWidgets))
         <div class="col-sm-12 col-lg-6 mt-3">
             <x-cards.data :title="__('modules.dashboard.statusWiseProject')">
                 @if (array_sum($statusWiseProject['values']) > 0)
@@ -45,7 +45,7 @@
         </div>
     @endif
 
-    @if (in_array('projects', user_modules()) && in_array('pending_milestone', $activeWidgets))
+    @if (in_array('projects', dashboard_modules()) && in_array('pending_milestone', $activeWidgets))
         <div class="col-sm-12 col-lg-6 mt-3">
             <x-cards.data :title="__('modules.dashboard.pendingMilestone')" padding="false" otherClasses="h-200">
                 <x-table class="border-0 pb-3 admin-dash-table table-hover">

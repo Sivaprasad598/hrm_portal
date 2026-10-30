@@ -1,4 +1,4 @@
-@if (in_array('contract_date', $activeWidgets) && in_array('contracts', user_modules()))
+@if (in_array('contract_date', $activeWidgets) && in_array('contracts', dashboard_modules()))
     @php
         $currentDay = \Carbon\Carbon::parse(now(company()->timezone)->toDateTimeString())
             ->startOfDay()

@@ -1220,7 +1220,7 @@ class EmployeeController extends AccountBaseController
 
         case 'ot-bank':
             // Payroll staff see anybody's; an employee sees their own.
-            abort_403(!(user()->permission('manage_payroll') === 'all' || in_array('admin', user_roles()) || $this->employee->id == user()->id));
+            abort_403(!(\App\Services\Access\PayrollAccess::any() || $this->employee->id == user()->id));
             $bank = new \App\Services\Payroll\OtBank();
             $this->otBalance = $bank->balance($this->employee->id);
             $this->otHistory = $bank->history($this->employee->id);
@@ -1233,7 +1233,7 @@ class EmployeeController extends AccountBaseController
             $this->otPast = (new \App\Services\Payroll\OtPast())->rows($this->employee->id);
             $this->otPastNet = \App\Services\Payroll\OtPast::net($this->employee->id);
             $this->otGoLive = \App\Services\Payroll\OtPast::goLive(company()->id);
-            $this->canManageOt = user()->permission('manage_payroll') === 'all' || in_array('admin', user_roles());
+            $this->canManageOt = \App\Services\Access\PayrollAccess::can('settings');
             $this->view = 'employees.ajax.ot-bank';
             break;
 

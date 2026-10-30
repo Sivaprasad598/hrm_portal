@@ -12,6 +12,7 @@ class UserPermissionObserver
     {
         Cache::forget('permission-' . $permission->permission->name . '-' . $permission->user_id);
         Cache::forget('permission-id-' . $permission->permission->name . '-' . $permission->user_id);
+        \App\Models\User::forgetPermissionMemo((int) $permission->user_id);
     }
 
 }

@@ -9,29 +9,35 @@
         <x-form id="save-department-data-form" method="PUT">
             <div class="add-client bg-white rounded">
                 <h4 class="mb-0 p-20 f-21 font-weight-normal  border-bottom-grey">
-                    @lang('app.menu.editDepartment')</h4>
+                    {{ $department->parent_id ? 'Edit Sub Division' : 'Edit Division' }}</h4>
                 <div class="row p-20">
                     <div class="col-md-6">
-                        <x-forms.text fieldId="team_name" :fieldLabel="__('app.name')" fieldName="team_name"
-                            fieldRequired="true" fieldValue="{{ $department->team_name }}">
-                        </x-forms.text>
+                        @if (\App\Models\Team::where('parent_id', $department->id)->exists())
+                            {{-- A division with sub divisions stays a division --}}
+                            <x-forms.label class="my-3" fieldId="parent_label" fieldLabel="Division" fieldName="parent_label"></x-forms.label>
+                            <p class="f-14 text-dark-grey mb-0">Main division (has sub divisions)</p>
+                            <input type="hidden" name="parent_id" id="parent_id" value="">
+                        @else
+                            <x-forms.label class="my-3" fieldId="parent_label" fieldLabel="Division" fieldName="parent_label"></x-forms.label>
+                            <x-forms.input-group>
+                                <select class="form-control select-picker mt" name="parent_id" id="parent_id" data-live-search="true">
+                                    <option value="">-- None (main division) --</option>
+                                    @foreach($departments->whereNull('parent_id')->sortBy('team_name') as $item)
+                                        <option value="{{ $item->id }}" @selected($department->parent_id == $item->id)>{{ $item->team_name }}</option>
+                                    @endforeach
+                                </select>
+                            </x-forms.input-group>
+                        @endif
+                        <small class="text-dark-grey d-block mt-1" id="division-kind"></small>
                     </div>
                     <div class="col-md-6">
-                        <x-forms.label class="my-3 mt-2" fieldId="parent_label" :fieldLabel="__('app.parentId')" fieldName="parent_label">
-                        </x-forms.label>
-                        <x-forms.input-group>
-                            <select class="form-control select-picker mt" name="parent_id" id="parent_id"
-                                data-live-search="true">
-                                <option value="">--</option>
-                                @foreach($departments as $item)
-                                        <option value="{{ $item->id }}" @if($department->parent_id == $item->id) selected @endif>{{ $item->team_name }}</option>
-                                @endforeach
-                            </select>
-                        </x-forms.input-group>
+                        <x-forms.text fieldId="team_name" fieldLabel="Division Name" fieldName="team_name"
+                            fieldRequired="true" :fieldValue="$department->team_name">
+                        </x-forms.text>
                     </div>
                     {{-- Department head: approves this department's leave (Leave Settings -> approval steps). --}}
                     <div class="col-md-6">
-                        <x-forms.label class="my-3" fieldId="head_user_id" fieldLabel="Department head"></x-forms.label>
+                        <x-forms.label class="my-3" fieldId="head_user_id" fieldLabel="Head"></x-forms.label>
                         <x-forms.input-group>
                             <select class="form-control select-picker" name="head_user_id" id="head_user_id" data-live-search="true" data-size="8">
                                 <option value="">--</option>
@@ -64,6 +70,16 @@
 </div>
 
 <script>
+    // Picking a division makes this a sub division of it; none, a division of its own.
+    function divisionLabels() {
+        var sub = $('#parent_id').val() !== '';
+        var label = $('label[for="designation_name"], label[for="team_name"]').contents().filter(function () { return this.nodeType === 3 && this.textContent.trim() !== ''; }).first()[0];
+        if (label) { label.textContent = sub ? 'Sub Division Name ' : 'Division Name '; }
+        $('#division-kind').text(sub ? 'Adding a sub division under the selected division.' : 'No division selected: this is a main division.');
+    }
+    $('#parent_id').on('change', divisionLabels);
+    divisionLabels();
+
     $(document).ready(function() {
 
         $('#save-department-form').click(function() {

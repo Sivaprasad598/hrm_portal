@@ -1,4 +1,4 @@
-@if (in_array('notices', $activeWidgets) && $sidebarUserPermissions['view_notice'] != 5 && $sidebarUserPermissions['view_notice'] != 'none' && in_array('notices', user_modules()))
+@if (in_array('notices', $activeWidgets) && $sidebarUserPermissions['view_notice'] != 5 && $sidebarUserPermissions['view_notice'] != 'none' && in_array('notices', dashboard_modules()))
     @isset($notices)
         <div class="row">
             <!-- EMP DASHBOARD NOTICE START -->

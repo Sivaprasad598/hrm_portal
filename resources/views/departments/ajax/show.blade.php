@@ -10,7 +10,7 @@ $deleteDepartmentPermission = user()->permission('delete_department');
                 <div class="card-header bg-white  border-bottom-grey  justify-content-between p-20">
                     <div class="row">
                         <div class="col-md-10 col-10">
-                            <h3 class="heading-h1">@lang('app.departmentDetails')</h3>
+                            <h3 class="heading-h1">{{ $department->parent_id ? 'Sub Division' : 'Division' }}</h3>
                         </div>
                         <div class="col-md-2 col-2 text-right">
                             <div class="dropdown">
@@ -37,7 +37,7 @@ $deleteDepartmentPermission = user()->permission('delete_department');
                 <div class="card-body">
                     <x-cards.data-row :label="__('app.name')" :value="$department->team_name"
                         html="true" />
-                    <x-cards.data-row :label="__('app.parentId').' '. __('app.name')" :value="($parent) ? $parent->team_name : '-'"
+                    <x-cards.data-row label="Division" :value="($parent) ? $parent->team_name : '-'"
                         html="true" />
                 </div>
             </div>

@@ -201,6 +201,8 @@ class MenuPermissions
     /** Everybody holding the role sees a different sidebar from now on. */
     public static function forget(Role $role): void
     {
+        \App\Models\User::forgetPermissionMemo();
+
         foreach ($role->users()->pluck('users.id') as $userId) {
             cache()->forget('sidebar_user_perms_' . $userId);
             cache()->forget('sidebar_menus_' . $userId);

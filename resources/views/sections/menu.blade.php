@@ -16,11 +16,13 @@
 @php
     // Employees (anyone without a managing role) get four single links, no
     // groups: their dashboard, leave, payslips and the assets they hold.
-    $selfService = !array_intersect(['admin', 'hr', 'manager_admin', 'ceo', 'cfo', 'client'], user_roles());
+    $selfService = \App\Services\Access\AssignedModules::selfService();
     $selfLinks = !$selfService ? [] : array_filter([
         ['Dashboard', route('dashboard'), 'bi bi-house', request()->routeIs('dashboard')],
         in_array('leaves', user_modules()) && user()->permission('view_leave') !== 'none' && user()->permission('view_leave') !== false
             ? ['Leaves', route('leaves.index'), 'bi bi-calendar-check', request()->routeIs('leaves.*')] : null,
+        in_array('attendance', user_modules()) && in_array(user()->permission('view_attendance'), ['owned', 'both', 'added', 'all'], true)
+            ? ['My Attendance', route('attendances.by_member'), 'bi bi-calendar2-week', request()->routeIs('attendances.*')] : null,
         ['My Payslips', route('my-payslips.index'), 'bi bi-receipt', request()->routeIs('my-payslips.*')],
         user()->employeeDetail ? ['My Assets', route('employees.show', user()->id) . '?tab=assets', 'bi bi-laptop',
             request()->routeIs('employees.show') && request('tab') === 'assets'] : null,

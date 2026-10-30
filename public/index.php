@@ -18,6 +18,25 @@ if (version_compare(PHP_VERSION, '8.2.0') < 0){
 define('LARAVEL_START', microtime(true));
 
 /*
+| Served without "/public" in the address (see ../.htaccess): the request came
+| in as /hrm_portal/login but runs public/index.php. Tell the framework the app
+| sits at the project folder, so it finds the route and every link it builds
+| leaves "/public" out. A request that does name public/ is left alone.
+*/
+if (isset($_SERVER['SCRIPT_NAME'], $_SERVER['REQUEST_URI'])) {
+    $publicUrlPath = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'])), '/');   // /hrm_portal/public
+    $requestPath = strtok($_SERVER['REQUEST_URI'], '?');
+
+    if (basename($publicUrlPath) === 'public'
+        && $requestPath !== $publicUrlPath && !str_starts_with($requestPath, $publicUrlPath . '/')) {
+        $_SERVER['SCRIPT_NAME'] = rtrim(dirname($publicUrlPath), '/\\') . '/index.php';   // /hrm_portal/index.php
+        $_SERVER['PHP_SELF'] = $_SERVER['SCRIPT_NAME'];
+    }
+
+    unset($publicUrlPath, $requestPath);
+}
+
+/*
 |--------------------------------------------------------------------------
 | Check If Application Is Under Maintenance
 |--------------------------------------------------------------------------

@@ -26,14 +26,14 @@ class PayrollRunController extends AccountBaseController
     public function __construct()
     {
         parent::__construct();
-        $this->pageTitle = 'Payroll';
+        $this->pageTitle = 'Run Payroll';
 
         $this->middleware(function ($request, $next) {
             // Whole-company salary figures. This was the administrator role
             // itself, which meant payroll could not be handed to anybody
             // without handing them everything else with it. manage_payroll is
             // the permission for the job; the administrator passes regardless.
-            abort_403(user()->permission('manage_payroll') !== 'all' && !in_array('admin', user_roles()));
+            abort_403(!\App\Services\Access\PayrollAccess::can('prepare'));
 
             return $next($request);
         });
@@ -320,6 +320,10 @@ class PayrollRunController extends AccountBaseController
                 'ed.employee_id', 'd.name as designation', 't.team_name as department']);
         $overtime = new \App\Services\Payroll\OvertimeCalculator();
         $bank = new \App\Services\Payroll\OtBank();
+
+        // Every employee's shifts, leave and punches for the month in a few
+        // queries, rather than a handful per employee.
+        $days->preload($employees->pluck('id')->all(), $cycle->start, $cycle->end);
 
         // Which of them already hold a payslip for this month.
         $existing = DB::table('payslips')

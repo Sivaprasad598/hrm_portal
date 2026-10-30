@@ -117,7 +117,8 @@
                 <span>Mobile App</span>
             </a>
         @endif
-        <p class="mb-0 px-1 py-0 rounded f-10" style="color: #ffffff;">v{{ \Illuminate\Support\Facades\File::get('version.txt') }}</p>
+        {{-- The HRM's own version (config app.hrm_version); version.txt stays as the base product's, for its updater. --}}
+        <p class="mb-0 px-1 py-0 f-11 app-version">v{{ config('app.hrm_version', '1.0') }}</p>
     </div>
     <!-- Sidebar Toggler -->
 
@@ -129,6 +130,8 @@
 <!-- SIDEBAR END -->
 
 <style>
+    .sidebarTogglerBox p.app-version { color: #ffffff !important; background: transparent !important; font-weight: 500; }
+
     .sidebarTogglerBox .mobile-app-btn:hover {
         background-color: #007bff !important;
         color: #ffffff !important;

@@ -245,11 +245,12 @@ if ($dbConn) {
                 $storedAttendanceNet = (float) ($_POST['attendance_net'] ?? 0);
                 $tdsDrift = round($monthlyTds - (float) ($_POST['tds'] ?? 0), 2);
 
+                // TDS comes off after the attendance deduction, so the day's
+                // pay and the LOP stand; only the totals move.
                 if (abs($tdsDrift) >= 0.01) {
                     $storedTotalDeductions += $tdsDrift;
                     $storedNet -= $tdsDrift;
-                    $storedPerDay = $postedWorking > 0 ? $storedNet / $postedWorking : 0.0;
-                    $storedAttendanceNet = $storedPerDay * $postedPresent;
+                    $storedAttendanceNet -= $tdsDrift;
                 }
 
                 // Which days this payslip covers, so the pay elements for the

@@ -1,4 +1,4 @@
-@if (in_array('ticket', $activeWidgets) && $sidebarUserPermissions['view_tickets'] != 5 && $sidebarUserPermissions['view_tickets'] != 'none' && $sidebarUserPermissions['view_timelogs'] != 'none' && in_array('tickets', user_modules()))
+@if (in_array('ticket', $activeWidgets) && $sidebarUserPermissions['view_tickets'] != 5 && $sidebarUserPermissions['view_tickets'] != 'none' && $sidebarUserPermissions['view_timelogs'] != 'none' && in_array('tickets', dashboard_modules()))
     <div class="row">
         <div class="col-sm-12">
             <div class="card border-0 b-shadow-4 mb-3 e-d-info">

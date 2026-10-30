@@ -12,6 +12,8 @@ class HolidayObserver
 
     public function saving(Holiday $holiday)
     {
+        \App\Services\Payroll\AttendanceDays::forgetShared();
+
         if (!isRunningInConsoleOrSeeding()) {
             $holiday->last_updated_by = user()->id;
         }

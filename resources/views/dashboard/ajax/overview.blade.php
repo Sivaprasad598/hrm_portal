@@ -1,7 +1,7 @@
 <script src="{{ asset('vendor/jquery/frappe-charts.min.iife.js') }}"></script>
 
 <div class="row">
-    @if (in_array('clients', user_modules()) && in_array('total_clients', $activeWidgets))
+    @if (in_array('clients', dashboard_modules()) && in_array('total_clients', $activeWidgets))
         <div class="col-xl-3 col-lg-6 col-md-6 mb-3">
             <a href="{{ route('clients.index') }}">
                 <x-cards.widget :title="__('modules.dashboard.totalClients')" :value="$counts->totalClients"
@@ -11,7 +11,7 @@
         </div>
     @endif
 
-    @if (in_array('employees', user_modules()) && in_array('total_employees', $activeWidgets))
+    @if (in_array('employees', dashboard_modules()) && in_array('total_employees', $activeWidgets))
         <div class="col-xl-3 col-lg-6 col-md-6 mb-3">
             <a href="{{ route('employees.index') }}">
                 <x-cards.widget :title="__('modules.dashboard.totalEmployees')" :value="$counts->totalEmployees"
@@ -21,7 +21,7 @@
         </div>
     @endif
 
-    @if (in_array('projects', user_modules()) && in_array('total_projects', $activeWidgets))
+    @if (in_array('projects', dashboard_modules()) && in_array('total_projects', $activeWidgets))
         <div class="col-xl-3 col-lg-6 col-md-6 mb-3">
             <a href="{{ route('projects.index'). '?projects=all' }}">
                 <x-cards.widget :title="__('modules.dashboard.totalProjects')" :value="$counts->totalProjects"
@@ -31,7 +31,7 @@
         </div>
     @endif
 
-    @if (in_array('invoices', user_modules()) && in_array('total_unpaid_invoices', $activeWidgets))
+    @if (in_array('invoices', dashboard_modules()) && in_array('total_unpaid_invoices', $activeWidgets))
         <div class="col-xl-3 col-lg-6 col-md-6 mb-3">
             <a href="{{ route('invoices.index') . '?status=pending' }}">
                 <x-cards.widget :title="__('modules.dashboard.totalUnpaidInvoices')"
@@ -41,7 +41,7 @@
         </div>
     @endif
 
-    @if (in_array('timelogs', user_modules()) && in_array('total_hours_logged', $activeWidgets))
+    @if (in_array('timelogs', dashboard_modules()) && in_array('total_hours_logged', $activeWidgets))
         <div class="col-xl-3 col-lg-6 col-md-6">
             <a href="{{ route('timelogs.index') }}">
                 <x-cards.widget :title="__('modules.dashboard.totalHoursLogged')" :value="$counts->totalHoursLogged"
@@ -51,7 +51,7 @@
         </div>
     @endif
 
-    @if (in_array('tasks', user_modules()) && in_array('total_pending_tasks', $activeWidgets))
+    @if (in_array('tasks', dashboard_modules()) && in_array('total_pending_tasks', $activeWidgets))
         <div class="col-xl-3 col-lg-6 col-md-6">
             <a href="{{ route('tasks.index') }}?status=pending_task&type=public">
                 <x-cards.widget :title="__('modules.dashboard.totalPendingTasks')" :value="$counts->totalPendingTasks"
@@ -61,7 +61,7 @@
         </div>
     @endif
 
-    @if (in_array('attendance', user_modules()) && in_array('total_today_attendance', $activeWidgets))
+    @if (in_array('attendance', dashboard_modules()) && in_array('total_today_attendance', $activeWidgets))
         <div class="col-xl-3 col-lg-6 col-md-6">
             <a href="{{ route('attendances.index') }}">
                 <x-cards.widget :title="__('modules.dashboard.totalTodayAttendance')"
@@ -72,7 +72,7 @@
         </div>
     @endif
 
-    @if (in_array('tickets', user_modules()) && in_array('total_unresolved_tickets', $activeWidgets))
+    @if (in_array('tickets', dashboard_modules()) && in_array('total_unresolved_tickets', $activeWidgets))
         <div class="col-xl-3 col-lg-6 col-md-6">
             <a href="{{ route('tickets.index') . '?status=open' }}">
                 <x-cards.widget :title="__('modules.tickets.totalUnresolvedTickets')"
@@ -85,7 +85,7 @@
 </div>
 
 <div class="row">
-    @if (in_array('payments', user_modules()) && in_array('recent_earnings', $activeWidgets))
+    @if (in_array('payments', dashboard_modules()) && in_array('recent_earnings', $activeWidgets))
         <div class="col-sm-12 col-lg-6 mt-3">
             <x-cards.data
                 :title="__('app.income').' <i class=\'fa fa-question-circle\' data-toggle=\'popover\' data-placement=\'top\' data-content=\''.__('app.from').' '.$startDate->translatedFormat(company()->date_format).' '.__('app.to').' '.$endDate->translatedFormat(company()->date_format).'\' data-trigger=\'hover\'></i>'">
@@ -94,7 +94,7 @@
         </div>
     @endif
 
-    @if (in_array('timelogs', user_modules()) && in_array('timelogs', $activeWidgets))
+    @if (in_array('timelogs', dashboard_modules()) && in_array('timelogs', $activeWidgets))
         <div class="col-sm-12 col-lg-6 mt-3">
             <x-cards.data
                 :title="__('app.menu.timeLogs').' <i class=\'fa fa-question-circle\' data-toggle=\'popover\' data-placement=\'top\' data-content=\''.__('app.from').' '.$startDate->translatedFormat(company()->date_format).' '.__('app.to').' '.$endDate->translatedFormat(company()->date_format).'\' data-trigger=\'hover\'></i>'">
@@ -103,7 +103,7 @@
         </div>
     @endif
 
-    @if (in_array('leaves', user_modules()) && in_array('settings_leaves', $activeWidgets))
+    @if (in_array('leaves', dashboard_modules()) && in_array('settings_leaves', $activeWidgets))
         <div class="col-sm-12 col-lg-6 mt-3">
             <x-cards.data
                 :title="__('modules.leaves.pendingLeaves').' <i class=\'fa fa-question-circle\' data-toggle=\'popover\' data-placement=\'top\' data-content=\''.__('app.from').' '.$startDate->translatedFormat(company()->date_format).' '.__('app.to').' '.$endDate->translatedFormat(company()->date_format).'\' data-trigger=\'hover\'></i>'"
@@ -163,7 +163,7 @@
         </div>
     @endif
 
-    @if (in_array('tickets', user_modules()) && in_array('new_tickets', $activeWidgets))
+    @if (in_array('tickets', dashboard_modules()) && in_array('new_tickets', $activeWidgets))
         <div class="col-sm-12 col-lg-6 mt-3">
             <x-cards.data
                 :title="__('modules.dashboard.openTickets').' <i class=\'fa fa-question-circle\' data-toggle=\'popover\' data-placement=\'top\' data-content=\''.__('app.from').' '.$startDate->translatedFormat(company()->date_format).' '.__('app.to').' '.$endDate->translatedFormat(company()->date_format).'\' data-trigger=\'hover\'></i>'"
@@ -211,7 +211,7 @@
         </div>
     @endif
 
-    @if (in_array('tasks', user_modules()) && in_array('overdue_tasks', $activeWidgets))
+    @if (in_array('tasks', dashboard_modules()) && in_array('overdue_tasks', $activeWidgets))
         <div class="col-sm-12 col-lg-6 mt-3">
             <x-cards.data
                 :title="__('modules.dashboard.totalPendingTasks').' <i class=\'fa fa-question-circle\' data-toggle=\'popover\' data-placement=\'top\' data-content=\''.__('app.from').' '.$startDate->translatedFormat(company()->date_format).' '.__('app.to').' '.$endDate->translatedFormat(company()->date_format).'\' data-trigger=\'hover\'></i>'"
@@ -256,7 +256,7 @@
         </div>
     @endif
 
-    @if (in_array('leads', user_modules()) && in_array('pending_follow_up', $activeWidgets))
+    @if (in_array('leads', dashboard_modules()) && in_array('pending_follow_up', $activeWidgets))
         <div class="col-sm-12 col-lg-6 mt-3">
             <x-cards.data
                 :title="__('modules.dashboard.pendingFollowUp').' <i class=\'fa fa-question-circle\' data-toggle=\'popover\' data-placement=\'top\' data-content=\''.__('messages.dateFilterNotApplied').'\' data-trigger=\'hover\'></i>'"
@@ -292,7 +292,7 @@
         </div>
     @endif
 
-    @if (in_array('employees', user_modules()) && in_array('documents', $activeWidgets))
+    @if (in_array('employees', dashboard_modules()) && in_array('documents', $activeWidgets))
         <div class="col-sm-12 col-lg-6 mt-3">
             <x-cards.data :title="__('modules.dashboard.documents').' <i class=\'fa fa-question-circle\' data-toggle=\'popover\' data-placement=\'top\' data-content=\'Document expiries for current year\' data-trigger=\'hover\'></i>'" padding="false" otherClasses="h-200">
                 <div class="document-list p-3">
@@ -372,7 +372,7 @@
         </div>
     @endif
 
-    @if (in_array('projects', user_modules()) && in_array('project_activity_timeline', $activeWidgets))
+    @if (in_array('projects', dashboard_modules()) && in_array('project_activity_timeline', $activeWidgets))
         <div class="col-sm-12 col-lg-6 mt-3">
             <x-cards.data
                 :title="__('modules.dashboard.projectActivityTimeline').' <i class=\'fa fa-question-circle\' data-toggle=\'popover\' data-placement=\'top\' data-content=\''.__('app.from').' '.$startDate->translatedFormat(company()->date_format).' '.__('app.to').' '.$endDate->translatedFormat(company()->date_format).'\' data-trigger=\'hover\'></i>'"
@@ -410,7 +410,7 @@
         </div>
     @endif
 
-    @if (in_array('employees', user_modules()) && in_array('user_activity_timeline', $activeWidgets))
+    @if (in_array('employees', dashboard_modules()) && in_array('user_activity_timeline', $activeWidgets))
         <div class="col-sm-12 col-lg-6 mt-3">
             <x-cards.data
                 :title="__('modules.dashboard.userActivityTimeline').' <i class=\'fa fa-question-circle\' data-toggle=\'popover\' data-placement=\'top\' data-content=\''.__('app.from').' '.$startDate->translatedFormat(company()->date_format).' '.__('app.to').' '.$endDate->translatedFormat(company()->date_format).'\' data-trigger=\'hover\'></i>'"

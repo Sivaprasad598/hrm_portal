@@ -39,7 +39,7 @@ class PayslipListController extends AccountBaseController
             // itself, which meant payroll could not be handed to anybody
             // without handing them everything else with it. manage_payroll is
             // the permission for the job; the administrator passes regardless.
-            abort_403(user()->permission('manage_payroll') !== 'all' && !in_array('admin', user_roles()));
+            abort_403(!\App\Services\Access\PayrollAccess::any());
 
             return $next($request);
         });
@@ -72,8 +72,17 @@ class PayslipListController extends AccountBaseController
         // Newest first within a period, newest period first.
         $filtered = $filtered->sortByDesc(fn ($row) => [$row->sort_key, $row->id])->values();
 
-        $this->payslips = $filtered;
+        // The totals and the bulk actions (approve drafts, send) cover everything
+        // the filters select; the table shows it a page at a time.
+        $this->allPayslips = $filtered;
         $this->summary = $this->summarise($filtered);
+        $perPage = in_array((int) $request->per_page, [25, 50, 100], true) ? (int) $request->per_page : 25;
+        $this->perPage = $perPage;
+        $this->payslips = new \Illuminate\Pagination\LengthAwarePaginator(
+            $filtered->forPage(\Illuminate\Pagination\Paginator::resolveCurrentPage(), $perPage)->values(),
+            $filtered->count(), $perPage, null,
+            ['path' => $request->url(), 'query' => $request->except('page')]
+        );
 
         return view('payslips.generated', $this->data);
     }
@@ -157,6 +166,8 @@ class PayslipListController extends AccountBaseController
      */
     public function approve(Request $request)
     {
+        abort_403(!\App\Services\Access\PayrollAccess::can('approve'));
+
         $request->validate(['ids' => 'required|array|min:1', 'ids.*' => 'integer']);
 
         $approved = 0;
@@ -194,6 +205,8 @@ class PayslipListController extends AccountBaseController
      */
     public function markPaid(Request $request)
     {
+        abort_403(!\App\Services\Access\PayrollAccess::can('approve'));
+
         $request->validate([
             'ids' => 'required|array|min:1',
             'ids.*' => 'integer',
@@ -244,6 +257,8 @@ class PayslipListController extends AccountBaseController
      */
     public function email(Request $request, PayslipDocument $document)
     {
+        abort_403(!\App\Services\Access\PayrollAccess::can('approve'));
+
         $request->validate(['ids' => 'required|array|min:1', 'ids.*' => 'integer']);
 
         $sent = 0;
@@ -297,6 +312,8 @@ class PayslipListController extends AccountBaseController
 
     public function revoke(Request $request, $id)
     {
+        abort_403(!\App\Services\Access\PayrollAccess::can('revoke'));
+
         $request->validate(
             ['reason' => 'required|string|min:5|max:500'],
             ['reason.required' => 'Give a reason for revoking this payslip.',
@@ -350,6 +367,8 @@ class PayslipListController extends AccountBaseController
      */
     public function destroy($id)
     {
+        abort_403(!\App\Services\Access\PayrollAccess::can('revoke'));
+
         $slip = DB::table('payslips')->whereNull('deleted_at')->find($id);
 
         if (!$slip) {

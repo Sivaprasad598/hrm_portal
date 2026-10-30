@@ -18,12 +18,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Arowana Salary Slip</title>
 <style>
+  /* Open Sans, the app's font. TTF so the PDF (DomPDF) can embed it too. */
+  @font-face { font-family: 'Open Sans'; font-style: normal; font-weight: 400; src: url('<?= function_exists('asset') ? asset('fonts/open-sans/OpenSans-Regular.ttf') : '../fonts/open-sans/OpenSans-Regular.ttf' ?>') format('truetype'); }
+  @font-face { font-family: 'Open Sans'; font-style: normal; font-weight: 600; src: url('<?= function_exists('asset') ? asset('fonts/open-sans/OpenSans-SemiBold.ttf') : '../fonts/open-sans/OpenSans-SemiBold.ttf' ?>') format('truetype'); }
+  @font-face { font-family: 'Open Sans'; font-style: normal; font-weight: 700; src: url('<?= function_exists('asset') ? asset('fonts/open-sans/OpenSans-Bold.ttf') : '../fonts/open-sans/OpenSans-Bold.ttf' ?>') format('truetype'); }
   * { box-sizing: border-box; }
   body {
     margin: 0;
     padding: 35px 15px;
     background: #f3f3f3;
-    font-family: Arial, Helvetica, sans-serif;
+    font-family: 'Open Sans', Arial, Helvetica, sans-serif;
     color: #111;
   }
   .payslip {

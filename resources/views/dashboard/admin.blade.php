@@ -50,26 +50,26 @@ $viewFinanceDashboard = user()->permission('view_finance_dashboard');
                        class="overview" ajax="false"/>
             @endif
 
-            @if (in_array('projects', user_modules()) && $viewProjectDashboard == 'all')
+            @if (in_array('projects', dashboard_modules()) && $viewProjectDashboard == 'all')
                 <x-tab :href="route('dashboard.advanced').'?tab=project'" :text="__('app.project')" class="project"
                        ajax="false"/>
             @endif
 
-            @if (in_array('clients', user_modules()) && $viewClientDashboard == 'all')
+            @if (in_array('clients', dashboard_modules()) && $viewClientDashboard == 'all')
                 <x-tab :href="route('dashboard.advanced').'?tab=client'" :text="__('app.client')" class="client"
                        ajax="false"/>
             @endif
 
-            @if ($viewHRDashboard == 'all' && (in_array('employees', user_modules()) || in_array('leaves', user_modules()) || in_array('attendance', user_modules())))
+            @if ($viewHRDashboard == 'all' && (in_array('employees', dashboard_modules()) || in_array('leaves', dashboard_modules()) || in_array('attendance', dashboard_modules())))
                 <x-tab :href="route('dashboard.advanced').'?tab=hr'" :text="__('app.menu.hr')" class="hr" ajax="false"/>
             @endif
 
-            @if (in_array('tickets', user_modules()) && $viewTicketDashboard == 'all')
+            @if (in_array('tickets', dashboard_modules()) && $viewTicketDashboard == 'all')
                 <x-tab :href="route('dashboard.advanced').'?tab=ticket'" :text="__('app.menu.ticket')" class="ticket"
                        ajax="false"/>
             @endif
 
-            @if ($viewFinanceDashboard == 'all' && (in_array('invoices', user_modules()) || in_array('estimates', user_modules()) || in_array('leads', user_modules())))
+            @if ($viewFinanceDashboard == 'all' && (in_array('invoices', dashboard_modules()) || in_array('estimates', dashboard_modules()) || in_array('leads', dashboard_modules())))
                 <x-tab :href="route('dashboard.advanced').'?tab=finance'" :text="__('app.menu.finance')" class="finance"
                        ajax="false"/>
             @endif

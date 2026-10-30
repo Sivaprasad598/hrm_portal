@@ -72,6 +72,12 @@ class AttendanceController extends AccountBaseController
 
     public function index(Request $request)
     {
+        // Someone who sees only their own attendance gets their own month as a
+        // calendar; the all-employees views are for HR.
+        if ($this->viewAttendancePermission === 'owned' && !$request->ajax()) {
+            return redirect()->route('attendances.by_member');
+        }
+
         $attendance = Attendance::find($request->employee_id);
 
         if ($request->employee_id) {
@@ -210,7 +216,7 @@ class AttendanceController extends AccountBaseController
         $this->statusMeta = PayrollAttendanceController::STATUSES;
         $this->month = (int) $request->month;
         $this->year = (int) $request->year;
-        $this->canOpenPayrollView = user()->permission('manage_payroll') === 'all'
+        $this->canOpenPayrollView = \App\Services\Access\PayrollAccess::any()
             || $this->viewAttendancePermission === 'all' || in_array('admin', user_roles());
         // A day opens its details first: the attendance popup (sessions, edit, delete) when
         // there are punches, otherwise how payroll counted it, with "Mark attendance".
@@ -1294,221 +1300,83 @@ class AttendanceController extends AccountBaseController
         return view('attendances.by_member', $this->data);
     }
 
+    /**
+     * Attendance by Member: one employee's month as a calendar.
+     *
+     * Every day is what payroll counts it as (AttendanceDays): worked, half day,
+     * week off, holiday (with its name), leave (with its type, pending requests
+     * shown too), absent, late. The cards above count the same days, so this
+     * page, the salary-month grid and the payslip agree. A day opens its
+     * attendance (sessions, edit) when it has punches, otherwise how it was
+     * counted, with "Mark attendance".
+     */
     public function employeeData(Request $request, $startDate = null, $endDate = null, $userId = null)
     {
-        // todo ::~
-        $ant = []; // Array For attendance Data indexed by similar date
-        $dateWiseData = []; // Array For Combine Data
+        abort_403(!in_array($this->viewAttendancePermission, ['all', 'added', 'owned', 'both']));
 
-        $startDate = Carbon::createFromFormat('d-m-Y', '01-' . $request->month . '-' . $request->year)->startOfMonth()->startOfDay();
-        $endDate = $startDate->copy()->endOfMonth()->endOfDay();
-        $userId = $request->userId;
+        $userId = (int) $request->userId;
 
-        // Same timezone-adjusted range used by summaryData so by_member sees the same records
-        $queryStart = Carbon::createFromDate($request->year, $request->month, 1)->startOfMonth();
-        $officeStartTimeDB = Carbon::createFromFormat('Y-m-d H:i:s', $queryStart, company()->timezone);
-        $queryStart = $queryStart->copy()->subMinutes($officeStartTimeDB->offset / 60);
-
-        $queryEnd = Carbon::createFromDate($request->year, $request->month, 1)->endOfMonth();
-        $officeEndTimeDB = Carbon::createFromFormat('Y-m-d H:i:s', $queryEnd, company()->timezone);
-        $queryEnd = $queryEnd->copy()->subMinutes($officeEndTimeDB->offset / 60);
-
-        $attendances = Attendance::without('company')
-            ->with('shift')
-            ->join('users', 'users.id', '=', 'attendances.user_id')
-            ->leftJoin('company_addresses as clock_in_location', 'clock_in_location.id', '=', 'attendances.location_id')
-            ->leftJoin('company_addresses as clock_out_location', 'clock_out_location.id', '=', 'attendances.clock_out_time_location_id')
-            ->whereBetween('attendances.clock_in_time', [$queryStart, $queryEnd])
-            ->where('attendances.user_id', '=', $userId)
-            ->orderBy('attendances.clock_in_time', 'desc')
-            ->select('attendances.*', 'users.*', 'attendances.id as aId', 'clock_in_location.location as location', 'clock_out_location.location as clockOutLocation')
-            ->get();
-
-        if ($this->viewAttendancePermission == 'added') {
-            $attendances = $attendances->where('added_by', user()->id)->values();
-        } elseif ($this->viewAttendancePermission == 'owned') {
-            $attendances = $attendances->where('user_id', user()->id)->values();
+        // Someone who may see only their own attendance gets only their own.
+        if ($this->viewAttendancePermission === 'owned') {
+            $userId = (int) user()->id;
         }
 
-        $holidays = Holiday::getHolidayByDates($startDate, $endDate, $userId); // Getting Holiday Data
-        $userId = $request->userId;
+        $tz = company()->timezone ?: 'Asia/Kolkata';
+        $start = Carbon::create((int) $request->year, (int) $request->month, 1, 0, 0, 0, $tz);
+        $end = $start->copy()->endOfMonth()->startOfDay();
 
-        $totalWorkingDays = $startDate->daysInMonth;
+        $count = (new \App\Services\Payroll\AttendanceDays($tz))->forRange($userId, $start, $end);
+        $breakdown = $count['breakdown'];
 
-        $totalWorkingDays = $totalWorkingDays - count($holidays);
-        $daysPresent = Attendance::countDaysPresentByUser($startDate, $endDate, $userId);
-        $daysLate = Attendance::countDaysLateByUser($startDate, $endDate, $userId);
-        $halfDays = Attendance::countHalfDaysByUser($startDate, $endDate, $userId);
-        $daysAbsent = (($totalWorkingDays - $daysPresent) < 0) ? '0' : ($totalWorkingDays - $daysPresent);
-        $holidayCount = Count($holidays);
-        $attendanceSettings = AttendanceSetting::first();
+        // Leave on each day, with its type; pending requests too, marked as such.
+        $leaves = [];
 
-        $lastDays = $attendanceSettings->last_days;
-
-        $totalRequestData = AttendanceRegularisation::where('user_id', $userId);
-
-        $totalRequestCheck = AttendanceRegularisation::where('user_id', $userId)
-        ->whereDate('clock_in_time', '>=', $startDate)
-        ->whereDate('clock_in_time', '<=', $endDate)
-        ->get();
-
-        if($attendanceSettings->adjustment_type == 'current_month'){
-            $checkStartDate = \Carbon\Carbon::now()->startOfMonth();
-            $checkEndDate = \Carbon\Carbon::now()->endOfMonth();
-
-        }
-        elseif($attendanceSettings->adjustment_type == 'current_week'){
-            $checkStartDate = \Carbon\Carbon::now()->startOfWeek();
-            $checkEndDate = \Carbon\Carbon::now()->endOfWeek();
-
-        }
-        elseif($attendanceSettings->adjustment_type == 'current_quarter'){
-            $checkStartDate = \Carbon\Carbon::now()->startOfQuarter();
-            $checkEndDate = \Carbon\Carbon::now()->endOfQuarter();
-        }
-        else{
-            $checkStartDate = \Carbon\Carbon::now()->startOfYear();
-            $checkEndDate = \Carbon\Carbon::now()->endOfYear();
+        foreach (DB::table('leaves as l')->leftJoin('leave_types as t', 't.id', '=', 'l.leave_type_id')
+            ->where('l.user_id', $userId)
+            ->whereBetween('l.leave_date', [$start->toDateString(), $end->toDateString()])
+            ->whereIn('l.status', ['approved', 'pending'])
+            ->get(['l.leave_date', 'l.duration', 'l.half_day_type', 'l.status', 't.type_name', 't.color']) as $leave) {
+            $leaves[substr((string) $leave->leave_date, 0, 10)][] = $leave;
         }
 
-        $conditionWiseCount = $totalRequestData
-            ->whereDate('clock_in_time', '>=', $checkStartDate->format('Y-m-d'))
-            ->whereDate('clock_in_time', '<=', $checkEndDate->format('Y-m-d'))
-            ->count();
+        // The first attendance of each day, for opening its details.
+        $attendanceIds = [];
 
-        $employeeDetail = \App\Models\EmployeeDetails::where('user_id', $userId)->first();
-        $employeeJoiningDate = $employeeDetail->joining_date;
-
-        // Getting Leaves Data
-        $leavesDates = Leave::where('user_id', $userId)
-            ->where('leave_date', '>=', $startDate)
-            ->where('leave_date', '<=', $endDate)
-            ->where('status', 'approved')
-            ->select('leave_date', 'reason', 'duration')
-            ->get()->keyBy('date')->toArray();
-
-        $holidayData = $holidays->keyBy('holiday_date');
-        $holidayArray = $holidayData->toArray();
-
-        // Day assignment matches summaryData — every fetched attendance is shown
-        $monthStart = $startDate->toDateString();
-        $monthEnd = $endDate->toDateString();
-        $shiftSchedulesByDate = EmployeeShiftSchedule::with('shift')
-            ->where('user_id', $userId)
-            ->whereBetween('date', [$monthStart, $monthEnd])
-            ->get()
-            ->keyBy(function ($schedule) {
-                return Carbon::parse($schedule->date)->toDateString();
-            });
-
-        foreach ($attendances as $attand) {
-            $clockInTimeUTC = $attand->clock_in_time->timezone(company()->timezone)->toDateTimeString();
-            $clockInTime = Carbon::createFromFormat('Y-m-d H:i:s', $clockInTimeUTC, 'UTC');
-            $attendanceDate = $clockInTime->toDateString();
-            $dayToAssign = $attendanceDate;
-
-            $shiftSchedule = $shiftSchedulesByDate[$attendanceDate] ?? null;
-
-            if ($shiftSchedule && $shiftSchedule->shift) {
-                $shift = $shiftSchedule->shift;
-                $shiftStartTime = Carbon::parse($attendanceDate . ' ' . $shift->office_start_time);
-                $shiftEndTime = Carbon::parse($attendanceDate . ' ' . $shift->office_end_time);
-
-                if ($shiftStartTime->gt($shiftEndTime)) {
-                    $shiftEndTime = $shiftEndTime->addDay();
-                }
-
-                $isWithinShift = $clockInTime->between($shiftStartTime, $shiftEndTime);
-                $isPreviousShift = $clockInTime->betweenIncluded(
-                    $shiftStartTime->copy()->subDay(),
-                    $shiftEndTime->copy()->subDay()
-                );
-                $isAssignedShift = $attand->employee_shift_id == $shift->id;
-
-                if ($isWithinShift || $isAssignedShift || $isPreviousShift) {
-                    $dayToAssign = $isPreviousShift
-                        ? $clockInTime->copy()->subDay()->toDateString()
-                        : $attendanceDate;
-                }
-            }
-
-            if ($dayToAssign >= $monthStart && $dayToAssign <= $monthEnd) {
-                $ant[$dayToAssign][] = $attand;
-            }
+        foreach (Attendance::where('user_id', $userId)
+            ->whereBetween('clock_in_time', [$start->copy()->subDay()->timezone(config('app.timezone')), $end->copy()->addDays(2)->timezone(config('app.timezone'))])
+            ->orderBy('clock_in_time')->get(['id', 'clock_in_time']) as $attendance) {
+            $attendanceIds[$attendance->clock_in_time->copy()->timezone($tz)->toDateString()] ??= $attendance->id;
         }
 
-        $shiftSchedules = EmployeeShiftSchedule::with('shift')
-            ->select(DB::raw('DATE_FORMAT(date, "%Y-%m-%d") as day_off_date'))
-            ->where('user_id', $userId)
-            ->whereBetween('date', [$startDate, $endDate])
-            ->whereHas('shift', function ($query) {
-                $query->where('shift_name', 'Day Off');
-            })
-            ->get();
-        $dayOffData = $shiftSchedules->keyBy('day_off_date');
-        $dayOffArray = $dayOffData->toArray();
+        $days = collect($count['days'])->keyBy('date');
+        $halfDays = $days->whereIn('status', ['half_day', 'half_day_leave'])->count();
+        $holidays = (int) ($breakdown['holiday'] ?? 0);
+        $workingDays = (int) $count['working_days'] - (int) ($breakdown['week_off'] ?? 0) - $holidays;
 
-        // Build day rows newest-first. Carbon 3 returns signed diffInDays, so the old
-        // `diffInDays($startDate) > 0` loop never ran and only the 1st of the month appeared.
-        $period = CarbonPeriod::create(
-            $startDate->copy()->startOfDay(),
-            $endDate->copy()->startOfDay()
-        );
-
-        foreach (array_reverse(iterator_to_array($period)) as $date) {
-            if (!($date->isPast() || $date->isToday())) {
-                continue;
-            }
-
-            $dateKey = $date->toDateString();
-
-            $dateWiseData[$dateKey] = [
-                'holiday' => false,
-                'attendance' => false,
-                'leave' => false,
-                'day_off' => false
-            ];
-
-            if (array_key_exists($dateKey, $dayOffArray)) {
-                $dateWiseData[$dateKey]['day_off'] = $dayOffData[$dateKey];
-            }
-
-            if (array_key_exists($dateKey, $holidayArray)) {
-                $dateWiseData[$dateKey]['holiday'] = $holidayData[$dateKey];
-            }
-
-            if (array_key_exists($dateKey, $ant)) {
-                $dateWiseData[$dateKey]['attendance'] = $ant[$dateKey];
-            }
-
-            if (array_key_exists($dateKey, $leavesDates)) {
-                $dateWiseData[$dateKey]['leave'] = $leavesDates[$dateKey];
-            }
-        }
-
-        // Getting View data
-        $view = view('attendances.ajax.user_attendance', [
-            'dateWiseData' => $dateWiseData,
-            'global' => $this->company,
-            'totalRequestCheck' => $totalRequestCheck,
-            'lastDays' => $lastDays,
-            'checkStartDate' => $checkStartDate,
-            'checkEndDate' => $checkEndDate,
-            'conditionWiseCount' => $conditionWiseCount,
-            'employeeJoiningDate' => $employeeJoiningDate,
-            'attendanceSettings' => $attendanceSettings,
-            'userId' => $userId
+        $view = view('attendances.ajax.member_calendar', [
+            'start' => $start,
+            'days' => $days,
+            'leaves' => $leaves,
+            'attendanceIds' => $attendanceIds,
+            'statusMeta' => PayrollAttendanceController::STATUSES,
+            'userId' => $userId,
+            'today' => now($tz)->toDateString(),
+            'canEditAttendance' => user()->permission('add_attendance') === 'all',
+            'lop' => max(0, $count['working_days'] - $count['days_present']),
         ])->render();
 
-        $this->totalRequestCheck = $totalRequestCheck;
-        $this->lastDays = $lastDays;
-        $this->checkStartDate = $checkStartDate;
-        $this->checkEndDate = $checkEndDate;
-        $this->conditionWiseCount = $conditionWiseCount;
-        $this->employeeJoiningDate = $employeeJoiningDate;
-        $this->attendanceSettings = $attendanceSettings;
+        $fmt = fn ($v) => rtrim(rtrim(number_format((float) $v, 1), '0'), '.');
 
-        return Reply::dataOnly(['status' => 'success', 'data' => $view, 'daysPresent' => $daysPresent, 'daysLate' => $daysLate, 'halfDays' => $halfDays, 'totalWorkingDays' => $totalWorkingDays, 'absentDays' => $daysAbsent, 'holidays' => $holidayCount]);
+        return Reply::dataOnly([
+            'status' => 'success',
+            'data' => $view,
+            'daysPresent' => $fmt($breakdown['worked'] ?? 0),
+            'daysLate' => (int) ($breakdown['late_marks'] ?? 0) + (int) ($breakdown['late_half_days'] ?? 0),
+            'halfDays' => $halfDays,
+            'totalWorkingDays' => max(0, $workingDays),
+            'absentDays' => $fmt(($breakdown['absent'] ?? 0)),
+            'holidays' => $holidays,
+        ]);
     }
 
     /**

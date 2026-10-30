@@ -69,7 +69,7 @@ class PayoutQuery
                 'p.total_deductions', 'p.net_salary', 'p.attendance_net', 'p.leave_encashment',
                 'p.working_days', 'p.days_present', 'p.lop_days',
                 'p.period', 'p.period_start', 'p.period_end',
-                'p.approval_status', 'p.paid_at', 'p.payment_reference',
+                'p.approval_status', 'p.paid_at', 'p.payment_reference', 'p.ot_summary',
                 'ed.pf_account_number', 'ed.esi_number', 'ed.personal_account_number', 'ed.ifsc_code',
                 't.team_name as department',
             ]);

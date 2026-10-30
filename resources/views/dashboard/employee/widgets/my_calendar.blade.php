@@ -1,6 +1,6 @@
 @if (in_array('my_calender', $activeWidgets) &&
-                (in_array('tasks', user_modules()) || in_array('events', user_modules()) || in_array('holidays', user_modules()) ||
-                in_array('tickets', user_modules()) || in_array('leaves', user_modules())))
+                (in_array('tasks', dashboard_modules()) || in_array('events', dashboard_modules()) || in_array('holidays', dashboard_modules()) ||
+                in_array('tickets', dashboard_modules()) || in_array('leaves', dashboard_modules())))
     <div class="row">
         <div class="col-md-12">
             <x-cards.data :title="__('app.menu.myCalendar')">
@@ -13,7 +13,7 @@
                         </button>
 
                         <div id="cal-drop" class="dropdown-menu dropdown-menu-right border-grey rounded b-shadow-4 p-2">
-                            @if(in_array('tasks', user_modules()))
+                            @if(in_array('tasks', dashboard_modules()))
                                 <div class="custom-control custom-checkbox cal-filter">
                                     <input type="checkbox" value="task"
                                            class="form-check-input filter-check" name="calendar[]"
@@ -23,7 +23,7 @@
                                         for="customCheck1">@lang('app.menu.tasks')</label>
                                 </div>
                             @endif
-                            @if(in_array('events', user_modules()))
+                            @if(in_array('events', dashboard_modules()))
                                 <div class="custom-control custom-checkbox cal-filter">
                                     <input type="checkbox" value="events"
                                            class="form-check-input filter-check" name="calendar[]"
@@ -33,7 +33,7 @@
                                         for="customCheck2">@lang('app.menu.events')</label>
                                 </div>
                             @endif
-                            @if(in_array('holidays', user_modules()))
+                            @if(in_array('holidays', dashboard_modules()))
                                 <div class="custom-control custom-checkbox cal-filter">
                                     <input type="checkbox" value="holiday"
                                            class="form-check-input filter-check" name="calendar[]"
@@ -43,7 +43,7 @@
                                         for="customCheck3">@lang('app.menu.holiday')</label>
                                 </div>
                             @endif
-                            @if(in_array('tickets', user_modules()))
+                            @if(in_array('tickets', dashboard_modules()))
                                 <div class="custom-control custom-checkbox cal-filter">
                                     <input type="checkbox" value="tickets"
                                            class="form-check-input filter-check" name="calendar[]"
@@ -53,7 +53,7 @@
                                         for="customCheck4">@lang('app.menu.tickets')</label>
                                 </div>
                             @endif
-                            @if(in_array('leaves', user_modules()))
+                            @if(in_array('leaves', dashboard_modules()))
                                 <div class="custom-control custom-checkbox cal-filter">
                                     <input type="checkbox" value="leaves"
                                            class="form-check-input filter-check" name="calendar[]"
@@ -63,7 +63,7 @@
                                         for="customCheck5">@lang('app.menu.leaves')</label>
                                 </div>
                             @endif
-                            @if(in_array('leads', user_modules()) && $leadAgent)
+                            @if(in_array('leads', dashboard_modules()) && $leadAgent)
                                 <div class="custom-control custom-checkbox cal-filter">
                                     <input type="checkbox" value="follow_ups"
                                            class="form-check-input filter-check" name="calendar[]"

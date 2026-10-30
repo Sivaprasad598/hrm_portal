@@ -234,6 +234,42 @@ class ShiftResolver
         return $shift && !self::isDayOff($shift) && $shift->office_start_time ? Carbon::parse($shift->day_start, $tz) : null;
     }
 
+    /** Load the roster and assignments of many employees at once (for the payroll run). */
+    public function preload(array $userIds): void
+    {
+        $userIds = array_values(array_filter(array_map('intval', $userIds), fn ($id) => !isset($this->loaded[$id])));
+
+        if (!$userIds) {
+            return;
+        }
+
+        foreach ($userIds as $userId) {
+            $this->roster[$userId] = [];
+            $this->assignments[$userId] = [];
+        }
+
+        foreach (DB::table('employee_shift_schedules')->whereIn('user_id', $userIds)
+            ->get(['user_id', 'date', 'employee_shift_id', 'assignment_id', 'shift_start_time', 'shift_end_time']) as $row) {
+            $shift = $this->shifts[$row->employee_shift_id] ?? null;
+
+            if ($shift) {
+                $this->roster[$row->user_id][substr((string) $row->date, 0, 10)] = $this->decorate($shift, $row->assignment_id ? 'assignment' : 'roster');
+            }
+        }
+
+        foreach (DB::table('employee_shift_assignments')->whereIn('user_id', $userIds)
+            ->orderByDesc('effective_from')
+            ->get(['user_id', 'employee_shift_id', 'effective_from', 'effective_to']) as $row) {
+            $row->effective_from = substr((string) $row->effective_from, 0, 10);
+            $row->effective_to = $row->effective_to ? substr((string) $row->effective_to, 0, 10) : null;
+            $this->assignments[$row->user_id][] = $row;
+        }
+
+        foreach ($userIds as $userId) {
+            $this->loaded[$userId] = true;
+        }
+    }
+
     protected function load(int $userId): void
     {
         if (isset($this->loaded[$userId])) {

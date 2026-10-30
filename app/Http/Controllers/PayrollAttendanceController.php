@@ -28,7 +28,7 @@ class PayrollAttendanceController extends AccountBaseController
 
         $this->middleware(function ($request, $next) {
             // Payroll people, and whoever may see everybody's attendance.
-            abort_403(user()->permission('manage_payroll') !== 'all'
+            abort_403(!\App\Services\Access\PayrollAccess::any()
                 && user()->permission('view_attendance') !== 'all'
                 && !in_array('admin', user_roles()));
 

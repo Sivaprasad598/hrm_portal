@@ -41,10 +41,24 @@ class PayslipDocument
 
     public function pdf(int $payslipId)
     {
-        return Pdf::loadHTML($this->localImages($this->printable($this->html($payslipId))))
+        return Pdf::loadHTML($this->localFonts($this->localImages($this->printable($this->html($payslipId)))))
             ->setPaper('a4')
             ->setOption('isRemoteEnabled', true)
             ->setOption('dpi', 96);
+    }
+
+    /**
+     * Point the Open Sans faces at the files on disk, for the same reason as the
+     * images below: outside a browser request the fetch over HTTP fails, and the
+     * PDF would fall back to DomPDF's own font.
+     */
+    protected function localFonts(string $html): string
+    {
+        return preg_replace_callback("#url\(['\"]?([^'\")]*fonts/open-sans/([\w-]+\.ttf))['\"]?\)#i", function ($match) {
+            $file = public_path('fonts/open-sans/' . $match[2]);
+
+            return is_file($file) ? "url('" . str_replace('\\', '/', $file) . "')" : $match[0];
+        }, $html);
     }
 
     /**

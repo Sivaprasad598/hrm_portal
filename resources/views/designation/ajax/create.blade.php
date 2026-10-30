@@ -10,20 +10,7 @@
                                       fieldRequired="true" :fieldPlaceholder="__('placeholders.designation')">
                         </x-forms.text>
                     </div>
-                    <div class="col-md-6">
-                        <x-forms.label class="mt-3" fieldId="parent_label" :fieldLabel="__('app.menu.parent_id')"
-                                       fieldName="parent_label">
-                        </x-forms.label>
-                        <x-forms.input-group>
-                            <select class="form-control select-picker" name="parent_id" id="parent_id"
-                                    data-live-search="true">
-                                <option value="">--</option>
-                                @foreach($designations as $designation)
-                                    <option value="{{ $designation->id }}">{{ $designation->name }}</option>
-                                @endforeach
-                            </select>
-                        </x-forms.input-group>
-                    </div>
+                    {{-- No parent designation: designations are a flat list --}}
                     <div class="col-md-6">
                         <x-forms.label class="mt-3" fieldId="role_label" fieldLabel="Access role" fieldName="role_label"
                                        popover="Given to every employee with this designation, on top of the base Employee role. Empty = Employee only.">

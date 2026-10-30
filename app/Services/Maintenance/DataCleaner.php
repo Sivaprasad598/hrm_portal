@@ -255,7 +255,7 @@ class DataCleaner
 
     protected function dumpBinary(): ?string
     {
-        $candidates = array_filter([env('DB_DUMP_BINARY')]);
+        $candidates = array_filter([config('database.dump_binary')]);
 
         foreach (array_merge(glob('C:/wamp64/bin/mysql/*/bin/mysqldump.exe') ?: [], glob('C:/xampp/mysql/bin/mysqldump.exe') ?: [],
             ['/usr/bin/mysqldump', '/usr/local/bin/mysqldump', '/usr/local/mysql/bin/mysqldump']) as $path) {

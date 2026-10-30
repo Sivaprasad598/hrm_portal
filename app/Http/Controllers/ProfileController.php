@@ -122,6 +122,12 @@ class ProfileController extends AccountBaseController
             $employee->about_me = $request->about_me;
         }
 
+        // The joining date drives payroll and leave: only someone who may edit
+        // employees changes it here (the form shows it read-only to others).
+        if ($request->filled('joining_date') && user()->permission('edit_employees') === 'all') {
+            $employee->joining_date = companyToYmd($request->joining_date);
+        }
+
         if (in_array('employee', user_roles())) {
             $employee->marital_status = $request->marital_status;
             $employee->marriage_anniversary_date = $request->marriage_anniversary_date ? companyToYmd($request->marriage_anniversary_date) : null;

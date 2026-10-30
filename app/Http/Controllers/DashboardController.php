@@ -126,6 +126,10 @@ class DashboardController extends AccountBaseController
 
     public function advancedDashboard()
     {
+        // The company-wide dashboard is the Super Admin's only; everyone else has
+        // their own private dashboard.
+        abort_403(!in_array('admin', user_roles()));
+
 
         if (in_array('admin', user_roles()) || $this->sidebarUserPermissions['view_overview_dashboard'] == 4
             || $this->sidebarUserPermissions['view_project_dashboard'] == 4

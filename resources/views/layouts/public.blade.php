@@ -85,6 +85,8 @@
         var checkMiniSidebar = localStorage.getItem("mini-sidebar");
     </script>
 
+    {{-- Open Sans everywhere (public/css/open-sans.css) --}}
+    <link href="{{ asset('css/open-sans.css') }}?v={{ filemtime(public_path('css/open-sans.css')) }}" rel="stylesheet">
 </head>
 
 

@@ -32,6 +32,16 @@ class OtDaily
 
         $written = 0;
 
+        // What is stored for these days already, read once: the payroll run
+        // calls this for every employee each time it is opened, and a day that
+        // has not changed is left alone rather than deleted or written again.
+        $dates = array_column($count['days'], 'date');
+        $stored = $dates ? DB::table('ot_daily')->where('user_id', $userId)
+            ->whereBetween('date', [min($dates), max($dates)])
+            ->get(['date', 'day_type', 'first_in', 'last_out', 'worked_minutes', 'ot_minutes', 'rate', 'bank_minutes', 'note'])
+            ->keyBy(fn ($row) => substr((string) $row->date, 0, 10)) : collect();
+        $gone = [];
+
         foreach ($count['days'] as $day) {
             if (($day['status'] ?? '') === 'upcoming' || !$rules->appliesOn($day['date'])) {
                 continue;
@@ -40,7 +50,10 @@ class OtDaily
             $minutes = (int) ($day['ot_minutes'] ?? 0);
 
             if ($minutes <= 0) {
-                DB::table('ot_daily')->where('user_id', $userId)->where('date', $day['date'])->delete();
+                if ($stored->has($day['date'])) {
+                    $gone[] = $day['date'];
+                }
+
                 continue;
             }
 
@@ -60,17 +73,50 @@ class OtDaily
                 }
             }
 
-            DB::table('ot_daily')->updateOrInsert(['user_id' => $userId, 'date' => $day['date']], [
-                'company_id' => $companyId, 'day_type' => $type,
+            $values = [
+                'day_type' => $type,
                 'first_in' => $day['first_in'] ? Carbon::parse($day['first_in'])->format('Y-m-d H:i:s') : null,
                 'last_out' => $day['last_out'] ? Carbon::parse($day['last_out'])->format('Y-m-d H:i:s') : null,
                 'worked_minutes' => (int) ($day['worked_minutes'] ?? 0), 'ot_minutes' => $minutes, 'rate' => $rate,
-                'bank_minutes' => $bank, 'note' => $note, 'updated_at' => now(), 'created_at' => now(),
-            ]);
+                'bank_minutes' => $bank, 'note' => $note,
+            ];
+
+            if ($this->unchanged($stored->get($day['date']), $values)) {
+                continue;
+            }
+
+            DB::table('ot_daily')->updateOrInsert(['user_id' => $userId, 'date' => $day['date']],
+                $values + ['company_id' => $companyId, 'updated_at' => now(), 'created_at' => now()]);
             $written++;
         }
 
+        if ($gone) {
+            DB::table('ot_daily')->where('user_id', $userId)->whereIn('date', $gone)->delete();
+        }
+
         return $written;
+    }
+
+    /** Whether the stored row already says exactly this. */
+    protected function unchanged(?object $row, array $values): bool
+    {
+        if (!$row) {
+            return false;
+        }
+
+        foreach ($values as $key => $value) {
+            $old = $row->$key;
+
+            $same = is_numeric($value) && is_numeric($old)
+                ? abs((float) $value - (float) $old) < 0.0001
+                : (string) $value === (string) $old;
+
+            if (!$same) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /** Count a range for one employee and store its overtime. */

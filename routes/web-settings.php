@@ -249,6 +249,11 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account/settings'], function 
     Route::post('role-permissions/reset-permissions', [RolePermissionController::class, 'resetPermissions'])->name('role-permissions.reset_permissions');
     Route::resource('role-permissions', RolePermissionController::class);
 
+    // Access: a role's pages and what it may do on each, in one place.
+    Route::get('access', [App\Http\Controllers\AccessSettingsController::class, 'index'])->name('access-settings.index');
+    Route::post('access/page', [App\Http\Controllers\AccessSettingsController::class, 'page'])->name('access-settings.page');
+    Route::post('access/permission', [App\Http\Controllers\AccessSettingsController::class, 'permission'])->name('access-settings.permission');
+
     // Theme settings
     Route::resource('theme-settings', ThemeSettingController::class);
 

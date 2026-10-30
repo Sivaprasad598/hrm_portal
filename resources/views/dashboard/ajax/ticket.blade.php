@@ -3,7 +3,7 @@
 
 
 <div class="row">
-    @if (in_array('tickets', user_modules()) && in_array('total_tickets', $activeWidgets))
+    @if (in_array('tickets', dashboard_modules()) && in_array('total_tickets', $activeWidgets))
         <div class="col-lg-6 col-md-6 mb-3">
 
                 <div
@@ -33,7 +33,7 @@
         </div>
     @endif
 
-    @if (in_array('tickets', user_modules()) && in_array('total_unassigned_ticket', $activeWidgets))
+    @if (in_array('tickets', dashboard_modules()) && in_array('total_unassigned_ticket', $activeWidgets))
         <div class="col-lg-6 col-md-6 mb-3">
             <a href="javascript:;" id="totalUnassignedTicket">
                 <x-cards.widget :title="__('modules.dashboard.totalUnassignedTicket')" :value="$totalUnassignedTicket"
@@ -45,7 +45,7 @@
 </div>
 
 <div class="row">
-    @if (in_array('tickets', user_modules()) && in_array('type_wise_ticket', $activeWidgets))
+    @if (in_array('tickets', dashboard_modules()) && in_array('type_wise_ticket', $activeWidgets))
         <div class="col-sm-12 col-lg-6 mt-3">
             <x-cards.data :title="__('modules.dashboard.typeWiseTicket')">
                 @if (array_sum($ticketTypeChart['values']) > 0)
@@ -57,7 +57,7 @@
         </div>
     @endif
 
-    @if (in_array('tickets', user_modules()) && in_array('status_wise_ticket', $activeWidgets))
+    @if (in_array('tickets', dashboard_modules()) && in_array('status_wise_ticket', $activeWidgets))
         <div class="col-sm-12 col-lg-6 mt-3">
             <x-cards.data :title="__('modules.dashboard.statusWiseTicket')">
                 @if (array_sum($ticketStatusChart['values']) > 0)
@@ -69,7 +69,7 @@
         </div>
     @endif
 
-    @if (in_array('tickets', user_modules()) && in_array('channel_wise_ticket', $activeWidgets))
+    @if (in_array('tickets', dashboard_modules()) && in_array('channel_wise_ticket', $activeWidgets))
         <div class="col-sm-12 col-lg-6 mt-3">
             <x-cards.data :title="__('modules.dashboard.channelWiseTicket')">
                 @if(isset($ticketChannelChart['colors']) && $ticketChannelChart['labels'])
@@ -83,7 +83,7 @@
         </div>
     @endif
 
-    @if (in_array('tickets', user_modules()) && in_array('new_tickets', $activeWidgets))
+    @if (in_array('tickets', dashboard_modules()) && in_array('new_tickets', $activeWidgets))
         <div class="col-sm-12 col-lg-6 mt-3">
             <x-cards.data :title="__('modules.dashboard.openTickets')" padding="false" otherClasses="h-200">
                 <x-table>

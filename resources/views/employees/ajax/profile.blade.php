@@ -1,3 +1,19 @@
+@php
+    // Tasks, projects, time logs and tickets are shown for this employee only
+    // when the module is on for the company and the employee has been given it
+    // (their own "view" permission is not "none").
+    $employeeHas = function (string $module) use ($employee) {
+        if (!in_array($module, user_modules())) {
+            return false;
+        }
+
+        if ($employee->hasRole('admin')) {
+            return true;
+        }
+
+        return !in_array($employee->permission('view_' . $module), [false, 'none'], true);
+    };
+@endphp
 <script src="{{ asset('vendor/jquery/Chart.min.js') }}"></script>
 <style>
     .card-img {
@@ -106,29 +122,24 @@ $viewAppreciationPermission = user()->permission('view_appreciation');
                                 </p>
                             @endif
 
-                            @if ($showFullProfile)
+                            @php
+                                $counters = array_filter([
+                                    $employeeHas('tasks') ? [__('app.openTasks'), $employee->open_tasks_count] : null,
+                                    $employeeHas('projects') ? [__('app.menu.projects'), $employee->member_count] : null,
+                                    $employeeHas('timelogs') ? [__('modules.employees.hoursLogged'), $hoursLogged] : null,
+                                    $employeeHas('tickets') ? [__('app.menu.tickets'), $employee->agents_count] : null,
+                                ]);
+                            @endphp
+                            @if ($showFullProfile && $counters)
                                 <div class="card-footer bg-white border-top-grey pl-0">
                                     <div class="d-flex flex-wrap justify-content-between">
-                                        <span>
-                                            <label class="f-11 text-dark-grey mb-12 "
-                                                for="usr">@lang('app.openTasks')</label>
-                                            <p class="mb-0 f-18 f-w-500">{{ $employee->open_tasks_count }}</p>
-                                        </span>
-                                        <span>
-                                            <label class="f-11 text-dark-grey mb-12 "
-                                                for="usr">@lang('app.menu.projects')</label>
-                                            <p class="mb-0 f-18 f-w-500">{{ $employee->member_count }}</p>
-                                        </span>
-                                        <span>
-                                            <label class="f-11 text-dark-grey mb-12 "
-                                                for="usr">@lang('modules.employees.hoursLogged')</label>
-                                            <p class="mb-0 f-18 f-w-500">{{ $hoursLogged }}</p>
-                                        </span>
-                                        <span>
-                                            <label class="f-11 text-dark-grey mb-12 "
-                                                for="usr">@lang('app.menu.tickets')</label>
-                                            <p class="mb-0 f-18 f-w-500">{{ $employee->agents_count }}</p>
-                                        </span>
+                                        @foreach ($counters as [$counterLabel, $counterValue])
+                                            <span>
+                                                <label class="f-11 text-dark-grey mb-12 "
+                                                    for="usr">{{ $counterLabel }}</label>
+                                                <p class="mb-0 f-18 f-w-500">{{ $counterValue }}</p>
+                                            </span>
+                                        @endforeach
                                     </div>
                                 </div>
                             @endif
@@ -235,34 +246,22 @@ $viewAppreciationPermission = user()->permission('view_appreciation');
                                 <x-cards.data-row :label="__('modules.employees.slackUsername')"
                                     :value="(isset($employee->employeeDetail) && !is_null($employee->employeeDetail->slack_username)) ? '@'.$employee->employeeDetail->slack_username : '--'" />
 
-                                <x-cards.data-row :label="__('modules.employees.hourlyRate')"
-                                    :value="(!is_null($employee->employeeDetail)) ? company()->currency->currency_symbol.$employee->employeeDetail->hourly_rate : '--'" />
-
                                 <x-cards.data-row :label="__('app.address')"
                                     :value="$employee->employeeDetail->address ?? '--'" />
 
-                                <x-cards.data-row :label="__('app.skills')"
-                                    :value="$employee->skills() ? implode(', ', $employee->skills()) : '--'" />
-
-                                <x-cards.data-row :label="__('app.language')"
-                                    :value="$employeeLanguage->language_name ?? '--'" />
-
-                                <x-cards.data-row :label="__('modules.employees.probationEndDate')"
-                                :value="$employee->employeeDetail->probation_end_date ? Carbon\Carbon::parse($employee->employeeDetail->probation_end_date)->translatedFormat(company()->date_format) : '--'" />
-
-                                <x-cards.data-row :label="__('modules.employees.noticePeriodStartDate')"
-                                :value="$employee->employeeDetail->notice_period_start_date ? Carbon\Carbon::parse($employee->employeeDetail->notice_period_start_date)->translatedFormat(company()->date_format) : '--'" />
-
-                                <x-cards.data-row :label="__('modules.employees.noticePeriodEndDate')"
-                                :value="$employee->employeeDetail->notice_period_end_date ? Carbon\Carbon::parse($employee->employeeDetail->notice_period_end_date)->translatedFormat(company()->date_format) : '--'" />
+                                {{-- Only for someone on probation --}}
+                                @if ($employee->employeeDetail->probation_end_date)
+                                    <x-cards.data-row :label="__('modules.employees.probationEndDate')"
+                                    :value="Carbon\Carbon::parse($employee->employeeDetail->probation_end_date)->translatedFormat(company()->date_format)" />
+                                @endif
 
                                 <x-cards.data-row :label="__('modules.employees.maritalStatus')"
                                 :value="$employee?->employeeDetail?->marital_status ? $employee->employeeDetail->marital_status->label() : '--'" />
 
-                                <x-cards.data-row :label="__('app.menu.businessAddresses')" :value="$companyAddress ? $companyAddress->location : '--'" />
-
-                                <x-cards.data-row :label="__('modules.employees.marriageAnniversaryDate')"
-                                :value="$employee->employeeDetail->marriage_anniversary_date ? Carbon\Carbon::parse($employee->employeeDetail->marriage_anniversary_date)->translatedFormat('d F') : '--'" />
+                                @if ($employee->employeeDetail->marriage_anniversary_date || ($employee->employeeDetail->marital_status && $employee->employeeDetail->marital_status->value === 'married'))
+                                    <x-cards.data-row label="Marriage Date"
+                                    :value="$employee->employeeDetail->marriage_anniversary_date ? Carbon\Carbon::parse($employee->employeeDetail->marriage_anniversary_date)->translatedFormat(company()->date_format) : '--'" />
+                                @endif
 
                                 <x-cards.data-row :label="__('modules.employees.employmentType')"
                                 :value="$employee?->employeeDetail?->employment_type ? __('modules.employees.' . $employee?->employeeDetail?->employment_type) : '--'" />
@@ -280,8 +279,19 @@ $viewAppreciationPermission = user()->permission('view_appreciation');
                                 <x-cards.data-row :label="__('modules.employees.joiningDate')"
                                 :value="(!is_null($employee->employeeDetail) && !is_null($employee->employeeDetail->joining_date)) ? $employee->employeeDetail->joining_date->translatedFormat(company()->date_format) : '--'" />
 
-                                <x-cards.data-row :label="__('modules.employees.lastDate')"
-                                :value="(!is_null($employee->employeeDetail) && !is_null($employee->employeeDetail->last_date)) ? $employee->employeeDetail->last_date->translatedFormat(company()->date_format) : '--'" />
+                                @php $resume = \App\Services\Employee\DocumentTypes::latestResume($employee->id); @endphp
+                                <div class="col-12 px-0 pb-3 d-lg-flex d-md-flex d-block">
+                                    <p class="mb-0 text-lightest f-14 w-30 d-inline-block text-capitalize">Resume</p>
+                                    <p class="mb-0 text-dark-grey f-14 w-70 text-wrap">
+                                        @if ($resume)
+                                            <a data-doc-view data-preview-name="{{ $resume->name }}" href="{{ $resume->doc_url }}" target="_blank">{{ $resume->filename ?: $resume->name }}</a>
+                                            <span class="text-lightest f-12 ml-1">uploaded {{ $resume->created_at->translatedFormat(company()->date_format) }}</span>
+                                        @else
+                                            --
+                                            <a class="f-12 ml-2" href="{{ route('employees.show', $employee->id) }}?tab=documents">Upload in Documents</a>
+                                        @endif
+                                    </p>
+                                </div>
 
 
                                 {{-- Custom fields data --}}
@@ -291,6 +301,11 @@ $viewAppreciationPermission = user()->permission('view_appreciation');
 
                         </x-cards.data>
 
+                        {{-- Emergency contacts, here rather than on a tab of their own --}}
+                        @if ($showFullProfile && (user()->permission('manage_emergency_contact') == 'all' || $employee->id == user()->id))
+                            @include('employees.ajax.emergency-contacts', ['inProfile' => true])
+                        @endif
+
 
                     </div>
 
@@ -299,7 +314,8 @@ $viewAppreciationPermission = user()->permission('view_appreciation');
                             @include('onboarding::employee-profile-boarding')
                         @endif
 
-                        @if ($showFullProfile)
+                        {{-- Appreciation is switched off (2026_10_26_100003_remove_appreciation) --}}
+                        @if (false && $showFullProfile)
                             <x-cards.data class="mb-4" :title="__('modules.appreciations.appreciation')">
                                 @forelse ($employee->appreciationsGrouped as $item)
                                 <div class="float-left position-relative mb-2" style="width: 50px" data-toggle="tooltip" data-original-title="@if(isset($item->award->title)){{  $item->award->title }} @endif">
@@ -373,7 +389,7 @@ $viewAppreciationPermission = user()->permission('view_appreciation');
                                 @endif
                             </div>
                             <div class="row">
-                                @if (in_array('tasks', user_modules()))
+                                @if ($employeeHas('tasks'))
                                     <div class="col-md-12 mb-4">
                                         <x-cards.data :title="__('app.menu.tasks')" padding="false" class="pb-3">
                                             @if (array_sum($taskChart['values']) > 0)
@@ -385,7 +401,7 @@ $viewAppreciationPermission = user()->permission('view_appreciation');
                                         </x-cards.data>
                                     </div>
                                 @endif
-                                @if (in_array('tickets', user_modules()))
+                                @if ($employeeHas('tickets'))
                                     <div class="col-md-12 mb-4">
                                         <x-cards.data :title="__('app.menu.tickets')" padding="false" class="pb-3">
                                             @if (array_sum($ticketChart['values']) > 0)

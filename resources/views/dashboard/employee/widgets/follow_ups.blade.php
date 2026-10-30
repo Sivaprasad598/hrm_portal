@@ -1,4 +1,4 @@
-@if (in_array('follow_ups', $activeWidgets) && $leadAgent && in_array('leads', user_modules()))
+@if (in_array('follow_ups', $activeWidgets) && $leadAgent && in_array('leads', dashboard_modules()))
     <div class="col-md-6 mb-3">
         <div
             class="bg-white p-20 rounded b-shadow-4 d-flex justify-content-between align-items-center mt-3 mt-lg-0 mt-md-0">

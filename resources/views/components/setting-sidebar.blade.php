@@ -161,7 +161,7 @@
                                  :text="__('app.menu.paymentGatewayCredential')"/>
         @endif
 
-        @if (user()->permission('manage_company_setting') == 'all' || user()->permission('manage_payroll') == 'all')
+        @if (user()->permission('manage_company_setting') == 'all' || \App\Services\Access\PayrollAccess::can('settings'))
             <x-setting-menu-item :active="$activeMenu" menu="payslip_settings" :href="route('payslip-settings.index')"
                                  :text="__('app.menu.payslipSettings')"/>
         @endif
@@ -175,13 +175,10 @@
         @endif
 
         @if (user()->permission('manage_role_permission_setting') == 'all')
-            <x-setting-menu-item :active="$activeMenu" menu="role_permissions" :href="route('role-permissions.index')"
-                                 :text="__('app.menu.rolesPermission')"/>
-
-            {{-- Assign Menus — main/sub/child menu access per role --}}
-            <x-setting-menu-item :active="$activeMenu" menu="role_management"
-                                 :href="route('assign-menus.index')"
-                                 text="Assign Menus"/>
+            {{-- Access: pages and actions per role. Roles & Permissions and
+                 Assign Menus are linked from it under "Advanced". --}}
+            <x-setting-menu-item :active="in_array($activeMenu, ['role_permissions', 'role_management']) ? 'access_settings' : $activeMenu"
+                                 menu="access_settings" :href="route('access-settings.index')" text="Access"/>
 
             <x-setting-menu-item :active="$activeMenu" menu="menu_management"
                                  :href="route('menu-management.index')"

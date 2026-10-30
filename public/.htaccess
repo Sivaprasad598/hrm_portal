@@ -9,6 +9,13 @@
     # Only if a host insists on one, set it to the URL path of this folder:
     # RewriteBase /arowanauk/hrm/public/
 
+    # Old links and bookmarks with "/public" in them go to the same address
+    # without it (see ../.htaccess; 308 keeps a form post a post). Only what the
+    # browser asked for is looked at (the query string is kept as it is), so the root's internal hand-over to
+    # public/ never loops back here.
+    RewriteCond %{THE_REQUEST} \s(/\S*?)/public(/[^?\s]*)?(\?\S*)?\sHTTP [NC]
+    RewriteRule ^ %1%2 [R=308,NE,L]
+
     # Handle Authorization Header
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]

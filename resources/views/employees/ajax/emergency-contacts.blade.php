@@ -3,20 +3,18 @@
 @endphp
 
 <!-- TAB CONTENT START -->
-<div class="tab-pane fade show active mt-5" role="tabpanel" aria-labelledby="nav-email-tab">
-
-    @if ($managePermission == 'all' || ($employee->id == user()->id))
-        <div class="d-flex justify-content-between action-bar mb-3">
-            <x-forms.link-primary
-                class="mr-3 float-left emergency-contacts-btn"
-                link="javascript:;"
-                icon="plus">
-                @lang('app.createNew')
-            </x-forms.link-primary>
-        </div>
-    @endif
+{{-- Shown on the profile now ($inProfile), no longer a tab of its own --}}
+<div class="{{ ($inProfile ?? false) ? 'mt-4' : 'tab-pane fade show active mt-5' }}" role="tabpanel" aria-labelledby="nav-email-tab">
 
     <x-cards.data :title="__('modules.emergencyContact.emergencyContact')">
+        {{-- The add button sits in the card's header --}}
+        @if ($managePermission == 'all' || ($employee->id == user()->id))
+            <x-slot name="action">
+                <a href="javascript:;" class="btn btn-primary btn-sm f-13 emergency-contacts-btn">
+                    <i class="fa fa-plus mr-1"></i>Add Contact
+                </a>
+            </x-slot>
+        @endif
 
         <div class="table-responsive">
             <x-table class="table-bordered">

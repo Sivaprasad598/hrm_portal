@@ -221,6 +221,7 @@ class User extends BaseModel implements AuthenticatableContract, AuthorizableCon
 {
 
     use Notifiable, LaravelEntrustUserTrait, Authenticatable, Authorizable, CanResetPassword, HasFactory, TwoFactorAuthenticatable;
+    use \Laravel\Sanctum\HasApiTokens;   // mobile app login (routes/api.php, mobile/v1)
     use HasCompany;
     use HasMaskImage;
     use UseDevices;
@@ -966,12 +967,12 @@ class User extends BaseModel implements AuthenticatableContract, AuthorizableCon
      */
     public function permission($permission)
     {
-        $cacheKey = 'permission-' . $permission . '-' . $this->id;
-
-        cache()->forget($cacheKey); // Clear the cache
-
-        if (cache()->has($cacheKey)) {
-            return cache($cacheKey);
+        // Looked up once per request: one page asks for the same permission
+        // dozens of times. Not kept in the cache between requests - permissions
+        // are also changed in bulk, past the observer that would clear it - and
+        // static rather than on the model, which can sit in the session.
+        if (isset(self::$permissionMemo[$this->id]) && array_key_exists($permission, self::$permissionMemo[$this->id])) {
+            return self::$permissionMemo[$this->id][$permission];
         }
 
         $permissionType = UserPermission::join('permissions', 'user_permissions.permission_id', '=', 'permissions.id')
@@ -983,10 +984,20 @@ class User extends BaseModel implements AuthenticatableContract, AuthorizableCon
 
         $permissionType = $permissionType ? $permissionType->name : false;
 
-        cache([$cacheKey => $permissionType]);
+        return self::$permissionMemo[$this->id][$permission] = $permissionType;
+    }
 
-        return $permissionType;
+    /** Permission levels looked up in this request, by user (see permission()). */
+    protected static array $permissionMemo = [];
 
+    /** Forget them, after changing someone's permissions within the same request. */
+    public static function forgetPermissionMemo(?int $userId = null): void
+    {
+        if ($userId === null) {
+            self::$permissionMemo = [];
+        } else {
+            unset(self::$permissionMemo[$userId]);
+        }
     }
 
     public function permissionTypeId($permission)
@@ -1054,6 +1065,8 @@ class User extends BaseModel implements AuthenticatableContract, AuthorizableCon
         foreach (array_chunk($data, 100) as $item) {
             UserPermission::insert($item);
         }
+
+        self::forgetPermissionMemo((int) $this->id);
     }
 
     public function assignModuleRolePermission($module)
@@ -1455,7 +1468,14 @@ class User extends BaseModel implements AuthenticatableContract, AuthorizableCon
         // A handful of entries are gated through user()->permission(), which
         // answers 'all' / 'none' rather than a number.
         if ($rule === 'setting_all') {
-            return $this->permission($key) === 'all';
+            // "a,b": any one of them (the payroll pages open on any payroll switch).
+            foreach (array_map('trim', explode(',', $key)) as $one) {
+                if ($this->permission($one) === 'all') {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         $keys = array_values(array_filter(array_map('trim', explode(',', $key))));

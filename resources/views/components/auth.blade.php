@@ -41,6 +41,8 @@
     @if(file_exists(public_path().'/css/login-custom.css'))
         <link href="{{ asset('css/login-custom.css') }}" rel="stylesheet">
     @endif
+    {{-- Open Sans everywhere (public/css/open-sans.css) --}}
+    <link href="{{ asset('css/open-sans.css') }}?v={{ filemtime(public_path('css/open-sans.css')) }}" rel="stylesheet">
 
     @if ($globalSetting->sidebar_logo_style == 'full')
         <style>

@@ -1,4 +1,4 @@
-@if (in_array('documents', $activeWidgets) && in_array('employees', user_modules()))
+@if (in_array('documents', $activeWidgets) && in_array('employees', dashboard_modules()))
     @isset($upcomingDocumentExpiries)
         <div class="col-md-6 mb-3">
             <div class="bg-white p-20 rounded b-shadow-4">

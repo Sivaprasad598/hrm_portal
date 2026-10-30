@@ -32,58 +32,37 @@ class DepartmentDataTable extends BaseDataTable
         return datatables()
             ->eloquent($query)
             ->addColumn('check', fn($row) => $this->checkBox($row))
+            // View and Edit as buttons on the row, delete beside them (no menu to open).
             ->addColumn('action', function ($row) {
-
-                $action = '<div class="task_view">
-<a href="' . route('departments.show', [$row->id]) . '" class="taskView text-darkest-grey f-w-500 openRightModal">' . __('app.view') . '</a>
-                    <div class="dropdown">
-                        <a class="task_view_more d-flex align-items-center justify-content-center dropdown-toggle" type="link"
-                            id="dropdownMenuLink-' . $row->id . '" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                            <i class="icon-options-vertical icons"></i>
-                        </a>
-                        <div class="dropdown-menu dropdown-menu-right" aria-labelledby="dropdownMenuLink-' . $row->id . '" tabindex="0">';
-
+                $action = '<div class="row-actions">'
+                    . '<a href="' . route('departments.show', [$row->id]) . '" class="row-action openRightModal">' . __('app.view') . '</a>';
 
                 if ($this->editDepartmentPermission == 'all') {
-                    $action .= '<a class="dropdown-item openRightModal" href="' . route('departments.edit', [$row->id]) . '">
-                                <i class="fa fa-edit mr-2"></i>
-                                ' . trans('app.edit') . '
-                            </a>';
+                    $action .= '<a href="' . route('departments.edit', [$row->id]) . '" class="row-action openRightModal">'
+                        . '<i class="fa fa-edit mr-1"></i>' . __('app.edit') . '</a>';
                 }
 
                 if ($this->deleteDepartmentPermission == 'all') {
-                    $action .= '<a class="dropdown-item delete-table-row" href="javascript:;" data-department-id="' . $row->id . '">
-                                <i class="fa fa-trash mr-2"></i>
-                                ' . trans('app.delete') . '
-                            </a>';
+                    $action .= '<a href="javascript:;" class="row-action row-action-danger delete-table-row" data-department-id="' . $row->id . '"'
+                        . ' title="' . __('app.delete') . '" data-toggle="tooltip"><i class="fa fa-trash"></i></a>';
                 }
 
-                $action .= '</div>
-                    </div>
-                </div>';
-
-                return $action;
+                return $action . '</div>';
             })
-            ->editColumn(
-                'name',
-                function ($row) {
-                    return '<h5 class="mb-0 f-13 text-darkest-grey"><a href="' . route('departments.show', [$row->id]) . '" class="openRightModal">' . $row->team_name . '</a></h5>';
-                }
-            )
-            ->editColumn('parent_id', function ($row) {
-                // get name of parent department
-                $parent = Team::where('id', $row->parent_id)->first();
-
-                if ($parent) {
-                    return $parent->team_name;
-                }
-
-                return '-';
+            // Shown as Division and Sub Division: a department with a parent is a
+            // sub division of it, one without is a division.
+            ->addColumn('division', function ($row) {
+                return $row->parent_id
+                    ? e($this->teamNames()[$row->parent_id] ?? '-')
+                    : $this->teamLink($row);
             })
+            ->addColumn('sub_division', fn ($row) => $row->parent_id ? $this->teamLink($row) : '-')
+            // Each division, then its sub divisions.
+            ->order(fn ($query) => $query->orderByRaw('COALESCE(parent_id, id), parent_id IS NOT NULL, team_name'))
             ->addIndexColumn()
             ->smart(false)
             ->setRowId(fn($row) => 'row-' . $row->id)
-            ->rawColumns(['action', 'name', 'check']);
+            ->rawColumns(['action', 'division', 'sub_division', 'check']);
     }
 
     /**
@@ -117,6 +96,18 @@ class DepartmentDataTable extends BaseDataTable
         }
 
         return $model;
+    }
+
+    private ?array $names = null;
+
+    private function teamNames(): array
+    {
+        return $this->names ??= Team::pluck('team_name', 'id')->all();
+    }
+
+    private function teamLink($row): string
+    {
+        return '<h5 class="mb-0 f-13 text-darkest-grey"><a href="' . route('departments.show', [$row->id]) . '" class="openRightModal">' . e($row->team_name) . '</a></h5>';
     }
 
     public function child($child)
@@ -173,8 +164,8 @@ class DepartmentDataTable extends BaseDataTable
                 'visible' => !in_array('client', user_roles())
             ],
             '#' => ['data' => 'DT_RowIndex', 'orderable' => false, 'searchable' => false, 'visible' => false, 'title' => '#'],
-            __('app.name') => ['data' => 'name', 'name' => 'team_name', 'title' => __('app.name')],
-            __('modules.department.parentDepartment') => ['data' => 'parent_id', 'name' => 'parent_id', 'exportable' => true, 'title' => __('modules.department.parentDepartment')],
+            'Division' => ['data' => 'division', 'name' => 'team_name', 'searchable' => false, 'title' => 'Division'],
+            'Sub Division' => ['data' => 'sub_division', 'name' => 'parent_id', 'searchable' => false, 'orderable' => false, 'exportable' => true, 'title' => 'Sub Division'],
             Column::computed('action', __('app.action'))
                 ->exportable(false)
                 ->printable(false)

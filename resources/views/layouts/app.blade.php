@@ -127,6 +127,9 @@
         <link href="{{ asset('css/theme-custom.css') }}?v={{ filemtime(public_path('css/theme-custom.css')) }}" rel="stylesheet">
     @endif
 
+    {{-- Open Sans everywhere (public/css/open-sans.css) --}}
+    <link href="{{ asset('css/open-sans.css') }}?v={{ filemtime(public_path('css/open-sans.css')) }}" rel="stylesheet">
+
     <script src="{{ asset('vendor/jquery/jquery.min.js') }}"></script>
     <script src="{{ asset('vendor/jquery/modernizr.min.js') }}"></script>
     <script src="{{ asset('vendor/jquery/bootstrap-colorpicker.js') }}"></script>
@@ -170,6 +173,9 @@
         </div>
 
 
+        {{-- Tabs between related pages, shown as one entry in the sidebar --}}
+        @include('sections.page-tabs')
+
         @yield('filter-section')
 
         <x-app-title class="d-block d-lg-none" :pageTitle="$pageTitle"></x-app-title>
@@ -188,6 +194,12 @@
 
 {{-- Images and PDFs open in a preview popup --}}
 @include('sections.doc-preview')
+
+{{-- Legacy pages in a frame grow to their content, so the page scrolls as one --}}
+@include('sections.legacy-frame')
+
+{{-- A table row's actions as buttons on the row, not in a "⋮" menu --}}
+@include('sections.row-actions')
 
 @includeIf('aitools::floating-chat-widget')
 

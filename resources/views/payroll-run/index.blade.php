@@ -198,7 +198,7 @@
                 {{-- What this month actually paid, once payslips exist. --}}
                 <a class="btn btn-sm btn-outline-secondary mr-2"
                    href="{{ route('payroll-register.index', ['month' => $month, 'year' => $year]) }}">
-                    <i class="fa fa-book mr-1"></i> Register
+                    <i class="fa fa-book mr-1"></i> Salary Statement
                 </a>
 
                 {{-- Overtime, bonuses, advances for this month. --}}

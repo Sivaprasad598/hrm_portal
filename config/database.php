@@ -15,6 +15,9 @@ $dbCredentials = [
 // --- Laravel Configuration ---
 $config = [
     'default' => 'mysql',
+
+    // mysqldump for the backup Data Clean takes first; found on its own when unset.
+    'dump_binary' => env('DB_DUMP_BINARY'),
     'connections' => [
         'mysql' => array_merge($dbCredentials, [
             'url' => null,

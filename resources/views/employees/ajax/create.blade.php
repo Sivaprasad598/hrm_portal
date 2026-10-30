@@ -439,17 +439,6 @@ $addDepartmentPermission = user()->permission('add_department');
                             </div>
                         </div>
                         <div class="col-lg-3 col-md-6">
-                            <x-forms.label class="my-3" fieldId="hourly_rate"
-                                :fieldLabel="__('modules.employees.hourlyRate')"></x-forms.label>
-                            <x-forms.input-group>
-                                <x-slot name="prepend">
-                                    <span class="input-group-text f-14 bg-white-shade">{{ company()->currency->currency_symbol }}</span>
-                                </x-slot>
-                                <input type="number" step=".01" min="0" class="form-control height-35 f-14"
-                                    name="hourly_rate" id="hourly_rate">
-                            </x-forms.input-group>
-                        </div>
-                        <div class="col-lg-3 col-md-6">
                             <x-forms.label class="my-3" fieldId="slack_username"
                                 :fieldLabel="__('modules.employees.slackUsername')"></x-forms.label>
                             <x-forms.input-group>
@@ -459,10 +448,6 @@ $addDepartmentPermission = user()->permission('add_department');
                                 <input type="text" class="form-control height-35 f-14"
                                     name="slack_username" id="slack_username">
                             </x-forms.input-group>
-                        </div>
-                        <div class="col-md-12">
-                            <x-forms.text fieldId="tags" :fieldLabel="__('app.skills')"
-                                fieldName="tags" :fieldPlaceholder="__('placeholders.skills')" />
                         </div>
                         @if (function_exists('sms_setting') && sms_setting()->telegram_status)
                             <div class="col-md-6">

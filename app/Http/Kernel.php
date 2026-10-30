@@ -72,6 +72,8 @@ class Kernel extends HttpKernel
         'throttle' => \Illuminate\Routing\Middleware\ThrottleRequests::class,
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
         'translation' => \App\Http\Middleware\EnsureTranslationToken::class,
+        'mobile.api' => \App\Http\Middleware\MobileApi::class,
+        'mobile.employee' => \App\Http\Middleware\MobileApiEmployee::class,
     ];
 
     /**
@@ -81,6 +83,28 @@ class Kernel extends HttpKernel
      *
      * @var array<string, class-string|string>
      */
+    /**
+     * The order route middleware runs in, outermost first: Laravel's own list
+     * with the mobile API's first, so the sign-in check runs inside it and a
+     * missing or expired token gets the app's error shape.
+     *
+     * @var array<int, class-string>
+     */
+    protected $middlewarePriority = [
+        \App\Http\Middleware\MobileApi::class,
+        \Illuminate\Foundation\Http\Middleware\HandlePrecognitiveRequests::class,
+        \Illuminate\Cookie\Middleware\EncryptCookies::class,
+        \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
+        \Illuminate\Session\Middleware\StartSession::class,
+        \Illuminate\View\Middleware\ShareErrorsFromSession::class,
+        \Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests::class,
+        \Illuminate\Routing\Middleware\ThrottleRequests::class,
+        \Illuminate\Routing\Middleware\ThrottleRequestsWithRedis::class,
+        \Illuminate\Contracts\Session\Middleware\AuthenticatesSessions::class,
+        \Illuminate\Routing\Middleware\SubstituteBindings::class,
+        \Illuminate\Auth\Middleware\Authorize::class,
+    ];
+
     protected $middlewareAliases = [
         'signed' => \Illuminate\Routing\Middleware\ValidateSignature::class,
     ];

@@ -73,6 +73,11 @@
     $currentUrl = url()->current();
 
     $isItemActive = function ($item) use ($resolveUrl, $currentRouteName, $currentUrl) {
+        // A group's entry stands for all its pages (App\Services\Access\PageGroups).
+        if ($item->group_routes) {
+            return \App\Services\Access\PageGroups::routeIsWithin($item->group_routes);
+        }
+
         if ($item->route && $item->route === $currentRouteName) {
             return true;
         }
@@ -98,8 +103,8 @@
 
     $level = $level ?? 0;
 
-    $menuUrl = $resolveUrl($menu);
-    $menuLabel = $menu->menu_name ?? $menu->name;
+    $menuUrl = $menu->group_url ?: $resolveUrl($menu);
+    $menuLabel = $menu->group_label ?? \App\Services\Access\PageGroups::RENAMED[$menu->slug] ?? $menu->menu_name ?? $menu->name;
     $menuIcon = $menu->icon ? $menu->display_icon : ($defaultIcons[$menu->slug] ?? 'bi bi-circle');
 
     // Filter here too: levels below children.children are lazy-loaded without the is_active constraint
@@ -110,8 +115,22 @@
         })
         ->values();
 
+    // Related pages are one entry here and tabs on the page (App\Services\Access\PageGroups).
+    if ($level === 0) {
+        $children = \App\Services\Access\PageGroups::collapse($children);
+    }
+
     $isActive = $isItemActive($menu);
     $isOpen = $isTreeActive($menu);
+
+    // Dashboard is one link to the private dashboard; only the Super Admin also
+    // has the Advanced Dashboard, so only they get the two as a sub-menu.
+    if ($level === 0 && $menu->slug === 'dashboard' && !in_array('admin', user_roles())) {
+        $menuUrl = route('dashboard');
+        $isActive = request()->routeIs('dashboard');
+        $isOpen = $isActive;
+        $children = collect();
+    }
 
     // Settings is a single link: its pages are listed in the settings page's own sidebar
     // (components/setting-sidebar). Its DB children are kept only for menu assignment.

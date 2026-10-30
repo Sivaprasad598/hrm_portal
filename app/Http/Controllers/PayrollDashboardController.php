@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\Access\PayrollAccess;
 use App\Services\Payroll\PayoutQuery;
+use App\Services\Payroll\PayrollDashboardCards;
 use App\Services\Payroll\PayPeriod;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -30,7 +32,7 @@ class PayrollDashboardController extends AccountBaseController
             // itself, which meant payroll could not be handed to anybody
             // without handing them everything else with it. manage_payroll is
             // the permission for the job; the administrator passes regardless.
-            abort_403(user()->permission('manage_payroll') !== 'all' && !in_array('admin', user_roles()));
+            abort_403(!\App\Services\Access\PayrollAccess::any());
 
             return $next($request);
         });
@@ -54,7 +56,47 @@ class PayrollDashboardController extends AccountBaseController
         $this->departments = $payouts->byDepartment($rows);
         $this->periods = $this->periodsCovered($rows);
 
+        $cards = new PayrollDashboardCards();
+        $this->sections = $cards->sections($rows, $this->totals, $this->elements);
+        $this->elementCards = $cards->elementCards($this->elements);
+        // The statutory files are the settings switch's, as on Statutory Returns.
+        $this->canDownload = PayrollAccess::can('settings');
+        $this->returnPeriods = $this->returnPeriods($rows);
+
         return view('payroll-dashboard.index', $this->data);
+    }
+
+    /**
+     * The full list behind one card, as columns and rows.
+     */
+    public function table(Request $request, PayoutQuery $payouts)
+    {
+        $request->validate(['card' => 'required|string|max:120']);
+
+        [$from, $to] = $this->range($request);
+        $rows = $payouts->forRange($from, $to, $request->boolean('include_drafts'));
+
+        return response()->json((new PayrollDashboardCards())->table($rows, $request->card));
+    }
+
+    /**
+     * The pay periods in the range, latest first, as the month and year the
+     * statutory returns take (the month a period ends in).
+     *
+     * @return array<int, array{month: int, year: int, label: string}>
+     */
+    protected function returnPeriods(array $rows): array
+    {
+        $out = [];
+
+        foreach ($rows as $row) {
+            $end = Carbon::parse($row['period_end']);
+            $out[$end->format('Y-m')] = ['month' => (int) $end->month, 'year' => (int) $end->year, 'label' => $row['period']];
+        }
+
+        krsort($out);
+
+        return array_values($out);
     }
 
     /**

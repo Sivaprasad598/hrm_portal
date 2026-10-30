@@ -29,14 +29,14 @@ class PayrollRegisterController extends AccountBaseController
     public function __construct()
     {
         parent::__construct();
-        $this->pageTitle = 'Payroll Register';
+        $this->pageTitle = 'Salary Statement';
 
         $this->middleware(function ($request, $next) {
             // Whole-company salary figures. This was the administrator role
             // itself, which meant payroll could not be handed to anybody
             // without handing them everything else with it. manage_payroll is
             // the permission for the job; the administrator passes regardless.
-            abort_403(user()->permission('manage_payroll') !== 'all' && !in_array('admin', user_roles()));
+            abort_403(!\App\Services\Access\PayrollAccess::any());
 
             return $next($request);
         });

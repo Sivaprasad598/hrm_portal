@@ -1,6 +1,6 @@
 @php
     // Roadblocks where teammates are waiting on the logged-in user
-    $waitingOnMe = in_array('tasks', user_modules())
+    $waitingOnMe = in_array('tasks', dashboard_modules())
         ? \App\Models\TaskBlocker::with('task:id,heading,task_short_code', 'raisedBy', 'linkedTask:id,heading')
             ->whereHas('task')
             ->where('blocking_user_id', user()->id)

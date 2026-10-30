@@ -117,8 +117,9 @@ class SalaryRevisions
 
     public static function canPrepare(): bool
     {
-        return user()->permission('manage_payroll') === 'all'
-            || (bool) array_intersect(['admin', 'hr', 'manager_admin', 'ceo'], user_roles());
+        // The payroll Settings switch (Settings -> Access) decides; approvers see
+        // the page for their own step (canView).
+        return \App\Services\Access\PayrollAccess::can('settings');
     }
 
     /** The approval steps this person can act on: cfo, ceo (the Super Admin both). */

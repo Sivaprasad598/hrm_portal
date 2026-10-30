@@ -31,7 +31,7 @@ class PayslipTemplateController extends AccountBaseController
         //
         // Changing it is a company setting, and stays one.
         $this->middleware(function ($request, $next) {
-            abort_403(user()->permission('manage_payroll') !== 'all'
+            abort_403(!\App\Services\Access\PayrollAccess::can('settings')
                 && user()->permission('manage_company_setting') !== 'all');
 
             return $next($request);
@@ -39,7 +39,7 @@ class PayslipTemplateController extends AccountBaseController
 
         // Payroll (HR / Admin) chooses the payslip's look too.
         $this->middleware(function ($request, $next) {
-            abort_403(user()->permission('manage_company_setting') !== 'all' && user()->permission('manage_payroll') !== 'all');
+            abort_403(user()->permission('manage_company_setting') !== 'all' && !\App\Services\Access\PayrollAccess::can('settings'));
 
             return $next($request);
         })->only('update');

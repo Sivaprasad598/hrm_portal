@@ -1,4 +1,4 @@
-@if (in_array('internship_date', $activeWidgets) && in_array('employees', user_modules()))
+@if (in_array('internship_date', $activeWidgets) && in_array('employees', dashboard_modules()))
     @php
         $currentDay = \Carbon\Carbon::parse(now(company()->timezone)->toDateTimeString())
             ->startOfDay()

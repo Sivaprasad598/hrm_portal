@@ -2512,8 +2512,8 @@ function allocation_footer($label, $opening, $amount)
 
             // The calculation sheet, as SalaryCalculator works it on the server
             // (which recalculates on Generate, so this is the preview of it):
-            // PF and ESI after LOP, Net = Gross - PF - ESI - PT - TDS,
-            // per day = Net / days, final = ROUND(Net - LOP days x per day).
+            // PF and ESI after LOP, before tax = Gross - PF - ESI - PT,
+            // per day = before tax / days, final = ROUND(before tax - LOP days x per day) - TDS.
             const pfEmployerPctVal = byId('pfEmployerPct') ? (parseFloat(byId('pfEmployerPct').value) || 0) : pfPctVal;
             const prorate = byId('prorateStatutory') ? byId('prorateStatutory').value === '1' : true;
             const roundNet = byId('roundNet') ? byId('roundNet').value === '1' : true;
@@ -2542,25 +2542,30 @@ function allocation_footer($label, $opening, $amount)
             const pfWages = ceiling > 0 ? Math.min(basic, ceiling) : basic;
             const pfRates = pfPctVal + pfEmployerPctVal;
             const pfFull = pfWages * pfRates / 100;
-            const pfAll = prorate ? money(pfFull * share) : pfFull;
-            const pf = pfRates > 0 ? paise(pfAll * pfPctVal / pfRates) : 0;
+            // Rounded to the rupee, each side on its own: PF to the nearest, ESI up (as SalaryCalculator).
+            const pfAll = roundNet ? Math.round(pfWages * pfPctVal / 100 * share) + Math.round(pfWages * pfEmployerPctVal / 100 * share)
+                : (prorate ? money(pfFull * share) : pfFull);
+            const pf = roundNet ? Math.round(pfWages * pfPctVal / 100 * share) : (pfRates > 0 ? paise(pfAll * pfPctVal / pfRates) : 0);
             const employerPf = paise(pfAll - pf);
 
             const employerEsiPct = parseFloat(byId('esiEmployerPct') ? byId('esiEmployerPct').value : 0) || esiPctVal;
             const esiRates = esiPctVal + employerEsiPct;
             const esiFull = monthlyGross <= esiThresh ? monthlyGross * esiRates / 100 : 0;
-            const esiAll = prorate ? money(esiFull * share) : esiFull;
-            const esi = esiRates > 0 ? paise(esiAll * esiPctVal / esiRates) : 0;
+            const esiOn = monthlyGross <= esiThresh ? monthlyGross * share : 0;
+            const up = function (v) { return Math.ceil(Math.round(v * 1e6) / 1e6); };
+            const esiAll = roundNet ? up(esiOn * esiPctVal / 100) + up(esiOn * employerEsiPct / 100)
+                : (prorate ? money(esiFull * share) : esiFull);
+            const esi = roundNet ? up(esiOn * esiPctVal / 100) : (esiRates > 0 ? paise(esiAll * esiPctVal / esiRates) : 0);
             const employerEsi = paise(esiAll - esi);
 
             const ptDue = ptForSalary(monthlyGross, ptVal);
             const tds = Math.max(0, parseFloat(employeeData.monthly_tds) || 0);
 
-            const sheetNet = monthlyGross - pfAll - esiAll - ptDue - tds;
+            // As SalaryCalculator: the day's pay is before TDS, which comes off after LOP.
+            const beforeTax = monthlyGross - pfAll - esiAll - ptDue;
             const lopDays = Math.max(0, wDays - present);
-            const perDay = wDays > 0 ? sheetNet / wDays : 0;
-            const finalNet = lopDays > 0 ? Math.max(0, money(sheetNet - lopDays * perDay)) : sheetNet;
-            const lop = sheetNet - finalNet;
+            const perDay = wDays > 0 ? beforeTax / wDays : 0;
+            const lop = lopDays > 0 ? beforeTax - Math.max(0, money(beforeTax - lopDays * perDay)) : 0;
 
             // what the payslip stores: the employee's side, then attendance
             const totalDeductions = pf + esi + ptDue + tds;

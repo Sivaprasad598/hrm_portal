@@ -191,6 +191,47 @@ class StatutoryReturns
     }
 
     /**
+     * Income tax withheld (TDS) for the month: who it was taken from, against
+     * which PAN, for the challan and the quarterly 24Q statement.
+     *
+     * @return array{lines: array, totals: array, problems: array}
+     */
+    public function incomeTax(array $rows): array
+    {
+        $lines = [];
+        $problems = [];
+        $totals = ['people' => 0, 'gross' => 0.0, 'total' => 0.0];
+
+        foreach ($rows as $row) {
+            $amount = (float) ($row['tds'] ?? 0);
+
+            if ($amount <= 0) {
+                continue;
+            }
+
+            $pan = strtoupper(trim((string) ($row['emp_pan'] ?? '')));
+
+            if ($pan === '') {
+                $problems[] = $row['emp_name'] . ' has no PAN; tax withheld without a PAN is taken at the higher rate.';
+                $pan = 'PANNOTAVBL';
+            }
+
+            $lines[] = [
+                $this->plain($row['emp_name']),
+                $pan,
+                round((float) $row['gross'], 2),
+                round($amount, 2),
+            ];
+
+            $totals['people']++;
+            $totals['gross'] += (float) $row['gross'];
+            $totals['total'] += $amount;
+        }
+
+        return ['lines' => $lines, 'totals' => $totals, 'problems' => $problems];
+    }
+
+    /**
      * Everything that would stop a return being accepted.
      *
      * @return array<int, string>

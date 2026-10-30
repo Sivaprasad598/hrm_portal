@@ -29,7 +29,7 @@ class OtHoursController extends AccountBaseController
         $this->pageTitle = 'OT Hours';
 
         $this->middleware(function ($request, $next) {
-            abort_403(user()->permission('manage_payroll') !== 'all' && !in_array('admin', user_roles()));
+            abort_403(!\App\Services\Access\PayrollAccess::can('settings'));
 
             return $next($request);
         });

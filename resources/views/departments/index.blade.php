@@ -44,7 +44,7 @@
 
             <div class="more-filter-items">
                 <label class="f-14 text-dark-grey mb-12 "
-                       for="usr">@lang('modules.department.title')</label>
+                       for="usr">Division</label>
                 <div class="select-filter mb-4">
                     <div class="select-others">
                         <select class="form-control select-picker" name="parent_id" id="parent_id"
@@ -75,7 +75,7 @@
                 @if ($addDepartmentPermission == 'all')
                     <x-forms.link-primary :link="route('departments.create')" class="mr-3 openRightModal float-left"
                                           icon="plus">
-                        @lang('modules.department.addTitle')
+                        Add Division
                     </x-forms.link-primary>
                 @endif
             </div>
@@ -95,7 +95,7 @@
                    data-original-title="@lang('modules.leaves.tableView')"><i class="side-icon bi bi-list-ul"></i></a>
 
                 <a href="{{ route('department.hierarchy') }}" class="btn btn-secondary f-14" data-toggle="tooltip"
-                   data-original-title="@lang('modules.department.hierarchy')"><i class="bi bi-diagram-3"></i></a>
+                   data-original-title="Division hierarchy"><i class="bi bi-diagram-3"></i></a>
             </div>
         </div>
 

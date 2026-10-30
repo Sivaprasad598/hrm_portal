@@ -18,7 +18,7 @@ class DepartmentController extends AccountBaseController
     public function __construct()
     {
         parent::__construct();
-        $this->pageTitle = __('app.menu.department');
+        $this->pageTitle = 'Divisions';
 
         $this->middleware(function ($request, $next) {
             abort_403(!in_array('employees', $this->user->modules));
@@ -37,7 +37,8 @@ class DepartmentController extends AccountBaseController
         $viewPermission = user()->permission('view_department');
         abort_403(!in_array($viewPermission, ['all', 'added', 'owned', 'both']));
 
-        $this->departments = Team::with('childs')->get();
+        // The filter offers the divisions (a division brings its sub divisions with it).
+        $this->departments = Team::with('childs')->whereNull('parent_id')->orderBy('team_name')->get();
 
         return $dataTable->render('departments.index', $this->data);
     }
@@ -226,7 +227,7 @@ class DepartmentController extends AccountBaseController
         abort_403($viewPermission != 'all');
 
         $this->editPermission = user()->permission('edit_department');
-        $this->pageTitle = 'Department Hierarchy';
+        $this->pageTitle = 'Division Hierarchy';
         $this->chartDepartments = Team::get(['id', 'team_name', 'parent_id']);
         $this->departments = Team::with('childs', 'childs.childs')->where('parent_id', null)->get();
 

@@ -10,9 +10,13 @@
 @endpush
 
 @section('filter-section')
+    @php
+        // Their own attendance only: no one else to pick, nothing to export or switch to.
+        $ownOnly = user()->permission('view_attendance') === 'owned';
+    @endphp
 
     <x-filters.filter-box>
-        <div class="select-box d-flex py-2 px-lg-2 px-md-2 px-0 border-right-grey border-right-grey-sm-0">
+        <div class="select-box d-flex py-2 px-lg-2 px-md-2 px-0 border-right-grey border-right-grey-sm-0 {{ $ownOnly ? 'd-none' : '' }}">
             <p class="mb-0 pr-2 f-14 text-dark-grey d-flex align-items-center">@lang('app.employee')</p>
             <div class="select-status">
                 <select class="form-control select-picker" name="user_id" id="user_id" data-live-search="true" data-size="8">
@@ -75,7 +79,7 @@ $addAttendancePermission = user()->permission('add_attendance');
                     </x-forms.link-primary>
 
                 @endif
-                @if (canDataTableExport())
+                @if (canDataTableExport() && user()->permission('view_attendance') !== 'owned')
                     <x-forms.button-secondary id="export-bymember" class="mr-3 mb-2 mb-lg-0" icon="file-export">
                         @lang('app.exportExcel')
                     </x-forms.button-secondary>
@@ -89,7 +93,7 @@ $addAttendancePermission = user()->permission('add_attendance');
                 @endif
             </div>
 
-            <div class="btn-group mt-2 mt-lg-0 mt-md-0 ml-0 ml-lg-3 ml-md-3" role="group">
+            <div class="btn-group mt-2 mt-lg-0 mt-md-0 ml-0 ml-lg-3 ml-md-3 {{ user()->permission('view_attendance') === 'owned' ? 'd-none' : '' }}" role="group">
                 <a href="{{ route('attendances.index') }}" class="btn btn-secondary f-14" data-toggle="tooltip"
                     data-original-title="@lang('app.summary')"><i class="side-icon bi bi-list-ul"></i></a>
 
@@ -150,22 +154,8 @@ $addAttendancePermission = user()->permission('add_attendance');
         <x-cards.data class="mt-2">
             <div class="row">
                 <div class="col-md-12">
-
-                    <table class="table table-bordered table-responsive-sm table-hover">
-                        <thead class="thead-light">
-                            <tr>
-                                <th>@lang('app.date')</th>
-                                <th>@lang('app.status')</th>
-                                <th>@lang('modules.attendance.clock_in')</th>
-                                <th>@lang('modules.attendance.clock_out')</th>
-                                <th>@lang('app.total')</th>
-                                <th class="text-right pr-20">@lang('app.others')</th>
-                            </tr>
-                        </thead>
-                        <tbody id="attendance-data">
-                        </tbody>
-                    </table>
-
+                    {{-- The month as a calendar (attendances.ajax.member_calendar) --}}
+                    <div id="attendance-data"></div>
                 </div>
             </div>
         </x-cards.data>
@@ -261,6 +251,26 @@ $addAttendancePermission = user()->permission('add_attendance');
             var url = "{{ route('attendances.show', ':attendanceID') }}";
             url = url.replace(':attendanceID', attendanceID);
 
+            $(MODAL_XL + ' ' + MODAL_HEADING).html('...');
+            $.ajaxModal(MODAL_XL, url);
+        });
+
+        // A past day without punches: how payroll counted it, with "Mark attendance".
+        $('#attendance-data').on('click', '.cycle-day', function () {
+            var url = "{{ route('attendances.cycle-day', [':userid', ':date']) }}";
+            url = url.replace(':userid', $(this).data('user-id')).replace(':date', $(this).data('date'));
+
+            $(MODAL_LG + ' ' + MODAL_HEADING).html('...');
+            $.ajaxModal(MODAL_LG, url);
+        });
+
+        // ...and from there "Mark attendance" opens the add / edit form for that day.
+        $('body').on('click', '.cycle-mark', function () {
+            var d = String($(this).data('date')).split('-');
+            var url = "{{ route('attendances.mark', [':userid', ':day', ':month', ':year']) }}";
+            url = url.replace(':userid', $(this).data('user-id')).replace(':day', d[2]).replace(':month', d[1]).replace(':year', d[0]);
+
+            $(MODAL_LG).modal('hide');
             $(MODAL_XL + ' ' + MODAL_HEADING).html('...');
             $.ajaxModal(MODAL_XL, url);
         });

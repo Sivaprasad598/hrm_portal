@@ -30,7 +30,8 @@ class UpdateRequest extends FormRequest
     {
         return [
             'name'  => 'required',
-            'file' => 'required_if:file_delete,yes'
+            'file' => 'required_if:file_delete,yes',
+            'doc_type' => 'nullable|in:' . implode(',', array_keys(\App\Services\Employee\DocumentTypes::TYPES)),
         ];
 
     }

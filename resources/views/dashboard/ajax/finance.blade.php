@@ -10,7 +10,7 @@
 </div>
 
 <div class="row">
-    @if (in_array('invoices', user_modules()) && (in_array('total_paid_invoices', $activeWidgets) || in_array('total_unpaid_invoices', $activeWidgets)))
+    @if (in_array('invoices', dashboard_modules()) && (in_array('total_paid_invoices', $activeWidgets) || in_array('total_unpaid_invoices', $activeWidgets)))
         <div class="col-xl-4 col-lg-6 col-md-6">
             <div
                 class="bg-white p-3 rounded b-shadow-4 d-flex justify-content-between align-items-center mb-4 mb-md-0 mb-lg-0">
@@ -43,7 +43,7 @@
         </div>
     @endif
 
-    @if (in_array('invoices', user_modules()) && (in_array('total_expenses', $activeWidgets) || in_array('total_earnings', $activeWidgets)))
+    @if (in_array('invoices', dashboard_modules()) && (in_array('total_expenses', $activeWidgets) || in_array('total_earnings', $activeWidgets)))
         <div class="col-xl-4 col-lg-6 col-md-6">
             <div
                 class="bg-white p-3 rounded b-shadow-4 d-flex justify-content-between align-items-center mb-4 mb-md-0 mb-lg-0">
@@ -75,7 +75,7 @@
         </div>
     @endif
 
-    @if (in_array('invoices', user_modules()) && in_array('total_pending_amount', $activeWidgets))
+    @if (in_array('invoices', dashboard_modules()) && in_array('total_pending_amount', $activeWidgets))
         <div class="col-xl-4 col-lg-6 col-md-6">
             <a href="javascript:;" id="totalPendingAmount">
                 <x-cards.widget :title="__('modules.dashboard.totalPendingAmount')"
@@ -87,7 +87,7 @@
 </div>
 
 <div class="row">
-    @if (in_array('invoices', user_modules()) && in_array('invoice_overview', $activeWidgets))
+    @if (in_array('invoices', dashboard_modules()) && in_array('invoice_overview', $activeWidgets))
         <div class="col-sm-12 col-lg-6 mt-4">
             <x-cards.data
                 :title="__('modules.dashboard.invoiceOverview').' <i class=\'fa fa-question-circle\' data-toggle=\'popover\' data-placement=\'top\' data-content=\''.__('messages.invoicesWidgetMessage').'\' data-trigger=\'hover\'></i>'">
@@ -101,7 +101,7 @@
         </div>
     @endif
 
-    @if (in_array('estimates', user_modules()) && in_array('estimate_overview', $activeWidgets))
+    @if (in_array('estimates', dashboard_modules()) && in_array('estimate_overview', $activeWidgets))
         <div class="col-sm-12 col-lg-6 mt-4">
             <x-cards.data
                 :title="__('modules.dashboard.estimateOverview').' <i class=\'fa fa-question-circle\' data-toggle=\'popover\' data-placement=\'top\' data-content=\''.__('messages.estimatesWidgetMessage').'\' data-trigger=\'hover\'></i>'">
@@ -115,7 +115,7 @@
         </div>
     @endif
 
-    @if (in_array('leads', user_modules()) && in_array('proposal_overview', $activeWidgets))
+    @if (in_array('leads', dashboard_modules()) && in_array('proposal_overview', $activeWidgets))
         <div class="col-sm-12 col-lg-6 mt-4">
             <x-cards.data
                 :title="__('modules.dashboard.proposalOverview').' <i class=\'fa fa-question-circle\' data-toggle=\'popover\' data-placement=\'top\' data-content=\''.__('messages.proposalsWidgetMessage').'\' data-trigger=\'hover\'></i>'">
@@ -129,7 +129,7 @@
         </div>
     @endif
 
-    @if (in_array('payments', user_modules()) && in_array('earnings_by_client', $activeWidgets))
+    @if (in_array('payments', dashboard_modules()) && in_array('earnings_by_client', $activeWidgets))
         <div class="col-sm-12 col-lg-6 mt-4">
             <x-cards.data
                 :title="__('modules.dashboard.clientWiseEarnings').' <i class=\'fa fa-question-circle\' data-toggle=\'popover\' data-placement=\'top\' data-content=\''.__('messages.earningChartNote').'\' data-trigger=\'hover\'></i>'">
@@ -138,7 +138,7 @@
         </div>
     @endif
 
-    @if (in_array('payments', user_modules()) && in_array('projects', user_modules()) && in_array('earnings_by_projects', $activeWidgets))
+    @if (in_array('payments', dashboard_modules()) && in_array('projects', dashboard_modules()) && in_array('earnings_by_projects', $activeWidgets))
         <div class="col-sm-12 col-lg-6 mt-4">
             <x-cards.data
                 :title="__('modules.dashboard.earningsByProjects').' <i class=\'fa fa-question-circle\' data-toggle=\'popover\' data-placement=\'top\' data-content=\''.__('messages.earningChartNote').'\' data-trigger=\'hover\'></i>'">

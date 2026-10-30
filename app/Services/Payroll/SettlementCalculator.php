@@ -83,7 +83,7 @@ class SettlementCalculator
 
         // ---- leave not taken --------------------------------------------
         $leave = $this->leaveBalance($userId);
-        $perDay = $periodDays > 0 ? $pay['net'] / $periodDays : 0.0;
+        $perDay = $pay['per_day'];   // the day's pay before TDS, as on the payslip
         $leaveDays = (float) ($overrides['leave_days'] ?? $leave['days']);
         $leaveRate = $this->leaveDayRate($employee);
         $encashment = round($leaveDays * ($leaveRate['exact_rate'] ?? 0), 2);

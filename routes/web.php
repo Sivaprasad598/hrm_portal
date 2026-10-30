@@ -140,7 +140,9 @@ use App\Http\Controllers\Auth\LogoutController;
 
 
 Route::group(['middleware' => 'auth', 'prefix' => 'account'], function () {
-    Route::post('logout', LogoutController::class)->name('logout');
+    // Its own name: "logout" is Fortify's /logout, which every sign-out button uses,
+    // and two routes with one name stop the route cache from being built.
+    Route::post('logout', LogoutController::class)->name('account.logout');
     Route::post('image/upload', [ImageController::class, 'store'])->name('image.store');
 
 
@@ -1218,6 +1220,8 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account'], function () {
     Route::get('statutory-returns', [App\Http\Controllers\StatutoryReturnsController::class, 'index'])->name('statutory-returns.index');
     Route::get('statutory-returns/pf', [App\Http\Controllers\StatutoryReturnsController::class, 'providentFund'])->name('statutory-returns.pf');
     Route::get('statutory-returns/sheet', [App\Http\Controllers\StatutoryReturnsController::class, 'spreadsheet'])->name('statutory-returns.spreadsheet');
+    Route::get('statutory-returns/bundle', [App\Http\Controllers\StatutoryReturnsController::class, 'bundle'])->name('statutory-returns.bundle');
+    Route::get('payroll-dashboard/table', [App\Http\Controllers\PayrollDashboardController::class, 'table'])->name('payroll-dashboard.table');
     // What is owed when somebody leaves.
     // One employee's attendance for one salary period, as payroll counts it.
     Route::get('payroll/attendance/{userId}', [App\Http\Controllers\PayrollAttendanceController::class, 'show'])->name('payroll.attendance');
