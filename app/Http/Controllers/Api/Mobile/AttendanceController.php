@@ -18,13 +18,19 @@ use Illuminate\Support\Facades\DB;
  * only), and the month as a calendar - counted the way payroll counts it
  * (AttendanceDays), so the app, the attendance screens and the payslip agree.
  *
- * Every employee may clock in from the app. The location is recorded, never
- * checked against the office.
+ * The app follows the website's clock-in rules from Attendance Settings: the
+ * "employees may clock in" switch, the IP list and the office radius, the
+ * last two skipped for work from home as on the website. The shift's clock-in
+ * window is not applied: the app may clock in at any hour, as on the website
+ * when "show the clock-in button" is on.
  */
 class AttendanceController extends MobileController
 {
     /** A session left open longer than this is treated as forgotten, not as "clocked in". */
     const OPEN_SESSION_HOURS = 20;
+
+    /** The longest period the attendance list answers in one call. */
+    const MAX_RANGE_DAYS = 92;
 
     public function today()
     {
@@ -50,6 +56,9 @@ class AttendanceController extends MobileController
                 'photo' => $requirements['photo'],       // off | optional | mandatory
                 'location' => $requirements['location'], // off | optional | mandatory
             ],
+            'can_clock_in' => $this->settings()->employee_clock_in_out === 'yes',
+            'office_radius_m' => $this->settings()->radius_check === 'yes' ? (int) $this->settings()->radius : null,
+            'offices' => $this->offices(),
         ]);
     }
 
@@ -71,6 +80,10 @@ class AttendanceController extends MobileController
             return $this->fail('You have reached the clock-ins allowed in a day (' . $limit . ').', 409);
         }
 
+        if ($refusal = $this->settingsRefusal($request, (new ClockInCapture())->coordinates($request->latitude, $request->longitude))) {
+            return $this->fail($refusal, 403);
+        }
+
         [$photo, $where, $error] = $this->capture($request, 'clock in');
 
         if ($error) {
@@ -86,6 +99,7 @@ class AttendanceController extends MobileController
         $attendance->clock_in_type = 'mobile_app';
         $attendance->work_from_type = $request->input('work_from_type', 'office');
         $attendance->working_from = $request->working_from;
+        $attendance->location_id = $this->officeId($request);
         $attendance->employee_shift_id = is_numeric($shift->id ?? null) ? $shift->id : null;
         $attendance->late = $sessionsToday->isEmpty() && $this->isLate($shift, $now) ? 'yes' : 'no';
         $attendance->half_day = 'no';
@@ -110,6 +124,10 @@ class AttendanceController extends MobileController
             return $this->fail('You are not clocked in.', 409);
         }
 
+        if ($refusal = $this->settingsRefusal($request, (new ClockInCapture())->coordinates($request->latitude, $request->longitude), false)) {
+            return $this->fail($refusal, 403);
+        }
+
         [$photo, $where, $error] = $this->capture($request, 'clock out');
 
         if ($error) {
@@ -122,6 +140,7 @@ class AttendanceController extends MobileController
             $attendance->clock_out_time = $now->copy()->timezone(config('app.timezone'));
             $attendance->clock_out_ip = $request->ip();
             $attendance->clock_out_type = 'mobile_app';
+            $attendance->clock_out_time_location_id = $this->officeId($request);
             $attendance->clock_out_time_work_from_type = $request->input('work_from_type', 'office');
             $attendance->clock_out_time_working_from = $request->working_from;
             $attendance->clock_out_latitude = $where['latitude'];
@@ -204,32 +223,50 @@ class AttendanceController extends MobileController
         $tz = $this->tz();
         $start = Carbon::create((int) ($request->year ?: now($tz)->year), (int) ($request->month ?: now($tz)->month), 1, 0, 0, 0, $tz);
         $end = $start->copy()->endOfMonth()->startOfDay();
-        $count = (new AttendanceDays($tz))->forRange($this->me()->id, $start, $end);
-        $leaves = $this->leavesBetween($start, $end);
-        $breaks = $this->breaksBetween($start, $end);
-
-        $days = collect($count['days'])->map(fn ($day) => $this->calendarDay($day, $leaves[$day['date']] ?? [], $breaks[$day['date']] ?? collect()));
-        $b = $count['breakdown'];
+        [$summary, $days] = $this->period($start, $end);
 
         return $this->ok([
             'month' => (int) $start->month,
             'year' => (int) $start->year,
-            'summary' => [
-                'days_counted' => $count['working_days'],   // days of the month up to today
-                'days_paid' => (float) $count['days_present'],
-                'lop_days' => round(max(0, $count['working_days'] - $count['days_present']), 2),
-                'worked_days' => (float) ($b['worked'] ?? 0),
-                'week_offs' => (int) ($b['week_off'] ?? 0),
-                'holidays' => (int) ($b['holiday'] ?? 0),
-                'paid_leave_days' => (float) ($b['paid_leave'] ?? 0),
-                'unpaid_leave_days' => (float) ($b['lop_leave'] ?? 0),
-                'absent_days' => (float) ($b['absent'] ?? 0),
-                'late_marks' => (int) ($b['late_marks'] ?? 0),
-                'late_half_days' => (int) ($b['late_half_days'] ?? 0),
-            ],
-            'legend' => collect(PayrollAttendanceController::STATUSES)->map(fn ($meta, $key) => ['status' => $key, 'label' => $meta[0]])
-                ->values()->push(['status' => 'in_progress', 'label' => 'In progress (today)']),
+            'summary' => $summary,
+            'legend' => $this->legend(),
             'days' => $days->values(),
+        ]);
+    }
+
+    /** Any period up to MAX_RANGE_DAYS, day by day, newest first - the attendance list. */
+    public function index(Request $request)
+    {
+        $request->validate([
+            'from' => 'nullable|date_format:Y-m-d',
+            'to' => 'nullable|date_format:Y-m-d|after_or_equal:from',
+            'status' => 'nullable|string|max:30',
+        ]);
+
+        $tz = $this->tz();
+        $to = $request->to ? Carbon::parse($request->to, $tz)->startOfDay() : now($tz)->startOfDay();
+        $from = $request->from ? Carbon::parse($request->from, $tz)->startOfDay() : $to->copy()->startOfMonth();
+
+        if ($from->gt($to)) {
+            return $this->fail('The from date must be on or before the to date.', 422, ['from' => ['The from date must be on or before the to date.']]);
+        }
+
+        if ($from->diffInDays($to) + 1 > self::MAX_RANGE_DAYS) {
+            return $this->fail('Choose a period of at most ' . self::MAX_RANGE_DAYS . ' days.', 422, ['from' => ['Choose a period of at most ' . self::MAX_RANGE_DAYS . ' days.']]);
+        }
+
+        [$summary, $days] = $this->period($from, $to);
+
+        if ($request->status) {
+            $days = $days->where('status', $request->status);
+        }
+
+        return $this->ok([
+            'from' => $from->toDateString(),
+            'to' => $to->toDateString(),
+            'summary' => $summary,
+            'legend' => $this->legend(),
+            'days' => $days->sortByDesc('date')->values(),
         ]);
     }
 
@@ -254,9 +291,130 @@ class AttendanceController extends MobileController
 
     // ------------------------------------------------------------------ helpers
 
+    /**
+     * A period as payroll counts it: [summary, days].
+     *
+     * @return array{0: array, 1: \Illuminate\Support\Collection}
+     */
+    private function period(Carbon $start, Carbon $end): array
+    {
+        $count = (new AttendanceDays($this->tz()))->forRange($this->me()->id, $start, $end);
+        $leaves = $this->leavesBetween($start, $end);
+        $breaks = $this->breaksBetween($start, $end);
+        $days = collect($count['days'])->map(fn ($day) => $this->calendarDay($day, $leaves[$day['date']] ?? [], $breaks[$day['date']] ?? collect()));
+        $b = $count['breakdown'];
+
+        return [[
+            'days_counted' => $count['working_days'],   // days of the period up to today
+            'days_paid' => (float) $count['days_present'],
+            'lop_days' => round(max(0, $count['working_days'] - $count['days_present']), 2),
+            'worked_days' => (float) ($b['worked'] ?? 0),
+            'week_offs' => (int) ($b['week_off'] ?? 0),
+            'holidays' => (int) ($b['holiday'] ?? 0),
+            'paid_leave_days' => (float) ($b['paid_leave'] ?? 0),
+            'unpaid_leave_days' => (float) ($b['lop_leave'] ?? 0),
+            'absent_days' => (float) ($b['absent'] ?? 0),
+            'late_marks' => (int) ($b['late_marks'] ?? 0),
+            'late_half_days' => (int) ($b['late_half_days'] ?? 0),
+            'worked_minutes' => (int) $days->sum('worked_minutes'),
+        ], $days];
+    }
+
+    private function legend()
+    {
+        return collect(PayrollAttendanceController::STATUSES)->map(fn ($meta, $key) => ['status' => $key, 'label' => $meta[0]])
+            ->values()->push(['status' => 'in_progress', 'label' => 'In progress (today)']);
+    }
+
+    private function settings(): object
+    {
+        // Read each time: a controller object can outlive one request.
+        return DB::table('attendance_settings')->where('company_id', $this->me()->company_id)->first()
+            ?? DB::table('attendance_settings')->first();
+    }
+
+
+    /** The company's offices, for the "where are you" picker, as the website's clock-in offers them. */
+    private function offices()
+    {
+        return DB::table('company_addresses')->where('company_id', $this->me()->company_id)->orderByDesc('is_default')->orderBy('id')
+            ->get(['id', 'location', 'address', 'is_default', 'latitude', 'longitude'])
+            ->map(fn ($o) => [
+                'id' => $o->id,
+                'name' => trim((string) $o->location) !== '' ? $o->location : $o->address,
+                'is_default' => (bool) $o->is_default,
+                'latitude' => $o->latitude !== null ? (float) $o->latitude : null,
+                'longitude' => $o->longitude !== null ? (float) $o->longitude : null,
+            ])->values();
+    }
+
+    /** The office the employee picked, if it is one of the company's. */
+    private function officeId(Request $request): ?int
+    {
+        $id = (int) $request->location_id;
+
+        return $id && DB::table('company_addresses')->where('company_id', $this->me()->company_id)->where('id', $id)->exists() ? $id : null;
+    }
+
+    /**
+     * Why Attendance Settings refuse this punch, as the website's clock-in
+     * refuses it; null when allowed. Working from home skips the IP and
+     * radius checks, as on the website.
+     */
+    private function settingsRefusal(Request $request, array $where, bool $clockingIn = true): ?string
+    {
+        $settings = $this->settings();
+
+        if ($clockingIn && ($settings->employee_clock_in_out ?? 'yes') !== 'yes') {
+            return 'Clocking in yourself is turned off. Please contact HR.';
+        }
+
+        if ($request->input('work_from_type', 'office') === 'home') {
+            return null;
+        }
+
+        if (($settings->ip_check ?? 'no') === 'yes' && !in_array($request->ip(), (array) json_decode((string) $settings->ip_address), true)) {
+            return __('messages.notAnAuthorisedDevice');
+        }
+
+        if (($settings->radius_check ?? 'no') === 'yes' && ($clockingIn ? ($settings->auto_clock_in_location ?? 'office') !== 'home' : true)) {
+            $office = $this->officeFor($request);
+
+            if ($where['latitude'] === null) {
+                return 'Your location is required to ' . ($clockingIn ? 'clock in' : 'clock out') . ' at the office. Allow location access and try again.';
+            }
+
+            if ($office && $office->latitude !== null
+                && $this->metresBetween((float) $office->latitude, (float) $office->longitude, $where['latitude'], $where['longitude']) > (float) $settings->radius) {
+                return __('messages.notAnValidLocation');
+            }
+        }
+
+        return null;
+    }
+
+    /** The office to measure from: the one picked, else the employee's, else the default - as the website does. */
+    private function officeFor(Request $request): ?object
+    {
+        $companyId = $this->me()->company_id;
+        $id = $this->officeId($request) ?: (int) DB::table('employee_details')->where('user_id', $this->me()->id)->value('company_address_id');
+        $office = $id ? DB::table('company_addresses')->where('company_id', $companyId)->where('id', $id)->first() : null;
+
+        return $office ?: DB::table('company_addresses')->where('company_id', $companyId)->where('is_default', 1)->first();
+    }
+
+    private function metresBetween(float $lat1, float $lng1, float $lat2, float $lng2): float
+    {
+        $rad = fn ($d) => deg2rad($d);
+        $a = sin($rad($lat2 - $lat1) / 2) ** 2 + cos($rad($lat1)) * cos($rad($lat2)) * sin($rad($lng2 - $lng1) / 2) ** 2;
+
+        return 6371000 * 2 * atan2(sqrt($a), sqrt(1 - $a));
+    }
+
     private function validatePunch(Request $request): void
     {
         $request->validate([
+            'location_id' => 'nullable|integer',
             'latitude' => 'nullable|numeric|between:-90,90',
             'longitude' => 'nullable|numeric|between:-180,180',
             'accuracy' => 'nullable|numeric|min:0',
@@ -305,7 +463,7 @@ class AttendanceController extends MobileController
     {
         $address = trim((string) $request->address);
 
-        return $address !== '' ? mb_substr($address, 0, 255) : $capture->place(null, $type, $workingFrom);
+        return $address !== '' ? mb_substr($address, 0, 255) : $capture->place($this->officeId($request), $type, $workingFrom);
     }
 
     /** The session clocked in and not yet out (a forgotten one older than a day does not count). */

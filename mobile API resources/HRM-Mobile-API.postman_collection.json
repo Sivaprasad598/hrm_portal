@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "HRM Employee Mobile API (v1)",
-    "description": "Employee mobile app API. Import the environment too, set email and password, then run \"Login\" first: it saves the token for every other request. Full documentation: README.md in the same folder.",
+    "description": "Employee mobile app API. Import the environment too, set email and password, then run \"Login\" first: it saves the token for every other request. Leave types saves leave_type_id; Payslips / Assets lists save payslip_id / asset_id; applying for leave saves leave_id. Full documentation: README.md in the same folder.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -44,7 +44,7 @@
                 "login"
               ]
             },
-            "description": "Sign in with e-mail and password. Saves the token to the environment.",
+            "description": "Sign in with e-mail and password. Saves the token for every other request.\n\n401 wrong e-mail/password, 403 account cannot use the app (deactivated, login disabled, past last working day, not an employee), 429 after 5 wrong tries (1 minute).",
             "body": {
               "mode": "urlencoded",
               "urlencoded": [
@@ -138,6 +138,336 @@
                   "  pm.collectionVariables.set('token', r.data.token);",
                   "}",
                   "pm.test('signed in', () => pm.expect(r.success).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Forgot password (send code)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/forgot-password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "forgot-password"
+              ]
+            },
+            "description": "E-mails a 6-digit code (valid 15 minutes, 5 tries, single use). The answer is the same whether or not the e-mail exists. 3 requests per 10 minutes per e-mail.",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "email",
+                  "type": "text",
+                  "description": "The employee's e-mail",
+                  "value": "{{email}}"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [
+            {
+              "name": "Code sent",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"If this e-mail belongs to an employee, a 6-digit code has been sent to it.\",\n  \"data\": {\n    \"expires_in_minutes\": 15\n  }\n}"
+            },
+            {
+              "name": "Too many requests",
+              "status": "Too Many Requests",
+              "code": 429,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"Too many requests. Try again in 540 seconds.\",\n  \"errors\": {}\n}"
+            }
+          ]
+        },
+        {
+          "name": "Verify reset code (optional)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/verify-reset-code",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "verify-reset-code"
+              ]
+            },
+            "description": "Optional: check the code before showing the new-password screen. A wrong code counts as one of the 5 tries.",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "email",
+                  "type": "text",
+                  "description": "",
+                  "value": "{{email}}"
+                },
+                {
+                  "key": "code",
+                  "type": "text",
+                  "description": "6 digits from the e-mail",
+                  "value": "{{reset_code}}"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [
+            {
+              "name": "Correct",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"The code is correct.\",\n  \"data\": null\n}"
+            },
+            {
+              "name": "Wrong code",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"The code is not correct.\",\n  \"errors\": {\n    \"code\": [\n      \"The code is not correct.\"\n    ]\n  }\n}"
+            },
+            {
+              "name": "Expired / used / too many tries",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"The code has expired. Ask for a new one.\",\n  \"errors\": {\n    \"code\": [\n      \"The code has expired. Ask for a new one.\"\n    ]\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Reset password (with code)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/reset-password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "reset-password"
+              ]
+            },
+            "description": "Sets a new password with the e-mailed code. Signs the account out of every device (all tokens revoked) - log in again afterwards.\n\nPassword: at least 8 characters, at most 50.",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "email",
+                  "type": "text",
+                  "description": "",
+                  "value": "{{email}}"
+                },
+                {
+                  "key": "code",
+                  "type": "text",
+                  "description": "",
+                  "value": "{{reset_code}}"
+                },
+                {
+                  "key": "password",
+                  "type": "text",
+                  "description": "",
+                  "value": "{{new_password}}"
+                },
+                {
+                  "key": "password_confirmation",
+                  "type": "text",
+                  "description": "",
+                  "value": "{{new_password}}"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [
+            {
+              "name": "Changed",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"Your password has been changed. Log in with the new password.\",\n  \"data\": null\n}"
+            },
+            {
+              "name": "Expired code",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"The code has expired. Ask for a new one.\",\n  \"errors\": {\n    \"code\": [\n      \"The code has expired. Ask for a new one.\"\n    ]\n  }\n}"
+            },
+            {
+              "name": "Passwords differ",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"The password confirmation does not match.\",\n  \"errors\": {\n    \"password\": [\n      \"The password confirmation does not match.\"\n    ]\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Change password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/change-password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "change-password"
+              ]
+            },
+            "description": "Signed in: change the password. Other devices are signed out; this token keeps working.",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "current_password",
+                  "type": "text",
+                  "description": "",
+                  "value": "{{password}}"
+                },
+                {
+                  "key": "password",
+                  "type": "text",
+                  "description": "",
+                  "value": "{{new_password}}"
+                },
+                {
+                  "key": "password_confirmation",
+                  "type": "text",
+                  "description": "",
+                  "value": "{{new_password}}"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Changed",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"Your password has been changed.\",\n  \"data\": null\n}"
+            },
+            {
+              "name": "Wrong current password",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"The current password is not correct.\",\n  \"errors\": {\n    \"current_password\": [\n      \"The current password is not correct.\"\n    ]\n  }\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) { pm.environment.set('password', pm.environment.get('new_password')); }"
                 ]
               }
             }
@@ -246,16 +576,11 @@
               "body": "{\n  \"success\": false,\n  \"message\": \"Please log in again.\",\n  \"errors\": {}\n}"
             }
           ]
-        }
-      ]
-    },
-    {
-      "name": "3. Assets",
-      "item": [
+        },
         {
-          "name": "Assigned assets",
+          "name": "Update my profile",
           "request": {
-            "method": "GET",
+            "method": "POST",
             "header": [
               {
                 "key": "Accept",
@@ -263,19 +588,84 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/assets",
+              "raw": "{{base_url}}/me",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
-                "assets"
+                "me"
               ]
             },
-            "description": "Assets the employee holds now. Saves the first id as asset_id."
+            "description": "Updates only the fields sent (multipart, because of the photo). Name, e-mail, department, designation, manager and employment dates are HR-managed and cannot be changed here.\n\nmarital_status: single, married, widower, widow, separate, divorced, engaged. marriage_date is required when married and cleared otherwise.\nAnswers with the full profile, as GET /me.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "mobile",
+                  "type": "text",
+                  "description": "Digits only, 6-15",
+                  "value": "9876543210"
+                },
+                {
+                  "key": "country_phonecode",
+                  "type": "text",
+                  "description": "e.g. 91",
+                  "value": "91"
+                },
+                {
+                  "key": "gender",
+                  "type": "text",
+                  "description": "male | female | others",
+                  "value": "male",
+                  "disabled": true
+                },
+                {
+                  "key": "date_of_birth",
+                  "type": "text",
+                  "description": "YYYY-MM-DD",
+                  "value": "1995-06-14",
+                  "disabled": true
+                },
+                {
+                  "key": "marital_status",
+                  "type": "text",
+                  "description": "",
+                  "value": "single",
+                  "disabled": true
+                },
+                {
+                  "key": "marriage_date",
+                  "type": "text",
+                  "description": "YYYY-MM-DD, when married",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "address",
+                  "type": "text",
+                  "description": "Up to 500 characters",
+                  "value": "Murali Nagar, Visakhapatnam"
+                },
+                {
+                  "key": "photo",
+                  "type": "file",
+                  "description": "Profile photo: jpg/png/webp, max 2 MB",
+                  "src": [],
+                  "disabled": true
+                },
+                {
+                  "key": "remove_photo",
+                  "type": "text",
+                  "description": "Send 1 to remove the photo",
+                  "value": "1",
+                  "disabled": true
+                }
+              ]
+            }
           },
           "response": [
             {
-              "name": "Assets",
+              "name": "Updated",
               "status": "OK",
               "code": 200,
               "header": [
@@ -285,49 +675,12 @@
                 }
               ],
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"success\": true,\n  \"message\": \"OK\",\n  \"data\": [\n    {\n      \"id\": 97,\n      \"name\": \"Test Laptop\",\n      \"asset_code\": \"API-TEST-01\",\n      \"type\": \"API Test Laptop\",\n      \"brand\": \"Dell\",\n      \"model\": \"Latitude 5440\",\n      \"serial_number\": \"SN123\",\n      \"image_url\": null,\n      \"assigned_on\": \"2026-10-27\",\n      \"expected_return_on\": null\n    }\n  ]\n}"
-            }
-          ],
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const r = pm.response.json();",
-                  "if (r.data && r.data.length) pm.environment.set('asset_id', r.data[0].id);"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Asset detail",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/assets/{{asset_id}}",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "assets",
-                "{{asset_id}}"
-              ]
+              "body": "{\n  \"success\": true,\n  \"message\": \"Profile updated.\",\n  \"data\": {\n    \"id\": 4919,\n    \"name\": \"Test Employee\",\n    \"employee_id\": \"TEST001\",\n    \"photo_url\": \"https://…/avatar/abc.png\",\n    \"email\": \"employee@company.com\",\n    \"mobile\": \"+91 9876543210\",\n    \"mobile_number\": \"9876543210\",\n    \"country_phonecode\": \"91\",\n    \"gender\": \"male\",\n    \"designation\": \"CAD Engineer\",\n    \"division\": \"IT Department\",\n    \"sub_division\": null,\n    \"address\": \"Murali Nagar, Visakhapatnam\",\n    \"…\": \"other fields as GET /me\"\n  }\n}"
             },
-            "description": "One asset, if it is or was assigned to the employee; otherwise 404."
-          },
-          "response": [
             {
-              "name": "Not theirs",
-              "status": "Not Found",
-              "code": 404,
+              "name": "Validation",
+              "status": "Unprocessable Entity",
+              "code": 422,
               "header": [
                 {
                   "key": "Content-Type",
@@ -335,150 +688,14 @@
                 }
               ],
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"success\": false,\n  \"message\": \"Not found.\",\n  \"errors\": {}\n}"
+              "body": "{\n  \"success\": false,\n  \"message\": \"The marriage date field is required when marital status is married.\",\n  \"errors\": {\n    \"marriage_date\": [\n      \"The marriage date field is required when marital status is married.\"\n    ]\n  }\n}"
             }
           ]
         }
       ]
     },
     {
-      "name": "4. Payslips",
-      "item": [
-        {
-          "name": "Payslips",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/payslips?year=2026",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "payslips"
-              ],
-              "query": [
-                {
-                  "key": "year",
-                  "value": "2026"
-                }
-              ]
-            },
-            "description": "Issued (approved / paid) payslips, newest first. Saves the first id as payslip_id."
-          },
-          "response": [
-            {
-              "name": "Payslips",
-              "status": "OK",
-              "code": 200,
-              "header": [
-                {
-                  "key": "Content-Type",
-                  "value": "application/json"
-                }
-              ],
-              "_postman_previewlanguage": "json",
-              "body": "{\n  \"success\": true,\n  \"message\": \"OK\",\n  \"data\": [\n    {\n      \"id\": 65,\n      \"payslip_number\": \"AROW/2026-27/000001\",\n      \"month\": \"October - 2026\",\n      \"period_start\": \"2026-09-21\",\n      \"period_end\": \"2026-10-20\",\n      \"net_pay\": 28865,\n      \"status\": \"approved\"\n    }\n  ]\n}"
-            }
-          ],
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const r = pm.response.json();",
-                  "if (r.data && r.data.length) pm.environment.set('payslip_id', r.data[0].id);"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Payslip detail",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/payslips/{{payslip_id}}",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "payslips",
-                "{{payslip_id}}"
-              ]
-            },
-            "description": "Earnings, deductions, employer contributions, attendance and net pay."
-          },
-          "response": [
-            {
-              "name": "Payslip",
-              "status": "OK",
-              "code": 200,
-              "header": [
-                {
-                  "key": "Content-Type",
-                  "value": "application/json"
-                }
-              ],
-              "_postman_previewlanguage": "json",
-              "body": "{\n  \"success\": true,\n  \"message\": \"OK\",\n  \"data\": {\n    \"id\": 65,\n    \"payslip_number\": \"AROW/2026-27/000001\",\n    \"month\": \"October - 2026\",\n    \"period_start\": \"2026-09-21\",\n    \"period_end\": \"2026-10-20\",\n    \"status\": \"approved\",\n    \"issued_at\": \"2026-10-24T15:01:59+05:30\",\n    \"paid_at\": null,\n    \"attendance\": {\n      \"working_days\": 30,\n      \"days_present\": 29,\n      \"lop_days\": 1,\n      \"per_day\": 900.53\n    },\n    \"earnings\": [\n      {\n        \"label\": \"Basic\",\n        \"amount\": 12000\n      },\n      {\n        \"label\": \"House Rent Allowance\",\n        \"amount\": 4800\n      },\n      {\n        \"label\": \"Conveyance Allowance\",\n        \"amount\": 800\n      },\n      {\n        \"label\": \"Leave Travel Allowance\",\n        \"amount\": 1200\n      },\n      {\n        \"label\": \"Children's Education Allowance\",\n        \"amount\": 1200\n      },\n      {\n        \"label\": \"Special Allowance\",\n        \"amount\": 10000\n      },\n      {\n        \"label\": \"Incentive\",\n        \"amount\": 1500\n      },\n      {\n        \"label\": \"Reimbursement\",\n        \"amount\": 750\n      },\n      {\n        \"label\": \"OT encashed (20h)\",\n        \"amount\": 2500\n      }\n    ],\n    \"total_earnings\": 34750,\n    \"deductions\": [\n      {\n        \"label\": \"Employee PF\",\n        \"amount\": 1392\n      },\n      {\n        \"label\": \"Professional Tax\",\n        \"amount\": 200\n      },\n      {\n        \"label\": \"Loss of Pay\",\n        \"amount\": 901\n      },\n      {\n        \"label\": \"Salary Advance\",\n        \"amount\": 2000\n      }\n    ],\n    \"total_deductions\": 4493,\n    \"employer_contributions\": [\n      {\n        \"label\": \"Employer PF\",\n        \"amount\": 1392\n      },\n      {\n        \"label\": \"Employer ESI\",\n        \"amount\": 0\n      }\n    ],\n    \"total_employer_contributions\": 1392,\n    \"leave_encashment\": null,\n    \"overtime\": {\n      \"encashed_hours\": 20,\n      \"encashed_amount\": 2500,\n      \"lop_days_covered\": 2,\n      \"balance_hours\": 66.92\n    },\n    \"net_pay\": 28865,\n    \"net_pay_with_encashment\": 28865,\n    \"download_url\": \"https://your-hrm-domain/api/mobile/v1/payslips/65/download\"\n  }\n}"
-            },
-            {
-              "name": "Not issued / not theirs",
-              "status": "Not Found",
-              "code": 404,
-              "header": [
-                {
-                  "key": "Content-Type",
-                  "value": "application/json"
-                }
-              ],
-              "_postman_previewlanguage": "json",
-              "body": "{\n  \"success\": false,\n  \"message\": \"Not found.\",\n  \"errors\": {}\n}"
-            }
-          ]
-        },
-        {
-          "name": "Download payslip (PDF)",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/payslips/{{payslip_id}}/download",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "payslips",
-                "{{payslip_id}}",
-                "download"
-              ]
-            },
-            "description": "The payslip PDF, the same as the website. In Postman use \"Send and Download\"."
-          },
-          "response": []
-        }
-      ]
-    },
-    {
-      "name": "5. Attendance",
+      "name": "3. Attendance",
       "item": [
         {
           "name": "Today",
@@ -500,7 +717,7 @@
                 "today"
               ]
             },
-            "description": "Clocked in? On a break? Today's sessions and breaks, and whether photo / location are required."
+            "description": "Clocked in? On a break? Today's sessions and breaks, and whether photo / location are required.\n\nAlso returns can_clock_in (Attendance Settings switch), office_radius_m (null when the radius is not checked) and offices[] for the office picker."
           },
           "response": [
             {
@@ -551,10 +768,16 @@
                 "clock-in"
               ]
             },
-            "description": "Clock in with photo and location (multipart/form-data). Pick an image file for \"photo\".",
+            "description": "Clock in with photo and location (multipart/form-data). Pick an image file for \"photo\".\n\nSame rules as the website clock-in (Attendance Settings): photo/location requirement, \"employees may clock in\" switch (403 when off), IP list and office radius (403 outside; both skipped for work_from_type = home). The radius is measured from location_id, else the employee's office, else the default office.",
             "body": {
               "mode": "formdata",
               "formdata": [
+                {
+                  "key": "location_id",
+                  "type": "text",
+                  "description": "Optional: the office picked, from offices[] in GET /attendance/today (as on the website)",
+                  "value": "1"
+                },
                 {
                   "key": "photo",
                   "type": "file",
@@ -634,6 +857,157 @@
               ],
               "_postman_previewlanguage": "json",
               "body": "{\n  \"success\": false,\n  \"message\": \"You are already clocked in since 2026-10-27T08:20:30+05:30.\",\n  \"errors\": {}\n}"
+            },
+            {
+              "name": "Outside the office radius",
+              "status": "Forbidden",
+              "code": 403,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"Your current location is not with in the clock-in range\",\n  \"errors\": {}\n}"
+            },
+            {
+              "name": "Self clock-in switched off",
+              "status": "Forbidden",
+              "code": 403,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"Clocking in yourself is turned off. Please contact HR.\",\n  \"errors\": {}\n}"
+            }
+          ]
+        },
+        {
+          "name": "Clock out",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance/clock-out",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "clock-out"
+              ]
+            },
+            "description": "Clock out with photo and location (multipart/form-data). Ends a running break too.\n\nThe IP and office-radius rules apply as on the website (skipped for work_from_type = home).",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "location_id",
+                  "type": "text",
+                  "description": "Optional: the office picked, from offices[] in GET /attendance/today (as on the website)",
+                  "value": "1"
+                },
+                {
+                  "key": "photo",
+                  "type": "file",
+                  "src": [],
+                  "description": "Camera image (jpg/png/webp, max 2 MB). Required when /attendance/today says requirements.photo = mandatory."
+                },
+                {
+                  "key": "latitude",
+                  "value": "17.7231",
+                  "type": "text",
+                  "description": "Decimal degrees"
+                },
+                {
+                  "key": "longitude",
+                  "value": "83.3012",
+                  "type": "text",
+                  "description": "Decimal degrees"
+                },
+                {
+                  "key": "accuracy",
+                  "value": "12",
+                  "type": "text",
+                  "description": "GPS accuracy in metres (optional)"
+                },
+                {
+                  "key": "address",
+                  "value": "Murali Nagar, Visakhapatnam",
+                  "type": "text",
+                  "description": "Reverse-geocoded place (optional)"
+                },
+                {
+                  "key": "work_from_type",
+                  "value": "office",
+                  "type": "text",
+                  "description": "office | home | other"
+                },
+                {
+                  "key": "working_from",
+                  "value": "",
+                  "type": "text",
+                  "description": "Required when work_from_type = other",
+                  "disabled": true
+                },
+                {
+                  "key": "photo_base64",
+                  "value": "",
+                  "type": "text",
+                  "description": "Alternative to photo: the image as base64",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Clocked out",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"Clocked out at 08:20 AM.\",\n  \"data\": {\n    \"id\": 17990,\n    \"clock_in\": \"2026-10-27T08:20:30+05:30\",\n    \"clock_out\": \"2026-10-27T08:20:39+05:30\",\n    \"source\": \"mobile_app\",\n    \"work_from\": \"office\",\n    \"minutes\": 0\n  }\n}"
+            },
+            {
+              "name": "Not clocked in",
+              "status": "Conflict",
+              "code": 409,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"You are not clocked in.\",\n  \"errors\": {}\n}"
+            },
+            {
+              "name": "Outside the office radius",
+              "status": "Forbidden",
+              "code": 403,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"Your current location is not with in the clock-in range\",\n  \"errors\": {}\n}"
             }
           ]
         },
@@ -802,9 +1176,9 @@
           ]
         },
         {
-          "name": "Clock out",
+          "name": "Attendance list (period)",
           "request": {
-            "method": "POST",
+            "method": "GET",
             "header": [
               {
                 "key": "Accept",
@@ -812,75 +1186,37 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/attendance/clock-out",
+              "raw": "{{base_url}}/attendance?from=2026-10-01&to=2026-10-30&status=",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
-                "attendance",
-                "clock-out"
-              ]
-            },
-            "description": "Clock out with photo and location (multipart/form-data). Ends a running break too.",
-            "body": {
-              "mode": "formdata",
-              "formdata": [
+                "attendance"
+              ],
+              "query": [
                 {
-                  "key": "photo",
-                  "type": "file",
-                  "src": [],
-                  "description": "Camera image (jpg/png/webp, max 2 MB). Required when /attendance/today says requirements.photo = mandatory."
+                  "key": "from",
+                  "value": "2026-10-01",
+                  "description": "YYYY-MM-DD (optional)"
                 },
                 {
-                  "key": "latitude",
-                  "value": "17.7231",
-                  "type": "text",
-                  "description": "Decimal degrees"
+                  "key": "to",
+                  "value": "2026-10-30",
+                  "description": "YYYY-MM-DD (optional)"
                 },
                 {
-                  "key": "longitude",
-                  "value": "83.3012",
-                  "type": "text",
-                  "description": "Decimal degrees"
-                },
-                {
-                  "key": "accuracy",
-                  "value": "12",
-                  "type": "text",
-                  "description": "GPS accuracy in metres (optional)"
-                },
-                {
-                  "key": "address",
-                  "value": "Murali Nagar, Visakhapatnam",
-                  "type": "text",
-                  "description": "Reverse-geocoded place (optional)"
-                },
-                {
-                  "key": "work_from_type",
-                  "value": "office",
-                  "type": "text",
-                  "description": "office | home | other"
-                },
-                {
-                  "key": "working_from",
+                  "key": "status",
                   "value": "",
-                  "type": "text",
-                  "description": "Required when work_from_type = other",
-                  "disabled": true
-                },
-                {
-                  "key": "photo_base64",
-                  "value": "",
-                  "type": "text",
-                  "description": "Alternative to photo: the image as base64",
+                  "description": "optional filter",
                   "disabled": true
                 }
               ]
-            }
+            },
+            "description": "Day by day over any period up to 92 days, newest first, counted exactly as payroll counts it. Defaults: from = 1st of this month, to = today.\n\nstatus filters the days (present, absent, paid_leave, holiday, week_off, half_day, ...). Each day has the same fields as /attendance/calendar."
           },
           "response": [
             {
-              "name": "Clocked out",
+              "name": "Period",
               "status": "OK",
               "code": 200,
               "header": [
@@ -890,12 +1226,12 @@
                 }
               ],
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"success\": true,\n  \"message\": \"Clocked out at 08:20 AM.\",\n  \"data\": {\n    \"id\": 17990,\n    \"clock_in\": \"2026-10-27T08:20:30+05:30\",\n    \"clock_out\": \"2026-10-27T08:20:39+05:30\",\n    \"source\": \"mobile_app\",\n    \"work_from\": \"office\",\n    \"minutes\": 0\n  }\n}"
+              "body": "{\n  \"success\": true,\n  \"message\": \"OK\",\n  \"data\": {\n    \"from\": \"2026-10-01\",\n    \"to\": \"2026-10-30\",\n    \"summary\": {\n      \"days_counted\": 30,\n      \"days_paid\": 24,\n      \"lop_days\": 6,\n      \"worked_days\": 19.5,\n      \"week_offs\": 4,\n      \"holidays\": 2,\n      \"paid_leave_days\": 1,\n      \"unpaid_leave_days\": 1,\n      \"absent_days\": 4.5,\n      \"late_marks\": 3,\n      \"late_half_days\": 0,\n      \"worked_minutes\": 10380\n    },\n    \"legend\": [\n      {\n        \"status\": \"present\",\n        \"label\": \"Present\"\n      },\n      \"…\"\n    ],\n    \"days\": [\n      {\n        \"date\": \"2026-10-27\",\n        \"weekday\": \"Tuesday\",\n        \"status\": \"present\",\n        \"status_label\": \"Present\",\n        \"paid_day\": 1,\n        \"shift\": \"General Shift\",\n        \"shift_hours\": \"09:30–18:30\",\n        \"first_in\": \"09:12\",\n        \"last_out\": \"18:41\",\n        \"worked_minutes\": 569,\n        \"late\": false,\n        \"late_note\": null,\n        \"overtime_minutes\": 0,\n        \"holiday\": null,\n        \"note\": null,\n        \"leaves\": [],\n        \"breaks\": {\n          \"count\": 1,\n          \"minutes\": 42\n        }\n      },\n      \"…\"\n    ]\n  }\n}"
             },
             {
-              "name": "Not clocked in",
-              "status": "Conflict",
-              "code": 409,
+              "name": "Too long",
+              "status": "Unprocessable Entity",
+              "code": 422,
               "header": [
                 {
                   "key": "Content-Type",
@@ -903,7 +1239,7 @@
                 }
               ],
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"success\": false,\n  \"message\": \"You are not clocked in.\",\n  \"errors\": {}\n}"
+              "body": "{\n  \"success\": false,\n  \"message\": \"Choose a period of at most 92 days.\",\n  \"errors\": {\n    \"from\": [\n      \"Choose a period of at most 92 days.\"\n    ]\n  }\n}"
             }
           ]
         },
@@ -991,6 +1327,776 @@
               ],
               "_postman_previewlanguage": "json",
               "body": "{\n  \"success\": true,\n  \"message\": \"OK\",\n  \"data\": {\n    \"day\": {\n      \"date\": \"2026-10-27\",\n      \"weekday\": \"Tuesday\",\n      \"status\": \"in_progress\",\n      \"status_label\": \"In progress (today)\",\n      \"paid_day\": 0,\n      \"shift\": \"General Shift\",\n      \"shift_hours\": \"09:30–18:30\",\n      \"first_in\": \"08:20\",\n      \"last_out\": \"08:20\",\n      \"worked_minutes\": 0,\n      \"late\": false,\n      \"late_note\": null,\n      \"overtime_minutes\": 0,\n      \"holiday\": null,\n      \"note\": null,\n      \"leaves\": [],\n      \"breaks\": {\n        \"count\": 1,\n        \"minutes\": 0\n      }\n    },\n    \"sessions\": [\n      {\n        \"id\": 17990,\n        \"clock_in\": \"2026-10-27T08:20:30+05:30\",\n        \"clock_out\": \"2026-10-27T08:20:39+05:30\",\n        \"source\": \"mobile_app\",\n        \"work_from\": \"office\",\n        \"minutes\": 0,\n        \"clock_in_photo_url\": \"https://your-hrm-domain/storage/attendance-photos/4919/2026-10/20261027-025030-xZJayS.png\",\n        \"clock_in_location\": {\n          \"latitude\": 17.7231,\n          \"longitude\": 83.3012,\n          \"address\": \"Murali Nagar, Visakhapatnam\"\n        },\n        \"clock_out_photo_url\": \"https://your-hrm-domain/storage/attendance-photos/4919/2026-10/20261027-025039-z8z5gX.png\",\n        \"clock_out_location\": {\n          \"latitude\": 17.724,\n          \"longitude\": 83.302,\n          \"address\": \"Murali Nagar, Visakhapatnam\"\n        }\n      }\n    ],\n    \"breaks\": [\n      {\n        \"id\": 8,\n        \"type\": \"lunch\",\n        \"label\": \"Lunch break\",\n        \"note\": \"canteen\",\n        \"started_at\": \"2026-10-27T08:20:33+05:30\",\n        \"ended_at\": \"2026-10-27T08:20:37+05:30\",\n        \"minutes\": 0\n      }\n    ]\n  }\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Payslips",
+      "item": [
+        {
+          "name": "Payslips",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/payslips?year=2026",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payslips"
+              ],
+              "query": [
+                {
+                  "key": "year",
+                  "value": "2026"
+                }
+              ]
+            },
+            "description": "Issued (approved / paid) payslips, newest first. Saves the first id as payslip_id."
+          },
+          "response": [
+            {
+              "name": "Payslips",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"OK\",\n  \"data\": [\n    {\n      \"id\": 65,\n      \"payslip_number\": \"AROW/2026-27/000001\",\n      \"month\": \"October - 2026\",\n      \"period_start\": \"2026-09-21\",\n      \"period_end\": \"2026-10-20\",\n      \"net_pay\": 28865,\n      \"status\": \"approved\"\n    }\n  ]\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r = pm.response.json();",
+                  "if (r.data && r.data.length) pm.environment.set('payslip_id', r.data[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Payslip detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/payslips/{{payslip_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payslips",
+                "{{payslip_id}}"
+              ]
+            },
+            "description": "Earnings, deductions, employer contributions, attendance and net pay."
+          },
+          "response": [
+            {
+              "name": "Payslip",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"OK\",\n  \"data\": {\n    \"id\": 65,\n    \"payslip_number\": \"AROW/2026-27/000001\",\n    \"month\": \"October - 2026\",\n    \"period_start\": \"2026-09-21\",\n    \"period_end\": \"2026-10-20\",\n    \"status\": \"approved\",\n    \"issued_at\": \"2026-10-24T15:01:59+05:30\",\n    \"paid_at\": null,\n    \"attendance\": {\n      \"working_days\": 30,\n      \"days_present\": 29,\n      \"lop_days\": 1,\n      \"per_day\": 900.53\n    },\n    \"earnings\": [\n      {\n        \"label\": \"Basic\",\n        \"amount\": 12000\n      },\n      {\n        \"label\": \"House Rent Allowance\",\n        \"amount\": 4800\n      },\n      {\n        \"label\": \"Conveyance Allowance\",\n        \"amount\": 800\n      },\n      {\n        \"label\": \"Leave Travel Allowance\",\n        \"amount\": 1200\n      },\n      {\n        \"label\": \"Children's Education Allowance\",\n        \"amount\": 1200\n      },\n      {\n        \"label\": \"Special Allowance\",\n        \"amount\": 10000\n      },\n      {\n        \"label\": \"Incentive\",\n        \"amount\": 1500\n      },\n      {\n        \"label\": \"Reimbursement\",\n        \"amount\": 750\n      },\n      {\n        \"label\": \"OT encashed (20h)\",\n        \"amount\": 2500\n      }\n    ],\n    \"total_earnings\": 34750,\n    \"deductions\": [\n      {\n        \"label\": \"Employee PF\",\n        \"amount\": 1392\n      },\n      {\n        \"label\": \"Professional Tax\",\n        \"amount\": 200\n      },\n      {\n        \"label\": \"Loss of Pay\",\n        \"amount\": 901\n      },\n      {\n        \"label\": \"Salary Advance\",\n        \"amount\": 2000\n      }\n    ],\n    \"total_deductions\": 4493,\n    \"employer_contributions\": [\n      {\n        \"label\": \"Employer PF\",\n        \"amount\": 1392\n      },\n      {\n        \"label\": \"Employer ESI\",\n        \"amount\": 0\n      }\n    ],\n    \"total_employer_contributions\": 1392,\n    \"leave_encashment\": null,\n    \"overtime\": {\n      \"encashed_hours\": 20,\n      \"encashed_amount\": 2500,\n      \"lop_days_covered\": 2,\n      \"balance_hours\": 66.92\n    },\n    \"net_pay\": 28865,\n    \"net_pay_with_encashment\": 28865,\n    \"download_url\": \"https://your-hrm-domain/api/mobile/v1/payslips/65/download\"\n  }\n}"
+            },
+            {
+              "name": "Not issued / not theirs",
+              "status": "Not Found",
+              "code": 404,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"Not found.\",\n  \"errors\": {}\n}"
+            }
+          ]
+        },
+        {
+          "name": "Download payslip (PDF)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/payslips/{{payslip_id}}/download",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payslips",
+                "{{payslip_id}}",
+                "download"
+              ]
+            },
+            "description": "The payslip PDF, the same as the website. In Postman use \"Send and Download\"."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5. Assets",
+      "item": [
+        {
+          "name": "Assigned assets",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/assets",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "assets"
+              ]
+            },
+            "description": "Assets the employee holds now. Saves the first id as asset_id."
+          },
+          "response": [
+            {
+              "name": "Assets",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"OK\",\n  \"data\": [\n    {\n      \"id\": 97,\n      \"name\": \"Test Laptop\",\n      \"asset_code\": \"API-TEST-01\",\n      \"type\": \"API Test Laptop\",\n      \"brand\": \"Dell\",\n      \"model\": \"Latitude 5440\",\n      \"serial_number\": \"SN123\",\n      \"image_url\": null,\n      \"assigned_on\": \"2026-10-27\",\n      \"expected_return_on\": null\n    }\n  ]\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r = pm.response.json();",
+                  "if (r.data && r.data.length) pm.environment.set('asset_id', r.data[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Asset detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/assets/{{asset_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "assets",
+                "{{asset_id}}"
+              ]
+            },
+            "description": "One asset, if it is or was assigned to the employee; otherwise 404."
+          },
+          "response": [
+            {
+              "name": "Not theirs",
+              "status": "Not Found",
+              "code": 404,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"Not found.\",\n  \"errors\": {}\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "6. Calendar",
+      "item": [
+        {
+          "name": "Calendar (list)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/calendar?month=10&year=2026&from=&to=&types=holiday,leave,event",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "calendar"
+              ],
+              "query": [
+                {
+                  "key": "month",
+                  "value": "10",
+                  "description": "1-12"
+                },
+                {
+                  "key": "year",
+                  "value": "2026",
+                  "description": ""
+                },
+                {
+                  "key": "from",
+                  "value": "",
+                  "description": "YYYY-MM-DD, instead of month/year",
+                  "disabled": true
+                },
+                {
+                  "key": "to",
+                  "value": "",
+                  "description": "YYYY-MM-DD",
+                  "disabled": true
+                },
+                {
+                  "key": "types",
+                  "value": "holiday,leave,event",
+                  "description": ""
+                }
+              ]
+            },
+            "description": "The employee's calendar as a list, in date order: holidays that apply to them, their own leave (approved and pending, one entry per application) and events they are invited to.\n\nPeriod: month & year (default this month), or from & to (max 366 days). types: any of holiday,leave,event (default all).\nEach item: type, id, title, date, end_date, start_time/end_time (events), status (leave: approved|pending), color, details."
+          },
+          "response": [
+            {
+              "name": "Month",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"OK\",\n  \"data\": {\n    \"from\": \"2026-10-01\",\n    \"to\": \"2026-10-31\",\n    \"items\": [\n      {\n        \"type\": \"holiday\",\n        \"id\": 10,\n        \"title\": \"Gandhi Jayanthi\",\n        \"date\": \"2026-10-02\",\n        \"end_date\": \"2026-10-02\",\n        \"start_time\": null,\n        \"end_time\": null,\n        \"status\": null,\n        \"color\": null,\n        \"details\": null\n      },\n      {\n        \"type\": \"leave\",\n        \"id\": 42,\n        \"title\": \"Sick\",\n        \"date\": \"2026-10-09\",\n        \"end_date\": \"2026-10-09\",\n        \"start_time\": null,\n        \"end_time\": null,\n        \"status\": \"approved\",\n        \"color\": \"#DB1313\",\n        \"details\": {\n          \"days\": 1,\n          \"reason\": \"Fever\"\n        }\n      },\n      {\n        \"type\": \"event\",\n        \"id\": 3,\n        \"title\": \"Town hall\",\n        \"date\": \"2026-10-15\",\n        \"end_date\": \"2026-10-15\",\n        \"start_time\": \"16:00\",\n        \"end_time\": \"17:00\",\n        \"status\": \"pending\",\n        \"color\": \"#1d82f5\",\n        \"details\": {\n          \"where\": \"Board room\",\n          \"link\": null,\n          \"description\": null\n        }\n      },\n      {\n        \"type\": \"holiday\",\n        \"id\": 11,\n        \"title\": \"Dusshera\",\n        \"date\": \"2026-10-20\",\n        \"end_date\": \"2026-10-20\",\n        \"start_time\": null,\n        \"end_time\": null,\n        \"status\": null,\n        \"color\": null,\n        \"details\": null\n      }\n    ]\n  }\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "7. Leaves",
+      "item": [
+        {
+          "name": "Leave types & balance",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/leaves/types",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "leaves",
+                "types"
+              ]
+            },
+            "description": "The leave types this employee may apply for (the type's conditions applied), with allowed / used / remaining / pending days, the monthly limit, the document rule and the type's rules in words. remaining is null for unlimited types."
+          },
+          "response": [
+            {
+              "name": "Types",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"OK\",\n  \"data\": [\n    {\n      \"id\": 1,\n      \"name\": \"Casual\",\n      \"code\": \"CL\",\n      \"color\": \"#16813D\",\n      \"paid\": true,\n      \"unlimited\": false,\n      \"allowed\": 8,\n      \"used\": 1,\n      \"remaining\": 7,\n      \"pending\": 0,\n      \"monthly_limit\": null,\n      \"document\": {\n        \"required\": \"none\",\n        \"when_more_than_days\": null,\n        \"label\": null,\n        \"may_follow_within_days\": null\n      },\n      \"rules\": []\n    },\n    {\n      \"id\": 2,\n      \"name\": \"Sick\",\n      \"code\": \"SL\",\n      \"color\": \"#DB1313\",\n      \"paid\": true,\n      \"unlimited\": false,\n      \"allowed\": 8,\n      \"used\": 1,\n      \"remaining\": 7,\n      \"pending\": 0,\n      \"monthly_limit\": null,\n      \"document\": {\n        \"required\": \"over_days\",\n        \"when_more_than_days\": 2,\n        \"label\": \"medical certificate\",\n        \"may_follow_within_days\": 3\n      },\n      \"rules\": [\n        \"Medical certificate when longer than 2 day(s) (can follow within 3 day(s))\"\n      ]\n    }\n  ]\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r = pm.response.json();",
+                  "if (r.success && r.data.length) { pm.environment.set('leave_type_id', r.data[0].id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Apply leave - single day",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/leaves",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "leaves"
+              ]
+            },
+            "description": "Applies for the employee's own leave, always as Pending, and starts the approval steps (manager → department head → HR, as Leave Settings tick them) with the usual e-mails/bells.\n\nduration: single | multiple | first_half | second_half. leave_date for single / half days; from_date + to_date for multiple. Holidays in the range are left out.\nChecked as on the website: type allowed for the employee, Earned Leave service years, the type's Rules (notice, back-dating, most days, document), balance and monthly limit (types that may not go over).\n\n409 when a day already has pending/approved leave (the website would silently reject the old one; the app refuses instead), or a full day already has a clock-in - send mark_leave_anyway = 1 to apply anyway.\nfiles[]: optional documents (jpg, png, webp, pdf, doc, docx; 5 MB each; up to 5).",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "leave_type_id",
+                  "type": "text",
+                  "description": "",
+                  "value": "{{leave_type_id}}"
+                },
+                {
+                  "key": "duration",
+                  "type": "text",
+                  "description": "",
+                  "value": "single"
+                },
+                {
+                  "key": "leave_date",
+                  "type": "text",
+                  "description": "YYYY-MM-DD",
+                  "value": "2026-11-06"
+                },
+                {
+                  "key": "reason",
+                  "type": "text",
+                  "description": "",
+                  "value": "Family function"
+                },
+                {
+                  "key": "mark_leave_anyway",
+                  "type": "text",
+                  "description": "Only after a 409 \"attendance is already marked\"",
+                  "value": "1",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Applied",
+              "status": "Created",
+              "code": 201,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"Leave applied successfully.\",\n  \"data\": {\n    \"id\": 222,\n    \"unique_id\": \"HGNQnFKFw3vHTGrm\",\n    \"leave_type\": {\n      \"id\": 1,\n      \"name\": \"Casual\",\n      \"color\": \"#16813D\"\n    },\n    \"duration\": \"single\",\n    \"half_day_type\": null,\n    \"from_date\": \"2026-11-06\",\n    \"to_date\": \"2026-11-06\",\n    \"days\": 1,\n    \"paid\": true,\n    \"reason\": \"Family function\",\n    \"status\": \"pending\",\n    \"status_label\": \"Pending with HR\",\n    \"waiting_with\": \"HR\",\n    \"reject_reason\": null,\n    \"approve_note\": null,\n    \"decided_at\": null,\n    \"applied_at\": \"2026-10-30T10:06:36+05:30\",\n    \"files_count\": 0,\n    \"dates\": [\n      {\n        \"id\": 222,\n        \"date\": \"2026-11-06\",\n        \"status\": \"pending\",\n        \"half_day_type\": null\n      }\n    ],\n    \"history\": [\n      {\n        \"step\": \"HR\",\n        \"action\": \"submitted\",\n        \"by\": \"Test Employee\",\n        \"note\": null,\n        \"at\": \"2026-10-30T10:06:37+05:30\"\n      }\n    ],\n    \"files\": []\n  }\n}"
+            },
+            {
+              "name": "Day already taken",
+              "status": "Conflict",
+              "code": 409,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"You already have leave on 06 Nov 2026 (pending). Cancel it on the website or ask HR before applying again.\",\n  \"errors\": {}\n}"
+            },
+            {
+              "name": "Attendance marked that day",
+              "status": "Conflict",
+              "code": 409,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"Your attendance is already marked on 30 Oct 2026. Send mark_leave_anyway = 1 to apply anyway.\",\n  \"errors\": {\n    \"mark_leave_anyway\": [\n      \"Attendance is marked on 30 Oct 2026.\"\n    ]\n  }\n}"
+            },
+            {
+              "name": "Over the balance",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"Leave limit exceeded for the selected leave type.\",\n  \"errors\": {}\n}"
+            },
+            {
+              "name": "Type rule",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"Casual has to be applied at least 2 day(s) before - from 01 Nov 2026 onwards.\",\n  \"errors\": {}\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r = pm.response.json();",
+                  "if (r.success && r.data && r.data.id) { pm.environment.set('leave_id', r.data.id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Apply leave - several days (with document)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/leaves",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "leaves"
+              ]
+            },
+            "description": "Applies for the employee's own leave, always as Pending, and starts the approval steps (manager → department head → HR, as Leave Settings tick them) with the usual e-mails/bells.\n\nduration: single | multiple | first_half | second_half. leave_date for single / half days; from_date + to_date for multiple. Holidays in the range are left out.\nChecked as on the website: type allowed for the employee, Earned Leave service years, the type's Rules (notice, back-dating, most days, document), balance and monthly limit (types that may not go over).\n\n409 when a day already has pending/approved leave (the website would silently reject the old one; the app refuses instead), or a full day already has a clock-in - send mark_leave_anyway = 1 to apply anyway.\nfiles[]: optional documents (jpg, png, webp, pdf, doc, docx; 5 MB each; up to 5).",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "leave_type_id",
+                  "type": "text",
+                  "description": "",
+                  "value": "{{leave_type_id}}"
+                },
+                {
+                  "key": "duration",
+                  "type": "text",
+                  "description": "",
+                  "value": "multiple"
+                },
+                {
+                  "key": "from_date",
+                  "type": "text",
+                  "description": "",
+                  "value": "2026-11-13"
+                },
+                {
+                  "key": "to_date",
+                  "type": "text",
+                  "description": "",
+                  "value": "2026-11-15"
+                },
+                {
+                  "key": "reason",
+                  "type": "text",
+                  "description": "",
+                  "value": "Trip"
+                },
+                {
+                  "key": "files[]",
+                  "type": "file",
+                  "description": "Optional document",
+                  "src": []
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Applied",
+              "status": "Created",
+              "code": 201,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"Leave applied successfully.\",\n  \"data\": {\n    \"id\": 223,\n    \"unique_id\": \"HGNQnFKFw3vHTGrm\",\n    \"leave_type\": {\n      \"id\": 1,\n      \"name\": \"Casual\",\n      \"color\": \"#16813D\"\n    },\n    \"duration\": \"multiple\",\n    \"half_day_type\": null,\n    \"from_date\": \"2026-11-13\",\n    \"to_date\": \"2026-11-15\",\n    \"days\": 3,\n    \"paid\": true,\n    \"reason\": \"Trip\",\n    \"status\": \"pending\",\n    \"status_label\": \"Pending with HR\",\n    \"waiting_with\": \"HR\",\n    \"reject_reason\": null,\n    \"approve_note\": null,\n    \"decided_at\": null,\n    \"applied_at\": \"2026-10-30T10:06:36+05:30\",\n    \"files_count\": 1,\n    \"dates\": [\n      {\n        \"id\": 223,\n        \"date\": \"2026-11-13\",\n        \"status\": \"pending\",\n        \"half_day_type\": null\n      },\n      {\n        \"id\": 224,\n        \"date\": \"2026-11-14\",\n        \"status\": \"pending\",\n        \"half_day_type\": null\n      },\n      {\n        \"id\": 225,\n        \"date\": \"2026-11-15\",\n        \"status\": \"pending\",\n        \"half_day_type\": null\n      }\n    ],\n    \"history\": [\n      {\n        \"step\": \"HR\",\n        \"action\": \"submitted\",\n        \"by\": \"Test Employee\",\n        \"note\": null,\n        \"at\": \"2026-10-30T10:06:37+05:30\"\n      }\n    ],\n    \"files\": [\n      {\n        \"name\": \"ticket.pdf\",\n        \"url\": \"https://…/user-uploads/leave-files/223/a8b4….pdf\",\n        \"size\": 20480\n      }\n    ]\n  }\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r = pm.response.json();",
+                  "if (r.success && r.data && r.data.id) { pm.environment.set('leave_id', r.data.id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Apply leave - half day",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/leaves",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "leaves"
+              ]
+            },
+            "description": "Applies for the employee's own leave, always as Pending, and starts the approval steps (manager → department head → HR, as Leave Settings tick them) with the usual e-mails/bells.\n\nduration: single | multiple | first_half | second_half. leave_date for single / half days; from_date + to_date for multiple. Holidays in the range are left out.\nChecked as on the website: type allowed for the employee, Earned Leave service years, the type's Rules (notice, back-dating, most days, document), balance and monthly limit (types that may not go over).\n\n409 when a day already has pending/approved leave (the website would silently reject the old one; the app refuses instead), or a full day already has a clock-in - send mark_leave_anyway = 1 to apply anyway.\nfiles[]: optional documents (jpg, png, webp, pdf, doc, docx; 5 MB each; up to 5).",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "leave_type_id",
+                  "type": "text",
+                  "description": "",
+                  "value": "{{leave_type_id}}"
+                },
+                {
+                  "key": "duration",
+                  "type": "text",
+                  "description": "first_half | second_half",
+                  "value": "first_half"
+                },
+                {
+                  "key": "leave_date",
+                  "type": "text",
+                  "description": "",
+                  "value": "2026-11-20"
+                },
+                {
+                  "key": "reason",
+                  "type": "text",
+                  "description": "",
+                  "value": "Doctor appointment"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Applied",
+              "status": "Created",
+              "code": 201,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"Leave applied successfully.\",\n  \"data\": {\n    \"id\": 231,\n    \"unique_id\": \"HGNQnFKFw3vHTGrm\",\n    \"leave_type\": {\n      \"id\": 1,\n      \"name\": \"Casual\",\n      \"color\": \"#16813D\"\n    },\n    \"duration\": \"half day\",\n    \"half_day_type\": \"first_half\",\n    \"from_date\": \"2026-11-20\",\n    \"to_date\": \"2026-11-20\",\n    \"days\": 0.5,\n    \"paid\": true,\n    \"reason\": \"Trip\",\n    \"status\": \"pending\",\n    \"status_label\": \"Pending with HR\",\n    \"waiting_with\": \"HR\",\n    \"reject_reason\": null,\n    \"approve_note\": null,\n    \"decided_at\": null,\n    \"applied_at\": \"2026-10-30T10:06:36+05:30\",\n    \"files_count\": 0,\n    \"dates\": [\n      {\n        \"id\": 231,\n        \"date\": \"2026-11-20\",\n        \"status\": \"pending\",\n        \"half_day_type\": \"first_half\"\n      }\n    ],\n    \"history\": [\n      {\n        \"step\": \"HR\",\n        \"action\": \"submitted\",\n        \"by\": \"Test Employee\",\n        \"note\": null,\n        \"at\": \"2026-10-30T10:06:37+05:30\"\n      }\n    ],\n    \"files\": []\n  }\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r = pm.response.json();",
+                  "if (r.success && r.data && r.data.id) { pm.environment.set('leave_id', r.data.id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "My leave applications",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/leaves?status=&year=2026&page=1&per_page=20",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "leaves"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "",
+                  "description": "pending | approved | rejected",
+                  "disabled": true
+                },
+                {
+                  "key": "year",
+                  "value": "2026",
+                  "description": "leave dates in this year"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": ""
+                },
+                {
+                  "key": "per_page",
+                  "value": "20",
+                  "description": "max 100"
+                }
+              ]
+            },
+            "description": "The employee's applications, newest first - one entry per application however many days. status: pending | approved | rejected. status_label says where a pending one waits (\"Pending with reporting manager\"). counts are over all pages."
+          },
+          "response": [
+            {
+              "name": "List",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"OK\",\n  \"data\": {\n    \"applications\": [\n      {\n        \"id\": 223,\n        \"unique_id\": \"HGNQnFKFw3vHTGrm\",\n        \"leave_type\": {\n          \"id\": 1,\n          \"name\": \"Casual\",\n          \"color\": \"#16813D\"\n        },\n        \"duration\": \"multiple\",\n        \"half_day_type\": null,\n        \"from_date\": \"2026-11-13\",\n        \"to_date\": \"2026-11-15\",\n        \"days\": 3,\n        \"paid\": true,\n        \"reason\": \"Trip\",\n        \"status\": \"pending\",\n        \"status_label\": \"Pending with HR\",\n        \"waiting_with\": \"HR\",\n        \"reject_reason\": null,\n        \"approve_note\": null,\n        \"decided_at\": null,\n        \"applied_at\": \"2026-10-30T10:06:36+05:30\",\n        \"files_count\": 1\n      },\n      {\n        \"id\": 42,\n        \"unique_id\": \"aB3…\",\n        \"leave_type\": {\n          \"id\": 2,\n          \"name\": \"Sick\",\n          \"color\": \"#DB1313\"\n        },\n        \"duration\": \"single\",\n        \"half_day_type\": null,\n        \"from_date\": \"2026-10-09\",\n        \"to_date\": \"2026-10-09\",\n        \"days\": 1,\n        \"paid\": true,\n        \"reason\": \"Fever\",\n        \"status\": \"approved\",\n        \"status_label\": \"Approved\",\n        \"waiting_with\": null,\n        \"reject_reason\": null,\n        \"approve_note\": null,\n        \"decided_at\": \"2026-10-08T11:20:00+05:30\",\n        \"applied_at\": \"2026-10-30T10:06:36+05:30\",\n        \"files_count\": 0\n      }\n    ],\n    \"counts\": {\n      \"pending\": 1,\n      \"approved\": 1,\n      \"rejected\": 0\n    },\n    \"page\": 1,\n    \"per_page\": 20,\n    \"total\": 2,\n    \"last_page\": 1\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Leave application detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/leaves/{{leave_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "leaves",
+                "{{leave_id}}"
+              ]
+            },
+            "description": "One application (any of its leave ids): every date with its status, the approval history and the documents. 404 when it is not the employee's."
+          },
+          "response": [
+            {
+              "name": "Detail",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"OK\",\n  \"data\": {\n    \"id\": 223,\n    \"unique_id\": \"HGNQnFKFw3vHTGrm\",\n    \"leave_type\": {\n      \"id\": 1,\n      \"name\": \"Casual\",\n      \"color\": \"#16813D\"\n    },\n    \"duration\": \"multiple\",\n    \"half_day_type\": null,\n    \"from_date\": \"2026-11-13\",\n    \"to_date\": \"2026-11-15\",\n    \"days\": 3,\n    \"paid\": true,\n    \"reason\": \"Trip\",\n    \"status\": \"pending\",\n    \"status_label\": \"Pending with HR\",\n    \"waiting_with\": \"HR\",\n    \"reject_reason\": null,\n    \"approve_note\": null,\n    \"decided_at\": null,\n    \"applied_at\": \"2026-10-30T10:06:36+05:30\",\n    \"files_count\": 1,\n    \"dates\": [\n      {\n        \"id\": 223,\n        \"date\": \"2026-11-13\",\n        \"status\": \"pending\",\n        \"half_day_type\": null\n      },\n      {\n        \"id\": 224,\n        \"date\": \"2026-11-14\",\n        \"status\": \"pending\",\n        \"half_day_type\": null\n      },\n      {\n        \"id\": 225,\n        \"date\": \"2026-11-15\",\n        \"status\": \"pending\",\n        \"half_day_type\": null\n      }\n    ],\n    \"history\": [\n      {\n        \"step\": \"HR\",\n        \"action\": \"submitted\",\n        \"by\": \"Test Employee\",\n        \"note\": null,\n        \"at\": \"2026-10-30T10:06:37+05:30\"\n      }\n    ],\n    \"files\": [\n      {\n        \"name\": \"ticket.pdf\",\n        \"url\": \"https://…/user-uploads/leave-files/223/a8b4….pdf\",\n        \"size\": 20480\n      }\n    ]\n  }\n}"
+            },
+            {
+              "name": "Not found",
+              "status": "Not Found",
+              "code": 404,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"Not found.\",\n  \"errors\": {}\n}"
             }
           ]
         }

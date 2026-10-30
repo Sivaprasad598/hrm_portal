@@ -2,16 +2,79 @@
 
 namespace App\Http\Controllers\Api\Mobile;
 
+use App\Enums\MaritalStatus;
+use App\Helper\Files;
+use App\Models\EmployeeDetails;
 use App\Models\Team;
 use App\Services\Attendance\ShiftResolver;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 /**
  * The signed-in employee's own profile.
+ *
+ * Update changes only the personal details an employee keeps up to date on
+ * the website's Profile page, and only the fields sent. Name, e-mail (the
+ * sign-in), department, designation, manager and dates of employment stay
+ * with HR.
  */
 class ProfileController extends MobileController
 {
-    public function show()
+    public function update(Request $request)
+    {
+        $tz = $this->tz();
+        $request->validate([
+            'mobile' => 'nullable|numeric|digits_between:6,15',
+            'country_phonecode' => 'nullable|integer|min:1|max:9999',
+            'gender' => 'nullable|in:male,female,others',
+            'date_of_birth' => 'sometimes|required|date_format:Y-m-d|before_or_equal:' . now($tz)->toDateString(),
+            'marital_status' => ['nullable', Rule::in(array_map(fn ($c) => $c->value, MaritalStatus::cases()))],
+            'marriage_date' => 'nullable|required_if:marital_status,married|date_format:Y-m-d|before_or_equal:' . now($tz)->toDateString(),
+            'address' => 'nullable|string|max:500',
+            'photo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
+            'remove_photo' => 'nullable|boolean',
+        ]);
+
+        $user = $this->me();
+        $detail = EmployeeDetails::where('user_id', $user->id)->firstOrFail();
+
+        foreach (['mobile', 'country_phonecode', 'gender'] as $field) {
+            if ($request->exists($field)) {
+                $user->{$field} = $request->input($field);
+            }
+        }
+
+        if ($request->boolean('remove_photo') && $user->image) {
+            Files::deleteFile($user->image, 'avatar');
+            $user->image = null;
+        }
+
+        if ($request->hasFile('photo')) {
+            Files::deleteFile($user->image, 'avatar');
+            $user->image = Files::uploadLocalOrS3($request->file('photo'), 'avatar', 300);
+        }
+
+        foreach (['date_of_birth' => 'date_of_birth', 'address' => 'address', 'marital_status' => 'marital_status', 'marriage_date' => 'marriage_anniversary_date'] as $field => $column) {
+            if ($request->exists($field)) {
+                $detail->{$column} = $request->input($field);
+            }
+        }
+
+        // Not married: no wedding date.
+        if ($request->exists('marital_status') && $request->marital_status !== 'married') {
+            $detail->marriage_anniversary_date = null;
+        }
+
+        DB::transaction(function () use ($user, $detail) {
+            $user->save();
+            $detail->save();
+        });
+
+        return $this->show('Profile updated.');
+    }
+
+    public function show(string $message = 'OK')
     {
         $user = $this->me()->load('employeeDetail.designation', 'emergencyContacts');
         $detail = $user->employeeDetail;
@@ -29,6 +92,8 @@ class ProfileController extends MobileController
             'photo_url' => $user->image_url,
             'email' => $user->email,
             'mobile' => $user->mobile ? trim(($user->country_phonecode ? '+' . $user->country_phonecode . ' ' : '') . $user->mobile) : null,
+            'mobile_number' => $user->mobile,               // as stored, for the edit form
+            'country_phonecode' => $user->country_phonecode,
             'gender' => $user->gender,
             'designation' => $detail?->designation?->name,
             // A department with a parent is a sub division of it.
@@ -55,6 +120,6 @@ class ProfileController extends MobileController
                 'end' => $shift->office_end_time ? substr((string) $shift->office_end_time, 0, 5) : null,
                 'working_day' => ShiftResolver::worksOn($shift, $today),
             ] : null,
-        ]);
+        ], $message);
     }
 }

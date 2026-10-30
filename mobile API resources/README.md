@@ -2,12 +2,15 @@
 
 API for the employee mobile app. An employee signs in with their e-mail and password. They can then:
 
-- see their profile;
+- reset a forgotten password with an e-mailed code, or change it;
+- see and update their profile;
 - see their assigned assets;
 - read and download their payslips;
 - clock in and out with a photo and location;
 - mark breaks;
-- see their attendance as a month calendar.
+- see their attendance as a list over any period, or as a month calendar;
+- see a calendar list of holidays, their leave and events;
+- see their leave balance, apply for leave, and follow their applications.
 
 Every call works on **the signed-in employee only**. There is no way to read or change another employee's data.
 
@@ -17,7 +20,7 @@ Files in this folder:
 |---|---|
 | `README.md` | This document |
 | `HRM-Mobile-API.postman_collection.json` | Postman collection: every endpoint, ready to run. Login saves the token for the other calls. |
-| `HRM-Mobile-API.postman_environment.json` | Postman environment: `base_url`, `email`, `password` |
+| `HRM-Mobile-API.postman_environment.json` | Postman environment: `base_url`, `email`, `password`, plus `new_password` and `reset_code` for the password calls. `token`, `leave_type_id`, `leave_id`, `payslip_id` and `asset_id` are filled in by the requests. |
 
 ---
 
@@ -73,7 +76,7 @@ Use `multipart/form-data` for clock-in and clock-out, because they carry a photo
 
 ---
 
-## 2. Sign in and out
+## 2. Sign in, out and passwords
 
 ### POST `/auth/login`
 
@@ -105,6 +108,31 @@ Use `multipart/form-data` for clock-in and clock-out, because they carry a photo
 
 ### POST `/auth/logout`
 Ends this device's token. No body.
+
+### Forgot password
+
+A forgotten password is reset with a **6-digit code sent by e-mail**, typed into the app. The website's "Forgot password" link is unchanged.
+
+1. **POST `/auth/forgot-password`**: `email`. The answer is always the same, whether or not the e-mail belongs to anyone:
+   ```json
+   { "success": true, "message": "If this e-mail belongs to an employee, a 6-digit code has been sent to it.", "data": { "expires_in_minutes": 15 } }
+   ```
+   At most 3 requests per 10 minutes per e-mail (`429` after that). Each new request replaces the previous code.
+2. **POST `/auth/verify-reset-code`** (optional): `email`, `code`. Checks the code before you show the new-password screen. It answers `200` if the code is correct and `422` if it is not.
+3. **POST `/auth/reset-password`**: `email`, `code`, `password`, `password_confirmation`. On success the employee is **signed out on every device**. Then log in again.
+
+- The code lasts **15 minutes**, works **once**, and allows **5 wrong tries**. After that: `422` *"The code has expired. Ask for a new one."*
+- Password: at least 8 characters, at most 50.
+
+### POST `/auth/change-password` (signed in)
+
+| Field | Required | Notes |
+|---|---|---|
+| `current_password` | yes | |
+| `password` | yes | 8–50 characters, different from the current one |
+| `password_confirmation` | yes | |
+
+`200` *"Your password has been changed."* The employee's **other devices are signed out**. This device's token keeps working. A wrong current password answers `422` with `errors.current_password`.
 
 ---
 
@@ -146,6 +174,25 @@ Ends this device's token. No body.
 - `division` / `sub_division`: the employee's department. A department under a parent is a sub division, so `division` is the parent and `sub_division` is theirs. For a top-level department, `sub_division` is `null`.
 - `probation_end_date` is `null` when the employee is not on probation.
 - Any field can be `null` when HR has not filled it in.
+- `mobile` is for display. `mobile_number` and `country_phonecode` hold the stored values, for the edit form.
+
+### POST `/me` (multipart/form-data): update my profile
+
+Changes **only the fields sent**. The answer is the full profile, the same as `GET /me`, with the message *"Profile updated."*
+
+| Field | Notes |
+|---|---|
+| `mobile` | Digits only, 6–15 |
+| `country_phonecode` | e.g. `91` |
+| `gender` | `male`, `female` or `others` |
+| `date_of_birth` | `YYYY-MM-DD`, not in the future |
+| `marital_status` | `single`, `married`, `widower`, `widow`, `separate`, `divorced` or `engaged` |
+| `marriage_date` | `YYYY-MM-DD`. Required when `married`, and cleared for any other status. |
+| `address` | Up to 500 characters |
+| `photo` | Profile photo: jpg / png / webp, max 2 MB |
+| `remove_photo` | `1` removes the photo |
+
+Name, e-mail (the sign-in), department, designation, manager and employment dates are managed by HR. They cannot be changed from the app.
 
 ---
 
@@ -287,7 +334,12 @@ The payslip as a **PDF**: the same document the website and e-mail give.
 2. Show **Clock in** or **Clock out**, plus **Start break** or **End break**, from `clocked_in` and `on_break`.
 3. After every action, call `GET /attendance/today` again, or use the action's own answer.
 
-Every employee can clock in from the app. The location is **recorded, not checked**: there is no office-distance limit.
+The app follows the **same Attendance Settings as the website's clock-in**:
+- **Employees may clock in themselves.** When HR turns this off, clock-in answers `403`. Clock-out still works.
+- **IP check** and **office radius.** When HR turns either on, a punch from outside answers `403`. The radius is measured from the office picked (`location_id`), otherwise the employee's office, otherwise the default office. Both checks are skipped when `work_from_type` is `home`, as on the website.
+- **Photo / location required.** See `requirements` below.
+
+The shift's clock-in window is **not** applied. The app may clock in at any hour, the same as the website when "show the clock-in button" is on.
 
 ### GET `/attendance/today`
 
@@ -305,10 +357,17 @@ Every employee can clock in from the app. The location is **recorded, not checke
     "sessions": [ { "id": 17987, "clock_in": "2026-10-27T09:12:06+05:30", "clock_out": null, "source": "mobile_app", "work_from": "office", "minutes": null } ],
     "breaks": [ { "id": 5, "type": "lunch", "label": "Lunch break", "note": "canteen", "started_at": "2026-10-27T13:02:09+05:30", "ended_at": null, "minutes": null } ],
     "worked_minutes": 230,
-    "requirements": { "photo": "optional", "location": "optional" }
+    "requirements": { "photo": "optional", "location": "optional" },
+    "can_clock_in": true,
+    "office_radius_m": null,
+    "offices": [ { "id": 1, "name": "Visakhapatnam, Andhra Pradesh 530007", "is_default": true, "latitude": 17.7462, "longitude": 83.2631 } ]
   }
 }
 ```
+
+- `can_clock_in: false`: HR has turned off self clock-in. Hide the **Clock in** button.
+- `office_radius_m`: the allowed distance from the office in metres, or `null` when the distance is not checked.
+- `offices`: the company's offices, for an optional "where are you" picker. Send the chosen `id` as `location_id`.
 
 - **`requirements`** comes from *Admin → Settings → Attendance Settings*, for photo and location separately:
   - `off`: don't ask;
@@ -321,6 +380,7 @@ Every employee can clock in from the app. The location is **recorded, not checke
 
 | Field | Required | Notes |
 |---|---|---|
+| `location_id` | no | The office picked, from `offices` in `GET /attendance/today`. It is recorded, and the radius is measured from it. |
 | `photo` | when `requirements.photo` = `mandatory` | Camera image file, **jpg / png / webp, max 2 MB**. Compress on the phone; around 1280 px is plenty. |
 | `photo_base64` | (alternative to `photo`) | The same image as base64, with or without the `data:image/jpeg;base64,` prefix |
 | `latitude`, `longitude` | when `requirements.location` = `mandatory` | Decimal degrees, e.g. `17.7231`, `83.3012` |
@@ -339,12 +399,14 @@ Refusals:
 - `409`, *"You are already clocked in since …"*: already clocked in.
 - `409`: the shift's limit on clock-ins per day has been reached.
 - `422`: a required photo or location is missing (*"A photograph is required to clock in. Allow the camera and try again."*), or the image is unusable or too large.
+- `403`: refused by Attendance Settings. Self clock-in is off (*"Clocking in yourself is turned off. Please contact HR."*), the device is not on an allowed IP (*"This is not an authorized device for clock-in or clock-out"*), or the employee is outside the office radius (*"Your current location is not with in the clock-in range"*).
 
 Late marks, half days and lost pay are worked out later from the punches by the attendance rules, the same way as for the biometric device.
 
 ### POST `/attendance/clock-out` (multipart/form-data)
 Same fields as clock-in. It closes the open session.
 - `409`, *"You are not clocked in."*: there is no open session.
+- `403`: outside the allowed IPs or the office radius, as for clock-in. The self clock-in switch does not block clock-out.
 - A break still running is **ended automatically** at clock-out.
 
 **200**
@@ -376,6 +438,31 @@ Refusals: `409` when not clocked in, or when a break is already running. `422` f
 **200**: `data` is the finished break, with `ended_at` and `minutes`. `409` when no break is running.
 
 > Breaks are **recorded only**. They are shown to HR and in the app, but they do **not** reduce worked hours. A shift's hours already include breaks.
+
+### GET `/attendance`: attendance over a period
+
+| Query | Required | Notes |
+|---|---|---|
+| `from` | no | `YYYY-MM-DD`. Defaults to the 1st of `to`'s month. |
+| `to` | no | `YYYY-MM-DD`. Defaults to today. |
+| `status` | no | Only days with this `status`, e.g. `absent` or `paid_leave` (see the table below) |
+
+Any period of up to **92 days**. A longer one answers `422`. Days are listed **newest first**. Each day has exactly the same fields as a day in `/attendance/calendar` below. `summary` covers the whole period, even when `status` filters the days, and adds `worked_minutes`.
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "from": "2026-10-01",
+    "to": "2026-10-30",
+    "summary": { "days_counted": 30, "days_paid": 24, "lop_days": 6, "worked_days": 19.5, "week_offs": 4, "holidays": 2,
+                 "paid_leave_days": 1, "unpaid_leave_days": 1, "absent_days": 4.5, "late_marks": 3, "late_half_days": 0, "worked_minutes": 10380 },
+    "legend": [ { "status": "present", "label": "Present" }, "…" ],
+    "days": [ { "date": "2026-10-30", "weekday": "Friday", "status": "in_progress", "…": "same fields as a calendar day" }, "…" ]
+  }
+}
+```
 
 ### GET `/attendance/calendar`
 
@@ -490,29 +577,190 @@ One day in full, for the day-detail screen. `date` is `YYYY-MM-DD`.
 
 ---
 
-## 7. Quick reference
+## 7. Calendar
+
+### GET `/calendar`
+The employee's calendar as a **list in date order**. It includes:
+- holidays that apply to the employee;
+- the employee's own leave, approved and pending, with one entry per application;
+- events the employee is invited to.
+
+Attendance day by day is under `/attendance` (section 6).
+
+| Query | Required | Notes |
+|---|---|---|
+| `month`, `year` | no | Defaults to this month |
+| `from`, `to` | no | `YYYY-MM-DD`, instead of `month` and `year`. At most 366 days. |
+| `types` | no | Comma-separated: any of `holiday`, `leave`, `event`. Defaults to all three. |
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "from": "2026-10-01",
+    "to": "2026-10-31",
+    "items": [
+      { "type": "holiday", "id": 10, "title": "Gandhi Jayanthi", "date": "2026-10-02", "end_date": "2026-10-02", "start_time": null, "end_time": null, "status": null, "color": null, "details": null },
+      { "type": "leave", "id": 42, "title": "Sick", "date": "2026-10-09", "end_date": "2026-10-09", "start_time": null, "end_time": null, "status": "approved", "color": "#DB1313", "details": { "days": 1, "reason": "Fever" } },
+      { "type": "event", "id": 3, "title": "Town hall", "date": "2026-10-15", "end_date": "2026-10-15", "start_time": "16:00", "end_time": "17:00", "status": "pending", "color": "#1d82f5", "details": { "where": "Board room", "link": null, "description": null } }
+    ]
+  }
+}
+```
+
+- **Leave** items:
+  - `status` is `approved` or `pending`.
+  - `date` to `end_date` is the span of the application, and `details.days` is how many days it uses.
+  - A half day has `(first half)` or `(second half)` in its `title`.
+  - `id` opens the application with `GET /leaves/{id}`.
+- **Event** items have `start_time` and `end_time` (`HH:MM`, local time), and `details` holds the place and link.
+
+---
+
+## 8. Leave
+
+### GET `/leaves/types`: leave types and balance
+The types the employee **may apply for**, after the type's conditions (gender, probation, role and so on) are applied, with their balance.
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": [
+    {
+      "id": 2, "name": "Sick", "code": "SL", "color": "#DB1313", "paid": true, "unlimited": false,
+      "allowed": 8, "used": 1, "remaining": 7, "pending": 0, "monthly_limit": null,
+      "document": { "required": "over_days", "when_more_than_days": 2, "label": "medical certificate", "may_follow_within_days": 3 },
+      "rules": [ "Medical certificate when longer than 2 day(s) (can follow within 3 day(s))" ]
+    }
+  ]
+}
+```
+
+- `remaining` is `null` for unlimited types, e.g. LOP. `pending` is the days waiting for approval.
+- `document.required`:
+  - `none`;
+  - `always`;
+  - `over_days`: needed when the leave is longer than `when_more_than_days`.
+
+  When `may_follow_within_days` is set, the document can be uploaded later on the website, before the leave is approved.
+- `rules` lists the type's rules in words, ready to show on the apply form.
+
+### POST `/leaves` (multipart/form-data): apply for leave
+
+| Field | Required | Notes |
+|---|---|---|
+| `leave_type_id` | yes | From `/leaves/types` |
+| `duration` | yes | `single`, `multiple`, `first_half` or `second_half` |
+| `leave_date` | for `single` and half days | `YYYY-MM-DD` |
+| `from_date`, `to_date` | for `multiple` | `YYYY-MM-DD`. Holidays in between are left out. |
+| `reason` | yes | Up to 1000 characters |
+| `files[]` | when the type needs a document | jpg, png, webp, pdf, doc or docx; 5 MB each; up to 5 |
+| `mark_leave_anyway` | no | `1` to apply for a day that already has a clock-in. See below. |
+
+The leave always goes in as **Pending**. It then moves through the approval steps set in Leave Settings (reporting manager → department head → HR), with the same e-mails and notifications as the website. Answers `201` with the application, the same as `GET /leaves/{id}`.
+
+The same checks as the website apply:
+
+| Answer | When |
+|---|---|
+| `422` *"Leave type not allowed for this employee."* | The type's conditions exclude the employee |
+| `422` | Earned Leave before the required years of service |
+| `422` | The type's rules: notice days, how far back, most days at a time, or a required document that is missing |
+| `422` *"Leave limit exceeded for the selected leave type."* / *"Monthly Leave limit exceeded…"* | Over the balance or the monthly limit, for types that may not go over |
+| `422` *"Please select another date. There is holiday on selected date."* | Every chosen day is a holiday |
+| `409` *"You already have leave on 06 Nov 2026 (pending)…"* | A chosen day already has pending or approved leave. A half day only clashes with the same half. |
+| `409` *"Your attendance is already marked on …"* | A full day already has a clock-in. Ask the employee, then send again with `mark_leave_anyway=1`. |
+
+> One difference from the website: when a day already has leave, the website silently rejects the old leave and keeps the new one. The app **refuses** instead, so nothing already approved is undone from a phone.
+
+### GET `/leaves`: my applications
+
+| Query | Required | Notes |
+|---|---|---|
+| `status` | no | `pending`, `approved` or `rejected` |
+| `year` | no | Leave dates in this year |
+| `page`, `per_page` | no | Default `1` and `20`; `per_page` max 100 |
+
+One entry per application, however many days it covers, newest first:
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "applications": [
+      {
+        "id": 223, "unique_id": "HGNQnFKFw3vHTGrm",
+        "leave_type": { "id": 1, "name": "Casual", "color": "#16813D" },
+        "duration": "multiple", "half_day_type": null,
+        "from_date": "2026-11-13", "to_date": "2026-11-15", "days": 3, "paid": true,
+        "reason": "Trip",
+        "status": "pending", "status_label": "Pending with reporting manager", "waiting_with": "Reporting manager",
+        "reject_reason": null, "approve_note": null, "decided_at": null,
+        "applied_at": "2026-10-30T10:06:36+05:30", "files_count": 1
+      }
+    ],
+    "counts": { "pending": 1, "approved": 4, "rejected": 0 },
+    "page": 1, "per_page": 20, "total": 5, "last_page": 1
+  }
+}
+```
+
+- `status` is the application's status. If HR decided its days separately, a pending day makes the whole application `pending`.
+- `status_label` is ready to show:
+  - `Pending with reporting manager`, `Pending with department head` or `Pending with HR`;
+  - `Approved`;
+  - `Rejected`.
+- `reject_reason` holds HR's reason when the application was rejected.
+- `counts` covers every page.
+
+### GET `/leaves/{id}`: one application
+Takes any leave id of the application. The answer has the same fields as the list, plus:
+- `dates`: every day with its own status;
+- `history`: the approval trail, `[{ "step": "HR", "action": "submitted|approved|rejected|…", "by": "…", "note": "…", "at": "…" }]`;
+- `files`: `[{ "name", "url", "size" }]`.
+
+An application that isn't this employee's answers `404`.
+
+---
+
+## 9. Quick reference
 
 | Method | Path | Body |
 |---|---|---|
 | POST | `/auth/login` | email, password, device_name? |
 | POST | `/auth/logout` | |
+| POST | `/auth/forgot-password` | email |
+| POST | `/auth/verify-reset-code` | email, code |
+| POST | `/auth/reset-password` | email, code, password, password_confirmation |
+| POST | `/auth/change-password` | current_password, password, password_confirmation |
 | GET | `/me` | |
+| POST | `/me` | multipart: mobile?, country_phonecode?, gender?, date_of_birth?, marital_status?, marriage_date?, address?, photo?, remove_photo? |
 | GET | `/assets` | |
 | GET | `/assets/{id}` | |
 | GET | `/payslips?year=` | |
 | GET | `/payslips/{id}` | |
 | GET | `/payslips/{id}/download` | → PDF |
+| GET | `/attendance?from=&to=&status=` | |
 | GET | `/attendance/today` | |
-| POST | `/attendance/clock-in` | multipart: photo / photo_base64, latitude, longitude, accuracy?, address?, work_from_type?, working_from? |
+| POST | `/attendance/clock-in` | multipart: photo / photo_base64, latitude, longitude, location_id?, accuracy?, address?, work_from_type?, working_from? |
 | POST | `/attendance/clock-out` | same as clock-in |
 | POST | `/attendance/breaks/start` | type, note?, latitude?, longitude? |
 | POST | `/attendance/breaks/end` | latitude?, longitude? |
 | GET | `/attendance/calendar?month=&year=` | |
 | GET | `/attendance/day/{YYYY-MM-DD}` | |
+| GET | `/calendar?month=&year=` or `?from=&to=`, `&types=` | |
+| GET | `/leaves/types` | |
+| POST | `/leaves` | multipart: leave_type_id, duration, leave_date / from_date + to_date, reason, files[]?, mark_leave_anyway? |
+| GET | `/leaves?status=&year=&page=&per_page=` | |
+| GET | `/leaves/{id}` | |
 
 ---
 
-## 8. Notes for the server team
+## 10. Notes for the server team
+- **Forgot-password codes** are kept in the application cache (`CACHE_DRIVER`, `file` by default) for 15 minutes. The code e-mail goes out through the same mail settings as every other HRM e-mail.
 - **Database:** the API needs one new migration, `2026_10_27_100001_attendance_break_logs`. It runs with the other migrations.
 - **Login tokens:** stored in `personal_access_tokens` (Laravel Sanctum). HR can revoke a phone's access by disabling the employee's login.
 - **Clock-in photos:** saved under `storage/app/public/attendance-photos/{employee}/{YYYY-MM}/`. The server needs the `public/storage` link (`php artisan storage:link`) for the photo URLs to open.
