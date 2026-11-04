@@ -1,4 +1,4 @@
-<x-cards.notification :notification="$notification" :link="route('attendances.by_request')"
+<x-cards.notification :notification="$notification" :link="route('attendances.by_request') . '?waiting=me'"
     :image="user()->image_url"
-    :title="__('clan.attendance.attendanceRegularisationCreated')" :text="$notification->data['heading']"
+    :title="'Attendance correction waiting for your approval'" :text="$notification->data['heading']"
     :time="$notification->created_at"/>

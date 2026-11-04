@@ -144,7 +144,8 @@ class PayslipListController extends AccountBaseController
             // Shown so the card can say what proportion of pay is withheld.
             'deduction_pct' => $gross > 0 ? round($deductions / $gross * 100, 1) : 0.0,
             'avg_net' => $employees > 0 ? $sum('take_home') / $employees : 0.0,
-            'flagged' => $rows->filter(fn ($r) => $r->warnings !== [])->count(),
+            'flagged' => $rows->filter(fn ($r) => $r->warnings !== [] && empty($r->stale))->count(),
+            'stale' => $rows->filter(fn ($r) => !empty($r->stale))->count(),
             // If these disagree the stored figures are inconsistent, which is
             // worth saying out loud rather than quietly rendering both.
             'reconciles' => abs(($gross - $deductions) - $sum('net_salary')) < 0.01,
@@ -602,6 +603,30 @@ class PayslipListController extends AccountBaseController
 
         if ($row->user_id === null) {
             $warnings[] = 'No matching ERP employee for card ID ' . $row->emp_id;
+        }
+
+        // Attendance, a leave or a correction for the period changed after the payslip
+        // was made: the payslip still has the old count. (Paid ones stand as paid.)
+        if ($row->user_id && $row->status === 'active' && $row->approval_status !== 'paid' && $row->created_at
+            && preg_match('/^(\d{4})-(\d{2})$/', $this->parsePeriod($row->period)[0], $ym)) {
+            $cycle = \App\Services\Payroll\PayPeriod::forMonth((int) $ym[2], (int) $ym[1]);
+            $from = $cycle->start->copy()->startOfDay();
+            $to = $cycle->end->copy()->endOfDay();
+            $changed = [];
+
+            if (DB::table('attendances')->where('user_id', $row->user_id)->whereBetween('clock_in_time', [$from, $to])
+                ->where(fn ($q) => $q->where('created_at', '>', $row->created_at)->orWhere('updated_at', '>', $row->created_at))->exists()) {
+                $changed[] = 'attendance';
+            }
+            if (DB::table('leaves')->where('user_id', $row->user_id)->whereBetween('leave_date', [$from->toDateString(), $to->toDateString()])
+                ->where('updated_at', '>', $row->created_at)->exists()) {
+                $changed[] = 'leave';
+            }
+
+            if ($changed) {
+                $warnings[] = 'Out of date: ' . implode(' and ', $changed) . ' for this period changed after the payslip was made. Revoke and reissue it to pay the new count';
+                $row->stale = true;
+            }
         }
 
         return $warnings;

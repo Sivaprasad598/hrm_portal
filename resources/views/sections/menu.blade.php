@@ -13,40 +13,17 @@
             : null;
 @endphp
 
-@php
-    // Employees (anyone without a managing role) get four single links, no
-    // groups: their dashboard, leave, payslips and the assets they hold.
-    $selfService = \App\Services\Access\AssignedModules::selfService();
-    $selfLinks = !$selfService ? [] : array_filter([
-        ['Dashboard', route('dashboard'), 'bi bi-house', request()->routeIs('dashboard')],
-        in_array('leaves', user_modules()) && user()->permission('view_leave') !== 'none' && user()->permission('view_leave') !== false
-            ? ['Leaves', route('leaves.index'), 'bi bi-calendar-check', request()->routeIs('leaves.*')] : null,
-        in_array('attendance', user_modules()) && in_array(user()->permission('view_attendance'), ['owned', 'both', 'added', 'all'], true)
-            ? ['My Attendance', route('attendances.by_member'), 'bi bi-calendar2-week', request()->routeIs('attendances.*')] : null,
-        ['My Payslips', route('my-payslips.index'), 'bi bi-receipt', request()->routeIs('my-payslips.*')],
-        user()->employeeDetail ? ['My Assets', route('employees.show', user()->id) . '?tab=assets', 'bi bi-laptop',
-            request()->routeIs('employees.show') && request('tab') === 'assets'] : null,
-    ]);
-@endphp
-
-@if ($selfService)
-    <ul class="list-unstyled p-0 m-0">
-        @foreach ($selfLinks as [$label, $url, $icon, $active])
-            <li class="accordionItem closeIt">
-                <a class="nav-item text-lightest f-15 sidebar-text-color {{ $active ? 'active' : '' }}" href="{{ $url }}" title="{{ $label }}">
-                    <i class="side-icon {{ $icon }}" aria-hidden="true"></i>
-                    <span class="pl-3">{{ $label }}</span>
-                </a>
-            </li>
-        @endforeach
-    </ul>
-@elseif ($databaseMenus === null)
+{{-- Every role's sidebar is Settings > Assign Menus, with the person's permissions on top.
+     (My Space and My Team are menu entries too; employees had a fixed list that ignored it.) --}}
+@if ($databaseMenus === null)
     @include('sections.menu-legacy')
 @else
     <ul class="list-unstyled p-0 m-0">
+
         {{-- ==================== DATABASE MENUS ==================== --}}
         @forelse ($databaseMenus as $databaseMenu)
             @include('sections.database-menu-item', ['menu' => $databaseMenu, 'level' => 0])
+
         @empty
             {{-- Granted nothing, or permitted nothing. Everyone can still reach
                  their own dashboard, so the sidebar is never truly empty. --}}

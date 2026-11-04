@@ -64,6 +64,11 @@
                                  text="AI Settings"/>
         @endif
 
+        @if (\App\Services\Recruit\RecruitAccess::can('settings'))
+            <x-setting-menu-item :active="$activeMenu" menu="recruitment_settings" :href="route('recruitment-settings.index')"
+                                 text="Recruitment Settings"/>
+        @endif
+
         @if (user()->permission('manage_company_setting') == 'all')
             <x-setting-menu-item :active="$activeMenu" menu="company_settings" :href="route('company-settings.index')"
                                  :text="__('app.menu.accountSettings')"/>

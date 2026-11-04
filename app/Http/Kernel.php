@@ -74,6 +74,7 @@ class Kernel extends HttpKernel
         'translation' => \App\Http\Middleware\EnsureTranslationToken::class,
         'mobile.api' => \App\Http\Middleware\MobileApi::class,
         'mobile.employee' => \App\Http\Middleware\MobileApiEmployee::class,
+        'recruit.api' => \App\Http\Middleware\RecruitApiKey::class,
     ];
 
     /**

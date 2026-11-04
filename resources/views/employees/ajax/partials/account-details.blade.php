@@ -111,6 +111,27 @@
                 <small class="form-text text-muted">
                     {{ $isEdit ? __('modules.client.passwordUpdateNote') : 'Auto-generated from first 4 letters of name + date of birth. You can change it.' }}
                 </small>
+                @if ($isEdit && !empty($e?->id))
+                    {{-- Saves only the password: the full Save checks the whole onboarding record --}}
+                    <button type="button" class="btn btn-sm btn-primary mt-2" id="update-password-only"
+                            data-url="{{ route('employees.update_password', $e->id) }}">
+                        <i class="fa fa-key mr-1"></i> Update password now
+                    </button>
+                    <script>
+                        $('#update-password-only').off('click').on('click', function () {
+                            var pw = $('#password').val();
+                            if (!pw || pw.length < 8) {
+                                Swal.fire({icon: 'warning', text: 'Type a password of at least 8 characters first.'});
+                                return;
+                            }
+                            $.easyAjax({
+                                url: $(this).data('url'), type: 'POST', disableButton: true, buttonSelector: '#update-password-only',
+                                data: {_token: '{{ csrf_token() }}', password: pw},
+                                success: function (r) { if (r.status === 'success') { $('#password').val(''); } }
+                            });
+                        });
+                    </script>
+                @endif
             </div>
             <div class="col-md-4 col-sm-12">
                 <x-forms.label class="my-3" fieldId="employee_designation" :fieldLabel="__('app.designation')" fieldRequired="true">
@@ -236,7 +257,7 @@
                 <option data-tokens="{{ $item->iso3 }}" data-phonecode="{{ $item->phonecode }}" data-iso="{{ $item->iso }}"
                     data-content="<span class='flag-icon flag-icon-{{ strtolower($item->iso) }} flag-icon-squared'></span> {{ $item->nicename }}"
                     value="{{ $item->id }}"
-                    @selected($isEdit ? $e->country_id == $item->id : strtoupper($item->iso) == 'IN')>{{ $item->nicename }}</option>
+                    @selected(($isEdit && $e->country_id) ? $e->country_id == $item->id : strtoupper($item->iso) == 'IN')>{{ $item->nicename }}</option>
             @endforeach
         </x-forms.select>
     </div>
@@ -277,14 +298,8 @@
             @endforeach
         </x-forms.select>
     </div>
-    <div class="col-lg-3 col-md-6">
-        <x-forms.select fieldId="locale" :fieldLabel="__('app.language')" fieldName="locale" search="true">
-            @foreach ($languages as $language)
-                <option value="{{ $language->language_code }}" @selected(($e->locale ?? user()->locale) == $language->language_code)
-                    data-content="<span class='flag-icon flag-icon-{{ ($language->flag_code == 'en') ? 'gb' : $language->flag_code }} flag-icon-squared'></span> {{ $language->language_name }}">{{ $language->language_name }}</option>
-            @endforeach
-        </x-forms.select>
-    </div>
+    {{-- Language is not asked: kept as it is (new staff get the company's) --}}
+    <input type="hidden" name="locale" value="{{ $e->locale ?? (company()->locale ?? user()->locale ?? 'en') }}">
     <div class="col-lg-3 col-md-6">
         @if ($canChangeRole)
             <x-forms.select fieldId="role" :fieldLabel="__('app.role')" fieldName="role">

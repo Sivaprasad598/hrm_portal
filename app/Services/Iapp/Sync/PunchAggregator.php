@@ -98,8 +98,10 @@ class PunchAggregator
                     'attendance_date' => $date,
                     'first_in' => $built['first_in_at']?->format('Y-m-d H:i:s'),
                     'last_out' => $built['last_out_at']?->format('Y-m-d H:i:s'),
-                    'work_hour' => $built['inside_minutes'] > 0 ? $this->minutesToDuration($built['inside_minutes']) : null,
-                    'work_minutes' => $built['inside_minutes'] > 0 ? $built['inside_minutes'] : null,
+                    // Time on site (DayTimeline), not paired door time, which
+                    // undercounted any day with an entry nobody swiped.
+                    'work_hour' => $built['onsite_minutes'] > 0 ? $this->minutesToDuration($built['onsite_minutes']) : null,
+                    'work_minutes' => $built['onsite_minutes'] > 0 ? $built['onsite_minutes'] : null,
                     'day_type' => IappAttendanceRecord::DAY_PRESENT,
                     'source' => IappAttendanceRecord::SOURCE_PUNCH,
                     'controller_code' => $built['events'][0]['controller'] ?? null,

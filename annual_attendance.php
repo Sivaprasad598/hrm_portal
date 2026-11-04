@@ -4,6 +4,8 @@ $app = require __DIR__ . '/bootstrap/app.php';
 $kernel = $app->make(\Illuminate\Contracts\Console\Kernel::class);
 $kernel->bootstrap();
 
+// A month (or year) for every employee takes a while; past PHP's 30s default the frame came back empty
+@set_time_limit(180);
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 
@@ -631,6 +633,9 @@ $fyLabel = $companyId > 0 ? (string) $year : '';
             thead th, tbody td { padding: 8px 6px; font-size: 12px; }
         }
     </style>
+    <!-- The Epic HR look over this page (Attendance > Dashboard tab) -->
+    <link rel="stylesheet" href="<?php echo asset('css/epic/reports.css'); ?>?v=<?php echo @filemtime(public_path('css/epic/reports.css')); ?>">
+    <?php if (function_exists('view')) { echo view('sections.epic-colors')->render(); } ?>
 </head>
 
 <body>

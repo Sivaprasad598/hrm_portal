@@ -70,6 +70,22 @@ class PayslipWriter
             return $this->refuse($employee->name . ': ' . $blocker);
         }
 
+        // Nothing at all to pay from: not on any device we pull, no attendance and no
+        // approved leave in the cycle. Paying that would be a whole month of LOP (230
+        // drafts of ~27 LOP days came from branches whose devices are not pulled), so
+        // it is held until attendance is in, or entered by hand.
+        if (!$pipeline->deviceCodeFor($userId)) {
+            $hasAttendance = DB::table('attendances')->where('user_id', $userId)
+                ->whereBetween('clock_in_time', [$cycle->start->copy()->startOfDay(), $cycle->end->copy()->endOfDay()])->exists();
+            $hasLeave = DB::table('leaves')->where('user_id', $userId)->where('status', 'approved')
+                ->whereBetween('leave_date', [$cycle->start->toDateString(), $cycle->end->toDateString()])->exists();
+
+            if (!$hasAttendance && !$hasLeave) {
+                return $this->refuse($employee->name . ': no attendance recorded for ' . $cycle->describe()
+                    . ' (not on a biometric device that is pulled, and none entered). Pull their device or mark their attendance first.');
+            }
+        }
+
         $standing = DB::table('payslips')
             ->where('emp_id', (string) $employee->employee_card_id)->where('period', $period)
             ->where('status', 'active')->whereNull('deleted_at')->first(['id']);

@@ -209,6 +209,8 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account'], function () {
     // employee routes
     Route::post('employees/apply-quick-action', [EmployeeController::class, 'applyQuickAction'])->name('employees.apply_quick_action');
     Route::post('employees/assignRole', [EmployeeController::class, 'assignRole'])->name('employees.assign_role');
+    // Just the password, without saving (and so re-checking) the whole employee record
+    Route::post('employees/{id}/password', [EmployeeController::class, 'updatePassword'])->name('employees.update_password');
     Route::get('employees/byDepartment/{id}', [EmployeeController::class, 'byDepartment'])->name('employees.by_department');
     Route::get('employees/invite-member', [EmployeeController::class, 'inviteMember'])->name('employees.invite_member');
     Route::get('employees/import', [EmployeeController::class, 'importMember'])->name('employees.import');
@@ -262,6 +264,45 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account'], function () {
     Route::delete('assets/renewals/{renewal}', [App\Http\Controllers\AssetUpkeepController::class, 'renewalDestroy'])->name('assets.renewal-destroy');
     Route::resource('assets', App\Http\Controllers\AssetController::class);
     Route::resource('asset-types', App\Http\Controllers\AssetTypeController::class)->only(['index', 'store', 'update', 'destroy']);
+
+    // Recruitment: positions, candidates (careers mailbox, website, HR), interviews, offers, joining.
+    Route::get('recruitment', [App\Http\Controllers\Recruit\RecruitDashboardController::class, 'index'])->name('recruitment.dashboard');
+    Route::get('recruitment/settings', [App\Http\Controllers\Recruit\RecruitSettingController::class, 'index'])->name('recruitment-settings.index');
+    Route::post('recruitment/settings', [App\Http\Controllers\Recruit\RecruitSettingController::class, 'update'])->name('recruitment-settings.update');
+    Route::post('recruitment/settings/test-mailbox', [App\Http\Controllers\Recruit\RecruitSettingController::class, 'testMailbox'])->name('recruitment-settings.test-mailbox');
+    Route::post('recruitment/settings/fetch', [App\Http\Controllers\Recruit\RecruitSettingController::class, 'fetch'])->name('recruitment-settings.fetch');
+    Route::post('recruitment/settings/api-key', [App\Http\Controllers\Recruit\RecruitSettingController::class, 'apiKey'])->name('recruitment-settings.api-key');
+    Route::get('recruitment/incoming', [App\Http\Controllers\Recruit\RecruitSettingController::class, 'inbox'])->name('recruitment-settings.inbox');
+    Route::get('recruitment/incoming/{id}', [App\Http\Controllers\Recruit\RecruitSettingController::class, 'inboxShow'])->name('recruitment-settings.inbox-show');
+    Route::resource('job-positions', App\Http\Controllers\Recruit\JobPositionController::class);
+    Route::get('job-applications', [App\Http\Controllers\Recruit\JobApplicationController::class, 'index'])->name('job-applications.index');
+    Route::get('job-applications/create', [App\Http\Controllers\Recruit\JobApplicationController::class, 'create'])->name('job-applications.create');
+    Route::post('job-applications', [App\Http\Controllers\Recruit\JobApplicationController::class, 'store'])->name('job-applications.store');
+    Route::get('job-applications/{application}/move', [App\Http\Controllers\Recruit\JobApplicationController::class, 'moveForm'])->name('job-applications.move-form');
+    Route::post('job-applications/{application}/move', [App\Http\Controllers\Recruit\JobApplicationController::class, 'move'])->name('job-applications.move');
+    Route::post('candidates/ai-preview', [App\Http\Controllers\Recruit\CandidateController::class, 'aiPreview'])->name('candidates.ai-preview');
+    Route::post('candidates/{candidate}/ai', [App\Http\Controllers\Recruit\CandidateController::class, 'aiFill'])->name('candidates.ai');
+    Route::post('candidates/{candidate}/files', [App\Http\Controllers\Recruit\CandidateController::class, 'uploadFile'])->name('candidates.files.store');
+    Route::delete('candidates/files/{file}', [App\Http\Controllers\Recruit\CandidateController::class, 'deleteFile'])->name('candidates.files.destroy');
+    Route::post('candidates/{candidate}/note', [App\Http\Controllers\Recruit\CandidateController::class, 'note'])->name('candidates.note');
+    Route::get('candidates/{candidate}/convert', [App\Http\Controllers\Recruit\CandidateController::class, 'convert'])->name('candidates.convert');
+    Route::resource('candidates', App\Http\Controllers\Recruit\CandidateController::class);
+    Route::get('recruit-interviews', [App\Http\Controllers\Recruit\RecruitInterviewController::class, 'index'])->name('recruit-interviews.index');
+    Route::get('recruit-interviews/create', [App\Http\Controllers\Recruit\RecruitInterviewController::class, 'create'])->name('recruit-interviews.create');
+    Route::post('recruit-interviews', [App\Http\Controllers\Recruit\RecruitInterviewController::class, 'store'])->name('recruit-interviews.store');
+    Route::get('recruit-interviews/{interview}/edit', [App\Http\Controllers\Recruit\RecruitInterviewController::class, 'edit'])->name('recruit-interviews.edit');
+    Route::put('recruit-interviews/{interview}', [App\Http\Controllers\Recruit\RecruitInterviewController::class, 'update'])->name('recruit-interviews.update');
+    Route::get('recruit-interviews/{interview}/close', [App\Http\Controllers\Recruit\RecruitInterviewController::class, 'closeForm'])->name('recruit-interviews.close-form');
+    Route::post('recruit-interviews/{interview}/close', [App\Http\Controllers\Recruit\RecruitInterviewController::class, 'close'])->name('recruit-interviews.close');
+    Route::get('recruit-interviews/{interview}', [App\Http\Controllers\Recruit\RecruitInterviewController::class, 'feedbackForm'])->name('recruit-interviews.feedback');
+    Route::post('recruit-interviews/{interview}/feedback', [App\Http\Controllers\Recruit\RecruitInterviewController::class, 'feedback'])->name('recruit-interviews.feedback.store');
+    Route::get('job-offers/create', [App\Http\Controllers\Recruit\JobOfferController::class, 'create'])->name('job-offers.create');
+    Route::post('job-offers', [App\Http\Controllers\Recruit\JobOfferController::class, 'store'])->name('job-offers.store');
+    Route::get('job-offers/{offer}/edit', [App\Http\Controllers\Recruit\JobOfferController::class, 'edit'])->name('job-offers.edit');
+    Route::put('job-offers/{offer}', [App\Http\Controllers\Recruit\JobOfferController::class, 'update'])->name('job-offers.update');
+    Route::get('job-offers/{offer}/respond', [App\Http\Controllers\Recruit\JobOfferController::class, 'respondForm'])->name('job-offers.respond-form');
+    Route::post('job-offers/{offer}/respond', [App\Http\Controllers\Recruit\JobOfferController::class, 'respond'])->name('job-offers.respond');
+    Route::get('job-offers/{offer}/letter', [App\Http\Controllers\Recruit\JobOfferController::class, 'letter'])->name('job-offers.letter');
 
     // Employee Exit Management
     Route::get('employee-exit/initiate/{userId}', [EmployeeExitController::class, 'initiate'])->name('employee-exit.initiate');
@@ -930,6 +971,7 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account'], function () {
     Route::post('attendances/apply-late-half-day', [AttendanceController::class, 'applyLateHalfDay'])->name('attendances.apply_late_half_day');
     Route::get('attendances/by-member', [AttendanceController::class, 'byMember'])->name('attendances.by_member');
     Route::get('attendances/by-hour', [AttendanceController::class, 'byHour'])->name('attendances.by_hour');
+    Route::get('attendances/dashboard', [AttendanceController::class, 'dashboard'])->name('attendances.dashboard');
     Route::post('attendances/bulk-mark', [AttendanceController::class, 'bulkMark'])->name('attendances.bulk_mark');
     Route::get('attendances/import', [AttendanceController::class, 'importAttendance'])->name('attendances.import');
     Route::post('attendances/import', [AttendanceController::class, 'importStore'])->name('attendances.import.store');
@@ -1197,6 +1239,8 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account'], function () {
     Route::get('my-payslips/{id}', [App\Http\Controllers\MyPayslipsController::class, 'show'])->name('my-payslips.show');
     Route::get('my-payslips/{id}/pdf', [App\Http\Controllers\MyPayslipsController::class, 'pdf'])->name('my-payslips.pdf');
     Route::get('my-form-16', [App\Http\Controllers\MyPayslipsController::class, 'formSixteen'])->name('my-payslips.form-16');
+    // A reporting manager's team (the people who report to them)
+    Route::get('my-team/attendance', [App\Http\Controllers\MyTeamController::class, 'attendance'])->name('my-team.attendance');
     // The record of what a month actually paid, from the payslips themselves.
     Route::get('payroll-register', [App\Http\Controllers\PayrollRegisterController::class, 'index'])->name('payroll-register.index');
     Route::get('payroll-register/export', [App\Http\Controllers\PayrollRegisterController::class, 'export'])->name('payroll-register.export');

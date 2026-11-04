@@ -13,8 +13,24 @@
 @endpush
 
 @section('filter-section')
+    @php
+        // A manager (people report to them) or HR decides requests: they can narrow to theirs
+        $decides = \App\Services\Attendance\CorrectionApprovals::teamUserIds() || \App\Services\Attendance\CorrectionApprovals::isHr();
+    @endphp
 
     <x-filters.filter-box>
+        @if ($decides)
+            <div class="select-box py-2 d-flex pr-2 border-right-grey border-right-grey-sm-0">
+                <p class="mb-0 pr-2 f-14 text-dark-grey d-flex align-items-center">Show</p>
+                <div class="select-status">
+                    <select class="form-control select-picker" name="waiting" id="waiting" data-size="8">
+                        <option value="">All I can see</option>
+                        <option value="me" @selected(request('waiting') === 'me')>Waiting for me</option>
+                    </select>
+                </div>
+            </div>
+        @endif
+
         <div class="select-box py-2 d-flex pr-2 border-right-grey border-right-grey-sm-0">
             <p class="mb-0 pr-2 f-14 text-dark-grey d-flex align-items-center">@lang('app.employee')</p>
             <div class="select-status">
@@ -139,6 +155,7 @@
 
     data['employee'] = employee;
     data['status'] = status;
+    data['waiting'] = $('#waiting').length ? $('#waiting').val() : '';
     data['month'] = month;
     data['year'] = year;
     data['searchText'] = searchText;
@@ -147,7 +164,7 @@
     window.LaravelDataTables["attendanceregularisation-table"].draw(false);
     }
 
-    $(' #status, #field, #employee, #month, #year')
+    $(' #status, #field, #employee, #month, #year, #waiting')
         .on('change keyup',
             function() {
                 if ($('#status').val() != "pending") {

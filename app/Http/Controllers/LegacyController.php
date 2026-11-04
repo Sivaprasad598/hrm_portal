@@ -20,7 +20,7 @@ class LegacyController extends AccountBaseController
 
     public function leaveManagement()
     {
-        $this->pageTitle = 'app.menu.leaveManagement';
+        $this->pageTitle = 'Leave Balances';
 
         $viewPermission = user()->permission('view_leave');
         // It picks any employee: for those who see everybody's leave (an employee has My Leaves).

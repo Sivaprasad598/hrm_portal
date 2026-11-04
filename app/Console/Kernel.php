@@ -135,6 +135,7 @@ class Kernel extends ConsoleKernel
         $schedule->command('send-attendance-reminder')->everyMinute();
         $schedule->command('sync-user-permissions')->everyMinute();
         // $schedule->command('fetch-ticket-emails')->everyMinute(); // phpcs:ignore
+        $schedule->command('recruit:fetch-mail')->everyFifteenMinutes()->withoutOverlapping(30);
         $schedule->command('send-auto-followup-reminder')->everyMinute();
         $schedule->command('send-time-tracker')->everyMinute();
 

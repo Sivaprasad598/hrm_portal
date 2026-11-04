@@ -25,18 +25,10 @@ class AttendanceRegularisationDataTable extends BaseDataTable
      */
     public function dataTable($query)
     {
-        $attendanceRegularisation = AttendanceSetting::first();
-        $regulariseRoles = $attendanceRegularisation->attendance_regularize_roles;
-        $regulariseRolesArray = json_decode($regulariseRoles, true) ?? [];
-        $userRoles = user_roles();
-
-        $lastRole = end($userRoles);
-        $condition = in_array($lastRole, $regulariseRolesArray) || $lastRole === 'admin';
-
         return datatables()
             ->eloquent($query)
 
-            ->addColumn('action', function ($row) use ($condition) {
+            ->addColumn('action', function ($row) {
                 $action = '<div class="task_view">
                     <div class="dropdown">
                         <a class="task_view_more d-flex align-items-center justify-content-center dropdown-toggle" type="link"
@@ -50,7 +42,17 @@ class AttendanceRegularisationDataTable extends BaseDataTable
                         <i class="mr-2 fa fa-eye"></i>' . trans('app.view') . '
                     </a>';
 
-                if ($row->status == 'pending' && ($condition || in_array('admin', user_roles()))) {
+                // Accept / reject for whoever decides the step it waits at (CorrectionApprovals);
+                // edit for them, or for the applicant while it is pending
+                $canAct = \App\Services\Attendance\CorrectionApprovals::canAct($row) !== null;
+
+                if ($row->status == 'pending' && !$canAct && (int) $row->user_id === (int) user()->id) {
+                    $action .= '<a data-edit-id=' . $row->id . ' class="dropdown-item edit-attendance-regularisation" href="javascript:;">
+                            <i class="mr-2 fa fa-edit"></i>' . trans('app.edit') . '
+                        </a>';
+                }
+
+                if ($row->status == 'pending' && $canAct) {
                     // Accept button
                     $action .= '<a data-accept-id=' . $row->id . ' class="dropdown-item accept-action" href="javascript:;">
                                     <i class="fa fa-check mr-2"></i>' . __('app.accept') . '
@@ -105,7 +107,7 @@ class AttendanceRegularisationDataTable extends BaseDataTable
             }
             else if ($row->status == 'pending') {
                 $class = 'text-yellow';
-                $status = __('app.pending');
+                $status = __('app.pending') . '<div class="f-11 text-dark-grey">with ' . e(\App\Services\Attendance\CorrectionApprovals::label($row->approval_step ?: 'hr')) . '</div>';
             }
             else {
                 $class = 'text-red';
@@ -136,8 +138,21 @@ class AttendanceRegularisationDataTable extends BaseDataTable
             'attendance_regularisations.clock_out_time',
             'attendance_regularisations.working_from',
             'attendance_regularisations.status',
+            'attendance_regularisations.approval_step',
+            'attendance_regularisations.user_id',
+            'attendance_regularisations.company_id',
         ])
         ->join('users', 'attendance_regularisations.user_id', '=', 'users.id');
+
+        // Everybody's for HR; otherwise one's own and one's team's
+        if (user()->permission('view_attendance') !== 'all' && !\App\Services\Attendance\CorrectionApprovals::isHr()) {
+            $model = $model->whereIn('attendance_regularisations.user_id', array_merge([(int) user()->id], \App\Services\Attendance\CorrectionApprovals::teamUserIds()));
+        }
+
+        // "Waiting for me": the ones this person decides now
+        if ($request->waiting === 'me') {
+            $model = $model->whereIn('attendance_regularisations.id', \App\Services\Attendance\CorrectionApprovals::waitingFor()->pluck('id')->all() ?: [0]);
+        }
 
         if ($request->employee != 'all' && $request->employee != '') {
             $model = $model->where('users.id', $request->employee);
@@ -147,11 +162,12 @@ class AttendanceRegularisationDataTable extends BaseDataTable
             $model = $model->where('attendance_regularisations.status', $request->status);
         }
 
-        if ($request->month != 'all' && $request->month != '') {
+        // (Waiting for me: whatever month it is for)
+        if ($request->waiting !== 'me' && $request->month != 'all' && $request->month != '') {
             $model = $model->whereMonth('attendance_regularisations.date', $request->month);
         }
 
-        if ($request->year != 'all' && $request->year != '') {
+        if ($request->waiting !== 'me' && $request->year != 'all' && $request->year != '') {
             $model = $model->whereYear('attendance_regularisations.date', $request->year);
         }
 

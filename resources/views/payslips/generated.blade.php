@@ -179,6 +179,14 @@
             </div>
         </div>
 
+        @if (($summary['stale'] ?? 0) > 0)
+            <div class="alert alert-warning f-13">
+                <strong>{{ $summary['stale'] }} payslip{{ $summary['stale'] === 1 ? ' is' : 's are' }} out of date.</strong>
+                Attendance or a leave for that period changed after the payslip was made, so it still pays the old count.
+                Revoke and reissue it before approving. Hover the <i class="fa fa-exclamation-triangle text-yellow"></i> on a row for what changed.
+            </div>
+        @endif
+
         @if ($summary['flagged'] > 0)
             <div class="alert alert-warning f-13">
                 <strong>{{ $summary['flagged'] }} payslip{{ $summary['flagged'] === 1 ? '' : 's' }} contain figures that cannot be right.</strong>

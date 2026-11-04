@@ -49,11 +49,33 @@
         'settings' => 'bi bi-gear',
     ];
 
-    $resolveUrl = function ($item) use ($routeFallbacks) {
-        $route = $item->route;
+    // A route field may carry the person and a query: "employees.show|{me}?tab=assets",
+    // "attendances.by_member?user_id={me}" ({me} = the signed-in person)
+    $parseRoute = function (?string $route) {
+        $route = (string) $route;
+        $query = [];
+        if (str_contains($route, '?')) {
+            [$route, $qs] = explode('?', $route, 2);
+            parse_str(str_replace('{me}', (string) user()->id, $qs), $query);
+        }
+        $params = [];
+        if (str_contains($route, '|')) {
+            [$route, $ps] = explode('|', $route, 2);
+            $params = array_map(fn ($p) => str_replace('{me}', (string) user()->id, trim($p)), explode(',', $ps));
+        }
+
+        return [$route, $params, $query];
+    };
+
+    $resolveUrl = function ($item) use ($routeFallbacks, $parseRoute) {
+        [$route, $params, $query] = $parseRoute($item->route);
 
         if ($route && \Illuminate\Support\Facades\Route::has($route)) {
-            return route($route);
+            try {
+                return route($route, $params) . ($query ? '?' . http_build_query($query) : '');
+            } catch (\Throwable $e) {
+                return null;
+            }
         }
 
         if ($route && filter_var($route, FILTER_VALIDATE_URL)) {
@@ -72,13 +94,29 @@
     $currentRouteName = request()->route() ? request()->route()->getName() : null;
     $currentUrl = url()->current();
 
-    $isItemActive = function ($item) use ($resolveUrl, $currentRouteName, $currentUrl) {
+    $isItemActive = function ($item) use ($resolveUrl, $currentRouteName, $currentUrl, $parseRoute) {
         // A group's entry stands for all its pages (App\Services\Access\PageGroups).
         if ($item->group_routes) {
             return \App\Services\Access\PageGroups::routeIsWithin($item->group_routes);
         }
 
-        if ($item->route && $item->route === $currentRouteName) {
+        [$route, $params, $query] = $parseRoute($item->route);
+
+        if ($route && $route === $currentRouteName) {
+            // Same page: the person and the query must match too (My Attendance is
+            // by_member?user_id=me; Team Attendance's people are by_member of others)
+            $routeParams = array_values(request()->route()?->parameters() ?? []);
+            foreach ($params as $i => $p) {
+                if ((string) ($routeParams[$i] ?? '') !== (string) $p) {
+                    return false;
+                }
+            }
+            foreach ($query as $k => $v) {
+                if ((string) request($k) !== (string) $v) {
+                    return false;
+                }
+            }
+
             return true;
         }
 
@@ -104,7 +142,7 @@
     $level = $level ?? 0;
 
     $menuUrl = $menu->group_url ?: $resolveUrl($menu);
-    $menuLabel = $menu->group_label ?? \App\Services\Access\PageGroups::RENAMED[$menu->slug] ?? $menu->menu_name ?? $menu->name;
+    $menuLabel = $menu->group_label ?? $menu->menu_name ?? $menu->name;
     $menuIcon = $menu->icon ? $menu->display_icon : ($defaultIcons[$menu->slug] ?? 'bi bi-circle');
 
     // Filter here too: levels below children.children are lazy-loaded without the is_active constraint
@@ -194,10 +232,20 @@
             @endforeach
         </div>
     @else
+        @php
+            // What is waiting for this person, on the My Team entries
+            $waiting = match ($menu->slug) {
+                'team-leaves' => \App\Services\Leaves\LeaveApprovals::waitingFor()->unique(fn ($l) => $l->unique_id ?: 'id' . $l->id)->count(),
+                'attendance-requests' => \App\Services\Attendance\CorrectionApprovals::waitingFor()->count(),
+                default => 0,
+            };
+        @endphp
         <a class="{{ $level > 1 ? 'f-13' : 'f-14' }} text-lightest {{ $isActive ? 'active' : '' }}"
+           @if ($isActive) data-server-active="1" @endif
            @if ($subLinkStyle) style="{{ $subLinkStyle }}" @endif
            href="{{ $menuUrl ?: 'javascript:;' }}" title="{{ $menuLabel }}">
             @if ($subIcon)<i class="{{ $subIcon }} sidebar-sub-icon" aria-hidden="true"></i>@endif{{ $menuLabel }}
+            @if ($waiting)<span class="epic-menu-count" title="Waiting for you">{{ $waiting }}</span>@endif
         </a>
     @endif
 @endif

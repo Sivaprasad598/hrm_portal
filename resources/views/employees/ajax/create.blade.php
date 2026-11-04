@@ -285,13 +285,6 @@ $addDepartmentPermission = user()->permission('add_department');
             <div class="wizard-pane" id="wizardStep1">
                 <div class="bg-white rounded p-20">
 
-                    <div class="wizard-section-header mb-4">
-                        <div class="wizard-section-icon"><i class="fa fa-id-card"></i></div>
-                        <div>
-                            <h5>Account Details</h5>
-                            <p>Identity, credentials, role and personal information</p>
-                        </div>
-                    </div>
 
                     @include('employees.ajax.partials.onboarding-resume', ['onboardingDocs' => null])
 
@@ -425,30 +418,9 @@ $addDepartmentPermission = user()->permission('add_department');
                                 </div>
                             </div>
                         </div>
-                        <div class="col-lg-3 col-md-6">
-                            <div class="my-3 form-group">
-                                <label class="mb-12 f-14 text-dark-grey w-100">@lang('modules.emailSettings.emailNotifications')</label>
-                                <div class="d-flex">
-                                    <x-forms.radio fieldId="notification-yes" :fieldLabel="__('app.yes')"
-                                        fieldValue="yes" fieldName="email_notifications" checked="true">
-                                    </x-forms.radio>
-                                    <x-forms.radio fieldId="notification-no" :fieldLabel="__('app.no')"
-                                        fieldValue="no" fieldName="email_notifications">
-                                    </x-forms.radio>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-lg-3 col-md-6">
-                            <x-forms.label class="my-3" fieldId="slack_username"
-                                :fieldLabel="__('modules.employees.slackUsername')"></x-forms.label>
-                            <x-forms.input-group>
-                                <x-slot name="prepend">
-                                    <span class="input-group-text f-14 bg-white-shade">@</span>
-                                </x-slot>
-                                <input type="text" class="form-control height-35 f-14"
-                                    name="slack_username" id="slack_username">
-                            </x-forms.input-group>
-                        </div>
+                        {{-- Email notifications and Slack are not asked any more --}}
+                        <input type="hidden" name="email_notifications" value="yes">
+
                         @if (function_exists('sms_setting') && sms_setting()->telegram_status)
                             <div class="col-md-6">
                                 <x-forms.number fieldName="telegram_user_id" fieldId="telegram_user_id"
@@ -466,10 +438,30 @@ $addDepartmentPermission = user()->permission('add_department');
                                 </p>
                             </div>
                         @endif
+                        @php
+                            // New staff start on probation when a probation length is set (Settings)
+                            $probationMonths = (int) (\Illuminate\Support\Facades\DB::table('probation_period_settings')
+                                ->where('company_id', company()->id)->orderByDesc('id')->value('months') ?? 0);
+                            $onProbation = $probationMonths > 0;
+                        @endphp
                         <div class="col-lg-3 col-md-6">
+                            <div class="form-group my-3">
+                                <label class="f-14 text-dark-grey mb-12 w-100">Probation Period</label>
+                                <div class="d-flex">
+                                    <x-forms.radio fieldId="probation-period-yes" :fieldLabel="__('app.yes')" fieldValue="1"
+                                        fieldName="probation_period" :checked="$onProbation ? 'checked' : ''">
+                                    </x-forms.radio>
+                                    <x-forms.radio fieldId="probation-period-no" :fieldLabel="__('app.no')" fieldValue="0"
+                                        fieldName="probation_period" :checked="!$onProbation ? 'checked' : ''">
+                                    </x-forms.radio>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="probationEndDateWrap" class="col-lg-3 col-md-6 {{ $onProbation ? '' : 'd-none' }}">
                             <x-forms.datepicker fieldId="probation_end_date"
                                 :fieldLabel="__('modules.employees.probationEndDate')"
                                 fieldName="probation_end_date" :fieldPlaceholder="__('placeholders.date')"
+                                :fieldRequired="$onProbation ? 'true' : 'false'"
                                 :popover="__('messages.probationEndDate')"/>
                         </div>
                         <div class="col-lg-3 col-md-6">
@@ -498,10 +490,13 @@ $addDepartmentPermission = user()->permission('add_department');
                         </div>
                         <div class="col-lg-3 col-md-6">
                             <input type="hidden" name="attendance_exempt" value="0">
-                            <div class="custom-control custom-switch" style="margin-top:42px">
-                                <input type="checkbox" class="custom-control-input" id="attendance_exempt" name="attendance_exempt" value="1" >
-                                <label class="custom-control-label f-14" for="attendance_exempt" data-toggle="tooltip"
-                                       title="Management staff who are not in office full hours: full salary every month whatever the punches; leave they apply for still counts (unpaid leave deducts). No lates, no overtime, not in the daily review.">Salary not based on attendance</label>
+                            <div class="form-group my-3">
+                                <label class="f-14 text-dark-grey mb-12 w-100">Salary Basis</label>
+                                <div class="custom-control custom-switch d-flex align-items-center" style="min-height:35px">
+                                    <input type="checkbox" class="custom-control-input" id="attendance_exempt" name="attendance_exempt" value="1" >
+                                    <label class="custom-control-label f-14" for="attendance_exempt" data-toggle="tooltip"
+                                           title="Management staff who are not in office full hours: full salary every month whatever the punches; leave they apply for still counts (unpaid leave deducts). No lates, no overtime, not in the daily review.">Not based on attendance</label>
+                                </div>
                             </div>
                         </div>
                         <div class="col-lg-3 col-md-6 d-none internship-date">
@@ -514,17 +509,8 @@ $addDepartmentPermission = user()->permission('add_department');
                                 :fieldLabel="__('modules.employees.contractEndDate')"
                                 fieldName="contract_end_date" :fieldPlaceholder="__('placeholders.date')"/>
                         </div>
-                        <div class="col-lg-3 col-md-6">
-                            <x-forms.select fieldId="employment_status"
-                                fieldLabel="Employee Exit"
-                                fieldName="employment_status">
-                                <option value="confirmed">Confirmed</option>
-                                <option value="probation">Probation Period</option>
-                                <option value="notice_period">Notice Period</option>
-                                <option value="off_boarded">Off Board</option>
-                                <option value="none">None</option>
-                            </x-forms.select>
-                        </div>
+                        <input type="hidden" name="employment_status" id="employment_status" value="confirmed">
+
                         <div class="col-lg-3 col-md-6">
                             <x-forms.select fieldId="marital_status"
                                 :fieldLabel="__('modules.employees.maritalStatus')"
@@ -539,19 +525,8 @@ $addDepartmentPermission = user()->permission('add_department');
                                 :fieldLabel="__('modules.employees.marriageAnniversaryDate')"
                                 fieldName="marriage_anniversary_date" :fieldPlaceholder="__('placeholders.date')"/>
                         </div>
-                        <div class="col-lg-3 col-md-6">
-                            <x-forms.label class="my-3" fieldId="category_id"
-                                :fieldLabel="__('app.menu.businessAddresses')" fieldRequired="true">
-                            </x-forms.label>
-                            <x-forms.input-group>
-                                <select class="form-control select-picker" name="company_address"
-                                    id="company_address" data-live-search="true">
-                                    @foreach ($companyAddresses as $address)
-                                        <option value="{{ $address->id }}">{{ $address->location }}</option>
-                                    @endforeach
-                                </select>
-                            </x-forms.input-group>
-                        </div>
+                        {{-- Business address is not asked: the default address --}}
+                        <input type="hidden" name="company_address" id="company_address" value="{{ $companyAddresses->firstWhere('is_default', 1)->id ?? $companyAddresses->first()->id ?? '' }}">
                         <input type="hidden" name="add_more" value="false" id="add_more" />
                     </div>
 
@@ -801,6 +776,32 @@ $(document).ready(function () {
     ];
     dpFields.forEach(function (sel) { datepicker(sel, dpConfig); });
 
+    // ── Probation Period Yes/No: the end date (joining date + the set months) shows on Yes
+    var probationMonths = {{ $probationMonths ?? 0 }};
+    function computeProbationEndDate() {
+        var j = $('#joining_date').val();
+        if (!j || !probationMonths || typeof moment === 'undefined') { return ''; }
+        var d = moment(j, company.moment_date_format);
+        return d.isValid() ? d.add(probationMonths, 'months').format(company.moment_date_format) : '';
+    }
+    function toggleProbationEndDate(show) {
+        var wrap = $('#probationEndDateWrap'), input = $('#probation_end_date'), label = wrap.find('label[for="probation_end_date"]');
+        if (show) {
+            wrap.removeClass('d-none');
+            if (!label.find('sup').length) { label.append(' <sup class="f-14 mr-1">*</sup>'); }
+            if (!input.val()) { input.val(computeProbationEndDate()); }
+            $('#employment_status').val('probation');
+        } else {
+            wrap.addClass('d-none');
+            input.val('');
+            label.find('sup').remove();
+            if (typeof clearFieldState === 'function') { clearFieldState(input[0]); }
+            $('#employment_status').val('confirmed');
+        }
+    }
+    $('input[name="probation_period"]').on('change', function () { toggleProbationEndDate($(this).val() === '1'); });
+    setTimeout(function () { toggleProbationEndDate($('#probation-period-yes').is(':checked')); }, 300);
+
     datepicker('#date_of_birth', { position: 'bl', maxDate: new Date(), ...datepickerConfig, onSelect: function() { generateAutoPassword(); } });
 
     // Read-only datepicker inputs
@@ -998,7 +999,6 @@ $(document).ready(function () {
             if (totalExp && totalExp !== '—') { h += r('Total Experience', totalExp); }
         }
         h += r('Employment Type', selText('employment_type'));
-        h += r('Employee Exit',   selText('employment_status'));
 
         h += '<p class="review-section-title"><i class="fa fa-passport mr-2"></i>Passport Details</p>';
         h += r('Passport No.',   val('passport_number'));
@@ -1390,6 +1390,7 @@ $(document).ready(function () {
         7: validateFinalDeclarationSection
     };
     @include('employees.ajax.partials.onboarding-script', ['onboardingMode' => 'create'])
+    @include('employees.ajax.partials.recruit-prefill')
 
     init(RIGHT_MODAL);
 });

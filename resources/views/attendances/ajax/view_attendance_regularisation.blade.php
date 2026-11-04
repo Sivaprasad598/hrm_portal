@@ -91,6 +91,27 @@
 
                 </div>
 
+                {{-- Who did what: the reporting manager, then HR (CorrectionApprovals) --}}
+                @if (isset($approvalTrail) && $approvalTrail->isNotEmpty())
+                    <div class="mt-3">
+                        <p class="f-14 text-dark-grey mb-2 font-weight-bold">Approval</p>
+                        <ul class="list-unstyled mb-0 f-13">
+                            @foreach ($approvalTrail as $step)
+                                <li class="py-1 border-bottom-grey">
+                                    {{ ['submitted' => 'Asked by', 'approved' => 'Approved by', 'override' => 'Approved (ahead of the manager) by', 'rejected' => 'Rejected by'][$step->action] ?? ucfirst($step->action) }}
+                                    <strong>{{ $step->user_name ?: '—' }}</strong>
+                                    <span class="text-lightest">· {{ \App\Services\Attendance\CorrectionApprovals::label($step->step) }} ·
+                                        {{ \Carbon\Carbon::parse($step->created_at)->timezone(company()->timezone)->format(company()->date_format . ' ' . company()->time_format) }}</span>
+                                    @if ($step->note)<div class="text-dark-grey">“{{ $step->note }}”</div>@endif
+                                </li>
+                            @endforeach
+                        </ul>
+                        @if ($row->status === 'pending')
+                            <p class="f-13 text-dark-grey mt-2 mb-0">Waiting for: <strong>{{ \App\Services\Attendance\CorrectionApprovals::label($row->approval_step ?: 'hr') }}</strong></p>
+                        @endif
+                    </div>
+                @endif
+
                 <input type="hidden" name="user_id" id="user_id" value="{{ $attendanceUser->id }}">
             </x-form>
         </div>

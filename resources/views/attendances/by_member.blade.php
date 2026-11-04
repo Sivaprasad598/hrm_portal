@@ -12,7 +12,7 @@
 @section('filter-section')
     @php
         // Their own attendance only: no one else to pick, nothing to export or switch to.
-        $ownOnly = user()->permission('view_attendance') === 'owned';
+        $ownOnly = user()->permission('view_attendance') === 'owned' && $employees->count() <= 1;
     @endphp
 
     <x-filters.filter-box>
@@ -22,7 +22,7 @@
             <div class="select-status">
                 <select class="form-control select-picker" name="user_id" id="user_id" data-live-search="true" data-size="8">
                     @foreach ($employees as $item)
-                        <x-user-option :user="$item" />
+                        <x-user-option :user="$item" :selected="(int) request('user_id') === (int) $item->id" />
                     @endforeach
                 </select>
             </div>
@@ -33,6 +33,7 @@
             <div class="select-status">
                 <select class="form-control select-picker" name="month" id="month" data-live-search="true" data-size="8">
                     <x-forms.months :selectedMonth="$month" fieldRequired="true"/>
+                    <option value="all">Whole year</option>
                 </select>
             </div>
         </div>
@@ -155,7 +156,15 @@ $addAttendancePermission = user()->permission('add_attendance');
         <x-cards.data class="mt-2">
             <div class="row">
                 <div class="col-md-12">
-                    {{-- The month as a calendar (attendances.ajax.member_calendar) --}}
+                    {{-- Back and forward a month (a year in the whole-year view) --}}
+                    <div class="mc-nav">
+                        <button type="button" class="mc-nav-btn" id="mc-prev" title="Previous"><i class="bi bi-chevron-left"></i></button>
+                        <span id="mc-title"></span>
+                        <button type="button" class="mc-nav-btn" id="mc-next" title="Next"><i class="bi bi-chevron-right"></i></button>
+                        <a href="javascript:;" class="mc-nav-link" id="mc-switch"></a>
+                    </div>
+
+                    {{-- The month as a calendar (attendances.ajax.member_calendar), or the year (member_year) --}}
                     <div id="attendance-data"></div>
                 </div>
             </div>
@@ -226,6 +235,7 @@ $addAttendancePermission = user()->permission('add_attendance');
                 container: '.content-wrapper',
                 success: function(response) {
                     $('#attendance-data').html(response.data);
+                    navTitle();
                     $('#daysPresent').html(response.daysPresent);
                     $('#daysLate').html(response.daysLate);
                     $('#halfDays').html(response.halfDays);
@@ -235,6 +245,52 @@ $addAttendancePermission = user()->permission('add_attendance');
                 }
             });
         }
+        // ---- Month carousel: back / forward a month (a year in the whole-year view)
+        var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+        var NOW = { m: {{ (int) now(company()->timezone)->month }}, y: {{ (int) now(company()->timezone)->year }} };
+
+        function navTitle() {
+            var m = $('#month').val(), y = parseInt($('#year').val(), 10);
+            var whole = m === 'all';
+            $('#mc-title').text(whole ? 'Year ' + y : MONTHS[parseInt(m, 10) - 1] + ' ' + y);
+            $('#mc-switch').text(whole ? 'Show this month' : 'Show the whole year');
+            $('#mc-next').prop('disabled', whole ? y >= NOW.y : (y > NOW.y || (y === NOW.y && parseInt(m, 10) >= NOW.m)));
+        }
+
+        function setPeriod(m, y) {
+            if (!$('#year option[value="' + y + '"]').length) {
+                $('#year').append('<option value="' + y + '">' + y + '</option>');
+            }
+            $('#month').val(String(m));
+            $('#year').val(String(y));
+            $('#month, #year').selectpicker('refresh');
+            showTable();
+        }
+
+        $('#mc-prev, #mc-next').click(function () {
+            var step = this.id === 'mc-next' ? 1 : -1;
+            var m = $('#month').val(), y = parseInt($('#year').val(), 10);
+
+            if (m === 'all') {
+                return setPeriod('all', y + step);
+            }
+
+            m = parseInt(m, 10) + step;
+            if (m < 1) { m = 12; y--; }
+            if (m > 12) { m = 1; y++; }
+            setPeriod(m, y);
+        });
+
+        $('#mc-switch').click(function () {
+            var y = parseInt($('#year').val(), 10);
+            $('#month').val() === 'all' ? setPeriod(y === NOW.y ? NOW.m : 12, y) : setPeriod('all', y);
+        });
+
+        // In the whole-year view a month opens in full
+        $('#attendance-data').on('click', '.my-month', function () {
+            setPeriod($(this).data('month'), $('#year').val());
+        });
+
         @if (canDataTableExport())
             $('#export-bymember').click(function() {
                 var year = $('#year').val();

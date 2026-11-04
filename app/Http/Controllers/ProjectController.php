@@ -547,7 +547,8 @@ class ProjectController extends AccountBaseController
                     $redirectUrl = route('projects.index');
                 }
 
-                return Reply::dataOnly(['projectID' => $project->id, 'redirectUrl' => $redirectUrl]);
+                // With a message, as a task's save has, so the save is confirmed.
+                return Reply::successWithData(__('messages.recordSaved'), ['projectID' => $project->id, 'redirectUrl' => $redirectUrl]);
             }
 
         } catch (TransportException $e) {

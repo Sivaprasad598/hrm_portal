@@ -70,6 +70,10 @@ class EmployeeAttendanceProfile
                 continue;
             }
 
+            // Time Inside is time on site, so Inside and Outside add up to the
+            // day; paired door time lost every stretch an entry went unswiped.
+            $day['inside_minutes'] = $day['onsite_minutes'];
+
             foreach ($day['events'] as $event) {
                 $events[] = $event;
             }

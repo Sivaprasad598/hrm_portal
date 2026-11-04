@@ -151,12 +151,7 @@ $addAttendancePermission = user()->permission('add_attendance');
         <x-cards.data class="mt-2">
             <div class="row">
                 <div class="col-md-12">
-                    <span class="f-w-500 mr-1">@lang('app.note'):</span> <i class="fa fa-star text-warning"></i> <i
-                        class="fa fa-arrow-right text-lightest f-11 mx-1"></i> @lang('app.menu.holiday') &nbsp;|&nbsp;<i
-                        class="fa fa-calendar-week text-red"></i> <i class="fa fa-arrow-right text-lightest f-11 mx-1"></i>
-                    @lang('modules.attendance.dayOff') &nbsp;|&nbsp; <i
-                        class="fa fa-times text-lightest"></i> <i class="fa fa-arrow-right text-lightest f-11 mx-1"></i>
-                    @lang('modules.attendance.absent')
+                    @include('attendances.partials.legend', ['only' => ['holiday', 'dayoff', 'absent']])
                 </div>
             </div>
 

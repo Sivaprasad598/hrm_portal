@@ -107,11 +107,14 @@ class DayTimeline
             if ($event['direction'] === 'in') {
                 $checkIns++;
 
-                // An exit followed by this entry is time spent away.
-                if ($pendingOut) {
+                // An exit followed by this entry is time spent away - once the
+                // person has arrived: an exit before the day's first entry is
+                // not time away from a day that had not started.
+                if ($pendingOut && $checkIns > 1) {
                     $outside += self::minutesBetween($pendingOut, $event['time']);
-                    $pendingOut = null;
                 }
+
+                $pendingOut = null;
 
                 // Repeated entries without an exit keep the earliest: that is
                 // the real arrival, the later one a re-entry after an
@@ -167,6 +170,15 @@ class DayTimeline
             $sessions = [self::session($arrival, $departure, $inside, self::KIND_SCAN)];
         }
 
+        $presence = ($arrival && $departure) ? self::minutesBetween($arrival, $departure) : null;
+
+        // Time on site: arrival to departure less the time recorded away (an
+        // exit and the entry after it). Paired door time drops every stretch
+        // between two exits with no entry swiped in between - someone came back
+        // in behind a colleague - so on most days inside and outside added up
+        // to hours less than the day. Never less than the paired door time.
+        $onsite = $presence !== null ? max($inside, $presence - $outside) : $inside;
+
         return [
             'date' => $date,
             'first_in' => $arrival?->format('H:i:s'),
@@ -179,7 +191,8 @@ class DayTimeline
             'scans' => $scans,
             'inside_minutes' => $inside,
             'outside_minutes' => $outside,
-            'presence_minutes' => ($arrival && $departure) ? self::minutesBetween($arrival, $departure) : null,
+            'onsite_minutes' => $onsite,
+            'presence_minutes' => $presence,
             'sessions' => $sessions,
             'controllers' => array_values(array_unique(array_filter(
                 array_column($events, 'controller'),
@@ -387,7 +400,7 @@ class DayTimeline
         return [
             'date' => $date, 'first_in' => null, 'last_out' => null, 'first_in_at' => null,
             'last_out_at' => null, 'ended_inside' => false, 'check_ins' => 0, 'check_outs' => 0,
-            'scans' => 0, 'inside_minutes' => 0, 'outside_minutes' => 0, 'presence_minutes' => null,
+            'scans' => 0, 'inside_minutes' => 0, 'outside_minutes' => 0, 'onsite_minutes' => 0, 'presence_minutes' => null,
             'sessions' => [], 'controllers' => [], 'controller_visits' => [], 'events' => [],
             'total_events' => 0, 'all_events' => [], 'recorded_events' => 0, 'repeat_events' => 0,
         ];

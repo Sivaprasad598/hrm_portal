@@ -571,6 +571,160 @@ $departmentsJson = json_encode(array_values($departments));
             margin-bottom: 10px;
         }
     </style>
+    <!-- Epic theme over the page's own styles: the app's font and the colours chosen in
+         Settings > Theme Settings (gold in Black & Gold). Shown as the Attendance > Dashboard tab. -->
+    <link rel="stylesheet" href="<?php echo asset('css/epic/fonts.css'); ?>">
+    <?php if (function_exists('view')) { echo view('sections.epic-colors')->render(); } ?>
+    <style>
+        :root { --epic-blue: #b8892e; --epic-green: #cd6e4f; --epic-dark: #111111; --epic-line: #e8e9e9; --epic-muted: #878a99; --epic-text: #212529; --epic-page: #f3f3f9; }
+        * { font-family: 'Plus Jakarta Sans', 'Segoe UI', Arial, sans-serif; }
+        .fas, .far, .fa { font-family: 'Font Awesome 6 Free' !important; }
+        body { background: var(--epic-page); padding: 0; }
+        .dashboard { min-height: 0; border-radius: 10px; box-shadow: 0 1px 2px rgba(56, 65, 74, .15); padding: 0 0 24px; }
+        /* No overflow clipping: an open dropdown must reach past the card */
+        .dashboard-header { border-radius: 10px 10px 0 0; }
+        .dashboard.on-report .filters { display: none; }
+        .tab-pane iframe { border-radius: 8px; }
+
+        /* Header: a dark band with a gold glow, like the app's dashboard cards */
+        .dashboard-header { margin: 0; padding: 18px 24px; color: #fff;
+            background: radial-gradient(420px 160px at 0% 0%, color-mix(in srgb, var(--epic-blue) 40%, transparent), transparent 70%), var(--epic-dark); }
+        .dashboard-header h1 { font-size: 18px; font-weight: 700; color: #fff; }
+        .dashboard-header h1 i { color: var(--epic-blue); }
+        .header-date { background: rgba(255, 255, 255, .08); color: rgba(255, 255, 255, .85); border: 1px solid rgba(255, 255, 255, .14); border-radius: 999px; font-size: 13px; }
+        .header-date i { color: var(--epic-blue); }
+
+        /* Tabs: underlined, as the app's page tabs */
+        .dashboard-tabs { gap: 4px; margin: 0 0 20px; padding: 0 24px; border-bottom: 1px solid var(--epic-line); overflow-x: auto; }
+        .dashboard-tab { background: none; border-radius: 0; color: var(--epic-muted); font-weight: 500; padding: 14px 14px 12px; border-bottom: 2px solid transparent; white-space: nowrap; }
+        .dashboard-tab:hover { color: var(--epic-text); }
+        .dashboard-tab.active { background: none; color: var(--epic-blue); border-bottom-color: var(--epic-blue); font-weight: 600; }
+        .dashboard-tab i { opacity: .8; }
+
+        .tab-pane, .filters, .particular-placeholder { margin-left: 24px; margin-right: 24px; }
+        .tab-pane .filters, .tab-pane .tab-pane { margin-left: 0; margin-right: 0; }
+
+        /* Filters: one row */
+        .filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px 14px; padding-bottom: 18px; margin-bottom: 20px; border-bottom: 1px solid var(--epic-line); }
+        .filter-group label { color: var(--epic-muted); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
+        .filter-group label i { color: var(--epic-blue); }
+        .filter-group select, .filter-group input, .status-filter-select, .search-wrapper input { border: 1px solid var(--epic-line); border-radius: 6px; color: var(--epic-text); height: 38px; padding: 6px 10px; }
+        .filter-group select:focus, .filter-group input:focus, .status-filter-select:focus, .search-wrapper input:focus { outline: none; border-color: var(--epic-blue); box-shadow: 0 0 0 3px color-mix(in srgb, var(--epic-blue) 18%, transparent); }
+
+        /* Stat cards: white, a thin accent bar, the figure large */
+        .stat-card { background: #fff; border: 1px solid var(--epic-line); border-radius: 10px; position: relative; overflow: hidden; transition: box-shadow .15s, transform .15s; }
+        .stat-card:hover { box-shadow: 0 6px 18px rgba(16, 24, 40, .08); transform: translateY(-1px); }
+        .stat-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--card-tone, var(--epic-blue)); }
+        .stat-icon { border-radius: 10px; background: color-mix(in srgb, var(--card-tone, var(--epic-blue)) 14%, #fff) !important; color: var(--card-tone, var(--epic-blue)) !important; }
+        .stat-card:has(.stat-icon.present) { --card-tone: #12b76a; }
+        .stat-card:has(.stat-icon.absent) { --card-tone: #f04438; }
+        .stat-card:has(.stat-icon.halfday) { --card-tone: #f79009; }
+        .stat-card:has(.stat-icon.dayoff) { --card-tone: #667085; }
+        .stat-card:has(.stat-icon.holiday) { --card-tone: var(--epic-blue); }
+        .stat-card:has(.stat-icon.total) { --card-tone: var(--epic-dark); }
+        .stat-card:has(.stat-icon.leave) { --card-tone: #2e90fa; }
+        .stat-card:has(.stat-icon.working) { --card-tone: var(--epic-green); }
+        .stat-number { color: var(--epic-text); font-weight: 700; }
+        .stat-label { color: var(--epic-muted); }
+
+        /* Employee details table */
+        .details-header-left h3 { color: var(--epic-text); font-size: 16px; }
+        .details-header-left h3 i { color: var(--epic-blue); }
+        .table-wrap { border: 1px solid var(--epic-line); border-radius: 10px; }
+        .table-wrap th { background: #fafafa; color: var(--epic-muted); font-size: 11px; letter-spacing: .06em; }
+        .table-wrap td { color: var(--epic-text); }
+        .table-wrap tbody tr:hover td { background: color-mix(in srgb, var(--epic-blue) 5%, #fff); }
+        .employee-avatar { background: color-mix(in srgb, var(--epic-blue) 16%, #fff) !important; color: var(--epic-blue) !important; font-weight: 700; }
+        .status-badge.holiday { background: color-mix(in srgb, var(--epic-blue) 14%, #fff); color: color-mix(in srgb, var(--epic-blue) 80%, #000); }
+        .status-badge.onleave { background: #eff8ff; color: #175cd3; }
+
+        /* Compact: a slimmer header band, every card the same smaller widget */
+        .dashboard-header { padding: 10px 18px !important; }
+        .dashboard-header h1 { font-size: 16px !important; gap: 10px !important; }
+        .header-date { padding: 5px 12px !important; font-size: 12px !important; }
+        .dashboard-tab { padding: 11px 12px 9px !important; font-size: 13px !important; }
+        .dashboard-tabs { margin-bottom: 14px !important; }
+        .filters { padding-bottom: 14px !important; margin-bottom: 14px !important; }
+        .stats-grid, .particular-section .stats-grid { gap: 12px !important; margin-bottom: 16px !important; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)) !important; }
+        .stat-card, .particular-section .stat-card { padding: 12px 14px !important; min-height: 0 !important; border-radius: 6px !important; }
+        .stat-number, .particular-section .stat-number { font-size: 20px !important; }
+        .stat-label, .particular-section .stat-label { font-size: 10.5px !important; margin-bottom: 4px !important; }
+        .stat-icon, .particular-section .stat-icon { width: 34px !important; height: 34px !important; min-width: 34px !important; font-size: 14px !important; border-radius: 6px !important; }
+        .chart-card { padding: 12px 14px !important; }
+        .chart-head { font-size: 13px !important; margin-bottom: 6px !important; }
+        .chart-box { height: 220px !important; }
+        .chart-box-dept { height: 260px !important; }
+        .details-header { margin-bottom: 10px !important; }
+        /* Room between the header band, the tabs and what is under them */
+        .dashboard-tabs { padding: 8px 24px 0 !important; gap: 6px !important; margin-bottom: 18px !important; }
+        .dashboard-tab { padding: 12px 16px 11px !important; }
+        .filters { padding-top: 2px; }
+
+        /* Reports: three report cards to choose from, the open one in gold */
+        .report-picker { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0 0 16px; }
+        .report-option { display: flex; align-items: center; gap: 12px; text-align: left; padding: 12px 14px; cursor: pointer;
+            background: #fff; border: 1px solid var(--epic-line); border-radius: 8px; transition: border-color .15s, box-shadow .15s; font: inherit; color: var(--epic-text); }
+        .report-option:hover { border-color: color-mix(in srgb, var(--epic-blue) 50%, #fff); }
+        .report-option.active { border-color: var(--epic-blue); box-shadow: 0 0 0 3px color-mix(in srgb, var(--epic-blue) 15%, transparent); background: color-mix(in srgb, var(--epic-blue) 4%, #fff); }
+        .report-option b { display: block; font-size: 13.5px; font-weight: 600; }
+        .report-option small { display: block; font-size: 11.5px; color: var(--epic-muted); margin-top: 2px; line-height: 1.35; }
+        .report-option__icon { width: 36px; height: 36px; min-width: 36px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center;
+            background: color-mix(in srgb, var(--epic-blue) 12%, #fff); color: var(--epic-blue); font-size: 15px; }
+        .report-option.active .report-option__icon { background: var(--epic-blue); color: #fff; }
+        .report-loading { display: none; align-items: center; justify-content: center; gap: 10px; padding: 40px 0; color: var(--epic-muted); font-size: 13px; }
+        .report-loading i { color: var(--epic-blue); }
+        #tab-reports > .tab-pane.active { display: block; }
+        @media (max-width: 767px) { .report-picker { grid-template-columns: 1fr; } }
+
+        .search-wrapper { position: relative; }
+        .search-wrapper input { padding-left: 34px !important; }
+
+        /* Cards as the app's widgets: the label on top, the figure under it, the icon to the right */
+        .stats-grid { gap: 16px; }
+        .stat-card { display: flex; flex-direction: row-reverse; justify-content: space-between; align-items: flex-start; gap: 12px;
+            padding: 18px 20px; border: 0; border-radius: 6px; box-shadow: 0 1px 2px rgba(56, 65, 74, .15); background: #fff; }
+        .stat-card::before { display: none; }
+        .stat-card:hover { box-shadow: 0 6px 20px rgba(56, 65, 74, .14); }
+        .stat-info { display: flex; flex-direction: column-reverse; min-width: 0; }
+        .stat-label { font-size: 11.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--epic-muted); margin: 0 0 8px; white-space: nowrap; }
+        .stat-number { font-size: 26px; line-height: 1.1; font-weight: 600; color: var(--epic-text); }
+        .stat-icon { width: 42px; height: 42px; min-width: 42px; border-radius: 8px; font-size: 17px; }
+        .particular-section .stat-card { padding: 16px 18px; }
+
+        /* Charts */
+        .charts-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin: 4px 0 26px; }
+        .chart-card { background: #fff; border-radius: 6px; box-shadow: 0 1px 2px rgba(56, 65, 74, .15); padding: 16px 18px; min-width: 0; }
+        .chart-full { grid-column: 1 / -1; }
+        .chart-head { font-size: 14px; font-weight: 600; color: var(--epic-text); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+        .chart-head i { color: var(--epic-blue); }
+        .chart-note { margin-left: auto; font-size: 11.5px; font-weight: 400; color: var(--epic-muted); }
+        .chart-box { position: relative; height: 260px; }
+        .chart-box-dept { height: 300px; }
+        @media (max-width: 991px) { .charts-grid { grid-template-columns: 1fr; } }
+
+        /* Pager under a table */
+        .pager { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding: 12px 2px 0; font-size: 13px; color: var(--epic-muted); }
+        .pager-btns { display: flex; gap: 4px; align-items: center; }
+        .pager button { min-width: 34px; height: 34px; padding: 0 10px; border: 1px solid var(--epic-line); background: #fff; color: var(--epic-text); border-radius: 6px; cursor: pointer; font-size: 13px; }
+        .pager button:hover:not(:disabled) { border-color: var(--epic-blue); color: var(--epic-blue); }
+        .pager button.active { background: var(--epic-blue); border-color: var(--epic-blue); color: #fff; font-weight: 600; }
+        .pager button:disabled { opacity: .4; cursor: default; }
+        .pager-gap { padding: 0 4px; }
+
+        /* Searchable dropdowns (Choices) in the theme */
+        .filter-group .choices { margin: 0; font-size: 14px; }
+        .filter-group .choices__inner { min-height: 38px; padding: 4px 8px !important; border: 1px solid var(--epic-line); border-radius: 6px; background: #fff; }
+        .filter-group .choices.is-focused .choices__inner, .filter-group .choices.is-open .choices__inner { border-color: var(--epic-blue); box-shadow: 0 0 0 3px color-mix(in srgb, var(--epic-blue) 18%, transparent); }
+        .filter-group .choices__list--single { padding: 4px 16px 4px 2px; }
+        .filter-group .choices[data-type*=select-one]::after { border-color: var(--epic-muted) transparent transparent; right: 12px; }
+        .filter-group .choices__list--dropdown { border: 1px solid var(--epic-line); border-radius: 6px; box-shadow: 0 8px 24px rgba(16, 24, 40, .12); z-index: 20; }
+        .filter-group .choices__list--dropdown .choices__item--selectable.is-highlighted { background: color-mix(in srgb, var(--epic-blue) 12%, #fff); }
+        .filter-group .choices__input { font-size: 13px; border-bottom: 1px solid var(--epic-line); }
+        .search-wrapper i { left: 12px; color: var(--epic-muted); }
+        ::-webkit-scrollbar { width: 12px; height: 12px; background: #eceef1; }
+        ::-webkit-scrollbar-thumb { background-color: #9aa1ab; border: 2px solid #eceef1; border-radius: 8px; }
+        ::-webkit-scrollbar-thumb:hover { background-color: var(--epic-blue); }
+    </style>
 </head>
 <body>
 
@@ -596,14 +750,8 @@ $departmentsJson = json_encode(array_values($departments));
             <button type="button" class="dashboard-tab" id="tab-btn-particular" data-tab="particular">
                 <i class="fas fa-user-circle"></i> Particular Employee Dashboard
             </button>
-            <button type="button" class="dashboard-tab" id="tab-btn-total-monthly" data-tab="total-monthly">
-                <i class="fas fa-list-ol"></i> Total Monthly Attendance
-            </button>
-            <button type="button" class="dashboard-tab" id="tab-btn-monthly-sheet" data-tab="monthly-sheet">
-                <i class="fas fa-table"></i> Monthly Attendance
-            </button>
-            <button type="button" class="dashboard-tab" id="tab-btn-annual" data-tab="annual">
-                <i class="fas fa-calendar-week"></i> Annual Attendance
+            <button type="button" class="dashboard-tab" id="tab-btn-reports" data-tab="reports">
+                <i class="fas fa-file-alt"></i> Reports
             </button>
         </div>
 
@@ -720,6 +868,22 @@ $departmentsJson = json_encode(array_values($departments));
                     <div class="stat-number" id="totalCount">0</div>
                     <div class="stat-label">Total Employees</div>
                 </div>
+            </div>
+        </section>
+
+        <!-- ====== CHARTS (follow the filters) ====== -->
+        <section class="charts-grid">
+            <div class="chart-card chart-wide">
+                <div class="chart-head"><i class="fas fa-chart-bar"></i> Daily attendance</div>
+                <div class="chart-box"><canvas id="chartDaily"></canvas></div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-head"><i class="fas fa-chart-pie"></i> Status split</div>
+                <div class="chart-box"><canvas id="chartStatus"></canvas></div>
+            </div>
+            <div class="chart-card chart-full">
+                <div class="chart-head"><i class="fas fa-building"></i> Attendance rate by department <span class="chart-note">present + half days, of the working days</span></div>
+                <div class="chart-box chart-box-dept"><canvas id="chartDept"></canvas></div>
             </div>
         </section>
 
@@ -894,26 +1058,48 @@ $departmentsJson = json_encode(array_values($departments));
         </div>
         <!-- ====== END PARTICULAR EMPLOYEE DASHBOARD TAB ====== -->
 
-        <!-- ====== TOTAL MONTHLY ATTENDANCE TAB ====== -->
+        <!-- ====== REPORTS TAB: pick a report, it opens under the choice ====== -->
+        <div class="tab-pane" id="tab-reports">
+        <div class="report-picker">
+            <button type="button" class="report-option active" data-report="total-monthly">
+                <span class="report-option__icon"><i class="fas fa-list-ol"></i></span>
+                <span><b>Monthly Summary</b><small>Totals per employee: present, absent, leave, LOP, hours</small></span>
+            </button>
+            <button type="button" class="report-option" data-report="monthly-sheet">
+                <span class="report-option__icon"><i class="fas fa-table"></i></span>
+                <span><b>Day-wise Sheet</b><small>Every employee, every day of the month, P / A / ½</small></span>
+            </button>
+            <button type="button" class="report-option" data-report="annual">
+                <span class="report-option__icon"><i class="fas fa-calendar-week"></i></span>
+                <span><b>Annual Summary</b><small>Month by month for the year, with the attendance %</small></span>
+            </button>
+        </div>
+
+        <!-- Monthly Summary -->
         <div class="tab-pane" id="tab-total-monthly">
             <iframe id="iframe-total-monthly" data-src="Total_Monthly_Attendance.php?company_id=<?php echo (int) $companyId; ?>&month=<?php echo (int) $month; ?>&year=<?php echo (int) $year; ?>"
                 style="width:100%; min-height: 120px; border: 0;" title="Total Monthly Attendance"></iframe>
         </div>
 
-        <!-- ====== MONTHLY ATTENDANCE (SHEET) TAB ====== -->
+        <!-- Day-wise Sheet -->
         <div class="tab-pane" id="tab-monthly-sheet">
             <iframe id="iframe-monthly-sheet" data-src="Monthly_attendance.php?company_id=<?php echo (int) $companyId; ?>&month=<?php echo (int) $month; ?>&year=<?php echo (int) $year; ?>"
                 style="width:100%; min-height: 120px; border: 0;" title="Monthly Attendance"></iframe>
         </div>
 
-        <!-- ====== ANNUAL ATTENDANCE TAB ====== -->
+        <!-- Annual Summary -->
         <div class="tab-pane" id="tab-annual">
             <iframe id="iframe-annual" data-src="annual_attendance.php?company_id=<?php echo (int) $companyId; ?>&year=<?php echo (int) $year; ?>"
                 style="width:100%; min-height: 120px; border: 0;" title="Annual Attendance"></iframe>
         </div>
+        <p class="report-loading" id="reportLoading"><i class="fas fa-circle-notch fa-spin"></i> Preparing the report… a month for every employee takes a few seconds</p>
+        </div>
 
     </div>
 
+    <link rel="stylesheet" href="<?php echo asset('vendor/css/choices.css'); ?>">
+    <script src="<?php echo asset('vendor/jquery/Chart.min.js'); ?>"></script>
+    <script src="<?php echo asset('vendor/jquery/choices.js'); ?>"></script>
     <script>
         // ============================================================
         //  REAL DATA — computed server-side from the attendances,
@@ -1022,6 +1208,7 @@ $departmentsJson = json_encode(array_values($departments));
             totalCountEl.textContent = new Set(filteredRecords.map(rec => rec.userId)).size;
 
             renderTable(filteredRecords, tableBody);
+            updateCharts(filteredRecords);
             recordCountEl.textContent = `${filteredRecords.length} record${filteredRecords.length !== 1 ? 's' : ''}`;
 
             const dateVal = datePicker.value;
@@ -1037,6 +1224,91 @@ $departmentsJson = json_encode(array_values($departments));
                 const d = new Date(year, month);
                 currentDisplayDate.textContent = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
             }
+        }
+
+        // ============================================================
+        //  CHARTS (Chart.js) - daily trend, status split, department rate
+        // ============================================================
+        const css = getComputedStyle(document.documentElement);
+        const tone = (name, fallback) => (css.getPropertyValue(name) || '').trim() || fallback;
+        const COLORS = {
+            'Present': '#12b76a', 'Half Day': '#f79009', 'Absent': '#f04438', 'On Leave': '#2e90fa',
+            'Day Off': '#98a2b3', 'Holiday': tone('--epic-blue', '#b8892e')
+        };
+        const charts = {};
+
+        if (window.Chart) {
+            Chart.defaults.font.family = "'Plus Jakarta Sans', 'Segoe UI', Arial, sans-serif";
+            Chart.defaults.color = '#878a99';
+            Chart.defaults.plugins.legend.labels.boxWidth = 10;
+            Chart.defaults.plugins.legend.labels.boxHeight = 10;
+        }
+
+        function drawChart(id, config) {
+            if (!window.Chart) return;
+            if (charts[id]) {
+                charts[id].data = config.data;
+                charts[id].update();
+                return;
+            }
+            charts[id] = new Chart(document.getElementById(id), config);
+        }
+
+        function updateCharts(records) {
+            // Daily: present, half day, absent, on leave per date
+            const days = [...new Set(records.map(r => r.date))].sort();
+            const byDay = {};
+            records.forEach(r => {
+                byDay[r.date] = byDay[r.date] || {};
+                byDay[r.date][r.status] = (byDay[r.date][r.status] || 0) + 1;
+            });
+            const dailyStatuses = ['Present', 'Half Day', 'On Leave', 'Absent'];
+            drawChart('chartDaily', {
+                type: 'bar',
+                data: {
+                    labels: days.map(d => parseInt(d.slice(8), 10)),
+                    datasets: dailyStatuses.map(st => ({
+                        label: st, data: days.map(d => (byDay[d] || {})[st] || 0),
+                        backgroundColor: COLORS[st], borderRadius: 3, maxBarThickness: 22
+                    }))
+                },
+                options: {
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'top', align: 'end' }, tooltip: { callbacks: { title: items => days[items[0].dataIndex] } } },
+                    scales: { x: { stacked: true, grid: { display: false } }, y: { stacked: true, beginAtZero: true, grid: { color: '#f0f1f3' } } }
+                }
+            });
+
+            // Status split
+            const splitStatuses = ['Present', 'Half Day', 'On Leave', 'Absent', 'Day Off', 'Holiday'];
+            const counts = splitStatuses.map(st => records.filter(r => r.status === st).length);
+            drawChart('chartStatus', {
+                type: 'doughnut',
+                data: { labels: splitStatuses, datasets: [{ data: counts, backgroundColor: splitStatuses.map(st => COLORS[st]), borderWidth: 2, borderColor: '#fff' }] },
+                options: { maintainAspectRatio: false, cutout: '68%', plugins: { legend: { position: 'bottom' } } }
+            });
+
+            // Department: (present + half days / 2) of the working days, best first, ten at most
+            const dept = {};
+            records.forEach(r => {
+                if (r.status === 'Day Off' || r.status === 'Holiday') return;
+                const d = dept[r.branch] = dept[r.branch] || { worked: 0, days: 0 };
+                d.days++;
+                if (r.status === 'Present') d.worked++;
+                else if (r.status === 'Half Day') d.worked += 0.5;
+            });
+            const rows = Object.entries(dept).filter(([, v]) => v.days > 0)
+                .map(([name, v]) => [name || '—', Math.round(v.worked / v.days * 1000) / 10])
+                .sort((a, b) => b[1] - a[1]).slice(0, 10);
+            drawChart('chartDept', {
+                type: 'bar',
+                data: { labels: rows.map(r => r[0]), datasets: [{ label: 'Attendance %', data: rows.map(r => r[1]), backgroundColor: tone('--epic-blue', '#b8892e'), borderRadius: 4, maxBarThickness: 18 }] },
+                options: {
+                    indexAxis: 'y', maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.parsed.x + '%' } } },
+                    scales: { x: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' }, grid: { color: '#f0f1f3' } }, y: { grid: { display: false } } }
+                }
+            });
         }
 
         // ============================================================
@@ -1097,7 +1369,48 @@ $departmentsJson = json_encode(array_values($departments));
         // ============================================================
         //  RENDER TABLE
         // ============================================================
+        const PAGE_SIZE = 25;
+
+        // A table shows its records a page at a time, with the pager under it
         function renderTable(records, targetTbody) {
+            targetTbody._records = records;
+            renderPage(targetTbody, 1);
+        }
+
+        function renderPage(targetTbody, page) {
+            const all = targetTbody._records || [];
+            const pages = Math.max(1, Math.ceil(all.length / PAGE_SIZE));
+            page = Math.min(Math.max(1, page), pages);
+            const from = (page - 1) * PAGE_SIZE;
+            renderRows(all.slice(from, from + PAGE_SIZE), targetTbody, from);
+
+            const wrap = targetTbody.closest('.table-wrap');
+            let pager = wrap.nextElementSibling;
+            if (!pager || !pager.classList.contains('pager')) {
+                pager = document.createElement('div');
+                pager.className = 'pager';
+                wrap.after(pager);
+            }
+            if (all.length <= PAGE_SIZE) {
+                pager.innerHTML = '';
+                return;
+            }
+
+            const nums = [];
+            for (let i = 1; i <= pages; i++) {
+                if (i === 1 || i === pages || Math.abs(i - page) <= 1) nums.push(i);
+                else if (nums[nums.length - 1] !== '…') nums.push('…');
+            }
+            pager.innerHTML = `<span class="pager-info">Showing ${from + 1}–${Math.min(from + PAGE_SIZE, all.length)} of ${all.length}</span>
+                <span class="pager-btns">
+                    <button type="button" data-page="${page - 1}" ${page === 1 ? 'disabled' : ''}><i class="fas fa-chevron-left"></i></button>
+                    ${nums.map(n => n === '…' ? '<span class="pager-gap">…</span>' : `<button type="button" data-page="${n}" class="${n === page ? 'active' : ''}">${n}</button>`).join('')}
+                    <button type="button" data-page="${page + 1}" ${page === pages ? 'disabled' : ''}><i class="fas fa-chevron-right"></i></button>
+                </span>`;
+            pager.querySelectorAll('button[data-page]').forEach(b => b.addEventListener('click', () => renderPage(targetTbody, parseInt(b.dataset.page, 10))));
+        }
+
+        function renderRows(records, targetTbody, offset) {
             if (records.length === 0) {
                 targetTbody.innerHTML = `
                         <tr class="no-results">
@@ -1116,7 +1429,7 @@ $departmentsJson = json_encode(array_values($departments));
                 const statusClass = rec.status.toLowerCase().replace(' ', '');
                 html += `
                         <tr>
-                            <td>${index + 1}</td>
+                            <td>${offset + index + 1}</td>
                             <td>
                                 <div class="emp-cell">
                                     <span class="employee-avatar">${initials}</span>
@@ -1189,9 +1502,7 @@ $departmentsJson = json_encode(array_values($departments));
         const tabPanes = {
             monthly: document.getElementById('tab-monthly'),
             particular: document.getElementById('tab-particular'),
-            'total-monthly': document.getElementById('tab-total-monthly'),
-            'monthly-sheet': document.getElementById('tab-monthly-sheet'),
-            annual: document.getElementById('tab-annual')
+            reports: document.getElementById('tab-reports')
         };
 
         // The three report tabs are iframes to separate PHP files — lazy-load each one's
@@ -1224,6 +1535,32 @@ $departmentsJson = json_encode(array_values($departments));
             }
         });
 
+        const reportLoading = document.getElementById('reportLoading');
+        let currentReport = 'total-monthly';
+
+        // Open one of the three reports inside the Reports tab (each loads the first time it is opened)
+        function showReport(key) {
+            currentReport = key;
+            document.querySelectorAll('.report-option').forEach(o => o.classList.toggle('active', o.dataset.report === key));
+            Object.keys(lazyIframeIds).forEach(k => document.getElementById('tab-' + k).classList.toggle('active', k === key));
+
+            const iframe = document.getElementById(lazyIframeIds[key]);
+            if (!iframe.src) {
+                // The message stays until *this* report is in: another report finishing
+                // meanwhile must not clear it (that left an empty block for ~30s)
+                iframe.addEventListener('load', () => {
+                    iframe.dataset.loaded = '1';
+                    autoResizeIframe(iframe);
+                    if (currentReport === key) reportLoading.style.display = 'none';
+                }, { once: true });
+                iframe.src = iframe.dataset.src;
+            }
+            reportLoading.style.display = iframe.dataset.loaded ? 'none' : 'flex';
+            if (iframe.dataset.loaded) autoResizeIframe(iframe);
+        }
+
+        document.querySelectorAll('.report-option').forEach(o => o.addEventListener('click', () => showReport(o.dataset.report)));
+
         tabButtons.forEach(btn => {
             btn.addEventListener('click', () => {
                 tabButtons.forEach(b => b.classList.remove('active'));
@@ -1232,15 +1569,11 @@ $departmentsJson = json_encode(array_values($departments));
                 Object.values(tabPanes).forEach(pane => pane.classList.remove('active'));
                 tabPanes[btn.dataset.tab].classList.add('active');
 
-                const iframeId = lazyIframeIds[btn.dataset.tab];
-                if (iframeId) {
-                    const iframe = document.getElementById(iframeId);
-                    if (iframe && !iframe.src) {
-                        iframe.src = iframe.dataset.src;
-                    } else if (iframe && iframe.src) {
-                        // Already loaded — re-apply in case content changed size since last resize.
-                        autoResizeIframe(iframe);
-                    }
+                // The reports have filters of their own; the shared row is for the two dashboards
+                const onReports = btn.dataset.tab === 'reports';
+                document.querySelector('.dashboard').classList.toggle('on-report', onReports);
+                if (onReports) {
+                    showReport(currentReport);
                 }
             });
         });
@@ -1271,6 +1604,13 @@ $departmentsJson = json_encode(array_values($departments));
         // ============================================================
         //  BOOTSTRAP
         // ============================================================
+        if (window.Choices) {
+            [branchSelect, employeeSelect, monthSelect, yearSelect].forEach(el => new Choices(el, {
+                searchEnabled: true, shouldSort: false, itemSelectText: '', searchResultLimit: 30,
+                searchPlaceholderValue: 'Type to search…', position: 'bottom'
+            }));
+        }
+
         searchQuery = '';
         searchInput.value = '';
         updateDashboard();

@@ -61,3 +61,12 @@ Route::prefix('mobile/v1')->middleware('mobile.api')->namespace('App\Http\Contro
         Route::get('leaves/{leave}', 'LeaveController@show')->whereNumber('leave');
     });
 });
+
+/*
+| Recruitment intake: the company website's "join us" form posts candidates
+| here (by curl, with the key from Recruitment -> Settings in X-Api-Key).
+*/
+Route::prefix('recruit/v1')->middleware(['recruit.api', 'throttle:30,1'])->group(function () {
+    Route::post('applications', [App\Http\Controllers\Api\Recruit\IntakeController::class, 'store']);
+    Route::get('positions', [App\Http\Controllers\Api\Recruit\IntakeController::class, 'positions']);
+});

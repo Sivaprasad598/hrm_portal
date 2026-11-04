@@ -132,18 +132,25 @@ class LeaveTypeController extends AccountBaseController
         $leaveType->color = $request->color;
         $leaveType->paid = $request->paid;
 
+        // need values later no of leaves early one
+        session([
+                'old_leaves' => $leaveType->no_of_leaves,
+                'old_leavetype' => $leaveType->leavetype
+            ]);
+
+        // The allotment type (monthly, yearly, unlimited) can be changed after
+        // creation; the edit form had it locked. LeaveTypeObserver sees the
+        // change against old_leavetype and recalculates everyone's quota.
+        if (in_array($request->leavetype, ['monthly', 'yearly', 'unlimited'], true)) {
+            $leaveType->leavetype = $request->leavetype;
+        }
+
         // Unused-leave handling is only acted on at year end, so it can change
         // at any time. Set before the carry-forward expiry below reads it.
         if (!$leaveType->isUnlimited()
             && in_array($request->unused_leave, ['carry forward', 'lapse', 'paid'], true)) {
             $leaveType->unused_leave = $request->unused_leave;
         }
-        
-        // need values later no of leaves early one
-        session([
-                'old_leaves' => $leaveType->no_of_leaves,
-                'old_leavetype' => $leaveType->leavetype
-            ]);
 
         if ($leaveType->isUnlimited()) {
             $leaveType->no_of_leaves = 0;

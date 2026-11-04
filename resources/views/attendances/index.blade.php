@@ -19,24 +19,7 @@
 
 @section('filter-section')
 
-    <x-filters.filter-box>
-        <div class="select-box d-flex py-2 pr-2 border-right-grey border-right-grey-sm-0">
-            <p class="mb-0 pr-2 f-14 text-dark-grey d-flex align-items-center">@lang('app.employee')</p>
-            <div class="select-status">
-                <select class="form-control select-picker" name="user_id" id="user_id" data-live-search="true"
-                        data-size="8">
-                    @if ($employees->count() > 1 || in_array('admin', user_roles()))
-                        <option value="all">@lang('app.all')</option>
-                    @endif
-                    @forelse ($employees as $item)
-                        <x-user-option :user="$item" :selected="request('employee_id') == $item->id || $selectedEmployee == $item->id"></x-user-option>
-                    @empty
-                        <x-user-option :user="user()"></x-user-option>
-                    @endforelse
-                </select>
-            </div>
-        </div>
-
+    <x-filters.filter-box class="filters-one-row">
         @if ($viewAttendancePermission == 'owned')
             <input type="hidden" name="department" id="department" value="all">
             <input type="hidden" name="designation" id="designation" value="all">
@@ -66,6 +49,25 @@
                 </div>
             </div>
         @endif
+
+        {{-- Department, Designation, then Employee --}}
+        <div class="select-box d-flex py-2 px-lg-2 px-md-2 px-0 border-right-grey border-right-grey-sm-0">
+            <p class="mb-0 pr-2 f-14 text-dark-grey d-flex align-items-center">@lang('app.employee')</p>
+            <div class="select-status">
+                <select class="form-control select-picker" name="user_id" id="user_id" data-live-search="true"
+                        data-size="8">
+                    @if ($employees->count() > 1 || in_array('admin', user_roles()))
+                        <option value="all">@lang('app.all')</option>
+                    @endif
+                    @forelse ($employees as $item)
+                        <x-user-option :user="$item" :selected="request('employee_id') == $item->id || $selectedEmployee == $item->id"></x-user-option>
+                    @empty
+                        <x-user-option :user="user()"></x-user-option>
+                    @endforelse
+                </select>
+            </div>
+        </div>
+
 
         <div class="select-box d-flex py-2 px-lg-2 px-md-2 px-0 border-right-grey border-right-grey-sm-0">
             <p class="mb-0 pr-2 f-14 text-dark-grey d-flex align-items-center">@lang('app.month')</p>
@@ -98,14 +100,6 @@
                 </select>
             </div>
         </div>
-
-        <!-- ATTENDANCE DASHBOARD START -->
-        <div class="select-box d-flex align-items-center py-1 px-lg-2 px-md-2 px-0">
-            <x-forms.link-secondary link="javascript:;" onclick="openAttendanceDashboard()" class="btn-xs" icon="chart-line">
-                @lang('modules.attendance.attendanceDashboard')
-            </x-forms.link-secondary>
-        </div>
-        <!-- ATTENDANCE DASHBOARD END -->
 
         <!-- RESET START -->
         <div class="select-box d-flex py-1 px-lg-2 px-md-2 px-0">
@@ -186,21 +180,7 @@
         <x-cards.data class="mt-3">
             <div class="row">
                 <div class="col-md-12">
-                    <span class="f-w-500 mr-1">@lang('app.note'):</span> <i class="fa fa-star text-warning"></i> <i
-                        class="fa fa-arrow-right text-lightest f-11 mx-1"></i> @lang('app.menu.holiday') &nbsp;|&nbsp;<i
-                        class="fa fa-calendar-week text-red"></i> <i class="fa fa-arrow-right text-lightest f-11 mx-1"></i>
-                    @lang('modules.attendance.dayOff') &nbsp;|&nbsp;
-                    <i class="fa fa-check text-success"></i> <i class="fa fa-arrow-right text-lightest f-11 mx-1"></i>
-                    @lang('modules.attendance.present') &nbsp;|&nbsp;
-                    <i class="fa fa-home text-primary"></i> <i class="fa fa-arrow-right text-lightest f-11 mx-1"></i>
-                    @lang('modules.attendance.workFromHomeLegend') &nbsp;|&nbsp;
-                    <i class="fa fa-star-half-alt text-red"></i> <i
-                        class="fa fa-arrow-right text-lightest f-11 mx-1"></i>
-                    @lang('modules.attendance.halfDay') &nbsp;|&nbsp; <i class="fa fa-times text-lightest"></i> <i
-                        class="fa fa-arrow-right text-lightest f-11 mx-1"></i>
-                    @lang('modules.attendance.absent') &nbsp;|&nbsp; <i class="fa fa-plane-departure text-danger"></i> <i
-                        class="fa fa-arrow-right text-lightest f-11 mx-1"></i>
-                    @lang('modules.attendance.leave')
+                    @include('attendances.partials.legend')
 
                 </div>
             </div>

@@ -148,6 +148,17 @@ class EmployeeController extends AccountBaseController
             $this->fields = $getCustomFieldGroupsWithFields->fields;
         }
 
+        // "Convert to Employee" from Recruitment: the form opens filled from the candidate.
+        $this->recruitPrefill = null;
+
+        if (request('candidate') && \App\Services\Recruit\RecruitAccess::can('manage')) {
+            $candidate = \App\Models\Candidate::find((int) request('candidate'));
+
+            if ($candidate && !\App\Services\Recruit\CandidateConversion::problem($candidate)) {
+                $this->recruitPrefill = app(\App\Services\Recruit\CandidateConversion::class)->prefill($candidate);
+            }
+        }
+
         $this->view = 'employees.ajax.create';
 
         if (request()->ajax()) {
@@ -433,6 +444,16 @@ class EmployeeController extends AccountBaseController
             return Reply::error('Some error occurred when inserting the data. Please try again or contact support ' . $e->getMessage());
         }
 
+        // Added from a candidate (Recruitment -> Convert to Employee): link them, copy their files, mark Joined.
+        if ($request->filled('recruit_candidate_id') && \App\Services\Recruit\RecruitAccess::can('manage')) {
+            try {
+                app(\App\Services\Recruit\CandidateConversion::class)->complete((int) $request->recruit_candidate_id, $user);
+            } catch (\Throwable $e) {
+                logger()->warning('Candidate conversion after Add Employee failed', ['candidate' => $request->recruit_candidate_id, 'error' => $e->getMessage()]);
+            }
+
+            return Reply::successWithData(__('messages.recordSaved'), ['redirectUrl' => route('candidates.show', (int) $request->recruit_candidate_id)]);
+        }
 
         if (request()->add_more == 'true') {
             $html = $this->create();
@@ -458,6 +479,8 @@ class EmployeeController extends AccountBaseController
             $this->changeStatus($request);
 
             return Reply::success(__('messages.updateSuccess'));
+        case 'assign-reporting':
+            return $this->assignReporting($request);
         default:
             return Reply::error(__('messages.selectAction'));
         }
@@ -498,6 +521,78 @@ class EmployeeController extends AccountBaseController
         $users->each(function ($user) {
             $this->deleteEmployee($user);
         });
+    }
+
+    /**
+     * Reporting To for the ticked employees at once (Employees list -> Assign Reporting To).
+     * Refused when it would put someone over themselves or close a loop (A -> B -> A),
+     * which would leave their leave with no manager to go to.
+     */
+    protected function assignReporting(Request $request)
+    {
+        abort_403(user()->permission('edit_employees') != 'all');
+
+        $ids = array_values(array_filter(array_map('intval', explode(',', (string) $request->row_ids))));
+        $managerId = (int) $request->reporting_to;
+
+        if (!$ids) {
+            return Reply::error('Tick the employees first.');
+        }
+
+        $manager = $managerId ? User::where('id', $managerId)->where('status', 'active')->first() : null;
+        if ($managerId && !$manager) {
+            return Reply::error('Pick an active employee to report to.');
+        }
+
+        if ($managerId) {
+            // employee -> team lead -> manager -> CEO: one step up, one level at a time
+            $roleNames = \Illuminate\Support\Facades\DB::table('role_user as ru')->join('roles as r', 'r.id', '=', 'ru.role_id')
+                ->whereIn('ru.user_id', array_merge($ids, [$managerId]))->get(['ru.user_id', 'r.name'])->groupBy('user_id');
+            $levelOf = function ($id) use ($roleNames) {
+                $r = $roleNames->get($id, collect())->pluck('name')->all();
+                return in_array('ceo', $r, true) ? 'ceo' : (in_array('manager', $r, true) ? 'manager' : (in_array('team_lead', $r, true) ? 'team_lead' : 'employee'));
+            };
+            $reportsTo = ['employee' => 'team_lead', 'team_lead' => 'manager', 'manager' => 'ceo'];
+            $levels = array_unique(array_map($levelOf, $ids));
+
+            if (count($levels) > 1) {
+                return Reply::error('Tick one level at a time: employees report to a team lead, team leads to a manager, managers to the CEO.');
+            }
+            $level = reset($levels);
+            if (!isset($reportsTo[$level])) {
+                return Reply::error('The CEO reports to no one.');
+            }
+            if ($levelOf($managerId) !== $reportsTo[$level]) {
+                $names = ['team_lead' => 'a team lead', 'manager' => 'a manager', 'ceo' => 'the CEO'];
+                return Reply::error(ucfirst(str_replace('_', ' ', $level)) . 's report to ' . $names[$reportsTo[$level]] . '; ' . $manager->name . ' is not one.');
+            }
+
+            if (in_array($managerId, $ids, true)) {
+                return Reply::error($manager->name . ' is among the ticked employees and cannot report to themselves.');
+            }
+
+            // Up from the new manager: reaching a ticked employee would make a loop
+            $seen = [];
+            $up = $managerId;
+            while ($up && !isset($seen[$up])) {
+                if (in_array($up, $ids, true)) {
+                    return Reply::error($manager->name . ' already reports (directly or further up) to ' . User::where('id', $up)->value('name') . ', so this would make a loop.');
+                }
+                $seen[$up] = true;
+                $up = (int) EmployeeDetails::where('user_id', $up)->value('reporting_to');
+            }
+        }
+
+        $previous = EmployeeDetails::whereIn('user_id', $ids)->whereNotNull('reporting_to')->pluck('reporting_to')->all();
+        $count = EmployeeDetails::whereIn('user_id', $ids)->update(['reporting_to' => $managerId ?: null]);
+
+        // Their "My Team" menu appears or goes for the people now (or no longer) over someone
+        User::whereIn('id', array_unique(array_filter(array_merge($previous, [$managerId]))))->get()
+            ->each(fn ($u) => $u->forgetMenuCache());
+
+        return Reply::success($managerId
+            ? $count . ' employee(s) now report to ' . $manager->name . '.'
+            : 'Reporting To cleared for ' . $count . ' employee(s).');
     }
 
     protected function changeStatus($request)
@@ -627,6 +722,26 @@ class EmployeeController extends AccountBaseController
      * @throws \Froiden\RestAPI\Exceptions\RelatedResourceNotFoundException
      * @throws \Illuminate\Contracts\Filesystem\FileNotFoundException
      */
+    /**
+     * Set an employee's password on its own. Saving the whole form re-checks the full
+     * onboarding record (PAN, emergency contact, signed declarations), so a password
+     * change on an incomplete record could never go through.
+     */
+    public function updatePassword(Request $request, $id)
+    {
+        abort_403(user()->permission('edit_employees') != 'all' && (int) $id !== (int) user()->id);
+
+        $request->validate(['password' => 'required|min:8|max:50']);
+
+        $user = User::withoutGlobalScope(ActiveScope::class)->findOrFail($id);
+        abort_if((int) $user->company_id !== (int) company()->id, 404);
+
+        $user->password = bcrypt($request->password);
+        $user->save();
+
+        return Reply::success('Password updated for ' . $user->name . '.');
+    }
+
     public function update(UpdateRequest $request, $id)
     {
         $viewEmployeeMenuPermission = user()->permission('view_employee_menu');

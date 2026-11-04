@@ -336,6 +336,12 @@ class LeaveDataTable extends BaseDataTable
             $leavesList->where('users.name', 'like', '%' . $safeTerm . '%');
         }
 
+        // "Waiting for me": the leaves at the step this person decides (LeaveApprovals)
+        if (request()->waiting === 'me') {
+            $mine = \App\Services\Leaves\LeaveApprovals::waitingFor()->pluck('id')->all();
+            $leavesList->whereIn('leaves.id', $mine ?: [0]);
+        }
+
         // Approvers (manager / department head) see the leave of the people they approve for.
         $approverTeam = \App\Services\Leaves\LeaveApprovals::teamUserIds();
 

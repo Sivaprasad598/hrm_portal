@@ -37,7 +37,7 @@
         <div class="card bg-white border-0 b-shadow-4 mb-3">
             <div class="card-body p-3 d-flex align-items-center flex-wrap">
                 <div class="mr-auto">
-                    <h5 class="mb-1 f-18">Leave year end — {{ $fy['label'] }}</h5>
+                    <h5 class="mb-1 f-18">Year-end settlement — {{ $fy['label'] }}</h5>
                     <p class="mb-0 f-13 text-lightest">
                         {{ $fy['start']->format('d M Y') }} to {{ $fy['end']->format('d M Y') }}
                         &middot; financial year starts in {{ $yearStartMonth }}

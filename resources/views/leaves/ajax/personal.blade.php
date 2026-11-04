@@ -67,7 +67,13 @@
                     @endif
                 </div>
             @empty
-                <p class="text-dark-grey mb-0">No leave types are given to you yet.</p>
+                <div class="leave-balance__empty">
+                    <i class="bi bi-calendar-x"></i>
+                    <div>
+                        <div class="leave-balance__empty-title">No leave types are given to you yet</div>
+                        <div class="leave-balance__empty-sub">HR assigns your leave types and quota. Ask HR if you need to apply for leave.</div>
+                    </div>
+                </div>
             @endforelse
         </div>
     </div>

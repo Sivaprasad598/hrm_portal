@@ -8,6 +8,77 @@
 
         var $ = window.jQuery;
 
+        // main.js also lights every menu link of the same /account/<section> (so on
+        // Attendance Dashboard, Attendance Register lit up too); the server already
+        // marked the one page being viewed, so only that one stays lit
+        $(window).on('load', function () {
+            setTimeout(function () {
+                var $mine = $('#sideMenuScroll a[data-server-active]');
+                if ($mine.length) {
+                    $('#sideMenuScroll li li a.active, #sideMenuScroll .accordionItemContent a.active').not($mine).removeClass('active');
+                }
+            }, 0);
+        });
+
+        // Ticking a table row ran main.js's dataTableRowCheck / selectAllTable, which
+        // refresh every dropdown on the page (filters with hundreds of names) - per
+        // row for "select all" - so a tick took a second or more. These clicks are
+        // caught first, on the way down, and handled here: the bulk action bar is
+        // updated once. (main.js declares those two with const, so they cannot be
+        // swapped out; 36 tables call them inline.)
+        function epicActionBar() {
+            var any = $('.select-table-row:checked').length > 0;
+            var all = document.getElementById('select-all-table');
+
+            if (any) {
+                // Only when the bar first comes up: its dropdowns need redrawing once, not per tick
+                if (!$('#quick-action-form').data('epic-open')) {
+                    $('#quick-action-form').data('epic-open', true).fadeIn();
+                    $('#quick-actions').find('input, textarea, button, select').removeAttr('disabled');
+                    if ($('#quick-action-type').val() == '') { $('#quick-action-apply').attr('disabled', true); }
+                    $('#quick-actions .select-picker, #quick-action-form .select-picker').selectpicker('refresh');
+                }
+            } else {
+                $('#quick-action-form').data('epic-open', false);
+                $('#quick-action-form').fadeOut();
+                if (typeof resetActionButtons === 'function') { resetActionButtons(); }
+            }
+
+            if (all) {
+                var boxes = $('.select-table-row:not(:disabled)');
+                var ticked = boxes.filter(':checked').length;
+                all.checked = boxes.length > 0 && ticked === boxes.length;
+                all.indeterminate = ticked > 0 && ticked < boxes.length;
+            }
+        }
+
+        document.addEventListener('click', function (e) {
+            var box = e.target;
+            if (!box || !box.matches) {
+                return;
+            }
+
+            if (box.matches('.select-table-row')) {
+                e.stopPropagation();
+                $(box).closest('tr').toggleClass('table-active', box.checked);
+                epicActionBar();
+            } else if (box.matches('#select-all-table')) {
+                e.stopPropagation();
+                $('.select-table-row:not(:disabled)').each(function () {
+                    this.checked = box.checked;
+                    $(this).closest('tr').toggleClass('table-active', box.checked);
+                });
+                epicActionBar();
+            }
+        }, true);
+
+        // A click anywhere in the tick cell ticks the box
+        $(document).on('click', '.table td:has(> .select-table-row)', function (e) {
+            if (e.target === this) {
+                $(this).children('.select-table-row').trigger('click');
+            }
+        });
+
         // The strip's menu button does what the arrow at the foot of the menu does
         $(document).on('click', '#epic-menu-toggle', function () {
             $('#sidebarToggle').trigger('click');

@@ -127,8 +127,12 @@ if ($companyId > 0) {
         foreach ($leaveRows as $leaveRow) {
             $typeKey = classifyLeaveType($leaveRow->type_name);
 
+            // Approved LOP leave is the table's LOP column; it was dropped here,
+            // so LOP always read 0.
+            $isLop = $typeKey === null && preg_match('/^(lop\b|loss of pay)/i', trim($leaveRow->type_name));
+
             // The monthly table only tracks CL/SL; Marriage is a separate one-time badge.
-            if ($typeKey === null || $typeKey === 'marriage') {
+            if (($typeKey === null && !$isLop) || $typeKey === 'marriage') {
                 continue;
             }
 
@@ -142,8 +146,18 @@ if ($companyId > 0) {
 
             if (!isset($leavesByUser[$rowUserId])) {
                 $leavesByUser[$rowUserId] = array_map(function ($name) {
-                    return ['month' => $name, 'clUsed' => 0, 'slUsed' => 0, 'halfDays' => 0, 'clPending' => 0, 'slPending' => 0, 'lop' => 0];
+                    return ['month' => $name, 'clUsed' => 0, 'slUsed' => 0, 'halfDays' => 0, 'clHalfDays' => 0, 'slHalfDays' => 0, 'clPending' => 0, 'slPending' => 0, 'lop' => 0];
                 }, $monthNames);
+            }
+
+            $isHalf = !empty($leaveRow->half_day_type);
+
+            if ($isLop) {
+                if ($leaveRow->status === 'approved') {
+                    $leavesByUser[$rowUserId][$monthIndex]['lop'] += $isHalf ? 0.5 : 1;
+                }
+
+                continue;
             }
 
             if ($leaveRow->status === 'pending') {
@@ -151,9 +165,11 @@ if ($companyId > 0) {
                 continue;
             }
 
-            // approved
-            if (!empty($leaveRow->half_day_type)) {
+            // approved. A half day is counted against its own type: two half-day
+            // CLs are one CL. They were all charged to SL, whatever the type.
+            if ($isHalf) {
                 $leavesByUser[$rowUserId][$monthIndex]['halfDays']++;
+                $leavesByUser[$rowUserId][$monthIndex][$typeKey . 'HalfDays']++;
             }
             else {
                 $leavesByUser[$rowUserId][$monthIndex][$typeKey . 'Used']++;
@@ -165,6 +181,15 @@ if ($companyId > 0) {
         $employees = [];
         $leavesByUser = [];
     }
+}
+
+// Everyone's leave is for those who may view all leave (LegacyPageController
+// sets $leaveViewAll). Anyone else - an employee opening this page - gets
+// their own record only: the employee list and the leave data both went to
+// the browser in full, so any signed-in user could read every colleague's.
+if (empty($leaveViewAll)) {
+    $employees = array_values(array_filter($employees, fn ($employee) => (int) $employee->id === $currentUserId));
+    $leavesByUser = array_intersect_key($leavesByUser, [$currentUserId => true]);
 }
 
 // Marriage leave's "monthly allocation" isn't meaningful (one-time entitlement),
@@ -1184,7 +1209,7 @@ $employeesJson = json_encode(array_map(function ($employee) {
                     <i class="fas fa-calendar-check"></i>
                 </div>
                 <div class="header-title">
-                    <h1>Leave Management</h1>
+                    <h1>Leave Balances</h1>
                     <p>Employee Leave Dashboard — Policy Logic</p>
                 </div>
             </div>
@@ -1221,8 +1246,8 @@ $employeesJson = json_encode(array_map(function ($employee) {
                     </div>
                 </div>
                 <div class="header-actions">
-                    <button><i class="fas fa-file-export"></i> <span>Export</span></button>
-                    <button><i class="fas fa-plus"></i> <span>Apply</span></button>
+                    <button type="button" id="exportBtn"><i class="fas fa-file-export"></i> <span>Export</span></button>
+                    <button type="button" id="applyBtn"><i class="fas fa-check"></i> <span>Apply</span></button>
                 </div>
             </div>
         </header>
@@ -1258,8 +1283,8 @@ $employeesJson = json_encode(array_map(function ($employee) {
                         <option value="">All Months</option>
                     </select>
                     <div class="table-actions">
-                        <button><i class="fas fa-download"></i> Download</button>
-                        <button><i class="fas fa-print"></i> Print</button>
+                        <button type="button" id="downloadBtn"><i class="fas fa-download"></i> Download</button>
+                        <button type="button" id="printBtn"><i class="fas fa-print"></i> Print</button>
                     </div>
                 </div>
             </div>
@@ -1391,12 +1416,7 @@ $employeesJson = json_encode(array_map(function ($employee) {
 
         if (userFilter) {
             userFilter.addEventListener('change', function() {
-                const selected = employeesData.find(function(employee) {
-                    return String(employee.id) === userFilter.value;
-                });
-
-                updateEmployeeBadge(selected || null);
-                renderForEmployee(Number(userFilter.value) || 0);
+                showEmployee(Number(userFilter.value) || 0);
             });
         }
 
@@ -1421,7 +1441,7 @@ $employeesJson = json_encode(array_map(function ($employee) {
         const LEAVES_BY_USER = <?php echo $leavesByUserJson ?: '{}'; ?>;
 
         function emptyMonthlyRows() {
-            return MONTH_NAMES.map(name => ({ month: name, clUsed: 0, slUsed: 0, halfDays: 0, clPending: 0, slPending: 0, lop: 0 }));
+            return MONTH_NAMES.map(name => ({ month: name, clUsed: 0, slUsed: 0, halfDays: 0, clHalfDays: 0, slHalfDays: 0, clPending: 0, slPending: 0, lop: 0 }));
         }
 
         function getRawDataFor(userId) {
@@ -1450,12 +1470,15 @@ $employeesJson = json_encode(array_map(function ($employee) {
                 const clAllocated = POLICY.cl.monthlyAllocation;
                 const slAllocated = POLICY.sl.monthlyAllocation;
 
-                // 2. Half-days → SL conversion (rate from leave_policy)
+                // 2. Half-days count against their own type at the policy's
+                // rate (2 half days = 1 day): two half-day CLs are one CL. All
+                // of them used to go to SL, and an odd one was dropped.
                 const halfDays = row.halfDays || 0;
-                const halfToSL = Math.floor(halfDays / POLICY.sl.halfDayRate);
-                const remainingHalf = halfDays % POLICY.sl.halfDayRate;
+                const halfToCL = (row.clHalfDays || 0) / POLICY.cl.halfDayRate;
+                const halfToSL = (row.slHalfDays || 0) / POLICY.sl.halfDayRate;
+                const remainingHalf = 0;
 
-                // 3. Total SL used = direct SL used + half-day conversion
+                // 3. Total SL used = full-day SL + half-day SL
                 let totalSLUsed = row.slUsed + halfToSL;
 
                 // 4. Determine SL available = allocated (no carry forward)
@@ -1472,8 +1495,8 @@ $employeesJson = json_encode(array_map(function ($employee) {
                     slRemaining = 0;
                 }
 
-                // 6. CL used = direct CL used + CL deducted for SL deficit
-                let totalCLUsed = row.clUsed + clDeductionForSL;
+                // 6. CL used = full-day CL + half-day CL + CL deducted for SL deficit
+                let totalCLUsed = row.clUsed + halfToCL + clDeductionForSL;
 
                 // 7. CL available = allocated + carry forward (carry-in)
                 let clAvailable = clAllocated + carryInCL;
@@ -1501,8 +1524,8 @@ $employeesJson = json_encode(array_map(function ($employee) {
                     month: row.month,
                     clAllocated,
                     slAllocated,
-                    clUsed: row.clUsed,
-                    slUsed: row.slUsed,
+                    clUsed: row.clUsed + halfToCL,
+                    slUsed: row.slUsed + halfToSL,
                     halfDays: row.halfDays || 0,
                     halfToSL,
                     remainingHalf,
@@ -1901,7 +1924,79 @@ $employeesJson = json_encode(array_map(function ($employee) {
             });
         }
 
-        renderForEmployee(CURRENT_USER_ID || (employeesData[0] ? employeesData[0].id : 0));
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        //  APPLY / EXPORT / DOWNLOAD / PRINT — the buttons had no handlers
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        // The employee the figures are for: the dropdown's choice, else the
+        // one shown when the page opened.
+        let shownUserId = CURRENT_USER_ID || (employeesData[0] ? employeesData[0].id : 0);
+
+        function showEmployee(userId) {
+            shownUserId = userId;
+            updateEmployeeBadge(employeesData.find(employee => employee.id === userId) || null);
+            renderForEmployee(userId);
+        }
+
+        // Apply takes whatever the filters say now - a department or search
+        // change narrows the list without anyone touching the dropdown itself.
+        const applyBtn = document.getElementById('applyBtn');
+
+        if (applyBtn) {
+            applyBtn.addEventListener('click', function() {
+                const chosen = Number(userFilter.value) || 0;
+
+                if (chosen) {
+                    showEmployee(chosen);
+                } else if (userFilter.options.length === 2) {
+                    userFilter.selectedIndex = 1;
+                    showEmployee(Number(userFilter.value));
+                } else {
+                    renderTable(monthFilter ? monthFilter.value : '');
+                    renderMonthlyDashboard();
+                }
+            });
+        }
+
+        function downloadCsv() {
+            const employee = employeesData.find(item => item.id === shownUserId);
+            const columns = ['month', 'clAllocated', 'slAllocated', 'clUsed', 'slUsed', 'halfDays', 'clPending', 'slPending', 'carryForwardCL', 'clRemaining', 'slRemaining', 'lop'];
+            const header = ['Month', 'CL Alloc.', 'SL Alloc.', 'CL Used', 'SL Used', 'Half-Days', 'CL Pending', 'SL Pending', 'Carry Fwd CL', 'Remaining CL', 'Remaining SL', 'LOP'];
+            const filterMonth = monthFilter ? monthFilter.value : '';
+            const rows = filterMonth ? currentMonthlyData.filter(row => row.month === filterMonth) : currentMonthlyData;
+            const quote = value => '"' + String(value ?? '').replace(/"/g, '""') + '"';
+            const lines = [header.map(quote).join(',')].concat(rows.map(row => columns.map(key => quote(row[key])).join(',')));
+            const blob = new Blob([lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+            const link = document.createElement('a');
+
+            link.href = URL.createObjectURL(blob);
+            link.download = 'leave-summary-' + ((employee && employee.name) || 'employee').replace(/[^A-Za-z0-9]+/g, '-') + '.csv';
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        }
+
+        ['exportBtn', 'downloadBtn'].forEach(function(id) {
+            const button = document.getElementById(id);
+
+            if (button) {
+                button.addEventListener('click', downloadCsv);
+            }
+        });
+
+        const printBtn = document.getElementById('printBtn');
+
+        if (printBtn) {
+            printBtn.addEventListener('click', () => window.print());
+        }
+
+        // Open on the employee being shown, with the dropdown and badge saying
+        // so (they read "Select Employee" and a placeholder "John Doe").
+        if (userFilter && [...userFilter.options].some(option => Number(option.value) === shownUserId)) {
+            userFilter.value = String(shownUserId);
+        }
+
+        showEmployee(shownUserId);
     </script>
 
 </body>

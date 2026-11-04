@@ -79,12 +79,13 @@ TXT;
     /** @return array<string, mixed>  form-ready values */
     public function extract(UploadedFile $file): array
     {
-        $raw = $this->client->extractFromPdf(
-            (string) file_get_contents($file->getRealPath()),
-            $file->getClientOriginalName(),
-            self::INSTRUCTIONS,
-            self::schema()
-        );
+        return $this->extractBytes((string) file_get_contents($file->getRealPath()), $file->getClientOriginalName());
+    }
+
+    /** The same, from a PDF already in hand (a stored resume, an email attachment). @return array<string, mixed> */
+    public function extractBytes(string $pdfBytes, string $filename): array
+    {
+        $raw = $this->client->extractFromPdf($pdfBytes, $filename, self::INSTRUCTIONS, self::schema());
 
         return $this->tidy($raw);
     }

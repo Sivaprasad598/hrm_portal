@@ -8,14 +8,9 @@
 <div class="onboard-box p-3 mb-4" id="resume-box">
     <div class="d-flex flex-wrap align-items-center justify-content-between">
         <div class="mr-3 mb-2">
-            <h6 class="mb-1 f-14 f-w-500"><i class="fa fa-file-pdf text-danger mr-1"></i> Resume</h6>
-            <p class="f-12 text-lightest mb-0">
-                PDF, up to 5 MB. Saved with the employee.
-                @if ($aiReady)
-                    <strong>Extract with AI</strong> fills this form from it using
-                    {{ \App\Models\AiSetting::PROVIDERS[$aiSetting->provider] }} — check the highlighted fields before saving.
-                @endif
-            </p>
+            <h6 class="mb-0 f-14 f-w-500"><i class="fa fa-file-pdf text-danger mr-1"></i> Resume
+                <span class="f-12 font-weight-normal text-lightest ml-1">PDF, up to 5 MB{{ $aiReady ? ' · Extract with AI fills the form; check the highlighted fields' : '' }}</span>
+            </h6>
             @if ($currentResume)
                 <p class="f-12 mb-0 mt-1">On file:
                     <a href="{{ $currentResume->doc_url }}" class="doc-chip ob-doc-link" target="_blank" rel="noopener"

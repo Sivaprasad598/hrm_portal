@@ -48,6 +48,8 @@ $approveRejectPermission = user()->permission('approve_or_reject_leaves');
                         </p>
                     </div>
 
+                    @include('leaves.ajax.range-and-tasks')
+
                     <x-cards.data-row :label="__('modules.leaves.reason')" :value="$leave->reason" html="true" />
 
                     @if (!is_null($leave->manager_status_permission))

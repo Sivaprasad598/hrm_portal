@@ -160,12 +160,25 @@ class MyCalendarController extends AccountBaseController
             if (!is_null($viewleavePerm) && $viewleavePerm != 'none') {
 
                 if (in_array('leaves', $calendar_type_array)) {
-                    // approved leaves of all emoloyees with employee name
+                    // Approved leaves, as far as the view_leave permission reaches:
+                    // everyone's for 'all', otherwise the person's own and/or the
+                    // ones they added. It showed every employee's to everybody.
                     $leaves = Leave::join('leave_types', 'leave_types.id', 'leaves.leave_type_id')
                         ->where('leaves.status', 'approved')
                         ->select('leaves.id', 'leaves.leave_date', 'leaves.status', 'leave_types.type_name', 'leave_types.color', 'leaves.leave_date', 'leaves.duration', 'leaves.status', 'leaves.user_id')
                         ->with('user')
                         ->whereBetween(DB::raw('DATE(leaves.`leave_date`)'), [$startDate->toDateString(), $endDate->toDateString()])
+                        ->when($viewleavePerm != 'all', function ($query) use ($viewleavePerm) {
+                            $query->where(function ($query) use ($viewleavePerm) {
+                                if (in_array($viewleavePerm, ['owned', 'both'])) {
+                                    $query->orWhere('leaves.user_id', user()->id);
+                                }
+
+                                if (in_array($viewleavePerm, ['added', 'both'])) {
+                                    $query->orWhere('leaves.added_by', user()->id);
+                                }
+                            });
+                        })
                         ->get();
 
                     foreach ($leaves as $leave) {

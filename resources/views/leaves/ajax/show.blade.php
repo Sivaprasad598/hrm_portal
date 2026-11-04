@@ -17,14 +17,9 @@ $approveRejectPermission = user()->permission('approve_or_reject_leaves');
                         <div class="col-md-2 col-2 text-right">
                             <div class="dropdown">
                                 @if ($leave->status == 'pending')
-                                    <button class="btn f-14 px-0 py-0 text-dark-grey dropdown-toggle" type="button"
-                                        data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                        <i class="fa fa-ellipsis-h"></i>
-                                    </button>
-
-                                    <div class="dropdown-menu dropdown-menu-right border-grey rounded b-shadow-4 p-0"
-                                        aria-labelledby="dropdownMenuLink" tabindex="0">
+                                        {{-- Built first; the menu shows only when there is something in it --}}
                                         @php
+                                            ob_start();
                                             $rejectActionAdded = false;
                                             $approvedActionAdded = false;
                                             $chainStep = $leave->approval_step && $leave->approval_step !== \App\Services\Leaves\LeaveApprovals::DONE;
@@ -104,7 +99,17 @@ $approveRejectPermission = user()->permission('approve_or_reject_leaves');
                                             || ($deleteLeavePermission == 'both' && (user()->id == $leave->user_id || user()->id == $leave->added_by))))
                                                 <a class="dropdown-item delete-leave"><i class="fa fa-trash mr-2"></i> @lang('app.delete')</a>
                                             @endif
-                                    </div>
+                                        @php $leaveMenu = trim(ob_get_clean()); @endphp
+                                    @if ($leaveMenu !== '')
+                                        <button class="btn f-14 px-0 py-0 text-dark-grey dropdown-toggle" type="button"
+                                            data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                            <i class="fa fa-ellipsis-h"></i>
+                                        </button>
+                                        <div class="dropdown-menu dropdown-menu-right border-grey rounded b-shadow-4 p-0"
+                                            aria-labelledby="dropdownMenuLink" tabindex="0">
+                                            {!! $leaveMenu !!}
+                                        </div>
+                                    @endif
                                 @endif
                             </div>
                         </div>
@@ -112,7 +117,8 @@ $approveRejectPermission = user()->permission('approve_or_reject_leaves');
                 </div>
                 <div class="card-body">
                     @php
-                        $leaveType = '<span class="badge badge-success" style="background-color:' . $leave->type->color . '">' . $leave->type->type_name . '</span>';
+                        // A soft pill with the type's own colour as a dot, not a solid block
+                        $leaveType = '<span class="lv-pill"><i class="lv-pill__dot" style="background:' . e($leave->type->color) . '"></i>' . e($leave->type->type_name) . '</span>';
 
                         if ($leave->status == 'approved') {
                             $class = 'text-light-green';
@@ -140,19 +146,20 @@ $approveRejectPermission = user()->permission('approve_or_reject_leaves');
                         </p>
                     </div>
 
-                    <x-cards.data-row :label="__('modules.leaves.leaveDate')" :value="$leave->leave_date->translatedFormat(company()->date_format)"
-                        html="true" />
+                    {{-- This day of a longer request; a one-day leave shows only From - To --}}
+                    @if (($leaveRange['days'] ?? 1) > 1)
+                        <x-cards.data-row :label="__('modules.leaves.leaveDate')" :value="$leave->leave_date->translatedFormat(company()->date_format)"
+                            html="true" />
+                    @endif
+
+                    @include('leaves.ajax.range-and-tasks')
 
                     <x-cards.data-row :label="__('modules.leaves.leaveType')" :value="$leaveType" html="true" />
 
                     @php
-                        if ($leave->paid == 1) {
-                            $leavePaidStatus = '<span class="badge badge-success">' . __('app.paid') . '</span>';
-
-                        } else {
-                            $leavePaidStatus = '<span class="badge badge-danger">' . __('app.unpaid') . '</span>';
-
-                        }
+                        $leavePaidStatus = $leave->paid == 1
+                            ? '<span class="lv-pill lv-pill--paid"><i class="fa fa-check-circle"></i>' . __('app.paid') . '</span>'
+                            : '<span class="lv-pill lv-pill--unpaid"><i class="fa fa-minus-circle"></i>' . __('app.unpaid') . ' (LOP)</span>';
                     @endphp
 
                     <x-cards.data-row :label="__('app.paid')" :value="$leavePaidStatus" html="true" />
@@ -175,23 +182,49 @@ $approveRejectPermission = user()->permission('approve_or_reject_leaves');
 
                     <x-cards.data-row :label="__('modules.leaves.reason')" :value="$leave->reason" html="true" />
 
+                    {{-- Approval as a timeline: each step done, then the one it waits at --}}
                     @if (!empty($approvalTrail) && $approvalTrail->isNotEmpty())
                         @php
                             $verbs = ['submitted' => 'Applied', 'approved' => 'Approved', 'override' => 'Approved by HR ahead of the step', 'rejected' => 'Rejected', 'escalated' => 'Moved on (no decision in time)'];
+                            $tones = ['submitted' => 'applied', 'approved' => 'ok', 'override' => 'ok', 'rejected' => 'no', 'escalated' => 'skip'];
+                            $icons = ['submitted' => 'fa-paper-plane', 'approved' => 'fa-check', 'override' => 'fa-forward', 'rejected' => 'fa-times', 'escalated' => 'fa-share'];
+                            $waitingStep = $leave->status === 'pending' && $leave->approval_step && $leave->approval_step !== \App\Services\Leaves\LeaveApprovals::DONE
+                                ? $leave->approval_step : null;
                         @endphp
-                        <div class="col-12 px-0 mb-3">
-                            <p class="f-14 text-dark-grey mb-2">Approval</p>
-                            @foreach ($approvalTrail as $a)
-                                <div class="f-13 mb-1">
-                                    <span class="badge badge-light border">{{ \App\Services\Leaves\LeaveApprovals::label($a->step) }}</span>
-                                    {{ $verbs[$a->action] ?? ucfirst($a->action) }}{{ $a->user_name ? ' by ' . $a->user_name : '' }}
-                                    <span class="text-lightest f-12">· {{ \Carbon\Carbon::parse($a->created_at)->timezone(company()->timezone)->format('d M Y, h:i A') }}</span>
-                                    @if ($a->note)<div class="f-12 text-dark-grey ml-1">"{{ $a->note }}"</div>@endif
-                                </div>
-                            @endforeach
-                            @if ($leave->status === 'pending' && $leave->approval_step && $leave->approval_step !== \App\Services\Leaves\LeaveApprovals::DONE)
-                                <div class="f-13 text-warning mt-1"><i class="fa fa-hourglass-half mr-1"></i>Waiting for the {{ \App\Services\Leaves\LeaveApprovals::who($leave->approval_step) }}</div>
-                            @endif
+                        <div class="col-12 px-0 pb-3 d-lg-flex d-md-flex d-block">
+                            <p class="mb-0 text-lightest f-14 w-30 d-inline-block">Approval</p>
+                            <ol class="lv-trail">
+                                @foreach ($approvalTrail as $a)
+                                    <li class="lv-trail__step is-{{ $tones[$a->action] ?? 'ok' }}">
+                                        <span class="lv-trail__dot"><i class="fa {{ $icons[$a->action] ?? 'fa-check' }}"></i></span>
+                                        <div class="lv-trail__body">
+                                            <div class="lv-trail__line">
+                                                <b>{{ $verbs[$a->action] ?? ucfirst($a->action) }}</b>{{ $a->user_name ? ' by ' . $a->user_name : '' }}
+                                                @if ($a->action !== 'submitted')
+                                                    <span class="lv-trail__role">{{ \App\Services\Leaves\LeaveApprovals::label($a->step) }}</span>
+                                                @endif
+                                            </div>
+                                            <div class="lv-trail__time">{{ \Carbon\Carbon::parse($a->created_at)->timezone(company()->timezone)->format('d M Y, h:i A') }}</div>
+                                            @if ($a->note)<div class="lv-trail__note">"{{ $a->note }}"</div>@endif
+                                        </div>
+                                    </li>
+                                @endforeach
+                                @if ($waitingStep)
+                                    <li class="lv-trail__step is-wait">
+                                        <span class="lv-trail__dot"><i class="fa fa-hourglass-half"></i></span>
+                                        <div class="lv-trail__body">
+                                            <div class="lv-trail__line"><b>Waiting for {{ \App\Services\Leaves\LeaveApprovals::who($waitingStep) }}</b>
+                                                <span class="lv-trail__role">{{ \App\Services\Leaves\LeaveApprovals::label($waitingStep) }}</span></div>
+                                            @if ($leave->approval_step_at)
+                                                <div class="lv-trail__time">since {{ \Carbon\Carbon::parse($leave->approval_step_at)->timezone(company()->timezone)->format('d M Y, h:i A') }}</div>
+                                            @endif
+                                            @if (!($approvalMode ?? null) && $approvalTrail->contains(fn ($a) => $a->action === 'approved' && $a->user_id == user()->id))
+                                                <div class="lv-trail__mine"><i class="fa fa-check-circle mr-1"></i>You have approved your step. Nothing more for you to do here.</div>
+                                            @endif
+                                        </div>
+                                    </li>
+                                @endif
+                            </ol>
                         </div>
                     @endif
 

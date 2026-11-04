@@ -263,6 +263,8 @@
          @if (\App\Services\Employee\PersonalDashboard::applies())
             @include('dashboard.employee.personal')
          @else
+         {{-- HR, Admin: their own figures and what waits for their decision, then the company view --}}
+         @include('dashboard.employee.me')
          <!-- EMPLOYEE DASHBOARD DETAIL START -->
          <div class="row emp-dash-detail">
             <!-- EMP DASHBOARD INFO NOTICES START -->

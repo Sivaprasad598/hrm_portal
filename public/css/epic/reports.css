@@ -1,0 +1,59 @@
+/* The attendance reports (Total_Monthly_Attendance.php, Monthly_attendance.php,
+   annual_attendance.php) in the Epic HR look, over their own styles: shown as
+   tabs of Attendance > Dashboard. Colours follow Settings > Theme Settings. */
+:root { --epic-blue: #b8892e; --epic-dark: #111111; --epic-line: #e8e9e9; --epic-muted: #878a99; --epic-text: #212529; }
+
+body { font-family: 'Plus Jakarta Sans', 'Segoe UI', Arial, sans-serif !important; background: #fff !important; margin: 0 !important; padding: 0 !important; color: var(--epic-text); }
+.container, .attendance-container, .attendance-wrapper { background: #fff !important; box-shadow: none !important; border: 0 !important; padding: 0 !important; margin: 0 !important; border-radius: 0 !important; }
+
+/* Title bars: dark with a gold rule, not yellow */
+h2, .page-title, .title-row th {
+    background: var(--epic-dark) !important; color: #fff !important; border: 0 !important;
+    border-bottom: 3px solid var(--epic-blue) !important; border-radius: 8px 8px 0 0 !important;
+    font-size: 14px !important; font-weight: 700 !important; letter-spacing: .02em; text-transform: none !important;
+    padding: 9px 14px !important; margin: 0 !important; text-align: left !important;
+}
+.title-row th { border-radius: 0 !important; }
+
+/* Filter bar */
+.top-controls { display: flex !important; align-items: flex-end !important; gap: 12px !important; flex-wrap: wrap; background: #fafafa !important;
+    border: 1px solid var(--epic-line) !important; border-radius: 8px !important; padding: 10px 12px !important; margin: 0 0 12px !important; }
+.top-controls-left { gap: 12px !important; }
+.control-group label { font-size: 11px !important; font-weight: 600 !important; letter-spacing: .06em; text-transform: uppercase; color: var(--epic-muted) !important; margin-bottom: 4px !important; }
+select, .employee-picker-input, .top-controls select { height: 36px !important; border: 1px solid var(--epic-line) !important; border-radius: 6px !important;
+    padding: 4px 10px !important; font-size: 13px !important; color: var(--epic-text) !important; background-color: #fff !important; font-family: inherit !important; }
+select:focus, .employee-picker-input:focus { outline: none !important; border-color: var(--epic-blue) !important; box-shadow: 0 0 0 3px color-mix(in srgb, var(--epic-blue) 18%, transparent) !important; }
+.employee-picker-panel { border: 1px solid var(--epic-line) !important; border-radius: 6px !important; box-shadow: 0 8px 24px rgba(16, 24, 40, .12) !important; }
+.employee-picker-option.highlighted { background: color-mix(in srgb, var(--epic-blue) 12%, #fff) !important; color: var(--epic-text) !important; }
+
+/* Export buttons: outlined, with the file type's colour */
+.export-buttons { gap: 8px !important; }
+.btn-export { display: inline-flex !important; align-items: center; gap: 6px; height: 36px; padding: 0 14px !important; border-radius: 6px !important;
+    font-size: 13px !important; font-weight: 600 !important; text-decoration: none !important; background: #fff !important; transition: background .15s, color .15s; }
+.btn-export-pdf { color: #c0392b !important; border: 1px solid #f1c0ba !important; }
+.btn-export-pdf::before { content: '\2B07'; font-size: 12px; }
+.btn-export-pdf:hover { background: #c0392b !important; color: #fff !important; }
+.btn-export-excel { color: #1d6f42 !important; border: 1px solid #b9dcc7 !important; }
+.btn-export-excel::before { content: '\2B07'; font-size: 12px; }
+.btn-export-excel:hover { background: #1d6f42 !important; color: #fff !important; }
+
+/* Tables */
+table { border-collapse: separate !important; border-spacing: 0 !important; border: 1px solid var(--epic-line) !important; border-radius: 0 0 8px 8px; font-size: 12.5px !important; }
+th, thead th { background: #f6efe0 !important; color: #3b2c0e !important; font-size: 11px !important; font-weight: 700 !important; letter-spacing: .04em;
+    text-transform: uppercase; border: 0 !important; border-bottom: 2px solid var(--epic-blue) !important; border-right: 1px solid #ece3cf !important; padding: 9px 6px !important; }
+td, tbody td { border: 0 !important; border-bottom: 1px solid #f0f1f3 !important; border-right: 1px solid #f5f5f5 !important; padding: 8px 6px !important; }
+tbody tr:hover td { background-color: color-mix(in srgb, var(--epic-blue) 5%, #fff) !important; }
+.name-col { color: var(--epic-text) !important; font-weight: 600 !important; }
+.working-days-row td, .total-head { background: #faf5ea !important; color: #3b2c0e !important; font-weight: 700 !important; }
+.totalattendance { background: #faf5ea !important; }
+
+/* Status colours on the theme's palette */
+.present, .tl, .total-present, .percentage { color: #067647 !important; }
+.absent, .lop { color: #d92d20 !important; }
+.halfday { color: #b54708 !important; }
+.hours, .total-working { color: var(--epic-blue) !important; }
+.legend-box, .formula-box { background: #fafafa !important; border: 1px solid var(--epic-line) !important; border-radius: 8px !important; font-size: 12px !important; }
+
+::-webkit-scrollbar { width: 12px; height: 12px; background: #eceef1; }
+::-webkit-scrollbar-thumb { background-color: #9aa1ab; border: 2px solid #eceef1; border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background-color: var(--epic-blue); }

@@ -73,6 +73,23 @@
         </div>
     </div>
 
+    {{-- Pages sharing a tab group show as one sidebar entry (named by the group) with tabs across the page --}}
+    <div class="row">
+        <div class="col-md-6">
+            <div class="form-group">
+                <label>Tab group <small class="text-lightest">(optional)</small></label>
+                <input type="text" name="tab_group" class="form-control" maxlength="100" placeholder="e.g. Attendance Register" value="{{ $menu->tab_group }}">
+                <small class="text-lightest">Pages with the same group name appear together as tabs, under that name in the sidebar.</small>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="form-group">
+                <label>Tab label <small class="text-lightest">(optional)</small></label>
+                <input type="text" name="tab_label" class="form-control" maxlength="100" placeholder="Text on the tab; the menu name if empty" value="{{ $menu->tab_label }}">
+            </div>
+        </div>
+    </div>
+
     <div class="row">
         <div class="col-md-6">
             <div class="form-group">

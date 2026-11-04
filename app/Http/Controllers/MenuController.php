@@ -132,6 +132,8 @@ class MenuController extends AccountBaseController
                 'level'      => $level,
                 'sort_order' => $request->sort_order,
                 'is_active'  => 1,
+                'tab_group'  => trim((string) $request->tab_group) ?: null,
+                'tab_label'  => trim((string) $request->tab_label) ?: null,
             ]);
         });
 
@@ -253,6 +255,8 @@ class MenuController extends AccountBaseController
                 'icon'       => $request->icon,
                 'level'      => $level,
                 'sort_order' => $newSort,
+                'tab_group'  => trim((string) $request->tab_group) ?: null,
+                'tab_label'  => trim((string) $request->tab_label) ?: null,
             ]);
         });
 

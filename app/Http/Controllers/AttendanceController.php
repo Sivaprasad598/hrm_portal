@@ -72,6 +72,8 @@ class AttendanceController extends AccountBaseController
 
     public function index(Request $request)
     {
+        $this->pageTitle = 'Attendance Register';
+
         // Someone who sees only their own attendance gets their own month as a
         // calendar; the all-employees views are for HR.
         if ($this->viewAttendancePermission === 'owned' && !$request->ajax()) {
@@ -1271,27 +1273,15 @@ class AttendanceController extends AccountBaseController
         abort_403(!(in_array($this->viewAttendancePermission, ['all', 'added', 'owned', 'both'])));
 
         if ($this->viewAttendancePermission == 'owned') {
-            $this->employees = User::where('id', user()->id)->get();
+            // Themselves first, then the people who report to them
+            $this->employees = User::where('id', user()->id)->get()
+                ->merge(User::whereIn('id', \App\Services\Attendance\CorrectionApprovals::teamUserIds())->orderBy('name')->get());
         } else {
             $this->employees = User::allEmployees(null, false, ($this->viewAttendancePermission == 'all' ? 'all' : null));
         }
 
         $this->attendanceRegularisation = AttendanceSetting::first();
-        $regulariseRoles = $this->attendanceRegularisation->attendance_regularize_roles;
-        $regulariseRolesArray = json_decode($regulariseRoles, true) ?? [];
-        $userRoles = user_roles();
-
-        $lastRole = end($userRoles);
-        $condition = in_array($lastRole, $regulariseRolesArray) || $lastRole === 'admin';
-
-        if(!in_array('admin', user_roles()) && !$condition)
-        {
-            $this->pendingRequestRegularisation = AttendanceRegularisation::where('company_id', company()->id)->where('user_id', user()->id)->where('status', 'pending')->count();
-        }
-        else
-        {
-            $this->pendingRequestRegularisation = AttendanceRegularisation::where('company_id', company()->id)->where('status', 'pending')->count();
-        }
+        $this->pendingRequestRegularisation = \App\Services\Attendance\CorrectionApprovals::pendingCount();
 
         $now = now();
         $this->year = $now->format('Y');
@@ -1316,14 +1306,18 @@ class AttendanceController extends AccountBaseController
 
         $userId = (int) $request->userId;
 
-        // Someone who may see only their own attendance gets only their own.
-        if ($this->viewAttendancePermission === 'owned') {
+        // Someone who may see only their own attendance gets only their own,
+        // and their team's when people report to them.
+        if ($this->viewAttendancePermission === 'owned' && !in_array($userId, \App\Services\Attendance\CorrectionApprovals::teamUserIds(), true)) {
             $userId = (int) user()->id;
         }
 
         $tz = company()->timezone ?: 'Asia/Kolkata';
-        $start = Carbon::create((int) $request->year, (int) $request->month, 1, 0, 0, 0, $tz);
-        $end = $start->copy()->endOfMonth()->startOfDay();
+
+        // A month, or the whole year (month=all: twelve small calendars)
+        $wholeYear = $request->month === 'all';
+        $start = Carbon::create((int) $request->year, $wholeYear ? 1 : (int) $request->month, 1, 0, 0, 0, $tz);
+        $end = ($wholeYear ? $start->copy()->endOfYear() : $start->copy()->endOfMonth())->startOfDay();
 
         $count = (new \App\Services\Payroll\AttendanceDays($tz))->forRange($userId, $start, $end);
         $breakdown = $count['breakdown'];
@@ -1353,7 +1347,7 @@ class AttendanceController extends AccountBaseController
         $holidays = (int) ($breakdown['holiday'] ?? 0);
         $workingDays = (int) $count['working_days'] - (int) ($breakdown['week_off'] ?? 0) - $holidays;
 
-        $view = view('attendances.ajax.member_calendar', [
+        $view = view($wholeYear ? 'attendances.ajax.member_year' : 'attendances.ajax.member_calendar', [
             'start' => $start,
             'days' => $days,
             'leaves' => $leaves,
@@ -2356,6 +2350,23 @@ class AttendanceController extends AccountBaseController
         );
     }
 
+    /** Attendance > Dashboard tab: the attendance dashboard (Attendance_Dashboard.php) as a page of its own. */
+    public function dashboard(Request $request)
+    {
+        $this->pageTitle = 'modules.attendance.attendanceDashboard';
+
+        // It shows everyone's attendance: those who see everyone's only
+        abort_403($this->viewAttendancePermission !== 'all');
+
+        $this->dashboardUrl = route('legacy.page', 'attendance_dashboard') . '?' . http_build_query([
+            'company_id' => company()->id,
+            'month' => (int) ($request->month ?: now(company()->timezone)->month),
+            'year' => (int) ($request->year ?: now(company()->timezone)->year),
+        ]);
+
+        return view('attendances.dashboard', $this->data);
+    }
+
     public function byHour(Request $request)
     {
         $this->pageTitle = 'modules.attendance.attendanceByHour';
@@ -3212,35 +3223,24 @@ class AttendanceController extends AccountBaseController
         $this->status = request()->status ?? null;
 
         if ($this->viewAttendancePermission == 'owned') {
-            $this->employees = User::where('id', user()->id)->get();
+            // Themselves, and the people who report to them
+            $this->employees = User::whereIn('id', array_merge([user()->id], \App\Services\Attendance\CorrectionApprovals::teamUserIds()))->orderBy('name')->get();
 
         }
         else {
             $this->employees = User::allEmployees(null, true, ($this->viewAttendancePermission == 'all' ? 'all' : null));
         }
 
-        $attendanceRegularisation = AttendanceSetting::first();
-        $regulariseRoles = $attendanceRegularisation->attendance_regularize_roles;
-        $regulariseRolesArray = json_decode($regulariseRoles, true) ?? [];
-        $userRoles = user_roles();
-
-        $lastRole = end($userRoles);
-        $condition = in_array($lastRole, $regulariseRolesArray) || $lastRole === 'admin';
-
-        if(!in_array('admin', user_roles()) && !$condition)
-        {
-            $this->pendingRequestRegularisation = AttendanceRegularisation::where('company_id', company()->id)->where('user_id', user()->id)->where('status', 'pending')->count();
-        }
-        else
-        {
-            $this->pendingRequestRegularisation = AttendanceRegularisation::where('company_id', company()->id)->where('status', 'pending')->count();
-        }
+        $this->pendingRequestRegularisation = \App\Services\Attendance\CorrectionApprovals::pendingCount();
 
         return $dataTable->render('attendances.by_request', $this->data);
     }
 
     public function regularisationStore(StoreAttendanceRegularisation $request)
     {
+        // A correction is asked for one's own attendance (HR may for anyone)
+        abort_403((int) $request->user_id !== (int) user()->id && !\App\Services\Attendance\CorrectionApprovals::isHr());
+
         $date = $request->attendance_date;
         $clockIn = Carbon::createFromFormat('Y-m-d ' . $this->company->time_format, $date . ' ' . $request->clock_in_time, $this->company->timezone);
 
@@ -3278,30 +3278,9 @@ class AttendanceController extends AccountBaseController
         $requestRegulisation->employee_shift_id = $employeeShiftId;
         $requestRegulisation->save();
 
-        $attendanceSetting = AttendanceSetting::where('company_id', company()->id)->first();
-        $attendanceRoles = $attendanceSetting->attendance_regularize_roles;
-
-        $regulariseRolesArray = json_decode($attendanceRoles, true) ?? [];
-
-        $rolesId = Role::with(['roleuser.user'])->whereIn('name', $regulariseRolesArray)->pluck('id')->toArray();
-
-        $users = User::whereHas('role', function($q) use ($rolesId){
-            return $q->whereIn('role_id', $rolesId);
-        })->get();
-
-        $admins = User::allAdmins(company()->id);
-        $allUsers = $users->merge($admins);
-
-        if(!in_array('admin', user_roles()))
-        {
-            $pendingRequestRegularisation = AttendanceRegularisation::where('company_id', company()->id)->where('user_id', user()->id)->where('status', 'pending')->count();
-        }
-        else
-        {
-            $pendingRequestRegularisation = AttendanceRegularisation::where('company_id', company()->id)->where('status', 'pending')->count();
-        }
-
-        event(new RequestRegulariseEvent($requestRegulisation, $allUsers));
+        // The reporting manager decides first, then HR; each hears when it is their turn
+        \App\Services\Attendance\CorrectionApprovals::start($requestRegulisation);
+        $pendingRequestRegularisation = \App\Services\Attendance\CorrectionApprovals::pendingCount();
 
         return Reply::successWithData(__('clan.attendance.requestRegulariseSuccessfully'), ['pendingRequest' => $pendingRequestRegularisation]);
 
@@ -3310,6 +3289,16 @@ class AttendanceController extends AccountBaseController
     public function acceptStatus(Request $request)
     {
         $attendanceRegularisation = AttendanceRegularisation::findOrFail($request->acceptId);
+
+        // Manager first, then HR (CorrectionApprovals); only HR's approval writes the attendance
+        try {
+            if (\App\Services\Attendance\CorrectionApprovals::approve($attendanceRegularisation, $request->note) === 'advanced') {
+                return Reply::success('Approved. It now goes to HR.');
+            }
+        } catch (\RuntimeException $e) {
+            return Reply::error($e->getMessage());
+        }
+
         $attendanceRegularisation->status = 'accept';
         $attendanceRegularisation->update();
 
@@ -3342,6 +3331,13 @@ class AttendanceController extends AccountBaseController
     public function rejectStatus(RejectReason $request)
     {
         $attendanceRegularisation = AttendanceRegularisation::findOrFail($request->id);
+
+        try {
+            \App\Services\Attendance\CorrectionApprovals::reject($attendanceRegularisation, $request->reason);
+        } catch (\RuntimeException $e) {
+            return Reply::error($e->getMessage());
+        }
+
         $attendanceRegularisation->status = 'reject';
         $attendanceRegularisation->reject_reason = $request->reason;
         $attendanceRegularisation->update();
@@ -3354,6 +3350,7 @@ class AttendanceController extends AccountBaseController
     public function editAttendanceRegularisation($id)
     {
         $this->attendanceRegularisation = AttendanceRegularisation::findOrFail($id);
+        abort_403(!$this->canChangeRegularisation($this->attendanceRegularisation));
 
         $userID = $this->attendanceRegularisation->user_id;
         $this->row = $this->attendanceRegularisation;
@@ -3386,6 +3383,8 @@ class AttendanceController extends AccountBaseController
     public function viewAttendanceRegularisation($id)
     {
         $this->attendanceRegularisation = AttendanceRegularisation::findOrFail($id);
+        abort_403(!\App\Services\Attendance\CorrectionApprovals::canView($this->attendanceRegularisation));
+        $this->approvalTrail = \App\Services\Attendance\CorrectionApprovals::trail($this->attendanceRegularisation);
 
         $userID = $this->attendanceRegularisation->user_id;
         $this->row = $this->attendanceRegularisation;
@@ -3444,6 +3443,7 @@ class AttendanceController extends AccountBaseController
         $employeeShiftId = $this->attendanceSettings->id;
 
         $attendanceRegularisation = AttendanceRegularisation::findOrFail($id);
+        abort_403(!$this->canChangeRegularisation($attendanceRegularisation));
         $attendanceRegularisation->date = $date;
         $attendanceRegularisation->clock_in_time = $clockIn->copy()->timezone(config('app.timezone'));
         $attendanceRegularisation->clock_out_time = $clockOut?->copy()->timezone(config('app.timezone'));
@@ -3459,9 +3459,19 @@ class AttendanceController extends AccountBaseController
 
     public function deleteRegularisationRequest($id)
     {
+        $attendanceRegularisation = AttendanceRegularisation::findOrFail($id);
+        abort_403(!(\App\Services\Attendance\CorrectionApprovals::isHr() || ((int) $attendanceRegularisation->user_id === (int) user()->id && $attendanceRegularisation->status === 'pending')));
+
         AttendanceRegularisation::destroy($id);
 
         return Reply::success(__('messages.deleteSuccess'));
+    }
+
+    /** A request is changed by the applicant while it is pending, or by whoever may decide it. */
+    private function canChangeRegularisation(AttendanceRegularisation $request): bool
+    {
+        return ((int) $request->user_id === (int) user()->id && $request->status === 'pending')
+            || \App\Services\Attendance\CorrectionApprovals::canAct($request) !== null;
     }
 
     public function requestRegulisation($userID, $day, $month, $year)

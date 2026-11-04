@@ -75,6 +75,7 @@ class LeaveController extends AccountBaseController
      */
     public function index(LeaveDataTable $dataTable)
     {
+        $this->pageTitle = 'Leave Requests';
         $viewPermission = user()->permission('view_leave');
         $viewEmployeePermission = user()->permission('view_employees');
         abort_403(!in_array($viewPermission, ['all', 'added', 'owned', 'both']));
@@ -375,6 +376,20 @@ class LeaveController extends AccountBaseController
             ->whereIn('leave_date', $multiDatesWithoutHolidayFormatted)
             ->get();
 
+        // A date that already has leave is refused, naming it, as the mobile
+        // app does. It used to reject the earlier leave without a word, so a
+        // CL turned into the SL applied over it and nobody was told. A half
+        // day leaves the other half free.
+        $taken = $leaveApplied->reject(fn ($oldLeave) => $duration == 'half day'
+            && $oldLeave->duration == 'half day' && $oldLeave->half_day_type != $request->duration);
+
+        if ($taken->isNotEmpty()) {
+            $taken->load('type');
+            $list = $taken->map(fn ($oldLeave) => $oldLeave->leave_date->format($this->company->date_format)
+                . ' (' . ($oldLeave->type->type_name ?? '') . ', ' . $oldLeave->status . ')')->unique()->implode(', ');
+
+            return Reply::error('Leave is already applied on ' . $list . '. Edit that leave instead of adding another.');
+        }
 
         $pendingAppliedLeavesCount = Leave::where('user_id', $request->user_id)
             ->where('status', 'pending')
@@ -415,16 +430,6 @@ class LeaveController extends AccountBaseController
         $leaveIds = [];
 
         DB::beginTransaction();
-
-        foreach ($leaveApplied as $key => $oldLeave) {
-            if ($duration == 'half day' && $oldLeave->duration == 'half day' && $oldLeave->half_day_type != $request->duration) {
-                continue;
-            }
-
-            $oldLeave->status = 'rejected';
-            $oldLeave->reject_reason = __('messages.leaveRejectedByNewLeave');
-            $oldLeave->save();
-        }
 
         foreach ($multiDates as $key => $leaveDate) {
             $leave = new Leave();
@@ -483,6 +488,24 @@ class LeaveController extends AccountBaseController
         // Approval steps: where it waits, who did what, what this person may do.
         $this->approvalMode = \App\Services\Leaves\LeaveApprovals::canAct($this->leave);
         $this->approvalTrail = \App\Services\Leaves\LeaveApprovals::trail($this->leave);
+
+        // From - To of the whole request (a multi-day leave is one row a day), and the
+        // applicant's open tasks that fall in it, so the approver sees what is affected
+        $days = $this->leave->unique_id
+            ? Leave::where('unique_id', $this->leave->unique_id)->pluck('leave_date')
+            : collect([$this->leave->leave_date]);
+        $from = $days->min()->copy()->startOfDay();
+        $to = $days->max()->copy()->endOfDay();
+        $this->leaveRange = ['from' => $from, 'to' => $to, 'days' => $days->count()];
+
+        $completeColumn = \App\Models\TaskboardColumn::completeColumn();
+        $this->tasksInLeave = \App\Models\Task::join('task_users', 'task_users.task_id', '=', 'tasks.id')
+            ->where('task_users.user_id', $this->leave->user_id)
+            ->when($completeColumn, fn ($q) => $q->where('tasks.board_column_id', '<>', $completeColumn->id))
+            ->whereNotNull('tasks.due_date')
+            ->where('tasks.due_date', '>=', $from)
+            ->whereRaw('COALESCE(tasks.start_date, tasks.due_date) <= ?', [$to])
+            ->select('tasks.*')->distinct()->orderBy('tasks.due_date')->limit(25)->get();
 
         $this->pageTitle = $this->leave->user->name;
         $this->reportingPermission = LeaveSetting::value('manager_permission');

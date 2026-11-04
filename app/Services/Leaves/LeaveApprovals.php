@@ -10,7 +10,12 @@ use RuntimeException;
 /**
  * Leave approval in steps (Leave Settings -> General -> Approval steps):
  *
- *   manager          the applicant's Reporting To
+ *   manager          the top manager above the applicant: up the Reporting To chain
+ *                    (employee -> team lead -> manager -> ...), the highest active person
+ *                    with the Manager role. Team leads are passed by; no manager in the
+ *                    chain -> the step is passed over.
+ *   ceo              a manager's own leave: the CEO in their chain, or any active CEO.
+ *                    Runs with the manager step (one or the other, never both).
  *   department_head  the head of the applicant's department
  *   hr               anyone with Approve / Reject Leaves (HR, Admin)
  *
@@ -28,11 +33,14 @@ use RuntimeException;
 class LeaveApprovals
 {
 
-    public const STEPS = ['manager' => 'Reporting manager', 'department_head' => 'Department head', 'hr' => 'HR'];
+    public const STEPS = ['manager' => 'Manager', 'ceo' => 'CEO', 'department_head' => 'Department head', 'hr' => 'HR'];
 
     public const DONE = 'done';
 
     protected static ?object $settings = null;
+
+    /** user_id => [reporting_to, role names, active], loaded once per request (people()). */
+    protected static ?array $people = null;
 
     public static function settings(): object
     {
@@ -43,12 +51,85 @@ class LeaveApprovals
     public static function reset(): void
     {
         static::$settings = null;
+        static::$people = null;
+    }
+
+    /** Everyone's place in the hierarchy: user_id => [reporting_to, role names, active]. */
+    protected static function people(): array
+    {
+        if (static::$people === null) {
+            $roles = DB::table('role_user as ru')->join('roles as r', 'r.id', '=', 'ru.role_id')->get(['ru.user_id', 'r.name'])
+                ->groupBy('user_id')->map(fn ($rows) => $rows->pluck('name')->all());
+
+            static::$people = DB::table('employee_details as e')->join('users as u', 'u.id', '=', 'e.user_id')
+                ->get(['e.user_id', 'e.reporting_to', 'u.status'])
+                ->mapWithKeys(fn ($r) => [(int) $r->user_id => [(int) $r->reporting_to, $roles->get($r->user_id, []), $r->status === 'active']])
+                ->all();
+        }
+
+        return static::$people;
+    }
+
+    protected static function hasRole(int $userId, string $role): bool
+    {
+        return in_array($role, static::people()[$userId][1] ?? [], true);
+    }
+
+    /** The highest active person with $role up the applicant's Reporting To chain (loops guarded). */
+    protected static function topInChain(int $applicantId, string $role): ?int
+    {
+        $people = static::people();
+        $found = null;
+        $seen = [$applicantId => true];
+        $id = $people[$applicantId][0] ?? 0;
+
+        while ($id && !isset($seen[$id]) && isset($people[$id])) {
+            $seen[$id] = true;
+            [$up, $roles, $active] = $people[$id];
+
+            if ($active && in_array($role, $roles, true)) {
+                $found = $id;
+            }
+
+            $id = $up;
+        }
+
+        return $found;
+    }
+
+    /** The manager who approves this employee's leave; null for a manager or CEO themselves, or no manager above. */
+    public static function managerFor(int $applicantId): ?int
+    {
+        if (static::hasRole($applicantId, 'manager') || static::hasRole($applicantId, 'ceo')) {
+            return null;
+        }
+
+        return static::topInChain($applicantId, 'manager');
+    }
+
+    /** Who approves a manager's own leave: the CEO in their chain, or else every active CEO. */
+    public static function ceoFor(int $applicantId): array
+    {
+        if (!static::hasRole($applicantId, 'manager') || static::hasRole($applicantId, 'ceo')) {
+            return [];
+        }
+
+        if ($ceo = static::topInChain($applicantId, 'ceo')) {
+            return [$ceo];
+        }
+
+        return array_keys(array_filter(static::people(), fn ($p) => $p[2] && in_array('ceo', $p[1], true)));
     }
 
     /** The ticked steps, in order (HR alone when none is ticked). */
     public static function chain(): array
     {
         $ticked = json_decode((string) (static::settings()->approval_levels ?? ''), true) ?: [];
+        // The CEO step goes with the manager step: a manager's own leave goes to the CEO
+        if (in_array('manager', $ticked, true)) {
+            $ticked[] = 'ceo';
+        }
+
         $chain = array_values(array_filter(array_keys(self::STEPS), fn ($s) => in_array($s, $ticked, true)));
 
         return $chain ?: ['hr'];
@@ -71,7 +152,8 @@ class LeaveApprovals
     public static function approvers(string $step, int $applicantId): array
     {
         $ids = match ($step) {
-            'manager' => array_filter([(int) DB::table('employee_details')->where('user_id', $applicantId)->value('reporting_to')]),
+            'manager' => array_filter([(int) static::managerFor($applicantId)]),
+            'ceo' => static::ceoFor($applicantId),
             'department_head' => array_filter([(int) DB::table('employee_details as ed')->join('teams as t', 't.id', '=', 'ed.department_id')
                 ->where('ed.user_id', $applicantId)->value('t.head_user_id')]),
             'hr' => static::hrIds(),
@@ -162,17 +244,31 @@ class LeaveApprovals
         $userId ??= (int) user()?->id;
 
         return DB::table('employee_details')->where('reporting_to', $userId)->exists()
-            || DB::table('teams')->where('head_user_id', $userId)->exists();
+            || DB::table('teams')->where('head_user_id', $userId)->exists()
+            || static::hasRole($userId, 'manager') || static::hasRole($userId, 'ceo');
     }
 
-    /** The people whose leave this person approves as manager or department head. */
+    /** The people whose leave this person sees or approves: direct reports, their department, and as manager / CEO. */
     public static function teamUserIds(?int $userId = null): array
     {
         $userId ??= (int) user()?->id;
         $heads = DB::table('teams')->where('head_user_id', $userId)->pluck('id');
 
-        return DB::table('employee_details')->where('reporting_to', $userId)
-            ->orWhereIn('department_id', $heads)->pluck('user_id')->map(fn ($id) => (int) $id)->unique()->values()->all();
+        // Direct reports (a team lead sees their team), the department they head, and
+        // everyone further down whose leave comes to them as the top manager
+        $ids = DB::table('employee_details')->where('reporting_to', $userId)
+            ->orWhereIn('department_id', $heads)->pluck('user_id')->map(fn ($id) => (int) $id)->all();
+
+        if (static::hasRole($userId, 'manager') || static::hasRole($userId, 'ceo')) {
+            foreach (array_keys(static::people()) as $employeeId) {
+                if ($employeeId !== $userId
+                    && (static::managerFor($employeeId) === $userId || in_array($userId, static::ceoFor($employeeId), true))) {
+                    $ids[] = $employeeId;
+                }
+            }
+        }
+
+        return array_values(array_unique($ids));
     }
 
     /**
@@ -237,6 +333,18 @@ class LeaveApprovals
 
         static::log($leave, $leave->approval_step, 'rejected', null, $reason);
         static::finish($leave, 'rejected');
+    }
+
+    /** Pending leaves waiting at a step this person decides (not HR's approving ahead), oldest first. */
+    public static function waitingFor(?int $userId = null): Collection
+    {
+        $userId ??= (int) user()?->id;
+
+        return Leave::with('user:id,name,image', 'type:id,type_name,color')
+            ->where('status', 'pending')->whereNotNull('approval_step')->where('approval_step', '!=', self::DONE)
+            ->where('user_id', '!=', $userId)->orderBy('leave_date')->get()
+            ->filter(fn (Leave $leave) => in_array($userId, static::approvers($leave->approval_step, (int) $leave->user_id), true))
+            ->values();
     }
 
     /** Steps left undecided too long move on to the next. @return int applications moved */
@@ -331,7 +439,17 @@ class LeaveApprovals
     /** The bell for the step's approvers (not email). */
     protected static function notifyStep(Leave $leave, string $step): void
     {
-        foreach (\App\Models\User::whereIn('id', static::approvers($step, (int) $leave->user_id))->get() as $user) {
+        $ids = static::approvers($step, (int) $leave->user_id);
+
+        // The HR step: anyone with Approve Leaves may decide it, but the bell rings for
+        // the HR team only (it rang for every admin and the CEOs too, ~15 people a leave)
+        if ($step === 'hr') {
+            $hrTeam = DB::table('role_user as ru')->join('roles as r', 'r.id', '=', 'ru.role_id')
+                ->where('r.name', 'hr')->whereIn('ru.user_id', $ids)->pluck('ru.user_id')->map(fn ($id) => (int) $id)->all();
+            $ids = $hrTeam ?: $ids;
+        }
+
+        foreach (\App\Models\User::whereIn('id', $ids)->get() as $user) {
             $user->notify(new \App\Notifications\LeaveApprovalUpdate($leave, 'waiting', static::label($step)));
         }
     }

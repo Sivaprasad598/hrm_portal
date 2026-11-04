@@ -20,6 +20,7 @@ class AccessCatalog
     const AREAS = [
         'dashboard' => 'Dashboard',
         'hr' => 'HR',
+        'recruitment' => 'Recruitment',
         'leave-management' => 'Leave',
         'payroll' => 'Payroll',
         'assets' => 'Assets',
@@ -59,6 +60,12 @@ class AccessCatalog
         'assets-index' => ['manage_assets' => 'Manage assets (add, edit, assign, return, delete)'],
         'assets-assigned' => ['manage_assets' => 'Manage assets'],
         'asset-types-index' => ['manage_assets' => 'Manage assets'],
+        'recruitment-dashboard' => ['view_recruitment' => 'See'],
+        'job-positions-index' => ['view_recruitment' => 'See', 'manage_recruitment' => 'Add, edit, move stages, interviews, offers'],
+        'job-applications-index' => ['view_recruitment' => 'See', 'manage_recruitment' => 'Add, edit, move stages, interviews, offers'],
+        'candidates-index' => ['view_recruitment' => 'See', 'manage_recruitment' => 'Add, edit, move stages, interviews, offers'],
+        'recruit-interviews-index' => ['view_recruitment' => 'See', 'manage_recruitment' => 'Schedule and close interviews'],
+        'recruitment-settings-index' => ['manage_recruitment_settings' => 'Change (mailbox, website API, lists)'],
         'biometric-overview' => ['view_biometric' => 'See biometric', 'manage_biometric_exceptions' => 'Resolve exceptions',
             'manage_biometric_mapping' => 'Map employees', 'manage_biometric_system' => 'Technical setup'],
         'attendance-settings-index' => ['manage_attendance_setting' => 'Change'],
@@ -114,7 +121,7 @@ class AccessCatalog
                 return [
                     'id' => $page->id,
                     'slug' => $page->slug,
-                    'name' => PageGroups::GROUPS[PageGroups::groupOf($page->slug) ?? '_'][1][$page->slug] ?? PageGroups::RENAMED[$page->slug] ?? $page->name,
+                    'name' => PageGroups::tabLabel($page->slug) ?? PageGroups::RENAMED[$page->slug] ?? $page->name,
                     'on' => isset($assigned[$page->id]),
                     'actions' => collect($actions)->map(function ($label, $name) use ($permissions, $levels, $typeIds) {
                         $permission = $permissions[$name] ?? null;

@@ -38,7 +38,7 @@
                         <div class="col-lg-4 col-md-6">
                             <div class="form-group my-3">
                                 <x-forms.label fieldId="leavetype" :fieldLabel="__('modules.leaves.leaveAllotmentType')" />
-                                <select name="leavetype" id="leavetype" class="form-control select-picker" disabled>
+                                <select name="leavetype" id="leavetype" class="form-control select-picker">
                                     <option value="monthly" {{ $leaveType->leavetype == 'monthly' ? 'selected' : '' }}>@lang('app.monthlyLeaveType')</option>
                                     <option value="yearly" {{ $leaveType->leavetype == 'yearly' ? 'selected' : '' }}>@lang('app.yearlyLeaveType')</option>
                                     <option value="unlimited" {{ $leaveType->leavetype == 'unlimited' ? 'selected' : '' }}>@lang('app.unlimitedLeaveType')</option>
@@ -307,11 +307,14 @@
     });
 
     function setLeaveFields() {
-        var leaveType = "{{ $leaveType->leavetype }}";
+        // The allotment type can be changed here; the saved count is shown
+        // again only while the type is the saved one.
+        var leaveType = $('#leavetype').val();
+        var savedCount = leaveType == "{{ $leaveType->leavetype }}" ? '{{ $leaveType->no_of_leaves }}' : '';
 
         if (leaveType == 'monthly') {
             $('#monthly-leave-field').removeClass('d-none');
-            $('#monthly_leave_number').attr('required', true).val('{{ $leaveType->no_of_leaves }}');
+            $('#monthly_leave_number').attr('required', true).val(savedCount);
             $('#yearly-leave-field').addClass('d-none');
             $('#yearly_leave_number').attr('required', false).val(0);
             $('#monthly-leave-limit').addClass('d-none');
@@ -323,7 +326,7 @@
             $('#monthly-leave-limit').removeClass('d-none');
             $('#monthly_limit').attr('required', true);
             $('#yearly-leave-field').removeClass('d-none');
-            $('#yearly_leave_number').attr('required', true).val('{{ $leaveType->no_of_leaves }}');
+            $('#yearly_leave_number').attr('required', true).val(savedCount);
             $('#entitlement-quota-rules').removeClass('d-none');
         } else if (leaveType == 'unlimited') {
             $('#monthly-leave-field').addClass('d-none');

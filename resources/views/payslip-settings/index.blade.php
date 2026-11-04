@@ -278,7 +278,7 @@
                                                 <i class="fa fa-external-link-alt mr-1"></i> Open full size
                                             </a>
                                             @if ($key === $payslipTemplate)
-                                                <button class="btn btn-sm btn-outline-secondary" disabled>
+                                                <button class="btn btn-sm btn-in-use" disabled>
                                                     <i class="fa fa-check mr-1"></i> In use
                                                 </button>
                                             @else

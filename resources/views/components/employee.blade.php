@@ -9,6 +9,22 @@
         $lastSeenDifference = now()->diffInSeconds($lastSeen);
         $active = ($lastSeenDifference > 0 && $lastSeenDifference <= 90);
     }
+
+    // Link to the profile only when it would open (EmployeeController::show's checks);
+    // a manager without the Employees module gets the name as plain text, not a 403
+    if (!isset($disabledLink) && !is_null($user) && user()) {
+        $me = user()->id;
+        $menuPermission = user()->permission('view_employee_menu');
+        $viewPermission = user()->permission('view_employees');
+        $addedBy = $user->employeeDetail->added_by ?? null;
+        $canOpen = ($menuPermission == 'all' || $menuPermission == 4 || $user->id == $me)
+            && ($viewPermission == 'all'
+                || (in_array($viewPermission, ['added', 'both']) && $addedBy == $me)
+                || (in_array($viewPermission, ['owned', 'both']) && $user->id == $me));
+        if (!$canOpen) {
+            $disabledLink = true;
+        }
+    }
 @endphp
 
 
@@ -30,7 +46,7 @@
                 <a href="{{  isset($disabledLink) ? 'javascript:;' : route('employees.show', [$user->id]) }}"
                    class="text-darkest-grey {{ isset($disabledLink) ? 'disabled-link' : '' }}">{!!   $user->userBadge() !!}</a>
             </h5>
-            <p class="mb-0 f-12 text-dark-grey">
+            <p class="mb-0 f-12 text-dark-grey emp-designation">
                 {{ !is_null($user->employeeDetail) && !is_null($user->employeeDetail->designation) ? $user->employeeDetail->designation->name : ' ' }}
             </p>
         </div>

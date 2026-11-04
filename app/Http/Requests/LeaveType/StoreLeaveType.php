@@ -25,7 +25,8 @@ class StoreLeaveType extends CoreRequest
     public function rules()
     {
         $rules = [
-            'type_name' => 'required',
+            // Letters and a little punctuation: numbers and emojis got in before.
+            'type_name' => ['required', 'max:50', 'regex:/^[\pL][\pL\s.&()\/\'-]*$/u'],
             'color' => 'required',
             'gender' => 'required',
             'marital_status' => 'required',
@@ -56,6 +57,13 @@ class StoreLeaveType extends CoreRequest
         }
 
         return $rules;
+    }
+
+    public function messages()
+    {
+        return [
+            'type_name.regex' => 'The leave type may contain only letters, spaces and . & ( ) / \' - (no numbers or emojis).',
+        ];
     }
 
 }

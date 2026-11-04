@@ -1,5 +1,5 @@
 @php
-    $pageTitle = 'app.menu.leaveManagement';
+    $pageTitle = 'Leave Balances';
     $iframeSrc = route('legacy.page', 'leave_management') . '?' . http_build_query([
         'company_id' => company()->id,
         'user_id' => user()->id,

@@ -173,6 +173,14 @@ if ($pdo && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_terminat
         $formValues[$key] = trim($_POST[$key] ?? '');
     }
 
+    // No notice served: the employee goes on the termination date, so the
+    // notice fields (hidden on the form for "No") are set from it.
+    if ($formValues['notice_served'] !== 'Yes' && $formValues['termination_date'] !== '') {
+        $formValues['notice_period_days'] = '0';
+        $formValues['notice_start_date'] = $formValues['termination_date'];
+        $formValues['last_working_date'] = $formValues['termination_date'];
+    }
+
     $userId = (int) $formValues['user_id'];
     $noticeDays = (int) $formValues['notice_period_days'];
 
@@ -987,7 +995,7 @@ $reasons = [
           </div>
         </div>
 
-        <div class="field">
+        <div class="field notice-field">
           <label for="notice-period">
             Notice Period (Days) <span class="required">*</span>
           </label>
@@ -1016,7 +1024,7 @@ $reasons = [
           <?php endif; ?>
         </div>
 
-        <div class="field">
+        <div class="field notice-field">
           <label for="notice-start-display">
             Notice Period Start Date
           </label>
@@ -1040,7 +1048,7 @@ $reasons = [
           </div>
         </div>
 
-        <div class="field">
+        <div class="field notice-field">
           <label for="last-working-date-display">
             Proposed Last Working Date <span class="required">*</span>
           </label>
@@ -1346,6 +1354,35 @@ $reasons = [
           closeDropdown();
         }
       });
+    })();
+
+    // Notice Period Served? The notice fields are shown for "Yes" only; for
+    // "No" they are hidden and left out of the form's required checks (the
+    // save takes the termination date for them).
+    (function () {
+      var radios = document.querySelectorAll('input[name="notice_served"]');
+      var fields = document.querySelectorAll(".notice-field");
+
+      if (!radios.length || !fields.length) {
+        return;
+      }
+
+      function apply() {
+        var served = document.querySelector('input[name="notice_served"]:checked');
+        var show = served && served.value === "Yes";
+
+        fields.forEach(function (field) {
+          field.style.display = show ? "" : "none";
+          field.querySelectorAll("input, select").forEach(function (control) {
+            control.disabled = !show;
+          });
+        });
+      }
+
+      radios.forEach(function (radio) {
+        radio.addEventListener("change", apply);
+      });
+      apply();
     })();
   </script>
 

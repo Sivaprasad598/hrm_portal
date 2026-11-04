@@ -210,18 +210,7 @@ body.epic .sidebar-brand-box i {
     font-weight: 600 !important;
 }
 
-/* Section heading before the menu, as "DIRECTORIES" in the template */
-body.epic .sidebar-menu > ul:first-child::before,
-body.epic #sideMenuScroll > ul:first-child::before {
-    content: 'Menu';
-    display: block;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: .02em;
-    color: var(--epic-dark);
-    opacity: .7;
-    padding: 6px 15px 4px;
-}
+/* (No "Menu" heading over the sidebar entries: the entries speak for themselves) */
 
 /* Top level entries */
 body.epic .sidebar-menu .nav-item,
@@ -495,15 +484,15 @@ body.epic .btn-primary:focus {
 
 body.epic .btn-success,
 body.epic .btn-info {
-    background-color: var(--epic-green) !important;
-    border-color: var(--epic-green) !important;
+    background-color: var(--epic-blue) !important;
+    border-color: var(--epic-blue) !important;
     color: #fff !important;
 }
 
 body.epic .btn-success:hover,
 body.epic .btn-info:hover {
-    background-color: #579f63 !important;
-    border-color: #579f63 !important;
+    background-color: var(--epic-blue-hover) !important;
+    border-color: var(--epic-blue-hover) !important;
 }
 
 body.epic .btn-outline-primary {
@@ -545,7 +534,7 @@ body.epic .row-actions .row-action:hover {
 }
 
 body.epic .row-actions .row-action-danger { color: #d9534f !important; }
-body.epic .row-actions .row-action-success { color: var(--epic-green) !important; }
+body.epic .row-actions .row-action-success { color: var(--epic-blue) !important; }
 
 /* --------------------------------------------------------------------------
    Tables: grey capital headings, light rows, alternate shading
@@ -598,7 +587,7 @@ body.epic .custom-control-input:checked ~ .custom-control-label::before {
 body.epic .badge { border-radius: 2px; font-weight: 500; }
 body.epic .badge-primary,
 body.epic .bg-primary { background-color: var(--epic-blue) !important; }
-body.epic .badge-success { background-color: var(--epic-green) !important; }
+body.epic .badge-success { background-color: var(--epic-blue) !important; color: #fff !important; }
 body.epic .text-primary { color: var(--epic-blue) !important; }
 body.epic .progress-bar { background-color: var(--epic-blue); }
 
@@ -1057,7 +1046,7 @@ body.epic .table td .btn-xs > svg {
 }
 
 body.epic .table td .btn-outline-info { color: var(--epic-blue) !important; border-color: var(--epic-blue) !important; }
-body.epic .table td .btn-outline-success { color: var(--epic-green) !important; border-color: var(--epic-green) !important; }
+body.epic .table td .btn-outline-success { color: var(--epic-blue) !important; border-color: var(--epic-blue) !important; }
 
 /* The number widgets' small label ("Pending", "In Progress") - theme-custom.css
    blew it up to 28px with a long selector; this one is longer */
@@ -1908,3 +1897,230 @@ body.epic .fc .epic-holiday .fc-daygrid-event-dot { display: none; }
 body.epic .fc .fc-daygrid-event.epic-holiday .fc-event-title,
 body.epic .fc .fc-daygrid-event.epic-holiday .fc-event-main,
 body.epic .fc .fc-list-event.epic-holiday td { color: var(--epic-green) !important; font-weight: 600; }
+
+/* How many requests wait for this person (sidebar My Team / My Space) */
+body.epic .sidebar-menu .epic-menu-count {
+    display: inline-block;
+    min-width: 18px;
+    margin-left: 8px;
+    padding: 1px 6px;
+    border-radius: 9px;
+    background: var(--epic-blue);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 16px;
+    text-align: center;
+    vertical-align: 1px;
+}
+
+/* Notification list (bell dropdown, all notifications page): compact rows, not
+   card headings - the gold heading style above is for real card titles */
+body.epic .notification-dropdown .card .card-title,
+body.epic #notification-list .card .card-title,
+body.epic .view-notification .card-title {
+    display: block;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    line-height: 1.35;
+    color: var(--epic-text) !important;
+    background: none !important;
+    -webkit-text-fill-color: currentColor;
+    margin-bottom: 2px !important;
+}
+
+body.epic .view-notification { display: block; padding-top: 6px; padding-bottom: 6px; }
+body.epic .view-notification .card-body p:not(.card-title):not(.card-text) { font-size: 12px; color: var(--epic-muted, #6e6e73) !important; line-height: 1.35; }
+body.epic .view-notification .card-text { font-size: 11px; margin: 2px 0 0; }
+body.epic .view-notification .card-img-small img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
+body.epic .view-notification:hover { background: var(--epic-page, #f6f6f8); text-decoration: none; }
+
+/* Attendance by Member: month carousel above the calendar */
+body.epic .mc-nav { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+body.epic .mc-nav #mc-title { font-size: 17px; font-weight: 600; color: var(--epic-text); min-width: 150px; text-align: center; }
+body.epic .mc-nav-btn { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--epic-line); background: #fff; color: var(--epic-text);
+    display: inline-flex; align-items: center; justify-content: center; transition: background .15s, color .15s; }
+body.epic .mc-nav-btn:hover:not(:disabled) { background: var(--epic-blue); border-color: var(--epic-blue); color: #fff; }
+body.epic .mc-nav-btn:disabled { opacity: .35; cursor: default; }
+body.epic .mc-nav-link { margin-left: auto; font-size: 13px; font-weight: 500; color: var(--epic-blue); }
+
+/* Designation under an employee's name: the theme's primary (gold), apart from the name */
+body.epic .emp-designation { color: var(--epic-blue) !important; font-weight: 500; }
+
+/* Back button left of the page title, on detail / create / edit pages (components/app-title) */
+body.epic .page-title { align-items: center; }
+body.epic .epic-back { width: 34px; height: 34px; flex: 0 0 34px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+    border: 1px solid rgba(255, 255, 255, .25); color: #fff !important; font-size: 17px; transition: background .15s, border-color .15s; }
+body.epic .epic-back:hover { background: var(--epic-blue); border-color: var(--epic-blue); text-decoration: none; }
+
+/* Employee name without a profile to open (components/employee): plain text, no hand cursor */
+body.epic a.disabled-link { cursor: default; pointer-events: none; }
+
+/* My Leaves: no leave types given yet - a centred note in the balance card */
+body.epic .leave-balance__empty { grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; gap: 14px; padding: 24px; background: #fff !important; text-align: left; }
+body.epic .leave-balance__empty > i { font-size: 30px; color: var(--epic-blue); }
+body.epic .leave-balance__empty-title { font-size: 15px; font-weight: 600; color: var(--epic-text); background: none !important; }
+body.epic .leave-balance__empty-sub { font-size: 13px; color: var(--epic-muted); margin-top: 2px; }
+
+/* Scrollbars: wide enough to see and grab, in modals and slide-in panels too */
+body.epic ::-webkit-scrollbar { width: 12px; height: 12px; background: #eceef1; }
+body.epic ::-webkit-scrollbar-thumb { background-color: #9aa1ab; border: 2px solid #eceef1; border-radius: 8px; min-height: 40px; }
+body.epic ::-webkit-scrollbar-thumb:hover { background-color: var(--epic-blue); }
+/* (no scrollbar-color here: in Chrome it switches off the ::-webkit-scrollbar look above) */
+
+/* Employee Add / Edit wizard (employees/ajax/create, edit): the theme's gold, not the old blue / violet,
+   and compact section headers */
+body.epic .wizard-step-item.active .step-circle { background: var(--epic-blue) !important; border-color: var(--epic-blue) !important;
+    box-shadow: 0 4px 14px color-mix(in srgb, var(--epic-blue) 35%, transparent) !important; }
+body.epic .wizard-step-item.active .step-label { color: var(--epic-blue) !important; }
+body.epic .wizard-step-item.completed .step-circle { background: color-mix(in srgb, var(--epic-blue) 12%, #fff) !important; border-color: var(--epic-blue) !important; color: var(--epic-blue) !important; }
+body.epic .wizard-step-item.completed .step-label { color: var(--epic-blue) !important; }
+body.epic .wizard-progress-fill { background: var(--epic-blue) !important; }
+body.epic .wizard-section-header { padding: 8px 12px !important; gap: 10px !important; border-radius: 8px !important; margin-bottom: 14px !important; }
+body.epic .wizard-section-icon { width: 30px !important; height: 30px !important; min-width: 30px !important; border-radius: 8px !important; font-size: 13px !important;
+    background: color-mix(in srgb, var(--epic-blue) 14%, #fff) !important; color: var(--epic-blue) !important; }
+body.epic .wizard-section-header h5 { font-size: 14px !important; margin-bottom: 0 !important; }
+body.epic .wizard-section-header p { font-size: 12px !important; }
+body.epic .onboard-box { border: 1px dashed color-mix(in srgb, var(--epic-blue) 45%, #fff) !important; background: color-mix(in srgb, var(--epic-blue) 4%, #fff) !important;
+    padding: 10px 14px !important; margin-bottom: 16px !important; }
+body.epic .onboard-box .mb-2 { margin-bottom: 0 !important; }
+body.epic .doc-chip { background: color-mix(in srgb, var(--epic-blue) 12%, #fff) !important; color: var(--epic-text) !important; }
+
+/* Employee Documents tab: the type tabs in the theme colour */
+body.epic .doc-type-tabs a:hover { border-color: var(--epic-blue) !important; color: var(--epic-blue) !important; }
+body.epic .doc-type-tabs a.active { background: var(--epic-blue) !important; border-color: var(--epic-blue) !important; color: #fff !important; }
+body.epic .employee-wizard-header { margin-bottom: 10px !important; }
+body.epic .wizard-pane > .bg-white.p-20 { padding-top: 10px !important; }
+
+/* Employee Add / Edit - wizard step bar: Epic dark panel (black, a gold glow), gold current step,
+   finished steps as gold ticks, a thin gold progress line under them */
+body.epic .employee-wizard-header {
+    position: relative; overflow: hidden;
+    padding: 20px 26px 16px !important; border: 0 !important; border-radius: 10px !important;
+    background:
+        radial-gradient(420px 180px at 0% 0%, color-mix(in srgb, var(--epic-blue) 38%, transparent), transparent 70%),
+        radial-gradient(360px 160px at 100% 100%, color-mix(in srgb, var(--epic-green) 22%, transparent), transparent 70%),
+        var(--epic-dark) !important;
+    box-shadow: 0 6px 22px rgba(0, 0, 0, .18) !important;
+}
+body.epic .employee-wizard-header::after { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--epic-blue), transparent); opacity: .8; }
+body.epic .wizard-steps-row::before { background: rgba(255, 255, 255, .14) !important; top: 19px !important; }
+
+body.epic .wizard-step-item .step-circle { width: 40px !important; height: 40px !important; font-size: 14px !important;
+    background: rgba(255, 255, 255, .06) !important; border: 1.5px solid rgba(255, 255, 255, .22) !important; color: rgba(255, 255, 255, .55) !important; }
+body.epic .wizard-step-item .step-label { color: rgba(255, 255, 255, .5) !important; font-weight: 500 !important; font-size: 11.5px !important; letter-spacing: .03em !important; }
+body.epic .wizard-step-item:hover .step-circle { border-color: var(--epic-blue) !important; color: #fff !important; }
+
+body.epic .wizard-step-item.active .step-circle { background: var(--epic-blue) !important; border-color: var(--epic-blue) !important; color: #fff !important;
+    transform: scale(1.08); box-shadow: 0 0 0 5px color-mix(in srgb, var(--epic-blue) 22%, transparent), 0 6px 18px color-mix(in srgb, var(--epic-blue) 45%, transparent) !important; }
+body.epic .wizard-step-item.active .step-label { color: #fff !important; font-weight: 600 !important; }
+
+body.epic .wizard-step-item.completed .step-circle { background: color-mix(in srgb, var(--epic-blue) 20%, transparent) !important;
+    border-color: var(--epic-blue) !important; color: var(--epic-blue) !important; }
+body.epic .wizard-step-item.completed .step-circle i::before { content: "\f00c"; }
+body.epic .wizard-step-item.completed .step-label { color: color-mix(in srgb, var(--epic-blue) 75%, #fff) !important; }
+
+body.epic .wizard-step-item.has-error .step-circle { background: rgba(240, 68, 56, .18) !important; border-color: #f04438 !important; color: #fda29b !important; }
+body.epic .wizard-step-item.has-error .step-label { color: #fda29b !important; }
+
+body.epic .wizard-progress-bar-wrap { background: rgba(255, 255, 255, .1) !important; height: 3px !important; margin-top: 16px !important; }
+body.epic .wizard-progress-fill { background: linear-gradient(90deg, var(--epic-blue), color-mix(in srgb, var(--epic-blue) 60%, #fff)) !important;
+    box-shadow: 0 0 10px color-mix(in srgb, var(--epic-blue) 70%, transparent); }
+
+/* Attendance grid legend (attendances/partials/legend): the grid's icons as chips */
+body.epic .att-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 2px 0 14px; margin-bottom: 6px; border-bottom: 1px solid var(--epic-line); }
+body.epic .att-legend__title { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--epic-muted); margin-right: 4px; }
+body.epic .att-legend__item { display: inline-flex; align-items: center; gap: 7px; padding: 4px 12px 4px 4px; border-radius: 999px;
+    background: #fff; border: 1px solid var(--epic-line); font-size: 12.5px; font-weight: 500; color: var(--epic-text); }
+body.epic .att-legend__icon { flex: 0 0 24px; width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; }
+body.epic .att-lg-holiday .att-legend__icon { background: #fef7e0 !important; color: #f5b301 !important; }
+body.epic .att-lg-dayoff .att-legend__icon  { background: #fdecea !important; color: #d64545 !important; }
+body.epic .att-lg-present .att-legend__icon { background: #e6f6ec !important; color: #28a745 !important; }
+body.epic .att-lg-wfh .att-legend__icon     { background: color-mix(in srgb, var(--epic-blue) 15%, #fff) !important; color: var(--epic-blue) !important; }
+body.epic .att-lg-half .att-legend__icon    { background: #fdecea !important; color: #d30000 !important; }
+body.epic .att-lg-absent .att-legend__icon  { background: #f0f1f3 !important; color: #8a919b !important; }
+body.epic .att-lg-leave .att-legend__icon   { background: #fdeceb !important; color: #e04f3f !important; }
+
+/* A filter bar kept to one row (Attendance): the fields share the width */
+body.epic .filter-box .filter-box.filters-one-row { flex-wrap: nowrap !important; }
+body.epic .filters-one-row .select-box { flex: 1 1 0; min-width: 0; }
+body.epic .filters-one-row .select-box > :not(p):not(label) { min-width: 0 !important; width: 100%; }
+body.epic .filters-one-row .select-box .bootstrap-select { width: 100% !important; }
+body.epic .filters-one-row .select-box:has(#reset-filters) { flex: 0 0 auto; }
+@media (max-width: 991.98px) { body.epic .filter-box .filter-box.filters-one-row { flex-wrap: wrap !important; } body.epic .filters-one-row .select-box { flex: 1 1 45%; } }
+
+/* Modals and the slide-in panel: every pop-up has the same dark header with a gold glow,
+   white title and close, as the dashboard's header band */
+body.epic .modal-header,
+body.epic .task-detail-panel #right-modal-title {
+    background: radial-gradient(360px 120px at 0% 0%, color-mix(in srgb, var(--epic-blue) 38%, transparent), transparent 70%), var(--epic-dark) !important;
+    border-bottom: 2px solid var(--epic-blue) !important;
+    border-radius: 0 !important;
+}
+body.epic .modal-header { padding: 12px 18px !important; align-items: center; }
+body.epic .modal-content { border-radius: 6px !important; }
+body.epic .modal-content > .modal-header { border-radius: 6px 6px 0 0 !important; }  /* no overflow clipping: a dropdown inside must reach past the box */
+body.epic .modal-header .modal-title,
+body.epic .modal-header h5,
+body.epic .modal-header h4 {
+    font-size: 15px !important; font-weight: 600 !important; color: #fff !important;
+    background: none !important; -webkit-text-fill-color: #fff !important;
+}
+body.epic .modal-header .close, body.epic .modal-header button.close {
+    color: #fff !important; opacity: .8 !important; text-shadow: none !important; margin: -6px -6px -6px auto !important;
+}
+body.epic .modal-header .close:hover { opacity: 1 !important; color: var(--epic-blue) !important; }
+body.epic .task-detail-panel #right-modal-title { font-size: 16px !important; color: #fff !important; padding: 13px 60px 12px 20px !important; }
+body.epic .task-detail-panel .close-task-detail,
+body.epic .task-detail-panel .close-task-detail.in { top: 9px !important; right: 14px !important; color: #fff !important; border-radius: 50% !important; }
+body.epic .task-detail-panel .close-task-detail:hover { background: rgba(255, 255, 255, .12) !important; color: var(--epic-blue) !important; }
+body.epic .task-detail-panel .close-task-detail span, body.epic .task-detail-panel .close-task-detail i { color: inherit !important; }
+body.epic .task-detail-panel .close-task-detail, body.epic .task-detail-panel .close-task-detail * { opacity: 1 !important; color: #fff !important; font-size: 16px; }
+body.epic .task-detail-panel .close-task-detail:hover, body.epic .task-detail-panel .close-task-detail:hover * { color: var(--epic-blue) !important; }
+
+/* Leave details (leaves/ajax/show): leave type and paid as soft pills */
+body.epic .lv-pill { display: inline-flex; align-items: center; gap: 7px; padding: 4px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 600;
+    background: #f6f6f7; border: 1px solid var(--epic-line); color: var(--epic-text); line-height: 1.4; }
+body.epic .lv-pill__dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+body.epic .lv-pill--paid { background: #ecfdf3; border-color: #abefc6; color: #067647; }
+body.epic .lv-pill--unpaid { background: #fef3f2; border-color: #fecdca; color: #b42318; }
+body.epic .lv-pill svg, body.epic .lv-pill i.fa { font-size: 12px; }
+
+/* ... and the approval as a timeline */
+body.epic .lv-trail { list-style: none; margin: 0; padding: 0; flex: 1; }
+body.epic .lv-trail__step { position: relative; display: flex; gap: 12px; padding-bottom: 14px; }
+body.epic .lv-trail__step:not(:last-child)::before { content: ''; position: absolute; left: 13px; top: 28px; bottom: 0; width: 2px; background: var(--epic-line); }
+body.epic .lv-trail__dot { width: 28px; height: 28px; min-width: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; z-index: 1; }
+body.epic .is-applied .lv-trail__dot { background: #f0f1f3; color: #667085; }
+body.epic .is-ok .lv-trail__dot { background: #dcfae6; color: #067647; }
+body.epic .is-no .lv-trail__dot { background: #fee4e2; color: #b42318; }
+body.epic .is-skip .lv-trail__dot { background: #f2f4f7; color: #475467; }
+body.epic .is-wait .lv-trail__dot { background: color-mix(in srgb, var(--epic-blue) 16%, #fff); color: var(--epic-blue); box-shadow: 0 0 0 4px color-mix(in srgb, var(--epic-blue) 10%, transparent); }
+body.epic .lv-trail__body { padding-top: 3px; min-width: 0; }
+body.epic .lv-trail__line { font-size: 13.5px; color: var(--epic-text); }
+body.epic .lv-trail__line b { font-weight: 600; }
+body.epic .is-wait .lv-trail__line b { color: var(--epic-blue); }
+body.epic .lv-trail__role { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; letter-spacing: .02em;
+    background: #f6f6f7; border: 1px solid var(--epic-line); color: var(--epic-muted); vertical-align: 1px; }
+body.epic .lv-trail__time { font-size: 12px; color: var(--epic-muted); margin-top: 1px; }
+body.epic .lv-trail__note { margin-top: 6px; padding: 6px 10px; border-left: 3px solid var(--epic-line); background: #fafafa; border-radius: 0 6px 6px 0; font-size: 12.5px; color: #475467; font-style: italic; }
+body.epic .lv-trail__mine { margin-top: 6px; font-size: 12px; color: #067647; }
+
+/* Row ticks in lists: bigger and in the theme colour */
+body.epic .table #select-all-table,
+body.epic .table .select-table-row { width: 17px; height: 17px; accent-color: var(--epic-blue); }
+body.epic .table td:has(> .select-table-row) { cursor: pointer; }
+
+/* 'In use' / current-choice buttons: the theme gold, not grey */
+body.epic .btn.btn-in-use, body.epic .btn.btn-in-use:disabled { background: var(--epic-blue) !important; border-color: var(--epic-blue) !important; color: #fff !important; opacity: 1 !important; cursor: default; }
+
+/* Wizard steps: the circles are solid so the connecting line stops at their edge
+   instead of striking through them (their tints sit on the dark header colour) */
+body.epic .wizard-step-item .step-circle { position: relative; z-index: 1;
+    background: linear-gradient(rgba(255, 255, 255, .06), rgba(255, 255, 255, .06)), var(--epic-dark) !important; }
+body.epic .wizard-step-item.completed .step-circle {
+    background: linear-gradient(color-mix(in srgb, var(--epic-blue) 20%, transparent), color-mix(in srgb, var(--epic-blue) 20%, transparent)), var(--epic-dark) !important; }
+body.epic .wizard-step-item.has-error .step-circle {
+    background: linear-gradient(rgba(240, 68, 56, .18), rgba(240, 68, 56, .18)), var(--epic-dark) !important; }
+body.epic .wizard-step-item.active .step-circle { background: var(--epic-blue) !important; }

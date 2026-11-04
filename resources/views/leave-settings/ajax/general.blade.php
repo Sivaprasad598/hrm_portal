@@ -32,7 +32,7 @@
         $chainSetting = \App\Services\Leaves\LeaveApprovals::settings();
         $ticked = json_decode((string) ($chainSetting->approval_levels ?? ''), true) ?: [];
         $stepHelp = [
-            'manager' => 'The employee\'s Reporting To (set on the employee).',
+            'manager' => 'The top person with the Manager role up the employee\'s Reporting To chain. A manager\'s own leave goes to the CEO.',
             'department_head' => 'The head of the employee\'s department (set on the department).',
             'hr' => 'Anyone with Approve / Reject Leaves (HR, Admin).',
         ];
@@ -42,7 +42,8 @@
         <p class="f-12 text-dark-grey mb-3">A leave goes through the ticked steps in this order and counts only after the last one approves it.
             A step with nobody for it (no manager or department head set, or the applicant themselves) is skipped.
             HR can approve ahead of a step, with a note.</p>
-        @foreach (\App\Services\Leaves\LeaveApprovals::STEPS as $key => $label)
+        {{-- The CEO step goes with the manager step (a manager's own leave), so it has no box of its own --}}
+        @foreach (array_diff_key(\App\Services\Leaves\LeaveApprovals::STEPS, ['ceo' => 1]) as $key => $label)
             <label class="d-flex align-items-start mb-2 cursor-pointer">
                 <input type="checkbox" class="mt-1 mr-2 approval-level" value="{{ $key }}" @checked(in_array($key, $ticked, true))>
                 <span><span class="f-14 text-dark">{{ $loop->iteration }}. {{ $label }}</span>

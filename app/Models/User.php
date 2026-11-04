@@ -1409,6 +1409,13 @@ class User extends BaseModel implements AuthenticatableContract, AuthorizableCon
                 return $children->isNotEmpty() ? $menu : null;
             }
 
+            // A heading none of whose pages is assigned to the role arrives with no
+            // children at all: no link of its own and nothing under it, so no entry
+            // (employees saw empty HR / Leave Management / Payroll headings)
+            if (!trim((string) $menu->route) && \App\Models\SidebarMenu::where('parent_id', $menu->id)->exists()) {
+                return null;
+            }
+
             return $this->menuPermissionAllows($menu, $permissions, $modules) ? $menu : null;
         };
 
@@ -1449,6 +1456,12 @@ class User extends BaseModel implements AuthenticatableContract, AuthorizableCon
                 'not_client' => !in_array('client', $roles),
                 'not_employee' => !in_array('employee', $roles),
                 'employee_or_admin' => in_array('employee', $roles) || in_array('admin', $roles),
+                // My Team: people report to them, or they decide someone's leave
+                'has_team' => (bool) \App\Services\Attendance\CorrectionApprovals::teamUserIds((int) $this->id)
+                    || \App\Services\Leaves\LeaveApprovals::isApprover((int) $this->id),
+                // the profile page (assets, OT bank tabs) only opens for the employee role
+                'has_employee_record' => $this->employeeDetail !== null && in_array('employee', $roles),
+                'ot_bank' => $this->employeeDetail !== null && in_array('employee', $roles) && (new \App\Services\Payroll\OtBank())->enabled((int) $this->company_id),
                 default => true,
             };
 

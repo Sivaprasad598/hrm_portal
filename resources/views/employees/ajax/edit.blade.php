@@ -302,14 +302,6 @@ $probationMonths = (int) (\Illuminate\Support\Facades\DB::table('probation_perio
             <div class="wizard-pane" id="wizardStep1">
                 <div class="add-client bg-white rounded p-20">
 
-                    <div class="wizard-section-header mb-4">
-                        <div class="wizard-section-icon"><i class="fa fa-id-card"></i></div>
-                        <div>
-                            <h5>@lang('modules.employees.accountDetails')</h5>
-                            <p>Identity, credentials, role and personal information</p>
-                        </div>
-                    </div>
-
                     @include('employees.ajax.partials.onboarding-resume', ['onboardingDocs' => $onboardingDocs])
 
                     {{-- Identity, job, pay, personal details, shift, addresses, emergency contacts:
@@ -427,7 +419,7 @@ $probationMonths = (int) (\Illuminate\Support\Facades\DB::table('probation_perio
                     <div class="row">
 
                         @if ($employee->id != user()->id)
-                            <div class="col-md-4">
+                            <div class="col-lg-3 col-md-6">
                                 <div class="form-group my-3">
                                     <label class="f-14 text-dark-grey mb-12 w-100"
                                         for="usr">@lang('modules.client.clientCanLogin')</label>
@@ -443,36 +435,9 @@ $probationMonths = (int) (\Illuminate\Support\Facades\DB::table('probation_perio
                             </div>
                         @endif
 
-                        <div class="col-md-4">
-                            <div class="form-group my-3">
-                                <label class="f-14 text-dark-grey mb-12 w-100"
-                                    for="usr">@lang('modules.emailSettings.emailNotifications')</label>
-                                <div class="d-flex">
-                                    <x-forms.radio fieldId="notification-yes" :fieldLabel="__('app.yes')" fieldValue="1"
-                                        fieldName="email_notifications"
-                                        :checked="($employee->email_notifications) ? 'checked' : ''">
-                                    </x-forms.radio>
-                                    <x-forms.radio fieldId="notification-no" :fieldLabel="__('app.no')" fieldValue="0"
-                                        fieldName="email_notifications"
-                                        :checked="(!$employee->email_notifications) ? 'checked' : ''">
-                                    </x-forms.radio>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="col-md-4">
-                            <x-forms.label class="my-3" fieldId="slack_username"
-                                :fieldLabel="__('modules.employees.slackUsername')"></x-forms.label>
-                            <x-forms.input-group>
-                                <x-slot name="prepend">
-                                    <span class="input-group-text f-14 bg-white-shade">@</span>
-                                </x-slot>
-
-                                <input type="text" class="form-control height-35 f-14" autocomplete="off"
-                                    value="{{ $employee->employeeDetail->slack_username ?? '' }}" name="slack_username"
-                                    id="slack_username">
-                            </x-forms.input-group>
-                        </div>
+                        {{-- Email notifications and Slack are not asked any more: what is stored is kept --}}
+                        <input type="hidden" name="email_notifications" value="{{ $employee->email_notifications ? 1 : 0 }}">
+                        <input type="hidden" name="slack_username" value="{{ $employee->employeeDetail->slack_username ?? '' }}">
 
                         @if (function_exists('sms_setting') && sms_setting()->telegram_status)
                             <div class="col-md-6">
@@ -503,13 +468,13 @@ $probationMonths = (int) (\Illuminate\Support\Facades\DB::table('probation_perio
                                     </x-forms.radio>
                                 </div>
                             </div>
-                            <div id="probationEndDateWrap" class="{{ $employee->employeeDetail->probation_end_date ? '' : 'd-none' }}">
+                        </div>
+                        <div id="probationEndDateWrap" class="col-lg-3 col-md-6 {{ $employee->employeeDetail->probation_end_date ? '' : 'd-none' }}">
                                 <x-forms.datepicker fieldId="probation_end_date" :fieldLabel="__('modules.employees.probationEndDate')"
                                     fieldName="probation_end_date" :fieldPlaceholder="__('placeholders.date')"
                                     :fieldValue="$employee->employeeDetail->probation_end_date ? Carbon\Carbon::parse($employee->employeeDetail->probation_end_date)->format(company()->date_format) : '' "
                                     :fieldRequired="$employee->employeeDetail->probation_end_date ? 'true' : 'false'"
                                     :popover="__('messages.probationEndDate')"/>
-                            </div>
                         </div>
 
                         <div class="col-lg-3 col-md-6">
@@ -538,10 +503,13 @@ $probationMonths = (int) (\Illuminate\Support\Facades\DB::table('probation_perio
                         </div>
                         <div class="col-lg-3 col-md-6">
                             <input type="hidden" name="attendance_exempt" value="0">
-                            <div class="custom-control custom-switch" style="margin-top:42px">
-                                <input type="checkbox" class="custom-control-input" id="attendance_exempt" name="attendance_exempt" value="1" @checked($employee->employeeDetail->attendance_exempt ?? false)>
-                                <label class="custom-control-label f-14" for="attendance_exempt" data-toggle="tooltip"
-                                       title="Management staff who are not in office full hours: full salary every month whatever the punches; leave they apply for still counts (unpaid leave deducts). No lates, no overtime, not in the daily review.">Salary not based on attendance</label>
+                            <div class="form-group my-3">
+                                <label class="f-14 text-dark-grey mb-12 w-100">Salary Basis</label>
+                                <div class="custom-control custom-switch d-flex align-items-center" style="min-height:35px">
+                                    <input type="checkbox" class="custom-control-input" id="attendance_exempt" name="attendance_exempt" value="1" @checked($employee->employeeDetail->attendance_exempt ?? false)>
+                                    <label class="custom-control-label f-14" for="attendance_exempt" data-toggle="tooltip"
+                                           title="Management staff who are not in office full hours: full salary every month whatever the punches; leave they apply for still counts (unpaid leave deducts). No lates, no overtime, not in the daily review.">Not based on attendance</label>
+                                </div>
                             </div>
                         </div>
 
@@ -557,16 +525,8 @@ $probationMonths = (int) (\Illuminate\Support\Facades\DB::table('probation_perio
                                 :fieldValue="$employee->employeeDetail->contract_end_date ? Carbon\Carbon::parse($employee->employeeDetail->contract_end_date)->format(company()->date_format) : '' "/>
                         </div>
 
-                        <div class="col-lg-3 col-md-6">
-                            <x-forms.select fieldId="employment_status" fieldLabel="Employee Exit"
-                                fieldName="employment_status">
-                                <option value="confirmed" @selected(($employee->employeeDetail->employment_status ?? 'confirmed') == 'confirmed')>Confirmed</option>
-                                <option value="probation" @selected($employee->employeeDetail->employment_status == 'probation')>Probation Period</option>
-                                <option value="notice_period" @selected($employee->employeeDetail->employment_status == 'notice_period')>Notice Period</option>
-                                <option value="off_boarded" @selected($employee->employeeDetail->employment_status == 'off_boarded')>Off Board</option>
-                                <option value="none" @selected($employee->employeeDetail->employment_status == 'none')>None</option>
-                            </x-forms.select>
-                        </div>
+                        {{-- Employee Exit status follows the probation choice and the exit screens --}}
+                        <input type="hidden" name="employment_status" id="employment_status" value="{{ $employee->employeeDetail->employment_status ?? 'confirmed' }}">
 
                         <div class="col-lg-3 col-md-6">
                             <x-forms.select fieldId="marital_status" :fieldLabel="__('modules.employees.maritalStatus')"
@@ -578,20 +538,8 @@ $probationMonths = (int) (\Illuminate\Support\Facades\DB::table('probation_perio
                             </x-forms.select>
                         </div>
 
-                        <div class="col-lg-3 col-md-6">
-                            <x-forms.label class="my-3" fieldId="category_id"
-                                :fieldLabel="__('app.menu.businessAddresses')" fieldRequired="true">
-                            </x-forms.label>
-                            <x-forms.input-group>
-                                <select class="form-control select-picker" name="company_address"
-                                    id="company_address" data-live-search="true">
-                                    @foreach ($companyAddresses as $address)
-                                        <option @selected($employee->employeeDetail->company_address_id == $address->id)
-                                         value="{{ $address->id }}">{{ $address->location }}</option>
-                                    @endforeach
-                                </select>
-                            </x-forms.input-group>
-                        </div>
+                        {{-- Business address is not asked: kept as it is (or the default address) --}}
+                        <input type="hidden" name="company_address" id="company_address" value="{{ $employee->employeeDetail->company_address_id ?: ($companyAddresses->firstWhere('is_default', 1)->id ?? $companyAddresses->first()->id ?? '') }}">
 
                         <div class="col-lg-3 col-md-6 d-none marriage_date">
                             <x-forms.datepicker fieldId="marriage_anniversary_date" fieldRequired="true" :fieldLabel="__('modules.employees.marriageAnniversaryDate')"
@@ -601,10 +549,10 @@ $probationMonths = (int) (\Illuminate\Support\Facades\DB::table('probation_perio
 
 
                     </div>
-                    <div class="row border-top-grey pt-3">
+                    <div class="row">
                         {{-- Users cannot change their own status --}}
                         @if ($employee->id != user()->id && $employee->id != 1)
-                            <div class="col-md-4">
+                            <div class="col-lg-3 col-md-6">
                                 <div class="form-group my-3">
                                     <label class="f-14 text-dark-grey mb-12 w-100" for="usr">@lang('app.status')</label>
                                     <div class="d-flex">
@@ -623,7 +571,7 @@ $probationMonths = (int) (\Illuminate\Support\Facades\DB::table('probation_perio
 
                         @if ($employee->id != user()->id)
                             <div @class([
-                                'col-md-4',
+                                'col-lg-3 col-md-6',
                                 // 'd-none' => $employee->status != 'deactive'
                             ]) id="employeeExitDate">
                                 <x-forms.datepicker fieldId="last_date" :fieldLabel="__('modules.employees.lastDate')"
@@ -1056,7 +1004,7 @@ $probationMonths = (int) (\Illuminate\Support\Facades\DB::table('probation_perio
                 }
 
                 // Probation period -> employee is on probation.
-                $('#employment_status').val('probation').selectpicker('refresh');
+                $('#employment_status').val('probation');
             } else {
                 wrap.addClass('d-none');
                 dateInput.val('');
@@ -1066,7 +1014,7 @@ $probationMonths = (int) (\Illuminate\Support\Facades\DB::table('probation_perio
                 }
 
                 // No probation period -> employee is confirmed.
-                $('#employment_status').val('confirmed').selectpicker('refresh');
+                $('#employment_status').val('confirmed');
             }
         }
 
@@ -1897,15 +1845,11 @@ $probationMonths = (int) (\Illuminate\Support\Facades\DB::table('probation_perio
 
             h += '<p class="review-section-title"><i class="fa fa-cog mr-2"></i>Other Details</p>';
             h += r('Login Enabled',        radioLabel('login', {enable: 'Yes', disable: 'No'}));
-            h += r('Email Notifications',  radioLabel('email_notifications', {'1': 'Yes', '0': 'No'}));
-            h += r('Slack Username',       val('slack_username'));
             h += r('Probation End Date',   val('probation_end_date'));
             h += r('Notice Period Start',  val('notice_period_start_date'));
             h += r('Notice Period End',    val('notice_period_end_date'));
             h += r('Employment Type',      selText('employment_type'));
-            h += r('Employee Exit',        selText('employment_status'));
             h += r('Marital Status',       selText('marital_status'));
-            h += r('Business Address',     selText('company_address'));
             h += r('Status',               radioLabel('status', {active: 'Active', deactive: 'Inactive'}));
             h += r('Last Working Date',    val('last_date'));
 

@@ -130,6 +130,20 @@ class EmployeesDataTable extends BaseDataTable
                 }
             }
 
+            // The list's bulk actions, for this one employee
+            if ($this->editEmployeePermission == 'all' && user()->id !== $row->id) {
+                $action .= '<a class="dropdown-item row-assign-reporting" href="javascript:;" data-user-id="' . $row->id . '">
+                                <i class="fa fa-sitemap mr-2"></i>Assign Reporting To
+                            </a>';
+                $action .= $row->status === 'active'
+                    ? '<a class="dropdown-item row-change-status" href="javascript:;" data-user-id="' . $row->id . '" data-status="deactive">
+                                <i class="fa fa-user-slash mr-2"></i>Mark Inactive
+                            </a>'
+                    : '<a class="dropdown-item row-change-status" href="javascript:;" data-user-id="' . $row->id . '" data-status="active">
+                                <i class="fa fa-user-check mr-2"></i>Mark Active
+                            </a>';
+            }
+
             // Someone who has left can be brought back as the same employee
             if ($this->editEmployeePermission == 'all' && !empty($row->last_date)
                 && \Carbon\Carbon::parse($row->last_date)->lt(now()->startOfDay())) {

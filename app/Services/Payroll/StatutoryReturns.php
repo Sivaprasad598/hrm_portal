@@ -43,6 +43,7 @@ class StatutoryReturns
         $pensionRate = 8.33;
 
         $lines = [];
+        $upload = [];
         $problems = [];
         $totals = ['members' => 0, 'gross' => 0.0, 'epf_wages' => 0.0, 'employee' => 0.0,
             'employer_epf' => 0.0, 'pension' => 0.0, 'total' => 0.0];
@@ -55,27 +56,30 @@ class StatutoryReturns
                 continue;
             }
 
-            $uan = trim((string) ($row['pf_account_number'] ?? ''));
+            $uan = preg_replace('/\D/', '', (string) ($row['pf_account_number'] ?? ''));
+            $missingUan = strlen($uan) !== 12;
 
-            if ($uan === '') {
-                $problems[] = $row['emp_name'] . ' has no PF account number; the line says NOUAN.';
-                $uan = 'NOUAN';
+            if ($missingUan) {
+                $problems[] = $row['emp_name'] . ' has no valid 12-digit UAN, so they are left out of the ECR text file (EPFO refuses the whole file otherwise); add the UAN and download again.';
             }
 
-            $epfWages = round(min((float) $row['basic'], $ceiling), 0);
-            $pension = round($epfWages * $pensionRate / 100, 0);
+            // EPF wages are the wages the 12% was actually taken on (the full basic when
+            // PF runs on it, the ceiling when capped); EPS and EDLI wages stop at the ceiling.
+            $epfWages = $employee > 0 ? round(min((float) $row['basic'] ?: INF, $employee / 0.12), 0) : round(min((float) $row['basic'], $ceiling), 0);
+            $epsWages = min($epfWages, round($ceiling, 0));
+            $pension = round($epsWages * $pensionRate / 100, 0);
             // Whatever the employer puts in beyond the pension share stays in
             // the provident fund itself.
             $employerEpf = max(0, round($employer, 0) - $pension);
             $unpaidDays = (float) ($row['lop_days'] ?? 0);
 
             $line = [
-                $uan,
+                $missingUan ? 'NO UAN' : $uan,
                 $this->plain($row['emp_name']),
                 round((float) $row['gross'], 0),
                 $epfWages,
-                $epfWages,
-                $epfWages,
+                $epsWages,
+                $epsWages,
                 round($employee, 0),
                 $pension,
                 $employerEpf,
@@ -84,6 +88,9 @@ class StatutoryReturns
             ];
 
             $lines[] = $line;
+            if (!$missingUan) {
+                $upload[] = $line;
+            }
             $totals['members']++;
             $totals['gross'] += (float) $row['gross'];
             $totals['epf_wages'] += $epfWages;
@@ -96,7 +103,8 @@ class StatutoryReturns
 
         return [
             'lines' => $lines,
-            'text' => implode("\n", array_map(fn ($l) => implode('#~#', $l), $lines)),
+            // The portal takes the members with a UAN only, no heading line, CRLF ends
+            'text' => implode("\r\n", array_map(fn ($l) => implode('#~#', $l), $upload)),
             'totals' => $totals,
             'problems' => $problems,
         ];
@@ -111,6 +119,7 @@ class StatutoryReturns
     {
         $lines = [];
         $problems = [];
+        $contributions = [];
         $totals = ['members' => 0, 'wages' => 0.0, 'employee' => 0.0, 'employer' => 0.0, 'total' => 0.0];
 
         foreach ($rows as $row) {
@@ -128,10 +137,21 @@ class StatutoryReturns
                 $number = 'NOT ON RECORD';
             }
 
+            $days = (int) round((float) ($row['days_present'] ?? 0));
+
+            // ESIC monthly contribution upload: IP number, name, days paid, wages,
+            // reason code (0 = worked; 1 = on leave for a zero-day month), last working day
             $lines[] = [
                 $number,
                 $this->plain($row['emp_name']),
-                (int) round((float) ($row['days_present'] ?? 0)),
+                $days,
+                round((float) $row['gross'], 0),
+                $days > 0 ? 0 : 1,
+                '',
+            ];
+            $contributions[] = [
+                $number,
+                $this->plain($row['emp_name']),
                 round((float) $row['gross'], 2),
                 round($employee, 2),
                 round($employer, 2),
@@ -146,7 +166,7 @@ class StatutoryReturns
 
         $totals['total'] = $totals['employee'] + $totals['employer'];
 
-        return ['lines' => $lines, 'totals' => $totals, 'problems' => $problems];
+        return ['lines' => $lines, 'contributions' => $contributions, 'totals' => $totals, 'problems' => $problems];
     }
 
     /**
@@ -196,7 +216,7 @@ class StatutoryReturns
      *
      * @return array{lines: array, totals: array, problems: array}
      */
-    public function incomeTax(array $rows): array
+    public function incomeTax(array $rows, ?string $creditedOn = null): array
     {
         $lines = [];
         $problems = [];
@@ -216,11 +236,15 @@ class StatutoryReturns
                 $pan = 'PANNOTAVBL';
             }
 
+            // 24Q Annexure II: employee code, PAN, name, section, paid/credited, TDS, date
             $lines[] = [
-                $this->plain($row['emp_name']),
+                $row['emp_id'],
                 $pan,
+                $this->plain($row['emp_name']),
+                '192',
                 round((float) $row['gross'], 2),
                 round($amount, 2),
+                $creditedOn ?? '',
             ];
 
             $totals['people']++;

@@ -11,8 +11,10 @@
     $lines = array_values(array_filter($card['lines'], fn ($line) => abs((float) $line[1]) >= 0.005));
 @endphp
 <div class="pd-card pd-{{ $card['tone'] }}" role="button" tabindex="0" data-card="{{ $card['key'] }}" data-title="{{ $card['title'] }}">
-    <i class="fa {{ $card['icon'] }} pd-card__icon"></i>
-    <div class="pd-card__label">{{ $card['title'] }}</div>
+    <div class="pd-card__top">
+        <div class="pd-card__label">{{ $card['title'] }}</div>
+        <span class="pd-card__icon"><i class="fa {{ $card['icon'] }}"></i></span>
+    </div>
     <div class="pd-card__value">₹{{ number_format((float) $card['value'], 2) }}</div>
     <div class="pd-card__sub">{{ $card['sub'] }}</div>
     @if ($lines)
@@ -22,5 +24,5 @@
             @endforeach
         </div>
     @endif
-    <div class="pd-card__more"><i class="fa fa-hand-pointer mr-1"></i>Click for the list</div>
+    <div class="pd-card__more"><span>View list</span><i class="fa fa-arrow-right"></i></div>
 </div>

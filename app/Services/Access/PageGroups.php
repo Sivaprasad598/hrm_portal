@@ -26,8 +26,8 @@ class PageGroups
             'identity-index' => 'ID Cards',
             'payslip-entry-index' => 'Offer Letters',
         ]],
-        'attendance' => ['Attendance', [
-            'attendances-index' => 'Attendance',
+        'attendance' => ['Attendance Register', [
+            'attendances-index' => 'Attendance Register',
             'shifts-index' => 'Shift Roster',
             'holidays-index' => 'Holidays',
         ]],
@@ -54,6 +54,54 @@ class PageGroups
         ]],
     ];
 
+    /**
+     * Tabs that are not sidebar pages of their own: shown right after the page they
+     * belong to, to whoever can open that page. slug => [[route, label], ...]
+     */
+    const EXTRA_TABS = [
+        // (Attendance Dashboard is its own page in the sidebar now, not a tab)
+    ];
+
+    /**
+     * The groups as they are set in Settings > Add Menu: entries sharing a "tab group"
+     * show as one sidebar entry (named by the group) with their tab labels across the
+     * page, in menu order. GROUPS above is only the fallback before that is migrated.
+     *
+     * @return array<string, array{0: string, 1: array<string, string>}>
+     */
+    public static function groups(): array
+    {
+        static $cache = null;
+
+        if ($cache !== null) {
+            return $cache;
+        }
+
+        if (!\Illuminate\Support\Facades\Schema::hasColumn('sidebar_menus', 'tab_group')) {
+            return $cache = self::GROUPS;
+        }
+
+        $rows = SidebarMenu::forCompany(company()?->id)->whereNotNull('tab_group')->where('tab_group', '!=', '')
+            ->orderBy('parent_id')->orderBy('sort_order')->get(['slug', 'name', 'tab_group', 'tab_label']);
+
+        $cache = [];
+        foreach ($rows as $row) {
+            $key = \Illuminate\Support\Str::slug($row->tab_group);
+            $cache[$key] ??= [$row->tab_group, []];
+            $cache[$key][1][$row->slug] = $row->tab_label ?: $row->name;
+        }
+
+        return $cache;
+    }
+
+    /** A page's tab text, or null when it is in no group. */
+    public static function tabLabel(?string $slug): ?string
+    {
+        $group = self::groupOf($slug);
+
+        return $group ? (self::groups()[$group][1][$slug] ?? null) : null;
+    }
+
     /** A plainer sidebar name for a page that stands on its own. */
     const RENAMED = [
         'settlements-index' => 'Final Settlement',
@@ -62,7 +110,7 @@ class PageGroups
 
     public static function groupOf(?string $slug): ?string
     {
-        foreach (self::GROUPS as $group => [, $pages]) {
+        foreach (self::groups() as $group => [, $pages]) {
             if (isset($pages[$slug])) {
                 return $group;
             }
@@ -95,7 +143,7 @@ class PageGroups
 
             // A group the person can open only one page of is just that page.
             if (count($members) > 1) {
-                $menu->setAttribute('group_label', self::GROUPS[$group][0]);
+                $menu->setAttribute('group_label', self::groups()[$group][0]);
                 $menu->setAttribute('group_routes', array_column($members, 'route'));
                 // The entry opens the group's first tab (Employees, Run Payroll ...),
                 // not whichever of its pages comes first in the old menu order.
@@ -112,9 +160,15 @@ class PageGroups
         $visible = self::visibleSlugs();
         $members = [];
 
-        foreach (self::GROUPS[$group][1] as $slug => $label) {
+        foreach (self::groups()[$group][1] as $slug => $label) {
             if (isset($visible[$slug]) && \Route::has($visible[$slug])) {
                 $members[] = ['route' => $visible[$slug], 'label' => $label, 'url' => route($visible[$slug])];
+
+                foreach (self::EXTRA_TABS[$slug] ?? [] as [$route, $extraLabel]) {
+                    if (\Route::has($route)) {
+                        $members[] = ['route' => $route, 'label' => $extraLabel, 'url' => route($route)];
+                    }
+                }
             }
         }
 
@@ -128,7 +182,7 @@ class PageGroups
             return [];
         }
 
-        foreach (array_keys(self::GROUPS) as $group) {
+        foreach (array_keys(self::groups()) as $group) {
             $members = self::members($group);
 
             if (count($members) > 1 && in_array($routeName, array_column($members, 'route'), true)) {
@@ -142,6 +196,13 @@ class PageGroups
     /** Whether the page being viewed belongs to one of these routes (their index or the pages under it). */
     public static function routeIsWithin(array $routes): bool
     {
+        $current = request()->route()?->getName();
+
+        // A page with a sidebar entry of its own (Attendance Dashboard under attendances.*) is not the group's
+        if ($current && !in_array($current, $routes, true) && in_array($current, self::visibleSlugs(), true)) {
+            return false;
+        }
+
         $prefixes = array_map(fn ($route) => preg_replace('/\.index$/', '.*', $route), $routes);
 
         return request()->routeIs(...$prefixes);

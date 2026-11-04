@@ -48,6 +48,10 @@ class LegacyPageController extends AccountBaseController
         'leave_management' => ['file' => 'leave_management.php', 'access' => 'user', 'title' => 'Leave Management'],
         'admin_leave' => ['file' => 'admin_leave.php', 'access' => 'user', 'title' => 'Leave & Attendance'],
         'attendance_dashboard' => ['file' => 'Attendance_Dashboard.php', 'access' => 'user', 'title' => 'Attendance Dashboard'],
+        // The dashboard's three report tabs (frames inside it)
+        'total_monthly_attendance' => ['file' => 'Total_Monthly_Attendance.php', 'access' => 'user', 'title' => 'Total Monthly Attendance'],
+        'monthly_attendance' => ['file' => 'Monthly_attendance.php', 'access' => 'user', 'title' => 'Monthly Attendance'],
+        'annual_attendance' => ['file' => 'annual_attendance.php', 'access' => 'user', 'title' => 'Annual Attendance'],
         'identity' => ['file' => 'identity.php', 'access' => 'admin', 'permission' => 'edit_employees', 'title' => 'Identity Card'],
         'identity_card' => ['file' => 'identity_card.php', 'access' => 'admin', 'permission' => 'edit_employees', 'title' => 'Identity Card'],
         'joining_report' => ['file' => 'joining_report.php', 'access' => 'admin', 'permission' => 'edit_employees', 'title' => 'Joining Report'],
@@ -99,6 +103,10 @@ class LegacyPageController extends AccountBaseController
         if (array_key_exists('user_id', $_GET) && !in_array('admin', user_roles())) {
             $_GET['user_id'] = user()->id;
         }
+
+        // Read by the leave page: whether this viewer may see everyone's leave
+        // or only their own.
+        $leaveViewAll = in_array('admin', user_roles()) || user()->permission('view_leave') === 'all';
 
         $_REQUEST = array_merge($_GET, $_POST);
         $_SERVER['REQUEST_METHOD'] = $request->getMethod();

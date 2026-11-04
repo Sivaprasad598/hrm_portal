@@ -18,6 +18,19 @@ $approveRejectPermission = user()->permission('approve_or_reject_leaves');
 
 @section('filter-section')
     <x-filters.filter-box>
+        {{-- Leaves waiting for this person's decision (manager, department head, HR) --}}
+        @if (\App\Services\Leaves\LeaveApprovals::isApprover() || $approveRejectPermission === 'all')
+            <div class="select-box d-flex py-2 pr-2 border-right-grey border-right-grey-sm-0">
+                <p class="mb-0 pr-2 f-14 text-dark-grey d-flex align-items-center">Show</p>
+                <div class="select-status">
+                    <select class="form-control select-picker" name="waiting" id="waiting" data-size="8">
+                        <option value="">All I can see</option>
+                        <option value="me" @selected(request('waiting') === 'me')>Waiting for me</option>
+                    </select>
+                </div>
+            </div>
+        @endif
+
         <!-- DATE START -->
         <div class="select-box d-flex pr-2 border-right-grey border-right-grey-sm-0">
             <p class="mb-0 pr-2 f-14 text-dark-grey d-flex align-items-center">@lang('app.duration')</p>
@@ -223,6 +236,7 @@ $approveRejectPermission = user()->permission('approve_or_reject_leaves');
             data['employeeId'] = employeeId;
             data['leaveTypeId'] = leaveTypeId;
             data['status'] = status;
+            data['waiting'] = $('#waiting').length ? $('#waiting').val() : '';
         });
 
         const showTable = () => {
@@ -260,6 +274,8 @@ $approveRejectPermission = user()->permission('approve_or_reject_leaves');
 
             });
         @endif
+
+        $('#waiting').on('change', function() { showTable(); });
 
         $('#start-date, #end-date, #employee_id, #leave_type, #status').on('change keyup',
             function() {

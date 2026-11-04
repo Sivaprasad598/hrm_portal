@@ -154,6 +154,64 @@ if ($dbConn && $empCardId !== '') {
         error_log('Offer letter employee fetch failed: ' . $ex->getMessage());
     }
 }
+
+// ---------------------------------------------------------------------------
+// Or ?offer_id=<job_offers.id>: a recruitment offer to a candidate (not yet an
+// employee) - their name and address, the offered designation, branch,
+// joining date and CTC, and the offer's reference number and date.
+// ---------------------------------------------------------------------------
+$offerRef = '';
+$offerDate = '';
+$offerAddressee = '';
+$offerAddress = '';
+// Only for those who may see Recruitment: HR open this page with edit_employees,
+// which says nothing about candidates.
+$offerId = isset($_GET['offer_id']) && class_exists(\App\Services\Recruit\RecruitAccess::class)
+    && \App\Services\Recruit\RecruitAccess::can('view') ? (int) $_GET['offer_id'] : 0;
+
+if ($dbConn && $offerId > 0) {
+    try {
+        $pdo = $pdo ?? new PDO(
+            "mysql:host={$dbConn['host']};port={$dbConn['port']};dbname={$dbConn['database']};charset={$dbConn['charset']}",
+            $dbConn['username'], $dbConn['password'] ?? '',
+            [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]
+        );
+
+        $stmt = $pdo->prepare(
+            "SELECT c.name, c.gender, c.address, o.reference_no, o.offer_date, o.joining_date, o.annual_ctc,
+                    d.name AS designation_name, b.branch_name
+             FROM job_offers o
+             JOIN job_applications a ON a.id = o.job_application_id
+             JOIN candidates c ON c.id = a.candidate_id
+             LEFT JOIN designations d ON d.id = o.designation_id
+             LEFT JOIN branches b ON b.id = o.branch_id
+             WHERE o.id = :offerId
+             LIMIT 1"
+        );
+        $stmt->execute([':offerId' => $offerId]);
+        $row = $stmt->fetch();
+
+        if ($row) {
+            $empName = $row['name'] ?? '';
+            $empDesignation = $row['designation_name'] ?? '';
+            $empBranch = $row['branch_name'] ?? '';
+            $empJoiningDate = !empty($row['joining_date']) ? date('jS F Y', strtotime($row['joining_date'])) : '';
+
+            if (!empty($row['annual_ctc']) && (float) $row['annual_ctc'] > 0) {
+                $ctc = (float) $row['annual_ctc'];
+                $empCtcDisplay = 'Rs. ' . indian_number($ctc) . '/- (' . amount_in_words($ctc) . ')';
+            }
+
+            $offerRef = $row['reference_no'] ?? '';
+            $offerDate = !empty($row['offer_date']) ? date('jS F Y', strtotime($row['offer_date'])) : '';
+            $salutation = ['male' => 'Mr. ', 'female' => 'Ms. '][$row['gender'] ?? ''] ?? '';
+            $offerAddressee = $salutation . $empName;
+            $offerAddress = trim((string) ($row['address'] ?? ''));
+        }
+    } catch (PDOException $ex) {
+        error_log('Offer letter offer fetch failed: ' . $ex->getMessage());
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -1038,11 +1096,11 @@ body {
         <div class="offer-meta">
 
             <div>
-                Reference No.: XXXX/2026
+                Reference No.: <?= $offerRef !== '' ? e($offerRef) : 'XXXX/2026' ?>
             </div>
 
             <div class="offer-date">
-                11<sup>th</sup> August 2026
+                <?php if ($offerDate !== ''): ?><?= e($offerDate) ?><?php else: ?>11<sup>th</sup> August 2026<?php endif; ?>
             </div>
 
         </div>
@@ -1052,6 +1110,10 @@ body {
         <!-- EMPLOYEE ADDRESS -->
 
         <div class="employee-address">
+<?php if ($offerAddressee !== ''): ?>
+            <?= e($offerAddressee) ?><br>
+            <?= nl2br(e($offerAddress)) ?>
+<?php else: ?>
 
             Mr. Mehul Parmar<br>
 
@@ -1060,6 +1122,7 @@ body {
             Anand Nagar, GB Road,<br>
 
             Thane West – 400 615
+<?php endif; ?>
 
         </div>
 

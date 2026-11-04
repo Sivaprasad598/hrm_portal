@@ -21,7 +21,7 @@ class LeaveYearEndController extends AccountBaseController
     public function __construct()
     {
         parent::__construct();
-        $this->pageTitle = 'Leave Year End';
+        $this->pageTitle = 'Year-End Settlement';
 
         $this->middleware(function ($request, $next) {
             // The people who set leave policy are the people who close the year.

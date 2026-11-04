@@ -121,7 +121,7 @@ class StatutoryReturnsController extends AccountBaseController
             $returns->employeeInsurance($rows),
             $returns->professionalTax($rows),
             $cycle,
-            $returns->incomeTax($rows),
+            $returns->incomeTax($rows, $cycle->end->format('d/m/Y')),
         );
     }
 
