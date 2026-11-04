@@ -54,6 +54,7 @@ $addLeadCustomFormPermission = user()->permission('manage_lead_custom_forms');
                 'listUrl' => route('lead-contact.index'),
                 'listLabel' => __('modules.leadContact.leadContacts'),
                 'meetingsUrl' => route('customers.index', ['from' => 'lead-contact']) . '#meetings',
+                'projectsUrl' => in_array('admin', user_roles() ?? []) ? route('lead-contact.search-projects') : null,
                 'margin' => 'mb-0',
                 'class' => 'align-self-center ml-lg-3 mt-2 mt-md-0',
             ])

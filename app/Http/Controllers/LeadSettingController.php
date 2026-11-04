@@ -55,6 +55,7 @@ class LeadSettingController extends AccountBaseController
             'method' => 'lead-settings.ajax.method',
             'meeting-purpose', 'meeting-status', 'meeting-result' => 'lead-settings.ajax.meeting-options',
             'notetaker-bot' => 'lead-settings.ajax.notetaker-bot',
+            'research-project' => 'lead-settings.ajax.research-projects',
             default => 'lead-settings.ajax.source',
         };
 
@@ -64,6 +65,12 @@ class LeadSettingController extends AccountBaseController
             $notetakerBot = app(\App\Services\NotetakerBot::class);
             $this->botSettings = $notetakerBot->settings();
             $this->botStatus = $notetakerBot->status();
+        }
+
+        // Research projects of Lead Contacts → Search Projects: admins only
+        if ($tab === 'research-project') {
+            abort_403(!in_array('admin', user_roles()));
+            $this->researchProjects = LeadResearchProjectController::list();
         }
 
         // Customer meeting dropdown options (Customers → Meetings form)

@@ -47,6 +47,10 @@ $addLeadCategoryPermission = user()->permission('add_lead_category');
                                 aria-controls="nav-meetingResult" aria-selected="true">Meeting Result
                             </a>
                             @if (in_array('admin', user_roles()))
+                                <a class="nav-item nav-link f-15 research-project"
+                                    href="{{ route('lead-settings.index') }}?tab=research-project" role="tab"
+                                    aria-controls="nav-researchProject" aria-selected="true">Research Projects
+                                </a>
                                 <a class="nav-item nav-link f-15 notetaker-bot"
                                     href="{{ route('lead-settings.index') }}?tab=notetaker-bot" role="tab"
                                     aria-controls="nav-notetakerBot" aria-selected="true">Notetaker Bot
@@ -97,6 +101,11 @@ $addLeadCategoryPermission = user()->permission('add_lead_category');
                             data-option-type="result">
                             Add Meeting Result
                         </x-forms.button-primary>
+                        @if (in_array('admin', user_roles()))
+                            <x-forms.button-primary icon="plus" id="addResearchProject" class="research-project-btn mb-2 d-none actionBtn">
+                                Add Research Project
+                            </x-forms.button-primary>
+                        @endif
                     </div>
                 </div>
             </x-slot>
@@ -714,6 +723,106 @@ $addLeadCategoryPermission = user()->permission('add_lead_category');
             });
         });
         /* MEETING PURPOSE / STATUS OPTIONS */
+
+        /* RESEARCH PROJECTS (Lead Contacts → Search Projects dropdown) */
+        var researchProjectUrls = {
+            store: "{{ route('lead-research-projects.store') }}",
+            update: "{{ route('lead-research-projects.update', ':id') }}",
+            destroy: "{{ route('lead-research-projects.destroy', ':id') }}"
+        };
+
+        // Add / edit share one dialog; a duplicate keeps the dialog open with "already exists"
+        function researchProjectDialog(id, currentName) {
+            Swal.fire({
+                title: id ? 'Edit Research Project' : 'Add Research Project',
+                input: 'text',
+                inputValue: currentName || '',
+                inputPlaceholder: 'e.g. GIS mapping survey',
+                inputAttributes: { maxlength: 191 },
+                showCancelButton: true,
+                confirmButtonText: id ? "@lang('app.update')" : "@lang('app.save')",
+                cancelButtonText: "@lang('app.cancel')",
+                customClass: {
+                    confirmButton: 'btn btn-primary mr-3',
+                    cancelButton: 'btn btn-secondary'
+                },
+                buttonsStyling: false,
+                showLoaderOnConfirm: true,
+                preConfirm: function (value) {
+                    value = $.trim(value || '');
+                    if (value.length < 2) {
+                        Swal.showValidationMessage('Enter a research project (at least 2 characters).');
+                        return false;
+                    }
+                    if (id && value === currentName) {
+                        return { unchanged: true };
+                    }
+
+                    var data = { _token: "{{ csrf_token() }}", name: value };
+                    if (id) data._method = 'PUT';
+
+                    return $.ajax({ url: (id ? researchProjectUrls.update : researchProjectUrls.store).replace(':id', id || ''), type: 'POST', data: data }).then(
+                        function (response) { return response; },
+                        function (xhr) {
+                            Swal.showValidationMessage(meetingOptionError(xhr, 'Unable to save.'));
+                            return false;
+                        }
+                    );
+                },
+                allowOutsideClick: function () { return !Swal.isLoading(); }
+            }).then(function (result) {
+                if (result.value && !result.value.unchanged) {
+                    window.location.reload();
+                }
+            });
+        }
+
+        $('body').on('click', '#addResearchProject', function () {
+            researchProjectDialog();
+        });
+
+        $('body').on('click', '.edit-research-project', function () {
+            researchProjectDialog($(this).data('project-id'), String($(this).data('project-name')));
+        });
+
+        $('body').on('click', '.delete-research-project', function () {
+            var id = $(this).data('project-id');
+            var name = $(this).data('project-name');
+
+            Swal.fire({
+                title: "@lang('messages.sweetAlertTitle')",
+                text: 'Delete "' + name + '"? It is removed from the Search Projects dropdown.',
+                icon: 'warning',
+                showCancelButton: true,
+                focusConfirm: false,
+                confirmButtonText: "@lang('messages.confirmDelete')",
+                cancelButtonText: "@lang('app.cancel')",
+                customClass: {
+                    confirmButton: 'btn btn-primary mr-3',
+                    cancelButton: 'btn btn-secondary'
+                },
+                showClass: {
+                    popup: 'swal2-noanimation',
+                    backdrop: 'swal2-noanimation'
+                },
+                buttonsStyling: false
+            }).then(function (result) {
+                if (!result.isConfirmed) return;
+
+                $.ajax({
+                    url: researchProjectUrls.destroy.replace(':id', id),
+                    type: 'POST',
+                    data: { _token: "{{ csrf_token() }}", _method: 'DELETE' },
+                    success: function () {
+                        $('.research-project-row' + id).fadeOut(100, function () { $(this).remove(); });
+                    },
+                    error: function (xhr) {
+                        Swal.fire({ icon: 'error', title: 'Cannot delete', text: meetingOptionError(xhr, 'Unable to delete.') });
+                    }
+                });
+            });
+        });
+        /* RESEARCH PROJECTS */
 
         /* CRM NOTETAKER BOT SETTINGS */
         $('body').on('click', '#useThisPortalUrl', function () {

@@ -338,6 +338,9 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account'], function () {
     Route::delete('customer-meetings/{id}', [\App\Http\Controllers\CustomerController::class, 'destroyMeeting'])->name('customers.meetings.destroy');
 
     // Meeting Purpose / Meeting Status dropdown options ({type} = purpose | status)
+    Route::post('lead-research-projects', [\App\Http\Controllers\LeadResearchProjectController::class, 'store'])->name('lead-research-projects.store');
+    Route::put('lead-research-projects/{id}', [\App\Http\Controllers\LeadResearchProjectController::class, 'update'])->name('lead-research-projects.update');
+    Route::delete('lead-research-projects/{id}', [\App\Http\Controllers\LeadResearchProjectController::class, 'destroy'])->name('lead-research-projects.destroy');
     Route::get('meeting-options/{type}', [\App\Http\Controllers\MeetingOptionController::class, 'index'])->name('meeting-options.index');
     Route::post('meeting-options/{type}', [\App\Http\Controllers\MeetingOptionController::class, 'store'])->name('meeting-options.store');
     Route::put('meeting-options/{type}/{id}', [\App\Http\Controllers\MeetingOptionController::class, 'update'])->name('meeting-options.update');
@@ -691,6 +694,7 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account'], function () {
 
     // Standalone Lead Team view (no tabs, no Create Meeting button)
     // My Lead Teams: the leads I am assigned to (employees who own no lead land here from Lead Contact)
+    Route::get('lead-contact/search-projects', [\App\Http\Controllers\LeadGenerationBotController::class, 'leadContactProjects'])->name('lead-contact.search-projects');
     Route::get('lead-contact/my-teams', [\App\Http\Controllers\LeadContactController::class, 'myTeams'])->name('lead-contact.my-teams');
     // Lead Team page: the lead page with only its Lead Team tab (lead_team_view; /lead_team_view.php?id= opens it)
     Route::get('lead-contact/{id}/team-only', [\App\Http\Controllers\LeadContactController::class, 'teamView'])->name('lead-contact.team-only');
@@ -718,7 +722,43 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account'], function () {
     Route::resource('deals', DealController::class);
 
     // Leads > Lead Generation Bot: Claude web search for project leads (administrators only)
+    // target_company_finder.html: ChatGPT (OpenAI web search) company search; the page calls API_BASE_URL/api/companies/search
+    Route::get('target-companies/api/companies/search', [\App\Http\Controllers\TargetCompanyFinderController::class, 'search'])
+        ->middleware('throttle:10,1')->name('target-companies.search');
+    Route::get('target-companies/api/companies/projects', [\App\Http\Controllers\TargetCompanyFinderController::class, 'projects'])
+        ->middleware('throttle:10,1')->name('target-companies.projects');
+    Route::get('target-companies/api/companies/profile', [\App\Http\Controllers\TargetCompanyFinderController::class, 'profile'])
+        ->middleware('throttle:20,1')->name('target-companies.profile');
+    Route::get('target-companies/api/research-projects', [\App\Http\Controllers\TargetCompanyFinderController::class, 'researchProjects'])
+        ->name('target-companies.research-projects');
+    Route::post('target-companies/api/research-projects', [\App\Http\Controllers\TargetCompanyFinderController::class, 'addResearchProject'])
+        ->middleware('throttle:30,1')->name('target-companies.research-projects.add');
+    Route::get('target-companies/api/locations', [\App\Http\Controllers\TargetCompanyFinderController::class, 'locations'])
+        ->middleware('throttle:90,1')->name('target-companies.locations');
+    Route::get('target-companies/api/locations/resolve', [\App\Http\Controllers\TargetCompanyFinderController::class, 'resolveLocation'])
+        ->middleware('throttle:30,1')->name('target-companies.locations.resolve');
+    Route::get('target-companies/api/saved', [\App\Http\Controllers\TargetCompanyFinderController::class, 'saved'])->name('target-companies.saved');
+    Route::post('target-companies/api/saved', [\App\Http\Controllers\TargetCompanyFinderController::class, 'save'])
+        ->middleware('throttle:60,1')->name('target-companies.saved.store');
+    Route::delete('target-companies/api/saved', [\App\Http\Controllers\TargetCompanyFinderController::class, 'unsave'])
+        ->middleware('throttle:60,1')->name('target-companies.saved.destroy');
+    Route::get('target-companies/api/api-key', [\App\Http\Controllers\LeadFinderApiController::class, 'apiKey'])->name('target-companies.api-key');
+    Route::post('target-companies/api/api-key', [\App\Http\Controllers\LeadFinderApiController::class, 'createApiKey'])
+        ->middleware('throttle:10,1')->name('target-companies.api-key.create');
+    Route::delete('target-companies/api/api-key', [\App\Http\Controllers\LeadFinderApiController::class, 'revokeApiKey'])
+        ->middleware('throttle:10,1')->name('target-companies.api-key.revoke');
+    Route::get('target-companies/api/contacts', [\App\Http\Controllers\TargetCompanyFinderController::class, 'contacts'])->name('target-companies.contacts');
+    Route::post('target-companies/api/contacts', [\App\Http\Controllers\TargetCompanyFinderController::class, 'addContact'])
+        ->middleware('throttle:60,1')->name('target-companies.contacts.store');
+    Route::delete('target-companies/api/contacts/{id}', [\App\Http\Controllers\TargetCompanyFinderController::class, 'deleteContact'])
+        ->whereNumber('id')->middleware('throttle:60,1')->name('target-companies.contacts.destroy');
+    Route::post('target-companies/api/contacts/{id}/follow-up', [\App\Http\Controllers\TargetCompanyFinderController::class, 'followUpDone'])
+        ->whereNumber('id')->middleware('throttle:60,1')->name('target-companies.contacts.follow-up');
+
     Route::get('lead-generation-bot', [\App\Http\Controllers\LeadGenerationBotController::class, 'index'])->name('lead-generation-bot.index');
+    Route::get('lead-generation-bot/finder', [\App\Http\Controllers\LeadGenerationBotController::class, 'finder'])->name('lead-generation-bot.finder');
+    Route::get('lead-generation-bot/finder/company', [\App\Http\Controllers\LeadGenerationBotController::class, 'finderCompany'])->name('lead-generation-bot.finder-company');
+    Route::get('lead-generation-bot/classic', [\App\Http\Controllers\LeadGenerationBotController::class, 'classic'])->name('lead-generation-bot.classic');
     Route::get('lead-generation-bot/companies', [\App\Http\Controllers\LeadGenerationBotController::class, 'suggestCompanies'])->name('lead-generation-bot.companies');
     Route::post('lead-generation-bot/search', [\App\Http\Controllers\LeadGenerationBotController::class, 'search'])->name('lead-generation-bot.search');
 

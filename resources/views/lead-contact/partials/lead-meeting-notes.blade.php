@@ -12,6 +12,8 @@
     $style = $fitStyles[$fit] ?? null;
     $notDiscussed = '<span class="text-lightest">Not discussed</span>';
     $hasSource = trim((string) ($meeting->meet_transcript ?: $meeting->meet_notes)) !== '';
+    // Re-analyse / Edit: administrators only (the Lead Owner and team members only read the notes)
+    $canManageNotes = in_array('admin', user_roles() ?? []);
 @endphp
 
 <div class="lead-meeting-notes" data-meeting-id="{{ $meeting->id }}">
@@ -22,19 +24,21 @@
                 <span class="badge badge-light border ml-1 f-11" title="Lead Team Meeting ID">{{ $leadMeeting->reference }}</span>
             @endif
         </div>
+        @if ($canManageNotes)
         <div class="d-flex" style="gap: 6px;">
             <button type="button" class="btn btn-outline-primary btn-sm lmn-analyse" @disabled(!$hasSource)
                     title="{{ $hasSource ? 'Read the meeting transcript again and refill these notes' : 'Available once the meeting is recorded and transcribed' }}">
                 <i class="fa fa-magic mr-1"></i>{{ $leadMeeting?->hasNotes() ? 'Re-analyse' : 'Analyse' }}</button>
             <button type="button" class="btn btn-outline-secondary btn-sm lmn-edit"><i class="fa fa-edit mr-1"></i>Edit</button>
         </div>
+        @endif
     </div>
 
     {{-- ---------- View ---------- --}}
     <div class="lmn-view">
         @if (!$leadMeeting?->hasNotes())
             <p class="text-lightest f-13 mb-0">
-                {{ $hasSource ? 'Not analysed yet. Click Analyse to fill these notes from the meeting transcript.'
+                {{ $hasSource ? ($canManageNotes ? 'Not analysed yet. Click Analyse to fill these notes from the meeting transcript.' : 'Not analysed yet.')
                     : 'Filled automatically from the transcript after the meeting is recorded by the notetaker bot.' }}
             </p>
         @else

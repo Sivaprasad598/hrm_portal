@@ -130,7 +130,50 @@ TXT;
         $this->pageTitle = 'Lead Generation Bot';
     }
 
+    /**
+     * Leads → Lead Generation Bot: the Target Company Finder (Lead Finder), shown inside the portal layout.
+     * The finder is its own page (finder()) in an iframe, so its styles do not clash with the portal's.
+     */
     public function index()
+    {
+        abort_403(!in_array('admin', user_roles()));
+
+        return view('lead-generation-bot.finder-page', $this->data);
+    }
+
+    /** Lead Contacts → Search Projects: the finder's Search Projects inside the Lead Contacts page (administrators). */
+    public function leadContactProjects()
+    {
+        abort_403(!in_array('admin', user_roles()));
+        $this->pageTitle = 'Search Projects';
+
+        return view('lead-contact.search-projects', $this->data);
+    }
+
+    /** The Target Company Finder page itself (formerly target_company_finder.html); searches use OpenAI. */
+    public function finder()
+    {
+        abort_403(!in_array('admin', user_roles()));
+
+        return response()->view('lead-generation-bot.target-company-finder')
+            ->header('X-Frame-Options', 'SAMEORIGIN');
+    }
+
+    /**
+     * One company from the finder's results, with all its projects in pages (View details). Shown in the same iframe;
+     * the company comes from the finder through the browser's session storage, its full project list from
+     * TargetCompanyFinderController::projects.
+     */
+    public function finderCompany()
+    {
+        abort_403(!in_array('admin', user_roles()));
+
+        return response()->view('lead-generation-bot.finder-company')
+            ->header('X-Frame-Options', 'SAMEORIGIN');
+    }
+
+    /** The earlier Claude search page (lead-generation-bot.index), kept at /lead-generation-bot/classic. */
+    public function classic()
     {
         abort_403(!in_array('admin', user_roles()));
 

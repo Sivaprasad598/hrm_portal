@@ -66,6 +66,8 @@ class LeadMeetingController extends AccountBaseController
         $meeting = CustomerMeeting::with(['lead', 'attendees', 'leadTeamMeeting'])->findOrFail($meetingId);
 
         abort_403(!in_array(user()->permission('view_lead'), ['all', 'added', 'owned', 'both']));
+        // Re-analyse / Edit: administrators only; the Lead Owner and team members only read the notes
+        abort_403(!in_array('admin', user_roles() ?? []));
         abort_if(!$meeting->isLeadTeamMeeting(), 404, 'Not a Lead Team meeting.');
 
         return $meeting;

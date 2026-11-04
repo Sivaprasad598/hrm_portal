@@ -54,8 +54,16 @@ return [
         'project' => env('OPENAI_PROJECT_ID'),
         'transcribe_model' => env('OPENAI_TRANSCRIBE_MODEL', 'whisper-1'),
         'notes_model' => env('OPENAI_NOTES_MODEL', 'gpt-4o-mini'),
+        // target_company_finder.html: company search with web search (TargetCompanyFinderController)
+        'finder_model' => env('OPENAI_FINDER_MODEL', 'gpt-4.1'),
         // Key of the CRM Notetaker bot (notetaker-bot/.env BOT_KEY)
         'bot_key' => env('CRM_NOTES_BOT_KEY'),
+    ],
+
+    // Lead Finder API (GET /api/lead-finder/projects/search): addresses allowed to call it WITHOUT an API key
+    // (comma-separated; default: this computer only). Every other address must send "Authorization: Bearer <key>".
+    'lead_finder_api' => [
+        'open_ips' => array_filter(array_map('trim', explode(',', env('LEAD_FINDER_API_OPEN_IPS', '127.0.0.1,::1')))),
     ],
 
     'google' => [
