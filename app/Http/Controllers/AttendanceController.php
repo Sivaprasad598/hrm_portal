@@ -819,12 +819,31 @@ class AttendanceController extends AccountBaseController
 
         $this->maxClockIn = $attendanceActivity->count() < $this->attendanceSettings->clockin_in_day;
 
+        // A session still open (clocked in, not yet out). Today that is a day in
+        // progress: the time so far counts, there is no "last clock-out" (it was
+        // showing the time the page was opened) and no Absent / Early Exit yet.
+        $openSession = $attendanceActivity->first(fn ($item) => is_null($item->clock_out_time));
+        $nowLocal = now()->timezone($this->company->timezone);
+        $inProgress = $openSession && $this->startTime->format('Y-m-d') === $nowLocal->format('Y-m-d');
+
+        if ($openSession) {
+            $this->notClockedOut = true;
+        }
+
+        if ($inProgress) {
+            $openFrom = Carbon::parse($openSession->clock_in_time)->timezone($this->company->timezone);
+            $countFrom = ($sessionEnd && $sessionEnd->gt($openFrom)) ? $sessionEnd : $openFrom;
+            $this->totalTime += max(0, $countFrom->diffInSeconds($nowLocal, false));
+            $sessionStart = $sessionStart && $sessionStart->lt($openFrom) ? $sessionStart : $openFrom;
+            $sessionEnd = $nowLocal;
+        }
+
         $totalSeconds = $this->totalTime;
         $this->totalTimeFormatted = CarbonInterval::formatHuman($totalSeconds, true);
         $this->totalTimeInOffice = CarbonInterval::formatHuman($totalSeconds, true);
         $this->totalSessions = $completedSessions->count();
         $this->firstClockInTimeFormatted = $this->startTime ? $this->startTime->translatedFormat(company()->time_format) : '--';
-        $this->lastClockOutTimeFormatted = $this->endTime ? $this->endTime->translatedFormat(company()->time_format) : '--';
+        $this->lastClockOutTimeFormatted = $openSession ? '--' : ($this->endTime ? $this->endTime->translatedFormat(company()->time_format) : '--');
         $workingSpanSeconds = ($sessionStart && $sessionEnd) ? $sessionStart->diffInSeconds($sessionEnd) : 0;
         $this->totalWorkingSpan = CarbonInterval::formatHuman($workingSpanSeconds, true);
         $this->totalTimeOutside = CarbonInterval::formatHuman($outsideSeconds, true);
@@ -865,7 +884,9 @@ class AttendanceController extends AccountBaseController
                 $halfDaySeconds = $shiftSeconds * 0.25;
             }
 
-            if ($totalSeconds < $halfDaySeconds) {
+            if ($inProgress && $totalSeconds < $fullDaySeconds) {
+                $this->dayStatus = 'In progress';
+            } elseif ($totalSeconds < $halfDaySeconds) {
                 $this->dayStatus = 'Absent';
             } elseif ($totalSeconds < $fullDaySeconds) {
                 $this->dayStatus = 'Half Day';
@@ -904,6 +925,11 @@ class AttendanceController extends AccountBaseController
 
         /** @phpstan-ignore-next-line */
         $this->totalTime = CarbonInterval::formatHuman($this->totalTime, true);
+
+        // the Clock Out box: no time while still clocked in (it showed "now")
+        if ($openSession) {
+            $this->endTime = '';
+        }
 
         $this->attendance = $attendance;
 

@@ -15,14 +15,14 @@
     --app-font: 'Plus Jakarta Sans', 'Segoe UI', Arial, sans-serif;
     /* The colours: set here as the template's, replaced by Settings > Theme
        Settings > Epic colours (sections/epic-colors) when chosen there */
-    --epic-blue: #3d78e3;
-    --epic-green: #67b173;
-    --epic-dark: #212529;
-    --epic-strip-bg: var(--epic-green);
+    --epic-blue: #cb6b4f;
+    --epic-green: #6d6e71;
+    --epic-dark: #231f20;
+    --epic-strip-bg: var(--epic-dark);
     /* the open item in the strip: white on the template's green; the primary
        colour once colours are chosen (EpicColors::css) */
-    --epic-strip-active: #fff;
-    --epic-strip-active-text: var(--epic-dark);
+    --epic-strip-active: var(--epic-blue);
+    --epic-strip-active-text: #fff;
     --epic-blue-hover: color-mix(in srgb, var(--epic-blue) 82%, #000);
     --epic-gradient: linear-gradient(145deg, var(--epic-blue), var(--epic-green));
     --epic-page: #f3f3f9;
@@ -1915,7 +1915,7 @@ body.epic .sidebar-menu .epic-menu-count {
 }
 
 /* Notification list (bell dropdown, all notifications page): compact rows, not
-   card headings - the gold heading style above is for real card titles */
+   card headings - the copper heading style above is for real card titles */
 body.epic .notification-dropdown .card .card-title,
 body.epic #notification-list .card .card-title,
 body.epic .view-notification .card-title {
@@ -1944,7 +1944,7 @@ body.epic .mc-nav-btn:hover:not(:disabled) { background: var(--epic-blue); borde
 body.epic .mc-nav-btn:disabled { opacity: .35; cursor: default; }
 body.epic .mc-nav-link { margin-left: auto; font-size: 13px; font-weight: 500; color: var(--epic-blue); }
 
-/* Designation under an employee's name: the theme's primary (gold), apart from the name */
+/* Designation under an employee's name: the theme's primary (copper), apart from the name */
 body.epic .emp-designation { color: var(--epic-blue) !important; font-weight: 500; }
 
 /* Back button left of the page title, on detail / create / edit pages (components/app-title) */
@@ -1968,7 +1968,7 @@ body.epic ::-webkit-scrollbar-thumb { background-color: #9aa1ab; border: 2px sol
 body.epic ::-webkit-scrollbar-thumb:hover { background-color: var(--epic-blue); }
 /* (no scrollbar-color here: in Chrome it switches off the ::-webkit-scrollbar look above) */
 
-/* Employee Add / Edit wizard (employees/ajax/create, edit): the theme's gold, not the old blue / violet,
+/* Employee Add / Edit wizard (employees/ajax/create, edit): the theme's copper, not the old blue / violet,
    and compact section headers */
 body.epic .wizard-step-item.active .step-circle { background: var(--epic-blue) !important; border-color: var(--epic-blue) !important;
     box-shadow: 0 4px 14px color-mix(in srgb, var(--epic-blue) 35%, transparent) !important; }
@@ -1992,8 +1992,8 @@ body.epic .doc-type-tabs a.active { background: var(--epic-blue) !important; bor
 body.epic .employee-wizard-header { margin-bottom: 10px !important; }
 body.epic .wizard-pane > .bg-white.p-20 { padding-top: 10px !important; }
 
-/* Employee Add / Edit - wizard step bar: Epic dark panel (black, a gold glow), gold current step,
-   finished steps as gold ticks, a thin gold progress line under them */
+/* Employee Add / Edit - wizard step bar: Epic dark panel (black, a copper glow), copper current step,
+   finished steps as copper ticks, a thin copper progress line under them */
 body.epic .employee-wizard-header {
     position: relative; overflow: hidden;
     padding: 20px 26px 16px !important; border: 0 !important; border-radius: 10px !important;
@@ -2050,7 +2050,7 @@ body.epic .filters-one-row .select-box .bootstrap-select { width: 100% !importan
 body.epic .filters-one-row .select-box:has(#reset-filters) { flex: 0 0 auto; }
 @media (max-width: 991.98px) { body.epic .filter-box .filter-box.filters-one-row { flex-wrap: wrap !important; } body.epic .filters-one-row .select-box { flex: 1 1 45%; } }
 
-/* Modals and the slide-in panel: every pop-up has the same dark header with a gold glow,
+/* Modals and the slide-in panel: every pop-up has the same dark header with a copper glow,
    white title and close, as the dashboard's header band */
 body.epic .modal-header,
 body.epic .task-detail-panel #right-modal-title {
@@ -2112,7 +2112,7 @@ body.epic .table #select-all-table,
 body.epic .table .select-table-row { width: 17px; height: 17px; accent-color: var(--epic-blue); }
 body.epic .table td:has(> .select-table-row) { cursor: pointer; }
 
-/* 'In use' / current-choice buttons: the theme gold, not grey */
+/* 'In use' / current-choice buttons: the theme copper, not grey */
 body.epic .btn.btn-in-use, body.epic .btn.btn-in-use:disabled { background: var(--epic-blue) !important; border-color: var(--epic-blue) !important; color: #fff !important; opacity: 1 !important; cursor: default; }
 
 /* Wizard steps: the circles are solid so the connecting line stops at their edge

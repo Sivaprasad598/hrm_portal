@@ -304,23 +304,23 @@
                 .person-pick__list { max-height: 248px; overflow-y: auto; }
                 .person-pick__row { display: flex; align-items: center; gap: 10px; margin: 0; padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #f3f3f4; }
                 .person-pick__row:last-of-type { border-bottom: 0; }
-                .person-pick__row:hover { background: color-mix(in srgb, var(--epic-blue, #b8892e) 5%, #fff); }
+                .person-pick__row:hover { background: color-mix(in srgb, var(--epic-blue, #cb6b4f) 5%, #fff); }
                 .person-pick__row input { position: absolute; opacity: 0; pointer-events: none; }
                 .person-pick__avatar { width: 30px; height: 30px; min-width: 30px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
-                    font-size: 11px; font-weight: 700; background: color-mix(in srgb, var(--epic-blue, #b8892e) 14%, #fff); color: var(--epic-blue, #b8892e); }
+                    font-size: 11px; font-weight: 700; background: color-mix(in srgb, var(--epic-blue, #cb6b4f) 14%, #fff); color: var(--epic-blue, #cb6b4f); }
                 .person-pick__who { flex: 1; min-width: 0; line-height: 1.25; }
                 .person-pick__who b { display: block; font-size: 13.5px; font-weight: 600; color: var(--epic-text, #212529); }
                 .person-pick__who small { display: block; font-size: 11.5px; color: var(--epic-muted, #878a99); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
                 .person-pick__tick { width: 20px; height: 20px; min-width: 20px; border-radius: 50%; border: 1.5px solid var(--epic-line, #d0d5dd); display: inline-flex; align-items: center; justify-content: center; font-size: 10px; color: transparent; }
-                .person-pick__row input:checked ~ .person-pick__tick { background: var(--epic-blue, #b8892e); border-color: var(--epic-blue, #b8892e); color: #fff; }
-                .person-pick__row:has(input:checked) { background: color-mix(in srgb, var(--epic-blue, #b8892e) 8%, #fff); }
+                .person-pick__row input:checked ~ .person-pick__tick { background: var(--epic-blue, #cb6b4f); border-color: var(--epic-blue, #cb6b4f); color: #fff; }
+                .person-pick__row:has(input:checked) { background: color-mix(in srgb, var(--epic-blue, #cb6b4f) 8%, #fff); }
                 .person-pick__none { display: none; padding: 16px; margin: 0; text-align: center; font-size: 13px; color: var(--epic-muted, #878a99); }
                 #assignReportingModal .modal-body { padding-bottom: 18px; }
                 .report-chain { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 12px; }
                 .report-chain span { padding: 4px 10px; border-radius: 999px; border: 1px solid var(--epic-line, #e8e9e9); color: var(--epic-muted, #878a99); background: #fff; }
                 .report-chain i { font-style: normal; color: var(--epic-muted, #878a99); }
                 .report-chain span.is-from { border-color: var(--epic-dark, #111); color: var(--epic-dark, #111); font-weight: 600; }
-                .report-chain span.is-to { background: var(--epic-blue, #b8892e); border-color: var(--epic-blue, #b8892e); color: #fff; font-weight: 600; }
+                .report-chain span.is-to { background: var(--epic-blue, #cb6b4f); border-color: var(--epic-blue, #cb6b4f); color: #fff; font-weight: 600; }
             </style>
         @endif
 

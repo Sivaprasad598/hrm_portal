@@ -12,7 +12,7 @@
         .pd-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px; }
         .pd-grid--small { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
 
-        .pd-card { --tone: #b8892e; position: relative; display: flex; flex-direction: column; background: #fff; border-radius: 8px; padding: 16px 18px 12px; cursor: pointer;
+        .pd-card { --tone: #cb6b4f; position: relative; display: flex; flex-direction: column; background: #fff; border-radius: 8px; padding: 16px 18px 12px; cursor: pointer;
                    box-shadow: 0 1px 2px rgba(56, 65, 74, .15); transition: box-shadow .15s, transform .15s; color: var(--epic-text, #212529); }
         .pd-card:hover, .pd-card:focus { box-shadow: 0 8px 24px rgba(56, 65, 74, .16); transform: translateY(-1px); outline: 0; }
         .pd-card__top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
@@ -25,10 +25,10 @@
         .pd-card__line { display: flex; justify-content: space-between; gap: 8px; font-size: 12.5px; line-height: 1.9; }
         .pd-card__line span:first-child { color: #667085; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .pd-card__line span:last-child { font-weight: 600; white-space: nowrap; color: var(--epic-text, #212529); }
-        .pd-card__more { font-size: 12px; font-weight: 600; color: var(--epic-blue, #b8892e); margin-top: 8px; display: inline-flex; align-items: center; gap: 4px; }
+        .pd-card__more { font-size: 12px; font-weight: 600; color: var(--epic-blue, #cb6b4f); margin-top: 8px; display: inline-flex; align-items: center; gap: 4px; }
         .pd-card__more i, .pd-card__more svg { font-size: 10px; }
         .pd-blue { --tone: #2e90fa; } .pd-green { --tone: #12b76a; } .pd-teal { --tone: #0e9384; } .pd-red { --tone: #f04438; }
-        .pd-orange { --tone: #ef6820; } .pd-indigo { --tone: #6172f3; } .pd-dark { --tone: #344054; } .pd-purple { --tone: #7a5af8; } .pd-amber { --tone: var(--epic-blue, #b8892e); }
+        .pd-orange { --tone: #ef6820; } .pd-indigo { --tone: #6172f3; } .pd-dark { --tone: #344054; } .pd-purple { --tone: #7a5af8; } .pd-amber { --tone: var(--epic-blue, #cb6b4f); }
         .pd-card.pd-blue .pd-card__value, .pd-card.pd-dark .pd-card__value { color: var(--epic-text, #212529); }
 
         .pd-mini { --tone: #12b76a; display: flex; align-items: center; gap: 12px; border-radius: 8px; padding: 12px 14px; cursor: pointer; background: #fff;
@@ -80,7 +80,7 @@
         .pd-extra.credit { background: #ecfdf3; color: #067647; }
         .pd-extra.debit { background: #fef3f2; color: #b42318; }
         .pd-open { width: 30px; height: 30px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--epic-line, #e8e9e9); color: #475467; }
-        .pd-open:hover { border-color: var(--epic-blue, #b8892e); color: var(--epic-blue, #b8892e); text-decoration: none; }
+        .pd-open:hover { border-color: var(--epic-blue, #cb6b4f); color: var(--epic-blue, #cb6b4f); text-decoration: none; }
 
         /* Polish: a tone line along the top, the breakdown on a soft panel, the link as a footer */
         .pd-card { padding-top: 18px; overflow: hidden; }
@@ -90,7 +90,7 @@
         .pd-card__line + .pd-card__line { border-top: 1px dashed #eceef1; }
         .pd-card__more { margin: auto -18px -12px; padding: 10px 18px; border-top: 1px solid #f0f1f3; justify-content: space-between; display: flex; }
         .pd-card:hover .pd-card__more { background: color-mix(in srgb, var(--tone) 6%, #fff); }
-        .pd-section-title::before { content: ''; width: 4px; height: 14px; border-radius: 2px; background: var(--epic-blue, #b8892e); align-self: center; }
+        .pd-section-title::before { content: ''; width: 4px; height: 14px; border-radius: 2px; background: var(--epic-blue, #cb6b4f); align-self: center; }
 
         /* The list behind a card: wide, the table with room for its scrollbar */
         #pd-modal .modal-dialog { max-width: min(1500px, 96vw); }
@@ -230,7 +230,7 @@
                             ['pf', 'fa-file-alt', 'PF — ECR upload', 'TXT', '#7a5af8', 'EPFO ECR 2.0 text file for the unified portal: UAN, wages, EE / ER shares, NCP days.'],
                             ['sheet:pf', 'fa-shield-alt', 'PF register', 'XLSX', '#7a5af8', 'The same lines as a sheet with totals, to check before uploading the ECR.'],
                             ['sheet:esi', 'fa-heartbeat', 'ESI return', 'XLSX', '#0e9384', 'ESIC monthly upload layout (IP number, days, wages, reason code) and the contributions.'],
-                            ['sheet:pt', 'fa-landmark', 'Professional tax', 'XLSX', '#b8892e', 'Each employee\'s PT for the month with the slab totals, for the state return.'],
+                            ['sheet:pt', 'fa-landmark', 'Professional tax', 'XLSX', '#cb6b4f', 'Each employee\'s PT for the month with the slab totals, for the state return.'],
                             ['sheet:tds', 'fa-file-invoice', 'TDS — salary (24Q)', 'XLSX', '#f04438', 'Annexure II details: code, PAN, name, section 192, paid, TDS and date of credit.'],
                             ['sheet:all', 'fa-layer-group', 'All returns workbook', 'XLSX', '#344054', 'PF, ESI, PT and TDS as sheets of one workbook.'],
                         ] as [$what, $icon, $name, $fmt, $tone, $desc])

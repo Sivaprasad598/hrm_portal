@@ -62,7 +62,9 @@ class LeaveController extends AccountBaseController
                 || \App\Services\Leaves\LeaveApprovals::isApprover());
 
         return [
-            'table' => in_array($view, ['all', 'added', 'both'], true) || $managesTeam,
+            // everyone has the table: an employee's ('owned') lists only their own leave
+            'table' => in_array($view, ['all', 'added', 'both', 'owned'], true),
+            'team' => in_array($view, ['all', 'added', 'both'], true) || $managesTeam,
             'apply' => in_array(user()->permission('add_leave'), ['all', 'added'], true),
             'forOthers' => user()->permission('add_leave_for_others') === 'all',
         ];
@@ -75,14 +77,14 @@ class LeaveController extends AccountBaseController
      */
     public function index(LeaveDataTable $dataTable)
     {
-        $this->pageTitle = 'Leave Requests';
+        $this->pageTitle = self::access()['team'] ? 'Leave Requests' : __('modules.leaves.myLeaves');
         $viewPermission = user()->permission('view_leave');
         $viewEmployeePermission = user()->permission('view_employees');
         abort_403(!in_array($viewPermission, ['all', 'added', 'owned', 'both']));
 
         \App\Services\Leaves\LeaveApprovals::escalateDue();
 
-        // An employee sees their own leave and the calendar, not the list of everybody's.
+        // An employee's table lists only their own leave (LeaveDataTable, 'owned').
         if (!self::access()['table']) {
             return redirect()->route('leaves.personal');
         }

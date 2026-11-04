@@ -14,7 +14,15 @@ class EpicColors
     // icon strip down the left
     const FIELDS = ['primary', 'accent', 'dark', 'strip'];
 
+    // The default: the Arowana logo palette (logo guidelines: copper #cb6b4f,
+    // black #231f20, grey #6d6e71)
+    const DEFAULT = 'arowana';
+
     const PRESETS = [
+        'arowana' => [
+            'label' => 'Arowana brand (copper, black, grey)',
+            'primary' => '#cb6b4f', 'accent' => '#6d6e71', 'dark' => '#231f20', 'strip' => '#231f20',
+        ],
         'epic' => [
             'label' => 'Epic (blue and green)',
             'primary' => '#3d78e3', 'accent' => '#67b173', 'dark' => '#212529', 'strip' => '#67b173',
@@ -33,7 +41,7 @@ class EpicColors
     public static function current(): array
     {
         $saved = json_decode((string) (global_setting()->epic_colors ?? ''), true) ?: [];
-        $colors = array_intersect_key(self::PRESETS['epic'], array_flip(self::FIELDS));
+        $colors = array_intersect_key(self::PRESETS[self::DEFAULT], array_flip(self::FIELDS));
 
         foreach (self::FIELDS as $field) {
             if (self::valid($saved[$field] ?? null)) {
@@ -55,18 +63,14 @@ class EpicColors
             }
         }
 
-        $default = array_intersect_key(self::PRESETS['epic'], array_flip(self::FIELDS));
+        $default = array_intersect_key(self::PRESETS[self::DEFAULT], array_flip(self::FIELDS));
 
         return ($colors && $colors != $default) ? json_encode($colors) : null;
     }
 
-    /** CSS variables for the chosen colours, or nothing when none were chosen */
+    /** CSS variables for the colours in use (the brand's when none were chosen) */
     public static function css(): string
     {
-        if (!global_setting()?->epic_colors) {
-            return '';
-        }
-
         $c = self::current();
 
         return ':root{--epic-blue:' . $c['primary'] . ';--epic-green:' . $c['accent']

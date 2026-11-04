@@ -15,7 +15,7 @@
     .head .co { text-align: right; font-size: 9px; color: #52606d; line-height: 1.45; }
     .head .co strong { display: block; font-size: 12.5px; color: #12263f; letter-spacing: .2px; }
     .rule { height: 3px; background: #12263f; margin: 8px 0 1px; }
-    .rule2 { height: 1px; background: #c9a227; margin-bottom: 14px; }
+    .rule2 { height: 1px; background: #cb6b4f; margin-bottom: 14px; }
     .conf { text-align: right; font-size: 8.5px; letter-spacing: 1.2px; color: #9b2c2c; font-weight: bold; margin-bottom: 8px; }
     .meta { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
     .meta td { padding: 0; vertical-align: top; }

@@ -168,11 +168,20 @@ class ClockInCapture
     }
 
     /**
-     * A web address for a stored picture, or nothing.
+     * A web address for a stored picture, or nothing: a signed link valid for a
+     * day, served by AttendancePhotoController (not /storage/..., which needs
+     * the public/storage link on the server). Signed on the path only (relative),
+     * so http / https or the host behind a proxy do not break it.
      */
     public static function url(?string $path): ?string
     {
-        return $path ? Storage::disk('public')->url($path) : null;
+        if (!$path) {
+            return null;
+        }
+
+        return url(\Illuminate\Support\Facades\URL::temporarySignedRoute(
+            'attendance.photo', now()->addDay()->startOfHour(), ['path' => $path], false
+        ));
     }
 
     /**

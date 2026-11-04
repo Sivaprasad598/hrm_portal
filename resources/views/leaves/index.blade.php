@@ -58,12 +58,14 @@ $approveRejectPermission = user()->permission('approve_or_reject_leaves');
         </div>
         <!-- SEARCH BY TASK END -->
 
-        <!-- LEAVE MANAGEMENT START -->
+        <!-- LEAVE MANAGEMENT START: everybody's leave, not for an employee's own table -->
+        @if (\App\Http\Controllers\LeaveController::access()['team'])
         <div class="select-box d-flex py-1 px-lg-2 px-md-2 px-0">
             <x-forms.link-secondary link="javascript:;" id="open-leave-management" icon="tasks">
                 Leave Management
             </x-forms.link-secondary>
         </div>
+        @endif
         <!-- LEAVE MANAGEMENT END -->
 
         <!-- RESET START -->

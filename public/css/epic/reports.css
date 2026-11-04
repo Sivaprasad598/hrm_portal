@@ -1,12 +1,12 @@
 /* The attendance reports (Total_Monthly_Attendance.php, Monthly_attendance.php,
    annual_attendance.php) in the Epic HR look, over their own styles: shown as
    tabs of Attendance > Dashboard. Colours follow Settings > Theme Settings. */
-:root { --epic-blue: #b8892e; --epic-dark: #111111; --epic-line: #e8e9e9; --epic-muted: #878a99; --epic-text: #212529; }
+:root { --epic-blue: #cb6b4f; --epic-dark: #231f20; --epic-line: #e8e9e9; --epic-muted: #878a99; --epic-text: #212529; }
 
 body { font-family: 'Plus Jakarta Sans', 'Segoe UI', Arial, sans-serif !important; background: #fff !important; margin: 0 !important; padding: 0 !important; color: var(--epic-text); }
 .container, .attendance-container, .attendance-wrapper { background: #fff !important; box-shadow: none !important; border: 0 !important; padding: 0 !important; margin: 0 !important; border-radius: 0 !important; }
 
-/* Title bars: dark with a gold rule, not yellow */
+/* Title bars: dark with a copper rule, not yellow */
 h2, .page-title, .title-row th {
     background: var(--epic-dark) !important; color: #fff !important; border: 0 !important;
     border-bottom: 3px solid var(--epic-blue) !important; border-radius: 8px 8px 0 0 !important;

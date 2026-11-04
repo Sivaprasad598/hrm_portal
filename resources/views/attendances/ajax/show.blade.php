@@ -37,8 +37,9 @@ $deleteAttendancePermission = user()->permission('delete_attendance');
         <div class="col-md-6">
             <x-cards.data :title="__('app.date').' - '.$attendanceDate->translatedFormat(company()->date_format) .' ('.$attendanceDate->translatedFormat('l').')'">
                 <div class="mb-3">
-                    @if ($hasAssignedShift && !empty($attendanceSettings) && !empty($attendanceSettings->shift_name))
-                        <p class="mb-0 f-13">{{ __('modules.attendance.shiftLabel') }}: {{ $attendanceSettings->shift_name }}</p>
+                    {{-- No roster entry that day: the company's default shift applies (its times are what Late / Early Exit use) --}}
+                    @if (!empty($attendanceSettings) && !empty($attendanceSettings->shift_name))
+                        <p class="mb-0 f-13">{{ __('modules.attendance.shiftLabel') }}: {{ $attendanceSettings->shift_name }}@unless ($hasAssignedShift) <span class="text-lightest">(default shift, none assigned)</span>@endunless</p>
                         <p class="mb-0 f-13">{{ __('modules.attendance.timing') }}: {{ \Carbon\Carbon::createFromFormat('H:i:s', $attendanceSettings->office_start_time)->translatedFormat(company()->time_format) }} - {{ \Carbon\Carbon::createFromFormat('H:i:s', $attendanceSettings->office_end_time)->translatedFormat(company()->time_format) }}</p>
                         <p class="mb-0 f-13">{{ __('modules.attendance.totalShiftHours') }}: {{ $totalShiftHoursLabel }}</p>
                     @else
@@ -86,7 +87,7 @@ $deleteAttendancePermission = user()->permission('delete_attendance');
                         <div class="col-6 col-md-3 mb-3">
                             <h6 class="f-13">@lang('modules.attendance.dayStatus')</h6>
                             <p class="mb-0">
-                                <span class="badge {{ ['Present' => 'badge-success', 'Half Day' => 'badge-warning', 'Absent' => 'badge-danger'][$dayStatus] ?? 'badge-secondary' }}">{{ $dayStatus }}</span>
+                                <span class="badge {{ ['Present' => 'badge-success', 'Half Day' => 'badge-warning', 'Absent' => 'badge-danger', 'In progress' => 'badge-info'][$dayStatus] ?? 'badge-secondary' }}">{{ $dayStatus }}</span>
                             </p>
                         </div>
                     @endisset

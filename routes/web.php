@@ -138,6 +138,10 @@ use App\Http\Controllers\TimelogWeeklyApprovalController;
 use App\Http\Controllers\WeeklyTimesheetController;
 use App\Http\Controllers\Auth\LogoutController;
 
+// Clock-in / out pictures: a signed, expiring link (ClockInCapture::url), so it
+// opens in the web pages and the mobile app alike without /storage on the server
+Route::get('attendance-photo', [\App\Http\Controllers\AttendancePhotoController::class, 'show'])
+    ->middleware('signed:relative')->name('attendance.photo');
 
 Route::group(['middleware' => 'auth', 'prefix' => 'account'], function () {
     // Its own name: "logout" is Fortify's /logout, which every sign-out button uses,
