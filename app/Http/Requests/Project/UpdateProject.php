@@ -69,6 +69,9 @@ class UpdateProject extends CoreRequest
 
         $rules = $this->customFieldRules($rules);
 
+        // No emojis in the text fields (QA tracker)
+        $rules = \App\Rules\NoEmoji::addTo($rules, ['project_name', 'project_code', 'project_summary', 'notes']);
+
         return $rules;
     }
 

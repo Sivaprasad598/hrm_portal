@@ -4,6 +4,28 @@
 
     <!-- NAVBAR LEFT(MOBILE MENU COLLAPSE) START-->
     <div class="navbar-left float-left d-flex align-items-center">
+        {{-- Employees (no other role): a welcome by name. The salutation on their
+             record first; otherwise from gender - Mr., or for a woman Mrs. when
+             married and Ms. when not. --}}
+        @if (\App\Services\Access\AssignedModules::plainEmployee())
+            @php
+                $me = user();
+                $title = $me->salutation?->label();
+                if (!$title) {
+                    $married = optional($me->employeeDetail)->marital_status;
+                    $married = ($married instanceof \BackedEnum ? $married->value : $married) === 'married';
+                    $title = match (strtolower((string) $me->gender)) {
+                        'male' => 'Mr.',
+                        'female' => $married ? 'Mrs.' : 'Ms.',
+                        default => null,
+                    };
+                }
+            @endphp
+            <div class="epic-welcome d-none d-lg-flex">
+                <span>Welcome, <b>{{ trim(($title ? $title . ' ' : '') . $me->name) }}</b></span>
+            </div>
+        @endif
+
         <x-app-title class="d-none d-lg-flex" :pageTitle="$pageTitle"></x-app-title>
 
         {{-- The app launcher (sections.app-launcher-popup) is off for everyone: the sidebar has every page --}}
@@ -162,7 +184,7 @@
             <!-- CLOCK IN / CLOCK OUT END -->
 
         <!-- NOTIFICATIONS START -->
-            <li title="{{__('app.newNotifications')}}">
+            <li title="Notifications">
                 <div class="notification_box dropdown">
                     <a class="d-block dropdown-toggle header-icon-box show-user-notifications" type="link"
                        data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
@@ -173,33 +195,12 @@
                         @endif
                     </a>
                     <!-- DROPDOWN - INFORMATION -->
-                    <div
-                        class="dropdown-menu dropdown-menu-right notification-dropdown border-0 shadow-lg py-0 bg-additional-grey"
-                        tabindex="0">
-                        <div
-                            class="d-flex px-3 justify-content-between align-items-center border-bottom-grey py-1 bg-white">
-                            <div class="___class_+?50___">
-                                <p class="f-14 mb-0 text-dark f-w-500">@lang('app.newNotifications')</p>
-                            </div>
-                            @if ($unreadNotificationCount > 0)
-                                <div class="f-12 ">
-                                    <a href="javascript:;"
-                                       class="text-dark-grey mark-notification-read">@lang('app.markRead')</a> |
-                                    <a href="{{ route('all-notifications') }}"
-                                       class="text-dark-grey">@lang('app.showAll')</a>
-                                </div>
-                            @endif
+                    <div class="dropdown-menu dropdown-menu-right notification-dropdown border-0 shadow-lg py-0" tabindex="0">
+                        <div class="nt-head">
+                            <span>Notifications</span>
+                            <a href="{{ route('all-notifications') }}">@lang('app.showAll')</a>
                         </div>
-                        <div id="notification-list">
-
-                        </div>
-
-                        @if($unreadNotificationCount > 6)
-                            <div class="d-flex px-3 pb-1 pt-2 justify-content-center bg-additional-grey">
-                                <a href="{{ route('all-notifications') }}"
-                                   class="text-darkest-grey f-13">@lang('app.showAll')</a>
-                            </div>
-                        @endif
+                        <div id="notification-list"></div>
                     </div>
                 </div>
             </li>
@@ -274,6 +275,8 @@
                     success: function (data) {
                         if (data.status === 'success') {
                             $('#notification-list').html(data.html);
+                            // Seen: the server marked them read, so the bell clears.
+                            $('.unread-notifications-count').remove();
                         }
                     }
                 });

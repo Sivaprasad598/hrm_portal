@@ -531,7 +531,7 @@ $probationMonths = (int) (\Illuminate\Support\Facades\DB::table('probation_perio
                         <div class="col-lg-3 col-md-6">
                             <x-forms.select fieldId="marital_status" :fieldLabel="__('modules.employees.maritalStatus')"
                                 fieldName="marital_status" :fieldPlaceholder="__('placeholders.date')">
-                                @foreach (\App\Enums\MaritalStatus::cases() as $status)
+                                @foreach (\App\Enums\MaritalStatus::offered() as $status)
                                     <option @selected($employee->employeeDetail->marital_status == $status)
                                         value="{{ $status->value }}">{{ $status->label() }}</option>
                                 @endforeach

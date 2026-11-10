@@ -61,12 +61,19 @@ class HolidayObserver
         }
 
         EmployeeShiftSchedule::whereDate('date', $holiday->date)->where('company_id', $holiday->company_id)->delete();
+
+        // Leave already taken for the day is not counted any more
+        \App\Services\Leaves\DayOffLeaves::forHoliday($holiday);
     }
 
 
     public function updated(Holiday $holiday)
     {
         EmployeeShiftSchedule::whereDate('date', $holiday->date)->where('company_id', $holiday->company_id)->delete();
+
+        if ($holiday->wasChanged(['date', 'department_id_json', 'designation_id_json', 'employment_type_json'])) {
+            \App\Services\Leaves\DayOffLeaves::forHoliday($holiday);
+        }
     }
 
 }

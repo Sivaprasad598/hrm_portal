@@ -69,6 +69,11 @@ class LegacyPageController extends AccountBaseController
     {
         $definition = self::PAGES[$page] ?? abort(404);
 
+        // The requests tab (also inside Notice Period Settings): ended probations show at once
+        if ($page === 'probation_period_request') {
+            LegacyController::checkProbationsNow();
+        }
+
         // A permission, where the page names one, decides on its own; the
         // administrator role passes everything regardless.
         if (isset($definition['permission'])) {

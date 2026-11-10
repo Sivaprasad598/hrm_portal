@@ -29,6 +29,7 @@ class StoreBulkShift extends FormRequest
             'month' => 'required_if:assign_shift_by,month',
             'multi_date' => 'required_if:assign_shift_by,date',
             'user_id.0' => 'required',
+            'remarks' => ['nullable', 'max:1000', new \App\Rules\NoEmoji],
         ];
     }
 

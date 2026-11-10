@@ -54,8 +54,8 @@
                         $status = $day['status'];
                         $label = $statusMeta[$status][0] ?? ucfirst(str_replace('_', ' ', $status));
                         if ($date === $today && $day['first_in'] && in_array($status, ['absent', 'half_day'], true)) {
-                            $status = 'present';
-                            $label = 'In progress';
+                            $status = ($openNow ?? false) ? 'present' : $status;
+                            $label = ($openNow ?? false) ? 'In progress' : 'Clocked out';
                         }
                         $hasLeave = !empty($leaves[$date]);
                     @endphp

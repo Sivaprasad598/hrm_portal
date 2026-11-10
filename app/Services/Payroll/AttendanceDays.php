@@ -71,7 +71,7 @@ class AttendanceDays
         $pre = ['range' => $from->toDateString() . '|' . $to->toDateString(), 'users' => array_flip($userIds)];
 
         $pre['employees'] = DB::table('employee_details')->whereIn('user_id', $userIds)
-            ->get(['user_id', 'joining_date', 'last_date', 'company_id'])->keyBy('user_id')->all();
+            ->get(['user_id', 'joining_date', 'last_date', 'company_id', 'department_id', 'designation_id', 'employment_type'])->keyBy('user_id')->all();
         $pre['flags'] = DB::table('employee_details as ed')->leftJoin('teams as t', 't.id', '=', 'ed.department_id')
             ->whereIn('ed.user_id', $userIds)->get(['ed.user_id', 'ed.attendance_exempt', 't.consider_attendance_hours'])
             ->keyBy('user_id')->all();
@@ -109,7 +109,7 @@ class AttendanceDays
 
         $employee = $this->preloaded('employees', $userId, $from, $to);
         $employee = $employee === null
-            ? DB::table('employee_details')->where('user_id', $userId)->first(['joining_date', 'last_date', 'company_id'])
+            ? DB::table('employee_details')->where('user_id', $userId)->first(['joining_date', 'last_date', 'company_id', 'department_id', 'designation_id', 'employment_type'])
             : ($employee ?: null);
         $joinedOn = $employee?->joining_date ? substr((string) $employee->joining_date, 0, 10) : null;
         $leftOn = $employee?->last_date ? substr((string) $employee->last_date, 0, 10) : null;
@@ -119,7 +119,7 @@ class AttendanceDays
         // whether the day is worked (its working days), how long counts as a
         // full day, and which hours belong to the day for an overnight shift.
         $resolver = \App\Services\Attendance\ShiftResolver::shared($employee?->company_id);
-        $holidays = $this->holidays($employee?->company_id, $from, $to);
+        $holidays = $this->holidays($employee?->company_id, $from, $to, $employee);
         $leaveByDay = $this->leave($userId, $from, $to);
         $shiftByDay = [];
         $cursor = $from->copy();
@@ -254,7 +254,7 @@ class AttendanceDays
 
                 if ($edge) {
                     $workedSeconds = $rules->worked($edge['first'], max($edge['first'], $edge['last']), $shift, $key);
-                    $credit = $rules->credit($workedSeconds, $shift);
+                    $credit = $rules->dayCredit($edge['first'], max($edge['first'], $edge['last']), $workedSeconds, $shift, $key);
 
                     if ($credit > 0 && $rules->afterHalfDayMark($edge['first'], $shift, $key)) {
                         $credit = min($credit, 0.5);
@@ -361,22 +361,49 @@ class AttendanceDays
         self::$leaveTypes = null;
     }
 
-    protected function holidays(?int $companyId, Carbon $from, Carbon $to): array
+    protected function holidays(?int $companyId, Carbon $from, Carbon $to, ?object $employee = null): array
     {
-        // The same for every employee: the payroll run asks for each of them.
+        // Read once for every employee: the payroll run asks for each of them.
         $key = (int) $companyId . '|' . $from->toDateString() . '|' . $to->toDateString();
         $rows = self::$holidayRows[$key] ??= DB::table('holidays')
             ->when($companyId, fn ($q) => $q->where('company_id', $companyId))
             ->whereBetween('date', [$from->toDateString(), $to->toDateString()])
-            ->get(['date', 'occassion']);
+            ->get(['date', 'occassion', 'department_id_json', 'designation_id_json', 'employment_type_json']);
 
         $this->holidayNames = [];
 
         foreach ($rows as $row) {
+            // A holiday limited to some departments, designations or employment
+            // types is a paid holiday only for those people; a blank field means
+            // everyone. The same rule as the holiday calendar (Holiday model).
+            if ($employee && !$this->holidayAppliesTo($row, $employee)) {
+                continue;
+            }
             $this->holidayNames[substr((string) $row->date, 0, 10)] = $row->occassion;
         }
 
         return array_keys($this->holidayNames);
+    }
+
+    /** Whether a holiday covers this employee: each limit set must include them. */
+    protected function holidayAppliesTo(object $holiday, object $employee): bool
+    {
+        foreach ([
+            'department_id_json' => $employee->department_id ?? null,
+            'designation_id_json' => $employee->designation_id ?? null,
+            'employment_type_json' => $employee->employment_type ?? null,
+        ] as $column => $value) {
+            $limit = $holiday->{$column} ?? null;
+            $list = ($limit !== null && $limit !== '' && $limit !== 'null') ? json_decode($limit, true) : null;
+
+            if (is_array($list) && $list !== []) {
+                if ($value === null || $value === '' || !in_array((string) $value, array_map('strval', $list), true)) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
 
     /** @return array<string, array<string, float>> keyed by date */

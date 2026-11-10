@@ -36,6 +36,7 @@ class BiometricException extends BaseModel
         'single_punch' => [self::PUNCH, 'Single punch', 'Only one punch for the day, so neither the hours nor the exit are known.'],
         'missing_exit' => [self::PUNCH, 'Missing exit', 'The day has an entry but no exit punch.'],
         'missing_entry' => [self::PUNCH, 'Missing entry', 'The day has an exit but no entry punch.'],
+        'punched_on_leave' => [self::PUNCH, 'Punched while on leave', 'Approved full-day leave, yet the device shows punches that day. Payroll counts the leave: cancel the leave if they actually worked, otherwise Ignore this.'],
     ];
 
     protected $guarded = ['id'];

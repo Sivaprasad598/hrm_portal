@@ -47,9 +47,15 @@
         <a href="{{ $leavesUrl }}" class="pd-card">
             <div class="pd-label">Leave balance <i class="bi bi-calendar2-heart"></i></div>
             @if ($d['leave'])
-                <div class="pd-leaves">
+                {{-- Each type by name: what is left of what was given, and a bar of it --}}
+                <div class="pd-lbal">
                     @foreach ($d['leave'] as $l)
-                        <div title="{{ $l['name'] }}"><strong>{{ $fmt($l['remaining']) }}</strong>{{ $l['code'] }}</div>
+                        @php $leftPct = ($l['given'] ?? 0) > 0 ? max(0, min(100, round($l['remaining'] / $l['given'] * 100))) : 0; @endphp
+                        <div class="pd-lbal__row">
+                            <span class="pd-lbal__name"><i style="background: {{ $l['color'] ?? '#cb6b4f' }}"></i>{{ $l['name'] }}</span>
+                            <span class="pd-lbal__num"><b>{{ $fmt($l['remaining']) }}</b>@if (($l['given'] ?? 0) > 0)<small> / {{ $fmt($l['given']) }}</small>@endif</span>
+                            <span class="pd-lbal__bar"><span style="width: {{ $leftPct }}%; background: {{ $l['color'] ?? '#cb6b4f' }}"></span></span>
+                        </div>
                     @endforeach
                 </div>
             @else
@@ -104,9 +110,13 @@
                             $date = \Carbon\Carbon::parse($day['date']);
                             $status = $day['status'];
                             $label = $statusMeta[$status][0] ?? ucfirst(str_replace('_', ' ', $status));
+                            // Today, clocked in and not yet out: in progress. Clocked out
+                            // already (and not counted yet): say so, with the times.
                             if ($day['date'] === $d['today']->toDateString() && $day['first_in'] && in_array($status, ['absent', 'half_day'], true)) {
-                                $status = 'in_progress';
-                                $label = 'In progress';
+                                $openNow ??= \App\Models\Attendance::withoutGlobalScopes()->where('user_id', $me->id)->whereNull('clock_out_time')
+                                    ->where('clock_in_time', '>=', $d['today']->copy()->startOfDay()->timezone('UTC'))->exists();
+                                $status = $openNow ? 'in_progress' : 'clocked_out';
+                                $label = $openNow ? 'In progress' : 'Clocked out';
                             }
                             $short = ['Week off (paid)' => 'Week off', 'Holiday (paid)' => 'Holiday', 'Absent (LOP)' => 'Absent', 'Unpaid leave (LOP)' => 'LOP leave'][$label] ?? $label;
                         @endphp
@@ -183,7 +193,7 @@
     @if ($d['otBank'] !== null)
         <div class="col-xl-3 col-md-6 mb-3">
             <a href="{{ route('employees.show', $me->id) }}?tab=ot-bank" class="pd-card">
-                <div class="pd-label">OT bank <i class="bi bi-hourglass-split"></i></div>
+                <div class="pd-label">Overtime balance <i class="bi bi-hourglass-split"></i></div>
                 <div class="pd-big">{{ $fmt($d['otBank']) }} <small>hours</small></div>
                 <div class="pd-sub">available to use</div>
             </a>

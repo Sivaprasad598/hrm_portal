@@ -51,6 +51,20 @@
         </div>
     </form>
 
+    {{-- Applicants by position: HR shortlists within a position --}}
+    @php $tabQuery = request()->except(['position_id', 'page']); @endphp
+    <div class="rc-pos-tabs mb-2">
+        <a href="{{ route('job-applications.index', $tabQuery) }}" class="{{ request('position_id') ? '' : 'active' }}">All<span>{{ $positionCounts->sum() + $unassignedCount }}</span></a>
+        @foreach ($positions->where('status', '<>', 'closed') as $position)
+            <a href="{{ route('job-applications.index', $tabQuery + ['position_id' => $position->id]) }}"
+               class="{{ request('position_id') == $position->id ? 'active' : '' }}">{{ $position->title }}<span>{{ $positionCounts[$position->id] ?? 0 }}</span></a>
+        @endforeach
+        @if ($unassignedCount)
+            <a href="{{ route('job-applications.index', $tabQuery + ['position_id' => 'unassigned']) }}"
+               class="{{ request('position_id') === 'unassigned' ? 'active' : '' }}">Unassigned<span>{{ $unassignedCount }}</span></a>
+        @endif
+    </div>
+
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
         <div class="btn-group mb-2">
             <a href="{{ route('job-applications.index', $query + ['view' => 'board']) }}" class="btn btn-sm {{ $board ? 'btn-primary' : 'btn-outline-secondary' }}"><i class="fa fa-columns mr-1"></i>Board</a>
@@ -65,16 +79,22 @@
         <div class="rc-board">
             @foreach ($columns as $column)
                 @php $cards = $applications->get($column, collect()); @endphp
-                <div class="rc-col">
+                <div class="rc-col {{ $cards->isEmpty() ? 'rc-col--empty' : '' }}">
                     <div class="rc-col-head"><span>{!! \App\Models\JobApplication::badge($column) !!}</span><span class="text-dark-grey">{{ $cards->count() }}</span></div>
                     @forelse ($cards as $application)
-                        <div class="rc-card">
+                        {{-- Click a card for the applicant's details and actions in a side panel --}}
+                        <div class="rc-card rc-card--quick" title="Click for details">
+                            <a href="{{ route('job-applications.quick', $application->id) }}" class="openRightModal rc-quick-link d-none" aria-hidden="true"></a>
                             <div class="d-flex justify-content-between">
                                 <a href="{{ route('candidates.show', $application->candidate_id) }}" class="rc-name">{{ $application->candidate->name }}</a>
                                 @if ($canManage)
                                     <div class="dropdown">
                                         <a href="#" class="text-dark-grey px-1" data-toggle="dropdown"><i class="fa fa-ellipsis-v"></i></a>
                                         <div class="dropdown-menu dropdown-menu-right f-13">
+                                            @if ($application->stage === 'new' && $application->job_position_id)
+                                                <a class="dropdown-item shortlist-app" href="javascript:;" data-id="{{ $application->id }}"><i class="fa fa-star mr-1"></i>Shortlist</a>
+                                                <div class="dropdown-divider"></div>
+                                            @endif
                                             @foreach (\App\Services\Recruit\Pipeline::choices($application) as $to)
                                                 <a class="dropdown-item openRightModal" href="{{ route('job-applications.move-form', [$application->id, 'to' => $to]) }}">Move to {{ \App\Models\JobApplication::STAGES[$to][0] }}</a>
                                             @endforeach
@@ -93,7 +113,20 @@
                                 @endif
                             </div>
                             <div class="rc-meta">{{ $application->positionLabel() }}</div>
-                            <div class="rc-meta">{{ $application->candidate->experienceText() }}{{ $application->candidate->current_location ? ' · ' . $application->candidate->current_location : '' }}</div>
+                            @if ($p = $progress[$application->id] ?? null)
+                                <div class="rc-progress">
+                                    @if ($p['at'] && in_array($application->stage, ['shortlisted', 'interview']))<b>Round {{ $p['at'] }} of {{ $p['of'] }}</b>@if ($p['proposed']) · <span class="text-info">slot to confirm</span>@endif @endif
+                                    @if ($p['scores']) · {{ implode(' · ', $p['scores']) }} @endif
+                                </div>
+                            @endif
+                            <div class="rc-meta">{{ $application->candidate->experienceText() }}{{ $application->candidate->current_location ? ' · ' . $application->candidate->current_location : '' }}@if ($application->candidate->expected_ctc) · <span class="text-nowrap">expects ₹{{ rtrim(rtrim(number_format($application->candidate->expected_ctc / 100000, 2), '0'), '.') }}&nbsp;L</span>@endif</div>
+                            @if ($canManage && $application->stage === 'new' && $application->job_position_id)
+                                {{-- Screening the New column straight from the board --}}
+                                <div class="rc-quick-actions">
+                                    <button type="button" class="btn btn-primary shortlist-app" data-id="{{ $application->id }}"><i class="fa fa-star mr-1"></i>Shortlist</button>
+                                    <a href="{{ route('job-applications.move-form', [$application->id, 'to' => 'rejected']) }}" class="btn btn-outline-danger openRightModal"><i class="fa fa-times mr-1"></i>Reject</a>
+                                </div>
+                            @endif
                             <div class="rc-meta d-flex justify-content-between mt-1">
                                 <span><i class="fa {{ \App\Models\Candidate::SOURCES[$application->source][1] ?? 'fa-circle' }} mr-1"></i>{{ ($application->stage_changed_at ?? $application->created_at)->diffForHumans(null, true) }}</span>
                                 @if ($application->candidate->resume)
@@ -111,7 +144,7 @@
         <div class="bg-white rounded b-shadow-4 table-responsive">
             <table class="table table-hover mb-0 f-14">
                 <thead class="bg-light">
-                    <tr><th>Candidate</th><th>Position</th><th>Stage</th><th>Source</th><th>Applied</th><th class="text-center">Interviews done</th><th class="text-right pr-4">Action</th></tr>
+                    <tr><th>Candidate</th><th>Position</th><th>Stage</th><th>Source</th><th>Applied</th><th>Rounds</th><th class="text-right pr-4">Action</th></tr>
                 </thead>
                 <tbody>
                 @forelse ($applications as $application)
@@ -125,7 +158,14 @@
                             @if ($application->stage_reason)<div class="f-12 text-dark-grey">{{ $application->stage_reason }}</div>@endif</td>
                         <td class="f-13">{{ \App\Models\Candidate::SOURCES[$application->source][0] ?? $application->source }}</td>
                         <td class="f-13">{{ $application->created_at->format($fmt) }}</td>
-                        <td class="text-center">{{ $application->interviews_done }}</td>
+                        <td class="f-12">
+                            @if ($p = $progress[$application->id] ?? null)
+                                @if ($p['at'] && in_array($application->stage, ['shortlisted', 'interview']))<b>{{ $p['at'] }} of {{ $p['of'] }}</b>@endif
+                                {{ implode(' · ', $p['scores']) }}
+                            @else
+                                {{ $application->interviews_done }} done
+                            @endif
+                        </td>
                         <td class="text-right pr-4">
                             @if ($canManage && $application->stage !== 'joined')
                                 <a href="{{ route('job-applications.move-form', $application->id) }}" class="btn btn-sm btn-outline-secondary openRightModal">{{ $application->position ? 'Move' : 'Assign' }}</a>
@@ -143,3 +183,28 @@
     @endif
 </div>
 @endsection
+
+@push('scripts')
+<script>
+    // A card opens the applicant's details in the side panel - unless the click
+    // was on something of its own (the name, the menu, a button, the resume).
+    $('body').on('click', '.rc-card--quick', function (e) {
+        if ($(e.target).closest('a, button, .dropdown, .dropdown-menu').length) { return; }
+        $(this).find('.rc-quick-link').trigger('click');
+    });
+    // The name opens the panel too; the full profile is a button inside it
+    $('body').on('click', '.rc-card--quick .rc-name', function (e) {
+        e.preventDefault();
+        $(this).closest('.rc-card--quick').find('.rc-quick-link').trigger('click');
+    });
+
+    // HR shortlists; the system then suggests round 1's slot
+    $('body').on('click', '.rc-card .shortlist-app', function () {
+        $.easyAjax({
+            url: '{{ route('job-applications.move', ':id') }}'.replace(':id', $(this).data('id')), type: 'POST', blockUI: true,
+            data: {_token: '{{ csrf_token() }}', stage: 'shortlisted'},
+            success: function (response) { if (response.status === 'success') { window.location.reload(); } }
+        });
+    });
+</script>
+@endpush

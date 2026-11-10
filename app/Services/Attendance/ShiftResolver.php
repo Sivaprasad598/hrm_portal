@@ -300,12 +300,26 @@ class ShiftResolver
         $this->loaded[$userId] = true;
     }
 
+    /** @var array<string, object> one tagged copy per shift and source */
+    protected array $decorated = [];
+
+    /**
+     * The shift tagged with where it came from. One copy per shift and source,
+     * shared by every day that uses it: a full copy per roster day (30,000 rows
+     * and growing) took the Payroll Run past PHP's memory limit. Nothing writes
+     * to these copies, so sharing them is safe.
+     */
     protected function decorate(object $shift, string $source): object
     {
-        $copy = clone $shift;
-        $copy->source = $source;
+        $key = ($shift->id ?? spl_object_id($shift)) . '|' . $source;
 
-        return $copy;
+        if (!isset($this->decorated[$key])) {
+            $copy = clone $shift;
+            $copy->source = $source;
+            $this->decorated[$key] = $copy;
+        }
+
+        return $this->decorated[$key];
     }
 
     protected function withHours(object $shift, string $date): object

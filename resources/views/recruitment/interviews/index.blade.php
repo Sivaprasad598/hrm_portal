@@ -8,31 +8,35 @@
 @endphp
 <div class="content-wrapper">
 
-    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
-        <div class="btn-group mb-2">
-            @foreach (['upcoming' => 'Upcoming', 'today' => 'Today', 'past' => 'Past', 'feedback' => 'Waiting for scorecards'] as $key => $label)
+    {{-- Which interviews (tabs) on the left, the filters on the right, one bar --}}
+    <div class="rc-toolbar mb-3">
+        <nav class="rc-tabs" aria-label="Interviews">
+            @foreach (['confirm' => ['Slots to confirm', 'fa-hourglass-half'], 'upcoming' => ['Upcoming', 'fa-calendar-alt'], 'today' => ['Today', 'fa-calendar-day'],
+                       'past' => ['Past', 'fa-history'], 'feedback' => ['Waiting for scores', 'fa-star-half-alt']] as $key => [$label, $icon])
                 <a href="{{ route('recruit-interviews.index', array_merge(request()->except('page'), ['when' => $key])) }}"
-                   class="btn btn-sm {{ $when === $key ? 'btn-primary' : 'btn-outline-secondary' }}">{{ $label }}</a>
+                   class="rc-tab {{ $when === $key ? 'active' : '' }}" @if ($when === $key) aria-current="page" @endif>
+                    <i class="fa {{ $icon }}"></i>{{ $label }}
+                </a>
             @endforeach
-        </div>
-        <form method="GET" action="{{ route('recruit-interviews.index') }}" class="d-flex flex-wrap align-items-center mb-2">
+        </nav>
+        <form method="GET" action="{{ route('recruit-interviews.index') }}" class="rc-filters">
             <input type="hidden" name="when" value="{{ $when }}">
-            <select name="position_id" class="form-control form-control-sm f-13 mr-2" style="width: 200px" onchange="this.form.submit()">
+            <select name="position_id" class="form-control f-13" onchange="this.form.submit()" aria-label="Position">
                 <option value="">All positions</option>
                 @foreach ($positions as $position)
                     <option value="{{ $position->id }}" @selected(request('position_id') == $position->id)>{{ $position->title }}</option>
                 @endforeach
             </select>
-            <select name="status" class="form-control form-control-sm f-13 mr-2" style="width: 140px" onchange="this.form.submit()">
+            <select name="status" class="form-control f-13" onchange="this.form.submit()" aria-label="Status">
                 <option value="">Any status</option>
                 @foreach (\App\Models\RecruitInterview::STATUSES as $key => [$label])
                     <option value="{{ $key }}" @selected(request('status') === $key)>{{ $label }}</option>
                 @endforeach
             </select>
-            <div class="custom-control custom-checkbox">
-                <input type="checkbox" class="custom-control-input" id="mine" name="mine" value="1" @checked(request('mine')) onchange="this.form.submit()">
-                <label class="custom-control-label f-13" for="mine">I am on the panel</label>
-            </div>
+            <label class="rc-check mb-0">
+                <input type="checkbox" name="mine" value="1" @checked(request('mine')) onchange="this.form.submit()">
+                <span>I am on the panel</span>
+            </label>
         </form>
     </div>
 
@@ -61,19 +65,31 @@
                             @if ($interview->meeting_link) · <a href="{{ $interview->meeting_link }}" target="_blank">link</a> @endif</div>
                     </td>
                     <td class="f-13">{{ collect($interview->interviewer_ids)->map(fn ($id) => $interviewerNames[$id] ?? '')->filter()->implode(', ') }}</td>
-                    <td>{!! $interview->statusBadge() !!}
+                    <td>{!! $interview->statusBadge() !!} {!! $interview->resultBadge() !!}
                         @if ($interview->status === 'scheduled' && $interview->starts_at->lt(now()->subHours(2)))
                             <div class="f-11 text-danger">past — record the outcome</div>
                         @endif
                     </td>
                     <td class="f-13">
-                        {{ $interview->feedback->count() }}/{{ count($interview->interviewer_ids ?: []) }}
-                        @if ($interview->status === 'completed' && $missing)
+                        @if ($interview->isTest())
+                            {{ $interview->marks !== null ? \App\Models\RecruitRound::num($interview->marks) . ' / ' . \App\Models\RecruitRound::num($interview->max_marks ?: 100) : 'marks —' }}
+                        @else
+                            {{ $interview->feedback->count() }}/{{ count($interview->interviewer_ids ?: []) }}
+                            @if ($interview->score !== null) · <strong>{{ \App\Models\RecruitRound::num($interview->score) }}/5</strong> @endif
+                        @endif
+                        @if (!$interview->isTest() && $interview->status === 'completed' && $missing)
                             <div class="f-11 text-warning">waiting for {{ collect($missing)->map(fn ($id) => $interviewerNames[$id] ?? '')->filter()->implode(', ') }}</div>
                         @endif
                     </td>
                     <td class="text-right pr-4 text-nowrap">
-                        <a href="{{ route('recruit-interviews.feedback', $interview->id) }}" class="btn btn-sm btn-outline-primary">{{ $interview->isInterviewer(user()->id) && !$interview->feedback->contains('user_id', user()->id) ? 'Give scorecard' : 'Open' }}</a>
+                        @if ($interview->status === 'proposed')
+                            @if ($canManage)
+                                <a href="javascript:;" class="btn btn-sm btn-primary confirm-slot" data-id="{{ $interview->id }}"><i class="fa fa-check mr-1"></i>Confirm</a>
+                                <a href="{{ route('recruit-interviews.edit', $interview->id) }}" class="btn btn-sm btn-outline-secondary openRightModal">Change</a>
+                            @endif
+                        @else
+                            <a href="{{ route('recruit-interviews.feedback', $interview->id) }}" class="btn btn-sm btn-outline-primary">{{ $interview->isInterviewer(user()->id) && !$interview->feedback->contains('user_id', user()->id) && !$interview->isTest() ? 'Give scorecard' : ($interview->isTest() && $interview->marks === null ? 'Enter marks' : 'Open') }}</a>
+                        @endif
                         @if ($canManage && $interview->status === 'scheduled')
                             <a href="{{ route('recruit-interviews.close-form', $interview->id) }}" class="btn btn-sm btn-outline-secondary openRightModal">Outcome</a>
                         @endif
@@ -89,3 +105,16 @@
     <div class="mt-3">{{ $interviews->links() }}</div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+    // A suggested slot, confirmed in one click (the panel is told; the candidate is emailed when they have an email)
+    $('body').on('click', '.confirm-slot', function () {
+        $.easyAjax({
+            url: '{{ route('recruit-interviews.confirm', ':id') }}'.replace(':id', $(this).data('id')), type: 'POST', blockUI: true,
+            data: {_token: '{{ csrf_token() }}', email_candidate: 1},
+            success: function (response) { if (response.status === 'success') { window.location.reload(); } }
+        });
+    });
+</script>
+@endpush

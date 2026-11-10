@@ -34,6 +34,11 @@
                 </div>
                 <!--  ADD ITEM END-->
                 <div class="pt-20 pl-20 pr-20 row">
+                <div class="col-12">
+                    <p class="f-13 text-dark-grey mb-0 mt-3"><i class="fa fa-info-circle mr-1 text-lightest"></i>
+                        Who gets this holiday: leave Department, Designation and Employment Type empty for <b>everyone</b>,
+                        or pick some to limit it to those people.</p>
+                </div>
                 <div class="col-lg-5">
                     <x-forms.label class="my-3" fieldId="employee_department"
                     :fieldLabel="__('app.department')" >

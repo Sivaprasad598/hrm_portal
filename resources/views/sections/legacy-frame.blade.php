@@ -20,6 +20,14 @@
                 var style = doc.defaultView.getComputedStyle(doc.body);
                 var height = Math.ceil(doc.body.scrollHeight + parseFloat(style.marginTop || 0) + parseFloat(style.marginBottom || 0));
 
+                // An open pop-up needs the frame at least as tall as its card, or
+                // a short page (one row, say) cuts the card's Save button off.
+                doc.querySelectorAll('.modal-overlay.show .card').forEach(function (card) {
+                    var overlay = card.closest('.modal-overlay');
+                    var top = parseFloat(overlay.style.paddingTop || doc.defaultView.getComputedStyle(overlay).paddingTop) || 0;
+                    height = Math.max(height, Math.ceil(top + card.scrollHeight + 40));
+                });
+
                 if (height > 0 && Math.abs(height - frame.offsetHeight) > 1) {
                     frame.style.height = height + 'px';
                 }
@@ -60,6 +68,9 @@
                             card.style.maxHeight = (window.innerHeight - 80) + 'px';
                         });
                     });
+
+                    // Taller while a pop-up is open, back to the page when it closes
+                    fit(frame);
                 }).observe(doc.body, { subtree: true, attributes: true, attributeFilter: ['class'] });
 
                 fit(frame);

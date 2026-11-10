@@ -29,7 +29,7 @@ class BiometricReconciler
 
     /** Day-level types this check owns: closed automatically when not found again. */
     protected const DAY_TYPES = ['pull_failed', 'not_written', 'erp_other_source', 'time_mismatch', 'orphan_erp',
-        'payslip_locked', 'single_punch', 'missing_exit', 'missing_entry'];
+        'payslip_locked', 'single_punch', 'missing_exit', 'missing_entry', 'punched_on_leave'];
 
     protected string $tz;
 
@@ -120,6 +120,12 @@ class BiometricReconciler
             ->pluck('u.name', 'u.id');
 
         $locks = AttendanceSync::payslipLocks($employed->keys()->all());
+
+        // Approved full-day leave on this day (a half day off may well have punches)
+        $onLeave = DB::table('leaves as l')->leftJoin('leave_types as t', 't.id', '=', 'l.leave_type_id')
+            ->where('l.status', 'approved')->whereDate('l.leave_date', $key)->where('l.duration', '<>', 'half day')
+            ->whereIn('l.user_id', $employed->keys())->pluck('t.type_name', 'l.user_id');
+        $leaveAlerts = [];
         $resolver = ShiftResolver::shared();
         $throughUtc = $through->copy()->setTimezone('UTC');
 
@@ -214,10 +220,42 @@ class BiometricReconciler
                     }
                 }
             }
-            elseif ($linked->isNotEmpty()) {
+
+            // On approved full-day leave, yet punched: admins and HR are told once
+            if ($punches->isNotEmpty() && $onLeave->has($userId)) {
+                $leaveName = $onLeave[$userId] ?: 'Leave';
+                $new = $this->record($key, 'punched_on_leave', $fp('punched_on_leave'), $userId, $code,
+                    "{$name}: on approved {$leaveName} leave, but {$punches->count()} punch(es) " . $this->span($deviceIn, $deviceOut),
+                    $facts + ['leave' => $leaveName]);
+                if ($new) {
+                    $leaveAlerts[] = ['user_id' => $userId, 'name' => $name, 'date' => $key, 'leave' => $leaveName,
+                        'punches' => $punches->count(), 'first' => $deviceIn?->format('H:i'), 'last' => $deviceOut?->format('H:i')];
+                }
+            }
+
+            // The device has nothing, yet ERP holds device attendance
+            if ($punches->isEmpty() && $linked->isNotEmpty()) {
                 $this->record($key, 'orphan_erp', $fp('orphan_erp'), $userId, $code,
                     "{$name}: ERP holds device attendance {$this->span($erpIn, $erpOut)} but the device has no punches", $facts);
             }
+        }
+
+        if ($leaveAlerts) {
+            $this->tellAboutLeavePunches($leaveAlerts);
+        }
+    }
+
+    /** Admins and HR (active), told once per person and day. Never stops the review. */
+    protected function tellAboutLeavePunches(array $cases): void
+    {
+        try {
+            $people = \App\Models\User::withoutGlobalScopes()->where('status', 'active')
+                ->whereHas('roles', fn ($q) => $q->whereIn('name', ['admin', 'hr']))->get();
+            foreach ($cases as $case) {
+                \Illuminate\Support\Facades\Notification::send($people, new \App\Notifications\PunchedOnLeaveNotice($case));
+            }
+        } catch (\Throwable $e) {
+            logger()->warning('Punched-on-leave notice not sent: ' . $e->getMessage());
         }
     }
 
@@ -345,7 +383,7 @@ class BiometricReconciler
      * One row per problem. Found again: refreshed. An ignored one stays ignored;
      * one somebody resolved by hand stays resolved unless the facts changed.
      */
-    protected function record(string $date, string $type, string $fingerprint, ?int $userId, ?string $code, string $title, array $details = []): void
+    protected function record(string $date, string $type, string $fingerprint, ?int $userId, ?string $code, string $title, array $details = []): bool
     {
         $this->seen[] = $fingerprint;
         $this->counts[BiometricException::TYPES[$type][0]]++;
@@ -358,7 +396,7 @@ class BiometricReconciler
         if (!$existing) {
             BiometricException::create($values + ['fingerprint' => $fingerprint, 'status' => BiometricException::OPEN, 'first_seen_at' => now()]);
 
-            return;
+            return true;
         }
 
         $reopen = $existing->status === BiometricException::RESOLVED
@@ -367,6 +405,8 @@ class BiometricReconciler
         $existing->forceFill($values + ($reopen
             ? ['status' => BiometricException::OPEN, 'resolution' => null, 'resolved_at' => null, 'resolved_by' => null]
             : []))->save();
+
+        return false;
     }
 
     protected function agrees(?Carbon $a, ?Carbon $b): bool

@@ -2,6 +2,19 @@
 $editPermission = user()->permission('edit_events');
 $deletePermission = user()->permission('delete_events');
 $attendeesIds = $event->attendee->pluck('user_id')->toArray();
+$canEdit = $editPermission == 'all'
+    || ($editPermission == 'added' && $event->added_by == user()->id)
+    || ($editPermission == 'owned' && (in_array(user()->id, $attendeesIds) || $event->host == user()->id))
+    || ($editPermission == 'both' && (in_array(user()->id, $attendeesIds) || $event->added_by == user()->id || $event->host == user()->id));
+$canDelete = $deletePermission == 'all'
+    || ($deletePermission == 'added' && $event->added_by == user()->id)
+    || ($deletePermission == 'owned' && (in_array(user()->id, $attendeesIds) || $event->added_by == user()->id))
+    || ($deletePermission == 'both' && (in_array(user()->id, $attendeesIds) || $event->added_by == user()->id));
+$canMark = $event->status == 'pending' && ($editPermission == 'all'
+    || ($editPermission == 'added' && $event->added_by == user()->id)
+    || ($editPermission == 'owned' && in_array(user()->id, $attendeesIds))
+    || ($editPermission == 'both' && (in_array(user()->id, $attendeesIds) || $event->added_by == user()->id))
+    || $event->host == user()->id);
 @endphp
 
 <style>
@@ -12,6 +25,21 @@ $attendeesIds = $event->attendee->pluck('user_id')->toArray();
     #event-status {
         border-radius: 5px 0 0 5px;
     }
+    /* Fits its popup: no sideways scroll (the .row's negative margins stuck out),
+       and the theme's standard card - thin border, soft shadow, rounded. */
+    #task-detail-section { overflow-x: hidden; padding: 4px 6px 8px; }
+    #task-detail-section > .row { margin-left: 0; margin-right: 0; }
+    #task-detail-section > .row > [class*="col-"] { padding-left: 0; padding-right: 0; }
+    body.epic #task-detail-section .card.b-shadow-4 { border: 1px solid var(--border-color, #e2e8f0) !important; border-radius: var(--card-radius, 12px) !important;
+        box-shadow: var(--card-shadow, 0 1px 3px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.06)) !important; overflow: hidden; }
+    #task-detail-section .heading-h1 { font-size: 20px; margin: 6px 0 14px !important; }
+    .ev-people { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+    .ev-person { display: inline-flex; align-items: center; gap: 9px; }
+    .ev-person img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex: 0 0 32px; }
+    .ev-person > span { display: flex; flex-direction: column; line-height: 1.25; font-size: 13.5px; color: var(--epic-text, #212529); }
+    .ev-person b { font-weight: 600; }
+    .ev-person em { font-style: normal; color: var(--epic-muted, #99a5b5); font-size: 12px; }
+    .ev-person small { color: var(--epic-muted, #99a5b5); font-size: 12px; }
 </style>
 
 <div id="task-detail-section">
@@ -19,6 +47,8 @@ $attendeesIds = $event->attendee->pluck('user_id')->toArray();
     <div class="row">
         <div class="col-sm-12">
             <div class="card bg-white border-0 b-shadow-4">
+                {{-- The action bar only when there is an action in it --}}
+                @if ($canMark || $canEdit || $canDelete)
                 <div class="card-header bg-white  border-bottom-grey justify-content-between p-20">
                     <div class="row">
                         <div class="col-lg-8 col-10">
@@ -42,6 +72,8 @@ $attendeesIds = $event->attendee->pluck('user_id')->toArray();
                             @endif
                         </div>
                         <div class="col-lg-4 col-2 text-right">
+                            {{-- Only when there is something in it --}}
+                            @if ($canEdit || $canDelete)
                             <div class="dropdown">
                                 <button
                                     class="btn btn-lg f-14 px-2 py-1 text-dark-grey  rounded  dropdown-toggle"
@@ -70,72 +102,68 @@ $attendeesIds = $event->attendee->pluck('user_id')->toArray();
                                     @endif
                                 </div>
                             </div>
+                            @endif
                         </div>
                     </div>
                 </div>
+                @endif
                 <div class="card-body">
                     <x-cards.data-row :label="__('modules.events.eventName')" :value="$event->event_name"
                         html="true" />
 
+                    @php
+                        // People on the event, by name (a row of bare photos said nothing).
+                        $isClient = fn ($u) => $u && $u->roles->pluck('name')->contains('client');
+                        $staff = $event->attendee->pluck('user')->filter()->reject($isClient)->values();
+                        $clients = $event->attendee->pluck('user')->filter()->filter($isClient)->values();
+                        $scheduledBy = $event->added_by ? \App\Models\User::withoutGlobalScopes()->find($event->added_by) : null;
+                        $person = function ($u) {
+                            $role = optional(optional($u->employeeDetail)->designation)->name;
+                            return '<span class="ev-person"><img src="' . e($u->image_url) . '" alt="">'
+                                . '<span><b>' . e($u->name) . ($u->id == user()->id ? ' <em>(you)</em>' : '') . '</b>'
+                                . ($role ? '<small>' . e($role) . '</small>' : '') . '</span></span>';
+                        };
+                    @endphp
+
                     @if (!in_array('client', user_roles()))
                         <div class="col-12 px-0 pb-3 d-flex">
-                            <p class="mb-0 text-lightest f-14 w-30 d-inline-block ">
-                            @lang('app.attendeesEmployee')</p>
-                            <p class="mb-0 text-dark-grey f-14">
-                                @foreach ($event->attendee as $item)
-                                @if(in_array('employee', $item->user->roles->pluck('name')->toArray()))
-                                    <div class="taskEmployeeImg rounded-circle mr-1">
-                                        <img data-toggle="tooltip" data-original-title="{{ $item->user->name }}"
-                                            src="{{ $item->user->image_url }}">
-                                    </div>
-                                @endif
-                                @endforeach
-                            </p>
+                            <p class="mb-0 text-lightest f-14 w-30 d-inline-block">Attendees</p>
+                            <div class="ev-people">
+                                @forelse ($staff as $u){!! $person($u) !!}@empty<span class="text-dark-grey f-14">--</span>@endforelse
+                            </div>
                         </div>
 
-                        @if (in_array('clients', user_modules()))
+                        @if ($clients->isNotEmpty())
                             <div class="col-12 px-0 pb-3 d-flex">
-                                <p class="mb-0 text-lightest f-14 w-30 d-inline-block ">
-                                    @lang('app.attendeesClients')</p>
-                                <p class="mb-0 text-dark-grey f-14">
-                                    @foreach ($event->attendee as $item)
-                                    @if(in_array('client', $item->user->roles->pluck('name')->toArray()))
-                                        <div class="taskEmployeeImg rounded-circle mr-1">
-                                            <img data-toggle="tooltip" data-original-title="{{ $item->user->name }}"
-                                                src="{{ $item->user->image_url }}">
-                                        </div>
-                                    @endif
-                                    @endforeach
-                                </p>
+                                <p class="mb-0 text-lightest f-14 w-30 d-inline-block">@lang('app.attendeesClients')</p>
+                                <div class="ev-people">@foreach ($clients as $u){!! $person($u) !!}@endforeach</div>
                             </div>
                         @endif
                     @endif
 
                     <div class="col-12 px-0 pb-3 d-flex">
-                        <p class="mb-0 text-lightest f-14 w-30 d-inline-block ">
-                            @lang('app.host')</p>
-                        <p class="mb-0 text-dark-grey f-14">
-                            @if ($event->user)
-                            <div class="taskEmployeeImg rounded-circle mr-1">
-                                <img data-toggle="tooltip"
-                                data-original-title="{{ $event->user->name }}"
-                                src="{{ $event->user->image_url }}">
-                            </div>
-                            @else
-                            --
-                            @endif
-                        </p>
+                        <p class="mb-0 text-lightest f-14 w-30 d-inline-block">@lang('app.host')</p>
+                        <div class="ev-people">{!! $event->user ? $person($event->user) : '<span class="text-dark-grey f-14">--</span>' !!}</div>
                     </div>
+
+                    @if ($scheduledBy)
+                        <div class="col-12 px-0 pb-3 d-flex">
+                            <p class="mb-0 text-lightest f-14 w-30 d-inline-block">Scheduled by</p>
+                            <div class="ev-people">{!! $person($scheduledBy) !!}
+                                <span class="text-lightest f-12 align-self-center">on {{ $event->created_at?->timezone(company()->timezone)->translatedFormat(company()->date_format . ' ' . company()->time_format) }}</span>
+                            </div>
+                        </div>
+                    @endif
 
                     <x-cards.data-row :label="__('app.description')" :value="$event->description"
                         html="true" />
                     <x-cards.data-row :label="__('app.where')" :value="$event->where"
                         html="true" />
                     <x-cards.data-row :label="__('modules.events.startOn')"
-                        :value="$event->start_date_time->translatedFormat(company()->date_format. ' - '.company()->time_format)"
+                        :value="$event->start_date_time->copy()->timezone(company()->timezone)->translatedFormat(company()->date_format. ' - '.company()->time_format)"
                         html="true" />
                     <x-cards.data-row :label="__('modules.events.endOn')"
-                        :value="$event->end_date_time->translatedFormat(company()->date_format. ' - '.company()->time_format)"
+                        :value="$event->end_date_time->copy()->timezone(company()->timezone)->translatedFormat(company()->date_format. ' - '.company()->time_format)"
                         html="true" />
                         @php
                         $url = str_starts_with($event->event_link, 'http') ? $event->event_link : 'http://'.$event->event_link;

@@ -16,20 +16,16 @@
     $clockState = (new \App\Services\Attendance\ClockState())->current();
 @endphp
 
-@if ($clockState['show'])
-    <li data-toggle="tooltip" data-placement="top"
-        title="{{ $clockState['clockedIn'] ? __('modules.attendance.clock_out') : __('modules.attendance.clock_in') }}">
+{{-- Only while clocked in: a Clock Out icon. Clocked out, the top bar shows
+     nothing (clocking in is on the dashboard). --}}
+@if ($clockState['show'] && $clockState['clockedIn'])
+    <li data-toggle="tooltip" data-placement="bottom" title="@lang('modules.attendance.clock_out')">
         <div class="d-flex align-items-center">
-            <a href="javascript:;" class="d-block header-icon-box" id="topbar-clock-toggle"
-               data-clocked-in="{{ $clockState['clockedIn'] ? 'yes' : 'no' }}"
-               data-attendance-id="{{ $clockState['attendanceId'] }}">
-                @if ($clockState['clockedIn'])
-                    {{-- Red, because it ends the session: the same colour the
-                         dashboard gives its own Clock Out button. --}}
-                    <i class="fa fa-sign-out-alt f-16 text-red"></i>
-                @else
-                    <i class="fa fa-sign-in-alt f-16 text-dark-grey"></i>
-                @endif
+            <a href="javascript:;" class="d-block header-icon-box epic-clockout" id="topbar-clock-toggle"
+               data-clocked-in="yes" data-attendance-id="{{ $clockState['attendanceId'] }}">
+                {{-- Red, because it ends the session: the same colour the
+                     dashboard gives its own Clock Out button. --}}
+                <i class="fa fa-sign-out-alt f-16"></i>
             </a>
         </div>
     </li>

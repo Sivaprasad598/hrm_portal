@@ -515,7 +515,7 @@ $addDepartmentPermission = user()->permission('add_department');
                             <x-forms.select fieldId="marital_status"
                                 :fieldLabel="__('modules.employees.maritalStatus')"
                                 fieldName="marital_status">
-                                @foreach (\App\Enums\MaritalStatus::cases() as $status)
+                                @foreach (\App\Enums\MaritalStatus::offered() as $status)
                                     <option value="{{ $status->value }}">{{ $status->label() }}</option>
                                 @endforeach
                             </x-forms.select>

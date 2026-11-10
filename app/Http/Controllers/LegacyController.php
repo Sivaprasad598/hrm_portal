@@ -60,7 +60,26 @@ class LegacyController extends AccountBaseController
 
         abort_403(!in_array(user()->permission('view_employees'), ['all', 'added', 'owned', 'both']));
 
+        self::checkProbationsNow();
+
         return view('probation-requests.index', $this->data);
+    }
+
+    /**
+     * Flag probations that have ended now rather than at the 03:00 run, so a
+     * request shows when HR looks (QA TC-0054). At most every ten minutes.
+     */
+    public static function checkProbationsNow(): void
+    {
+        try {
+            \Illuminate\Support\Facades\Cache::remember('probation-check-' . (company()->id ?? 0), 600, function () {
+                \Illuminate\Support\Facades\Artisan::call('check-probation-completion');
+
+                return now()->toDateTimeString();
+            });
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Probation check on page open failed: ' . $e->getMessage());
+        }
     }
 
     public function employeeTermination()

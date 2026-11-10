@@ -7,6 +7,7 @@ use App\Models\Branch;
 use App\Models\Designation;
 use App\Models\JobApplication;
 use App\Models\JobPosition;
+use App\Models\RecruitRound;
 use App\Models\Team;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -57,8 +58,10 @@ class JobPositionController extends RecruitBaseController
         $data = $this->validated($request);
         $data['company_id'] = company()->id;
         $data['created_by'] = user()->id;
+        $rows = $this->ownPlan($request);
 
         $position = JobPosition::create($data);
+        $this->savePlan($position, $rows);
 
         return Reply::successWithData('Position added.', ['redirectUrl' => route('job-positions.show', $position->id)]);
     }
@@ -73,6 +76,10 @@ class JobPositionController extends RecruitBaseController
             ->orderByRaw("FIELD(stage, '" . implode("','", array_keys(JobApplication::STAGES)) . "')")
             ->orderByDesc('id')->get();
         $this->stageCounts = $this->applications->countBy('stage');
+        $this->plan = RecruitRound::planFor($this->position->id);
+        $this->ownPlan = RecruitRound::where('job_position_id', $this->position->id)->exists();
+        $this->roundResults = \App\Models\RecruitInterview::whereIn('job_application_id', $this->applications->pluck('id'))
+            ->whereNotNull('recruit_round_id')->whereNotNull('result')->get(['recruit_round_id', 'result'])->groupBy('recruit_round_id');
 
         return view('recruitment.positions.show', $this->data);
     }
@@ -90,7 +97,10 @@ class JobPositionController extends RecruitBaseController
     {
         $this->needManage();
         $position = JobPosition::findOrFail($id);
-        $position->update($this->validated($request, $position));
+        $data = $this->validated($request, $position);
+        $rows = $this->ownPlan($request);
+        $position->update($data);
+        $this->savePlan($position, $rows);
 
         return Reply::successWithData('Position updated.', ['redirectUrl' => route('job-positions.show', $position->id)]);
     }
@@ -109,8 +119,52 @@ class JobPositionController extends RecruitBaseController
         return Reply::successWithData('Position deleted.', ['redirectUrl' => route('job-positions.index')]);
     }
 
+    /** null: the position follows the default plan; else its own rounds. */
+    private function ownPlan(Request $request): ?array
+    {
+        if ($request->boolean('use_default_plan')) {
+            return null;
+        }
+
+        $rows = $this->planRows($request);
+
+        if (!$rows) {
+            $this->fail('Add at least one round, or tick "Use the default plan".');
+        }
+
+        return $rows;
+    }
+
+    private function savePlan(JobPosition $position, ?array $rows): void
+    {
+        $own = RecruitRound::where('job_position_id', $position->id)->pluck('id')->all();
+
+        try {
+            if ($rows === null) {
+                // Back to the default plan: not while candidates are in this position's own rounds
+                RecruitRound::assertNotInUse($own, $position->id);
+                RecruitRound::whereIn('id', $own)->delete();
+            } else {
+                if (!$own) {
+                    // Its own plan from now: not while candidates are in the default plan's rounds here
+                    RecruitRound::assertNotInUse(RecruitRound::planFor(null, $position->company_id)->pluck('id')->all(), $position->id);
+                }
+
+                RecruitRound::savePlan($position->id, $rows, $position->company_id);
+            }
+        } catch (\RuntimeException $e) {
+            $this->fail($e->getMessage());
+        }
+
+        app(\App\Services\Recruit\InterviewScheduler::class)->forgetMenus(collect($rows ?? [])->pluck('interviewer_ids')->flatten()->all());
+    }
+
     private function lookups(): void
     {
+        $id = $this->position->id ?? null;
+        $this->ownPlan = $id && RecruitRound::where('job_position_id', $id)->exists();
+        $this->plan = RecruitRound::planFor($id);
+        $this->employees = $this->employees();
         $this->departments = Team::orderBy('team_name')->get();
         $this->designations = Designation::orderBy('name')->get();
         $this->branches = Branch::orderBy('branch_name')->get();

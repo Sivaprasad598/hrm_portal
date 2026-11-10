@@ -85,6 +85,15 @@ class EmployeeShiftScheduleObserver
         }
     }
 
+    /** A "Day Off" put on someone's day: leave they had on it is not counted. */
+    public function saved(EmployeeShiftSchedule $employeeShiftSchedule)
+    {
+        if ($employeeShiftSchedule->wasRecentlyCreated || $employeeShiftSchedule->wasChanged('employee_shift_id')) {
+            \App\Services\Leaves\DayOffLeaves::forShift((int) $employeeShiftSchedule->user_id,
+                $employeeShiftSchedule->date->toDateString(), (int) $employeeShiftSchedule->employee_shift_id);
+        }
+    }
+
     public function updated(EmployeeShiftSchedule $employeeShiftSchedule)
     {
         if (user() && $employeeShiftSchedule->isDirty('employee_shift_id')) {

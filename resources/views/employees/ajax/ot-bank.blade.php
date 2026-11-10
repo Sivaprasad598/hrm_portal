@@ -7,176 +7,297 @@
         'adjusted' => ['Correction', 'secondary'],
     ];
     $lastPast = $otGoLive->copy()->subDay();
+
+    // The figures for the cards
+    $countedHours = $otMonths->sum('bank') / 60;
+    $countedDays = (int) $otMonths->sum('days');
+    // Movements since go-live; only those already on a payslip (or HR corrections)
+    // count against the balance - the rest are pending payroll. Past OT is kept
+    // net of what was used before go-live, so it is not counted twice.
+    $done = $otHistory->filter(fn ($r) => $r->payslip_number || $r->type === 'adjusted');
+    $usedLop = abs((float) $done->where('type', 'compensated')->sum('hours'));
+    $usedLopDays = (float) $done->where('type', 'compensated')->sum('days');
+    $encashed = abs((float) $done->where('type', 'encashed')->sum('hours'));
+    $encashedAmt = (float) $done->where('type', 'encashed')->sum('amount');
+    $adjusted = (float) $done->where('type', 'adjusted')->sum('hours');
+    $pendingRows = $otHistory->filter(fn ($r) => !$r->payslip_number && $r->type !== 'adjusted');
+    $pending = $pendingRows->count();
+    $pastSpent = (float) $otPast->sum('used_hours') + (float) $otPast->sum('encashed_hours');
+    $pastMonths = $otPast->groupBy(fn ($r) => $r->year . '-' . $r->month)->count();
+
+    // Which panel opens first: what the system counted, else the past record
+    $open = $otMonths->isNotEmpty() ? 'counted' : ($otPast->isNotEmpty() ? 'past' : 'counted');
+    $hasNotes = $otPast->contains(fn ($r) => $r->date === null && filled($r->note));
 @endphp
 
-<div class="bg-white rounded b-shadow-4 p-20">
-    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
-        <h4 class="f-18 font-weight-normal mb-0">OT Bank</h4>
-        <div class="text-right">
-            <span class="f-12 text-dark-grey d-block">Balance carried forward</span>
-            <span class="f-21 font-weight-bold text-dark">{{ $fmt($otBalance) }}h</span>
-            @if ($otPast->isNotEmpty())
-                <span class="f-11 text-lightest d-block">includes {{ $fmt($otPastNet) }}h from past records</span>
-            @endif
+<style>
+    .otb-sum { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: -6px 0 22px; padding: 10px 14px; border-radius: 8px;
+        background: #fafbfc; border: 1px dashed var(--border-color, #e4e7ec); font-size: 13px; color: var(--epic-text, #475467); }
+    .otb-sum b { color: var(--epic-muted, #99a5b5); font-weight: 600; }
+    .otb-sum strong { color: var(--epic-blue, #cb6b4f); }
+    .otb-sum .otb-pending { font-size: 12px; color: #b45309; }
+    .otb-panel { display: none; }
+    .otb-panel.active { display: block; }
+    .otb-slip { color: var(--epic-blue, #cb6b4f); font-weight: 500; white-space: nowrap; }
+    .otb-slip:hover { text-decoration: underline; }
+    .otb-slip .fa-external-link-alt { font-size: 10px; opacity: .7; }
+</style>
+
+<div class="card bg-white border-0 b-shadow-4">
+    <div class="card-header bg-white border-0 d-flex justify-content-between align-items-start flex-wrap pt-4">
+        <div>
+            <h4 class="f-18 f-w-500 mb-0">{{ $employee->id == user()->id ? 'My Overtime' : 'Overtime Balance' }}</h4>
+            <p class="ms-intro">Overtime is saved here with no expiry. Week-off and holiday hours count extra. Saved hours can cover LOP days, or be paid out (encashed) when payroll runs.</p>
         </div>
     </div>
-    <p class="f-12 text-dark-grey">
-        Overtime is banked with no expiry, weighted by its rate (week-off and holiday hours count extra). It can cover LOP days or be
-        encashed when payroll is generated. Movements of a period not yet paid show as pending.
-    </p>
+    <div class="card-body pt-2">
 
-    {{-- ---------------- Past OT (before go-live) ---------------- --}}
-    <div class="d-flex flex-wrap justify-content-between align-items-center mb-2">
-        <h5 class="f-14 font-weight-600 text-dark-grey mb-0">Past OT <span class="f-12 font-weight-normal text-lightest">up to {{ $lastPast->format('d M Y') }}, kept before the system</span></h5>
-        @if ($canManageOt)
-            <div>
-                <button type="button" class="btn btn-sm btn-primary ot-past-open" data-year=""><i class="fa fa-plus mr-1"></i>Add past OT by month</button>
-                <button type="button" class="btn btn-sm btn-outline-secondary ml-1" id="ot-past-day-add"><i class="fa fa-calendar-day mr-1"></i>Add a day</button>
-            </div>
+    {{-- ---------------- The counts: each opens its details below ---------------- --}}
+    <div class="ms-stats">
+        <div class="ms-stat is-total">
+            <div class="lbl"><span class="ic" style="--ic-bg:#cb6b4f;--ic-fg:#fff"><i class="fa fa-piggy-bank"></i></span>Available now</div>
+            <div class="val">{{ $fmt($otBalance) }}<small>h</small></div>
+            <div class="sub">balance you can use</div>
+        </div>
+        <button type="button" class="ms-stat {{ $open === 'counted' ? 'active' : '' }}" data-panel="counted">
+            <span class="go"><i class="fa fa-chevron-down"></i></span>
+            <div class="lbl"><span class="ic" style="--ic-bg:#e7f6ec;--ic-fg:#15803d"><i class="fa fa-business-time"></i></span>Overtime earned</div>
+            <div class="val">{{ $fmt($countedHours) }}<small>h</small></div>
+            <div class="sub">{{ $countedDays }} day(s) since {{ $otGoLive->format('d M Y') }}</div>
+        </button>
+        <button type="button" class="ms-stat {{ $open === 'past' ? 'active' : '' }}" data-panel="past">
+            <span class="go"><i class="fa fa-chevron-down"></i></span>
+            <div class="lbl"><span class="ic" style="--ic-bg:#eef2ff;--ic-fg:#4338ca"><i class="fa fa-history"></i></span>Past OT</div>
+            <div class="val">{{ $fmt($otPastNet) }}<small>h</small></div>
+            <div class="sub">{{ $pastMonths }} month(s) before {{ $otGoLive->format('M Y') }}{{ $pastSpent ? ', after ' . $fmt($pastSpent) . 'h used then' : '' }}</div>
+        </button>
+        <button type="button" class="ms-stat" data-panel="used" data-filter="compensated">
+            <span class="go"><i class="fa fa-chevron-down"></i></span>
+            <div class="lbl"><span class="ic" style="--ic-bg:#fff4e5;--ic-fg:#b45309"><i class="fa fa-user-clock"></i></span>Used for LOP</div>
+            <div class="val">{{ $fmt($usedLop) }}<small>h</small></div>
+            <div class="sub">{{ $usedLopDays ? $fmt($usedLopDays) . ' LOP day(s) covered' : 'no LOP covered yet' }}</div>
+        </button>
+        <button type="button" class="ms-stat" data-panel="used" data-filter="encashed">
+            <span class="go"><i class="fa fa-chevron-down"></i></span>
+            <div class="lbl"><span class="ic" style="--ic-bg:#e0f2fe;--ic-fg:#0369a1"><i class="fa fa-rupee-sign"></i></span>Encashed</div>
+            <div class="val">{{ $fmt($encashed) }}<small>h</small></div>
+            <div class="sub">{{ $encashedAmt ? '₹' . number_format($encashedAmt, 0) . ' paid with salary' : 'nothing paid out yet' }}</div>
+        </button>
+    </div>
+
+    {{-- How the balance is made up, in one line --}}
+    <div class="otb-sum">
+        <span>{{ $fmt($otPastNet) }}h past</span><b>+</b><span>{{ $fmt($countedHours) }}h earned</span>
+        <b>−</b><span>{{ $fmt($usedLop) }}h for LOP</span><b>−</b><span>{{ $fmt($encashed) }}h encashed</span>
+        @if (abs($adjusted) > 0.001)<b>{{ $adjusted < 0 ? '−' : '+' }}</b><span>{{ $fmt(abs($adjusted)) }}h corrections</span>@endif
+        <b>=</b><strong>{{ $fmt($otBalance) }}h available</strong>
+        @if ($pending)
+            <a href="javascript:;" class="otb-pending ml-auto" data-panel="used"><i class="fa fa-clock mr-1"></i>{{ $pending }} movement(s) waiting for payroll ({{ $fmt(abs($pendingRows->sum('hours'))) }}h) — not taken off yet</a>
         @endif
     </div>
-    <div class="table-responsive mb-4">
-        <table class="table table-sm table-bordered f-13 mb-0">
-            <thead class="bg-light">
-                <tr>
-                    <th>Salary month</th><th class="text-right">OT banked</th><th class="text-right">Used for LOP</th><th class="text-right">Encashed</th>
-                    <th class="text-right">Net</th><th>Note</th><th>Entered</th>@if ($canManageOt)<th></th>@endif
-                </tr>
-            </thead>
-            <tbody>
-            @php
-                // A month entered day by day shows as one line, its days listed under it.
-                $lines = $otPast->groupBy(fn ($r) => $r->year . '-' . str_pad($r->month, 2, '0', STR_PAD_LEFT))->sortKeysDesc();
-            @endphp
-            @forelse ($lines as $ym => $group)
-                @php
-                    $first = $group->first();
-                    $dayWise = $first->date !== null;
-                    $net = $group->sum(fn ($r) => $r->ot_hours - $r->used_hours - $r->encashed_hours);
-                    $label = \Carbon\Carbon::create($first->year, $first->month, 1)->format('M Y');
-                @endphp
-                <tr>
-                    <td class="text-nowrap">
-                        <strong>{{ $label }}</strong>
-                        <span class="f-11 text-lightest">{{ \App\Services\Payroll\PayPeriod::forMonth($first->month, $first->year)->describe() }}</span>
-                        @if ($dayWise)<span class="badge badge-light ml-1">{{ $group->count() }} day(s)</span>@endif
-                    </td>
-                    <td class="text-right">{{ $fmt($group->sum('ot_hours')) }}h
-                        @if ($group->whereNotNull('raw_hours')->isNotEmpty())<br><span class="f-11 text-lightest">worked {{ $fmt($group->sum('raw_hours')) }}h</span>@endif
-                    </td>
-                    <td class="text-right">{{ $first->used_hours > 0 ? $fmt($first->used_hours) . 'h' : '--' }}
-                        @if ($first->used_days)<br><span class="f-11 text-lightest">{{ $fmt($first->used_days) }} day(s)</span>@endif
-                    </td>
-                    <td class="text-right">{{ $first->encashed_hours > 0 ? $fmt($first->encashed_hours) . 'h' : '--' }}
-                        @if ($first->encashed_amount)<br><span class="f-11 text-lightest">₹{{ number_format((float) $first->encashed_amount, 2) }}</span>@endif
-                    </td>
-                    <td class="text-right font-weight-600 {{ $net < 0 ? 'text-red' : 'text-success' }}">{{ $fmt($net) }}h</td>
-                    <td>{{ $dayWise ? '' : ($first->note ?: '') }}</td>
-                    <td class="f-12 text-dark-grey text-nowrap">
-                        <span class="badge badge-{{ $first->source === 'import' ? 'info' : 'secondary' }}">{{ $first->source === 'import' ? 'Imported' : 'Manual' }}</span>
-                        {{ $first->updated_name ?: $first->created_name }}
-                        <br><span class="f-11 text-lightest">{{ \Carbon\Carbon::parse($first->updated_at)->timezone(company()->timezone)->format(company()->date_format . ' H:i') }}</span>
-                    </td>
-                    @if ($canManageOt)
-                        <td class="text-nowrap text-right">
-                            @unless ($dayWise)
-                                <a href="javascript:;" class="ot-past-open mr-2" data-year="{{ $first->year }}" title="Edit {{ $first->year }}"><i class="fa fa-edit"></i></a>
-                                <a href="javascript:;" class="text-danger ot-past-delete" data-id="{{ $first->id }}" data-label="{{ $label }}" title="Remove"><i class="fa fa-trash"></i></a>
-                            @endunless
-                        </td>
-                    @endif
-                </tr>
-                @if ($dayWise)
-                    @foreach ($group->sortBy('date') as $d)
-                        <tr class="f-12">
-                            <td class="pl-4 text-dark-grey">{{ \Carbon\Carbon::parse($d->date)->format('D, ' . company()->date_format) }}</td>
-                            <td class="text-right">{{ $fmt($d->ot_hours) }}h @if ($d->raw_hours !== null)<span class="text-lightest">(worked {{ $fmt($d->raw_hours) }}h)</span>@endif</td>
-                            <td colspan="3"></td>
-                            <td>{{ $d->note }}</td>
-                            <td></td>
-                            @if ($canManageOt)
-                                <td class="text-nowrap text-right">
-                                    <a href="javascript:;" class="ot-past-day-edit mr-2" data-id="{{ $d->id }}" data-date="{{ $d->date }}" data-hours="{{ $fmt($d->ot_hours) }}"
-                                       data-raw="{{ $d->raw_hours !== null ? $fmt($d->raw_hours) : '' }}" data-note="{{ $d->note }}" title="Edit"><i class="fa fa-edit"></i></a>
-                                    <a href="javascript:;" class="text-danger ot-past-delete" data-id="{{ $d->id }}" data-label="{{ \Carbon\Carbon::parse($d->date)->format('d M Y') }}" title="Remove"><i class="fa fa-trash"></i></a>
-                                </td>
-                            @endif
-                        </tr>
-                    @endforeach
-                @endif
-            @empty
-                <tr><td colspan="{{ $canManageOt ? 8 : 7 }}" class="text-center text-dark-grey py-3">
-                    No past OT entered.@if ($canManageOt) Add what this employee held before {{ $otGoLive->format('d M Y') }}, month by month.@endif
-                </td></tr>
-            @endforelse
-            </tbody>
-            @if ($otPast->isNotEmpty())
-                <tfoot>
-                    <tr class="font-weight-bold">
-                        <td>Total</td>
-                        <td class="text-right">{{ $fmt($otPast->sum('ot_hours')) }}h</td>
-                        <td class="text-right">{{ $fmt($otPast->sum('used_hours')) }}h</td>
-                        <td class="text-right">{{ $fmt($otPast->sum('encashed_hours')) }}h</td>
-                        <td class="text-right text-success">{{ $fmt($otPastNet) }}h</td>
-                        <td colspan="{{ $canManageOt ? 3 : 2 }}"></td>
+
+    {{-- ---------------- Earned since go-live, by salary period ---------------- --}}
+    <div class="otb-panel {{ $open === 'counted' ? 'active' : '' }}" id="otb-counted">
+        <div class="ms-sec">
+            <h5>Overtime earned <span>counted by the system from attendance, per salary period</span></h5>
+        </div>
+        <div class="table-responsive">
+            <table class="ms-table">
+                <thead><tr><th>Salary period</th><th class="num">Days with OT</th><th class="num">Hours worked extra</th><th class="num">Saved to bank</th></tr></thead>
+                <tbody>
+                @forelse ($otMonths as $m)
+                    @php [$y, $mo] = explode('-', $m->ym); $p = \App\Services\Payroll\PayPeriod::forMonth((int) $mo, (int) $y); @endphp
+                    <tr>
+                        <td><strong>{{ $p->end->format('M Y') }}</strong> <span class="muted ml-1">{{ $p->describe() }}</span></td>
+                        <td class="num">{{ $m->days }}</td>
+                        <td class="num">{{ \App\Services\Payroll\OtDaily::hm((int) $m->ot) }}</td>
+                        <td class="num"><span class="ms-pill plus">+{{ \App\Services\Payroll\OtDaily::hm((int) $m->bank) }}</span></td>
                     </tr>
-                </tfoot>
+                @empty
+                    <tr><td colspan="4"><div class="ms-empty"><i class="fa fa-business-time"></i>No overtime counted yet.</div></td></tr>
+                @endforelse
+                </tbody>
+                @if ($otMonths->count() > 1)
+                    <tfoot><tr><td>Total</td><td class="num">{{ $countedDays }}</td><td class="num">{{ \App\Services\Payroll\OtDaily::hm((int) $otMonths->sum('ot')) }}</td>
+                        <td class="num text-success">{{ \App\Services\Payroll\OtDaily::hm((int) $otMonths->sum('bank')) }}</td></tr></tfoot>
+                @endif
+            </table>
+        </div>
+    </div>
+
+    {{-- ---------------- Past OT (before go-live) ---------------- --}}
+    <div class="otb-panel {{ $open === 'past' ? 'active' : '' }}" id="otb-past">
+        <div class="ms-sec">
+            <h5>Past OT <span>held up to {{ $lastPast->format('d M Y') }}, before the system counted it</span></h5>
+            @if ($canManageOt)
+                <div>
+                    <button type="button" class="btn btn-sm btn-primary ot-past-open" data-year=""><i class="fa fa-plus mr-1"></i>Add past OT by month</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary ml-1" id="ot-past-day-add"><i class="fa fa-calendar-day mr-1"></i>Add a day</button>
+                </div>
             @endif
-        </table>
-    </div>
-
-    <h5 class="f-14 font-weight-600 text-dark-grey mb-2">Overtime by month <span class="f-12 font-weight-normal text-lightest">counted by the system from {{ $otGoLive->format('d M Y') }}</span></h5>
-    <div class="table-responsive mb-4">
-        <table class="table table-sm table-bordered f-13 mb-0">
-            <thead class="bg-light"><tr><th>Salary period</th><th class="text-right">Days with OT</th><th class="text-right">Overtime</th><th class="text-right">Banked (× rate)</th></tr></thead>
-            <tbody>
-            @forelse ($otMonths as $m)
-                @php [$y, $mo] = explode('-', $m->ym); @endphp
-                <tr>
-                    <td>{{ \App\Services\Payroll\PayPeriod::forMonth((int) $mo, (int) $y)->describe() }}</td>
-                    <td class="text-right">{{ $m->days }}</td>
-                    <td class="text-right">{{ \App\Services\Payroll\OtDaily::hm((int) $m->ot) }}</td>
-                    <td class="text-right font-weight-500 text-success">{{ \App\Services\Payroll\OtDaily::hm((int) $m->bank) }}</td>
-                </tr>
-            @empty
-                <tr><td colspan="4" class="text-center text-dark-grey py-3">No overtime yet.</td></tr>
-            @endforelse
-            </tbody>
-        </table>
-    </div>
-
-    <h5 class="f-14 font-weight-600 text-dark-grey mb-2">Used from the bank</h5>
-    <div class="table-responsive">
-        <table class="table table-sm table-bordered f-13 mb-0">
-            <thead class="bg-light">
-                <tr><th>Salary period</th><th>Movement</th><th class="text-right">Hours</th><th class="text-right">Days / Amount</th><th>Details</th><th>Payslip</th></tr>
-            </thead>
-            <tbody>
-            @forelse ($otHistory as $row)
-                @php [$label, $colour] = $types[$row->type] ?? [ucfirst($row->type), 'light']; @endphp
-                <tr>
-                    <td class="text-nowrap">{{ \App\Services\Payroll\PayPeriod::containing(\Carbon\Carbon::parse($row->period_start))->describe() }}</td>
-                    <td><span class="badge badge-{{ $colour }}">{{ $label }}</span></td>
-                    <td class="text-right font-weight-500 {{ $row->hours < 0 ? 'text-red' : 'text-success' }}">{{ $row->hours > 0 ? '+' : '' }}{{ $fmt($row->hours) }}h</td>
-                    <td class="text-right">{{ $row->days ? $fmt($row->days) . ' day(s)' : ($row->amount ? number_format((float) $row->amount, 2) : '--') }}</td>
-                    <td>{{ $row->note ?: '--' }}{{ $row->by_name && $row->type === 'adjusted' ? ' · by ' . $row->by_name : '' }}</td>
-                    <td class="text-nowrap">
-                        @if ($row->payslip_number)
-                            {{ $row->payslip_number }}
-                        @elseif ($row->type === 'adjusted')
-                            --
-                        @else
-                            <span class="badge badge-warning">Pending</span>
+        </div>
+        <div class="table-responsive">
+            <table class="ms-table">
+                <thead>
+                    <tr>
+                        <th>Salary month</th><th class="num">Saved</th><th class="num">Used for LOP</th><th class="num">Encashed</th><th class="num">Left</th>
+                        @if ($hasNotes)<th>Note</th>@endif
+                        @if ($canManageOt)<th>Entered by</th><th></th>@endif
+                    </tr>
+                </thead>
+                <tbody>
+                @php
+                    // A month entered day by day shows as one line, its days listed under it.
+                    $lines = $otPast->groupBy(fn ($r) => $r->year . '-' . str_pad($r->month, 2, '0', STR_PAD_LEFT))->sortKeysDesc();
+                @endphp
+                @forelse ($lines as $ym => $group)
+                    @php
+                        $first = $group->first();
+                        $dayWise = $first->date !== null;
+                        $net = $group->sum(fn ($r) => $r->ot_hours - $r->used_hours - $r->encashed_hours);
+                        $label = \Carbon\Carbon::create($first->year, $first->month, 1)->format('M Y');
+                    @endphp
+                    <tr>
+                        <td class="text-nowrap">
+                            <strong>{{ $label }}</strong>
+                            <span class="muted ml-1">{{ \App\Services\Payroll\PayPeriod::forMonth($first->month, $first->year)->describe() }}</span>
+                            @if ($dayWise)<span class="badge badge-light ml-1">{{ $group->count() }} day(s)</span>@endif
+                        </td>
+                        <td class="num">{{ $fmt($group->sum('ot_hours')) }}h
+                            @if ($group->whereNotNull('raw_hours')->isNotEmpty())<div class="muted">worked {{ $fmt($group->sum('raw_hours')) }}h</div>@endif
+                        </td>
+                        <td class="num">@if ($first->used_hours > 0)<span class="ms-pill minus">−{{ $fmt($first->used_hours) }}h</span>
+                            @if ($first->used_days)<div class="muted">{{ $fmt($first->used_days) }} day(s)</div>@endif @else <span class="nil">—</span> @endif
+                        </td>
+                        <td class="num">@if ($first->encashed_hours > 0)<span class="ms-pill minus">−{{ $fmt($first->encashed_hours) }}h</span>
+                            @if ($first->encashed_amount)<div class="muted">₹{{ number_format((float) $first->encashed_amount, 2) }}</div>@endif @else <span class="nil">—</span> @endif
+                        </td>
+                        <td class="num font-weight-bold {{ $net < 0 ? 'text-red' : '' }}">{{ $fmt($net) }}h</td>
+                        @if ($hasNotes)<td>{{ $dayWise ? '' : ($first->note ?: '') }}</td>@endif
+                        @if ($canManageOt)
+                            <td class="text-nowrap">
+                                {{ $first->updated_name ?: $first->created_name }}
+                                <div class="muted">{{ $first->source === 'import' ? 'Imported' : 'Manual' }} · {{ \Carbon\Carbon::parse($first->updated_at)->timezone(company()->timezone)->format(company()->date_format) }}</div>
+                            </td>
+                            <td class="text-nowrap text-right">
+                                @unless ($dayWise)
+                                    <a href="javascript:;" class="ot-past-open mr-2" data-year="{{ $first->year }}" title="Edit {{ $first->year }}"><i class="fa fa-edit"></i></a>
+                                    <a href="javascript:;" class="text-danger ot-past-delete" data-id="{{ $first->id }}" data-label="{{ $label }}" title="Remove"><i class="fa fa-trash"></i></a>
+                                @endunless
+                            </td>
                         @endif
-                    </td>
-                </tr>
-            @empty
-                <tr><td colspan="6" class="text-center text-dark-grey py-4">Nothing used yet.</td></tr>
-            @endforelse
-            </tbody>
-        </table>
+                    </tr>
+                    @if ($dayWise)
+                        @foreach ($group->sortBy('date') as $d)
+                            <tr class="f-12">
+                                <td class="pl-4 text-dark-grey">{{ \Carbon\Carbon::parse($d->date)->format('D, ' . company()->date_format) }}{{ $d->note ? ' · ' . $d->note : '' }}</td>
+                                <td class="num">{{ $fmt($d->ot_hours) }}h @if ($d->raw_hours !== null)<span class="muted">(worked {{ $fmt($d->raw_hours) }}h)</span>@endif</td>
+                                <td colspan="3"></td>
+                                @if ($hasNotes)<td></td>@endif
+                                @if ($canManageOt)
+                                    <td></td>
+                                    <td class="text-nowrap text-right">
+                                        <a href="javascript:;" class="ot-past-day-edit mr-2" data-id="{{ $d->id }}" data-date="{{ $d->date }}" data-hours="{{ $fmt($d->ot_hours) }}"
+                                           data-raw="{{ $d->raw_hours !== null ? $fmt($d->raw_hours) : '' }}" data-note="{{ $d->note }}" title="Edit"><i class="fa fa-edit"></i></a>
+                                        <a href="javascript:;" class="text-danger ot-past-delete" data-id="{{ $d->id }}" data-label="{{ \Carbon\Carbon::parse($d->date)->format('d M Y') }}" title="Remove"><i class="fa fa-trash"></i></a>
+                                    </td>
+                                @endif
+                            </tr>
+                        @endforeach
+                    @endif
+                @empty
+                    <tr><td colspan="{{ 5 + ($hasNotes ? 1 : 0) + ($canManageOt ? 2 : 0) }}"><div class="ms-empty"><i class="fa fa-history"></i>
+                        No past OT entered.@if ($canManageOt) Add what this employee held before {{ $otGoLive->format('d M Y') }}, month by month.@endif
+                    </div></td></tr>
+                @endforelse
+                </tbody>
+                @if ($otPast->isNotEmpty())
+                    <tfoot>
+                        <tr>
+                            <td>Total</td>
+                            <td class="num">{{ $fmt($otPast->sum('ot_hours')) }}h</td>
+                            <td class="num">{{ $fmt($otPast->sum('used_hours')) }}h</td>
+                            <td class="num">{{ $fmt($otPast->sum('encashed_hours')) }}h</td>
+                            <td class="num text-success">{{ $fmt($otPastNet) }}h</td>
+                            <td colspan="{{ ($hasNotes ? 1 : 0) + ($canManageOt ? 2 : 0) }}"></td>
+                        </tr>
+                    </tfoot>
+                @endif
+            </table>
+        </div>
+    </div>
+
+    {{-- ---------------- What left the bank (LOP cover, encashment, corrections) ---------------- --}}
+    <div class="otb-panel" id="otb-used">
+        <div class="ms-sec">
+            <h5>Bank movements <span id="otb-used-note">LOP cover, encashment and corrections, by salary period</span></h5>
+            <a href="javascript:;" class="f-12 d-none" id="otb-used-all">Show all movements</a>
+        </div>
+        <div class="table-responsive">
+            <table class="ms-table">
+                <thead>
+                    <tr><th>Salary period</th><th>What happened</th><th class="num">Hours</th><th class="num">Days / Amount</th><th>Details</th><th>Payslip</th></tr>
+                </thead>
+                <tbody>
+                @forelse ($otHistory as $row)
+                    @php [$label, $colour] = $types[$row->type] ?? [ucfirst($row->type), 'light']; @endphp
+                    <tr data-type="{{ $row->type }}">
+                        <td class="text-nowrap">{{ \App\Services\Payroll\PayPeriod::containing(\Carbon\Carbon::parse($row->period_start))->describe() }}</td>
+                        <td><span class="badge badge-{{ $colour }}">{{ $label }}</span></td>
+                        <td class="num"><span class="ms-pill {{ $row->hours < 0 ? 'minus' : 'plus' }}">{{ $row->hours > 0 ? '+' : '' }}{{ $fmt($row->hours) }}h</span></td>
+                        <td class="num">{!! $row->days ? $fmt($row->days) . ' day(s)' : ($row->amount ? '₹' . number_format((float) $row->amount, 2) : '<span class="nil">—</span>') !!}</td>
+                        <td>{{ $row->note ?: '' }}{{ $row->by_name && $row->type === 'adjusted' ? ' · by ' . $row->by_name : '' }}</td>
+                        <td class="text-nowrap">
+                            @if ($row->payslip_number)
+                                {{-- Opens the payslip it was settled on, in a new tab --}}
+                                <a href="{{ $employee->id == user()->id ? route('my-payslips.show', $row->payslip_id) : route('payslips.generated.pdf', $row->payslip_id) }}"
+                                   target="_blank" rel="noopener" class="otb-slip"><i class="fa fa-file-invoice mr-1"></i>{{ $row->payslip_number }} <i class="fa fa-external-link-alt ml-1"></i></a>
+                            @elseif ($row->type === 'adjusted')
+                                <span class="nil">—</span>
+                            @else
+                                <span class="badge badge-warning">Pending payroll</span>
+                            @endif
+                        </td>
+                    </tr>
+                @empty
+                @endforelse
+                <tr class="otb-used-empty {{ $otHistory->isEmpty() ? '' : 'd-none' }}"><td colspan="6"><div class="ms-empty"><i class="fa fa-inbox"></i>Nothing here yet.</div></td></tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
+</div>
+
+<script>
+    // The cards switch the details shown below them.
+    $(function () {
+        var used = $('#otb-used');
+        function showUsed(filter) {
+            var rows = used.find('tbody tr[data-type]');
+            rows.toggleClass('d-none', false);
+            if (filter) { rows.filter(function () { return $(this).data('type') !== filter; }).addClass('d-none'); }
+            used.find('.otb-used-empty').toggleClass('d-none', rows.not('.d-none').length > 0);
+            $('#otb-used-all').toggleClass('d-none', !filter);
+            $('#otb-used-note').text(filter === 'compensated' ? 'hours that covered LOP days' : (filter === 'encashed' ? 'hours paid out with salary' : 'LOP cover, encashment and corrections, by salary period'));
+        }
+        $('body').off('click.otbcard').on('click.otbcard', '.ms-stat[data-panel]', function () {
+            var card = $(this), panel = card.data('panel');
+            $('.ms-stat').removeClass('active');
+            card.addClass('active');
+            $('.otb-panel').removeClass('active');
+            $('#otb-' + panel).addClass('active');
+            if (panel === 'used') { showUsed(card.data('filter')); }
+        });
+        $('body').off('click.otbpend').on('click.otbpend', '.otb-pending', function () {
+            $('.ms-stat').removeClass('active');
+            $('.otb-panel').removeClass('active');
+            $('#otb-used').addClass('active');
+            showUsed(null);
+        });
+        $('body').off('click.otball').on('click.otball', '#otb-used-all', function () { showUsed(null); });
+    });
+</script>
 
 @if ($canManageOt)
     {{-- A year of months --}}

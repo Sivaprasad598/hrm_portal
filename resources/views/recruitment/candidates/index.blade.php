@@ -77,12 +77,14 @@
             </thead>
             <tbody>
             @forelse ($candidates as $candidate)
-                <tr>
+                {{-- Click a row for the candidate's details in the side panel --}}
+                <tr class="rc-row--quick" title="Click for details">
                     <td>
+                        <a href="{{ route('candidates.quick', $candidate->id) }}" class="openRightModal rc-quick-link d-none" aria-hidden="true"></a>
                         <div class="d-flex align-items-center">
                             <span class="rc-avatar mr-2">{{ $candidate->initials() }}</span>
                             <div>
-                                <a href="{{ route('candidates.show', $candidate->id) }}" class="text-darkest-grey font-weight-600">{{ $candidate->name }}</a>
+                                <a href="{{ route('candidates.show', $candidate->id) }}" class="text-darkest-grey font-weight-600 rc-row-name">{{ $candidate->name }}</a>
                                 @if ($candidate->user_id) <span class="badge badge-dark">Employee</span> @endif
                                 <div class="f-12 text-dark-grey">{{ $candidate->email }}{{ $candidate->mobile ? ' · ' . $candidate->mobile : '' }}</div>
                             </div>
@@ -123,6 +125,36 @@
         </table>
     </div>
 
-    <div class="mt-3">{{ $candidates->links() }}</div>
+    {{-- Where you are in the list, how many per page, and the pages --}}
+    @if ($candidates->total() > 0)
+        <div class="rc-pager">
+            <span class="text-dark-grey f-13">Showing <strong>{{ $candidates->firstItem() }}–{{ $candidates->lastItem() }}</strong> of <strong>{{ $candidates->total() }}</strong></span>
+            <form method="GET" class="d-inline-flex align-items-center f-13 text-dark-grey mb-0">
+                @foreach (request()->except(['per_page', 'page']) as $key => $value)
+                    @if (!is_array($value))<input type="hidden" name="{{ $key }}" value="{{ $value }}">@endif
+                @endforeach
+                <label for="per_page" class="mb-0 mr-2">Show</label>
+                <select id="per_page" name="per_page" class="form-control form-control-sm" style="width: 72px" onchange="this.form.submit()">
+                    @foreach ([10, 25, 50] as $size)
+                        <option value="{{ $size }}" @selected($candidates->perPage() === $size)>{{ $size }}</option>
+                    @endforeach
+                </select>
+            </form>
+            <div class="ml-md-auto">{{ $candidates->onEachSide(1)->links() }}</div>
+        </div>
+    @endif
 </div>
 @endsection
+
+@push('scripts')
+<script>
+    // A row opens the candidate's details in the side panel - unless the click
+    // was on something of its own (the resume link, a button). The name too;
+    // the full profile is a button inside the panel.
+    $('body').on('click', '.rc-row--quick', function (e) {
+        if ($(e.target).closest('a:not(.rc-row-name), button').length) { return; }
+        e.preventDefault();
+        $(this).find('.rc-quick-link').trigger('click');
+    });
+</script>
+@endpush

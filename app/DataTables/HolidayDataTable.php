@@ -53,45 +53,16 @@ class HolidayDataTable extends BaseDataTable
 
 
 
-            ->addColumn('department', function ($row) {
-                $value = (!empty($row->department_id_json) && $row->department_id_json != 'null') ? collect (Holiday::department(json_decode($row->department_id_json)))
-
-                    ->map(function($val){
-                        return '<ul>' . $val  . '</ul>';
-
-                    })
-                      ->implode('') : '--';
-
-                         return $value !== '' ? $value : '--';
-
-            })
-            ->addColumn('designation', function ($row) {
-                $value = (!empty($row->designation_id_json) && $row->designation_id_json != 'null') ? collect( Holiday::designation(json_decode($row->designation_id_json)))
-                  ->map(function($val){
-                    return '<ul>' . $val  . '</ul>';
-
-                  })
-                  ->implode('') : '--';
-
-                     return $value !== '' ? $value : '--';
-
-            })
-
-
-
-
-
-            ->addColumn('employment_type', function ($row) {
-                $value = !empty($row->employment_type_json) ? collect(json_decode($row->employment_type_json))
-                        ->map(function ($employmentType) {
-                            return '<ul>' . __('modules.employees.' . $employmentType) . '</ul>';
-                        })
-                        ->implode('') : '--';
-                return $value !== '' ? $value : '--';
-            })
-
-
-
+            // Who a holiday is for: "All" when it is for everyone (left blank, or
+            // every option ticked); otherwise the first two and "+N more", the
+            // whole list on hover. (Listing all 43 departments made rows a page tall.)
+            ->addColumn('department', fn ($row) => $this->audience(
+                $row->department_id_json, fn ($ids) => Holiday::department($ids), $this->totals()['departments'], 'All departments'))
+            ->addColumn('designation', fn ($row) => $this->audience(
+                $row->designation_id_json, fn ($ids) => Holiday::designation($ids), $this->totals()['designations'], 'All designations'))
+            ->addColumn('employment_type', fn ($row) => $this->audience(
+                $row->employment_type_json, fn ($ids) => collect($ids)->map(fn ($t) => __('modules.employees.' . $t))->all(),
+                count(self::EMPLOYMENT_TYPES), 'All types'))
             ->addColumn('action', function ($row) {
 
                 $actions = '<div class="task_view">
@@ -134,6 +105,38 @@ class HolidayDataTable extends BaseDataTable
      * @param Holiday $model
      * @return \Illuminate\Database\Query\Builder
      */
+    /** The employment types a holiday can be limited to. */
+    private const EMPLOYMENT_TYPES = ['full_time', 'part_time', 'on_contract', 'internship', 'trainee'];
+
+    private ?array $audienceTotals = null;
+
+    /** How many departments and designations there are: "every one ticked" means all. */
+    private function totals(): array
+    {
+        return $this->audienceTotals ??= [
+            'departments' => \App\Models\Team::count(),
+            'designations' => \App\Models\Designation::count(),
+        ];
+    }
+
+    private function audience($json, callable $names, int $total, string $allLabel): string
+    {
+        $ids = (!empty($json) && $json !== 'null') ? (array) json_decode($json, true) : [];
+        if (!$ids || ($total > 0 && count(array_unique($ids)) >= $total)) {
+            return '<span class="ms-pill ok">' . e($allLabel) . '</span>';
+        }
+        $list = collect($names($ids))->filter()->values();
+        if ($list->isEmpty()) {
+            return '<span class="ms-muted">--</span>';
+        }
+        $shown = $list->take(2)->map(fn ($n) => '<span class="ms-pill mr-1 mb-1">' . e($n) . '</span>')->implode('');
+        $more = $list->count() > 2
+            ? '<span class="ms-muted" data-toggle="tooltip" title="' . e($list->implode(', ')) . '">+' . ($list->count() - 2) . ' more</span>'
+            : '';
+
+        return '<div class="d-flex flex-wrap align-items-center">' . $shown . $more . '</div>';
+    }
+
     public function query(Holiday $model)
     {
         $user = user();

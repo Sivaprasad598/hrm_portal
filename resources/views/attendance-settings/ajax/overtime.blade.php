@@ -140,7 +140,7 @@
 
             <p class="f-12 text-lightest mb-0 bank-only">
                 Banked hours are already weighted by their rate (4h on a week-off at 1.5× = 6 bank hours), so one bank hour is worth one hourly rate.
-                In <a href="{{ route('payroll-run.index') }}">Payroll</a>, each employee's <strong>OT bank</strong> shows the balance, this period's
+                In <a href="{{ route('payroll-run.index') }}">Payroll</a>, each employee's <strong>Overtime Balance</strong> shows the balance, this period's
                 overtime and LOP days, to cover LOP or encash; the rest carries forward.
             </p>
             <p class="f-12 text-lightest mb-0 pay-only">

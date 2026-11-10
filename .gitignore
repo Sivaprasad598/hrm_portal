@@ -3,6 +3,9 @@
 /public/storage
 /public/user-uploads/*
 !public/user-uploads/.htaccess
+!public/user-uploads/candidate-files/
+public/user-uploads/candidate-files/*
+!public/user-uploads/candidate-files/.htaccess
 /storage/*.key
 /vendor
 .env

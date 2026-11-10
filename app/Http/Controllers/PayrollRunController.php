@@ -114,16 +114,27 @@ class PayrollRunController extends AccountBaseController
 
         $created = 0;
         $reasons = [];
+        // Held only because the device feed is behind: HR can issue them anyway
+        $overridable = [];
+        $anyway = $request->boolean('anyway');
 
         foreach ($request->user_ids as $userId) {
-            $result = $writer->issue((int) $userId, (int) $request->month, (int) $request->year, user()->id);
+            $result = $writer->issue((int) $userId, (int) $request->month, (int) $request->year, user()->id, $anyway);
 
-            $result['ok'] ? $created++ : $reasons[] = $result['message'];
+            if ($result['ok']) {
+                $created++;
+            } else {
+                $reasons[] = $result['message'];
+
+                if (!empty($result['overridable'])) {
+                    $overridable[] = (int) $userId;
+                }
+            }
         }
 
         return array_merge(
             Reply::success(sprintf('%d payslip(s) issued.', $created)),
-            ['created' => $created, 'skipped' => count($reasons), 'reasons' => $reasons]
+            ['created' => $created, 'skipped' => count($reasons), 'reasons' => $reasons, 'overridable' => $overridable]
         );
     }
 
@@ -181,7 +192,7 @@ class PayrollRunController extends AccountBaseController
         }
 
         if (($rules->s->ot_mode ?? 'bank') === 'bank') {
-            return Reply::error('Overtime is banked (Settings -> Attendance Settings -> Overtime): use the OT bank on each employee to cover LOP or encash it.');
+            return Reply::error('Overtime is banked (Settings -> Attendance Settings -> Overtime): use the Overtime Balance on each employee to cover LOP or encash it.');
         }
 
         // Every employee's period is counted again, like the payroll run itself.
@@ -224,7 +235,7 @@ class PayrollRunController extends AccountBaseController
         $row = collect($this->rows((int) $request->month, (int) $request->year, [(int) $request->user_id]))->first();
 
         if (!$row || !$row['ot_bank']) {
-            return Reply::error('The OT bank does not apply to this employee (it is off, or their attendance is not counted by hours).');
+            return Reply::error('The overtime balance does not apply to this employee (it is off, or their attendance is not counted by hours).');
         }
 
         try {
@@ -235,7 +246,7 @@ class PayrollRunController extends AccountBaseController
             return Reply::error($e->getMessage());
         }
 
-        return Reply::success('OT bank updated for ' . $row['name'] . '.');
+        return Reply::success('Overtime balance updated for ' . $row['name'] . '.');
     }
 
     /** HR / Admin correction of somebody's OT bank, with a reason. */
@@ -254,7 +265,7 @@ class PayrollRunController extends AccountBaseController
             return Reply::error($e->getMessage());
         }
 
-        return Reply::success('OT bank corrected.');
+        return Reply::success('Overtime balance corrected.');
     }
 
     /**

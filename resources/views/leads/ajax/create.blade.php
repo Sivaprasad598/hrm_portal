@@ -117,7 +117,8 @@
                         <input type="hidden" value="{{ $myAgentId }}" name="agent_id">
                     @endif
 
-                    @if(in_array('products', user_modules()) || in_array('purchase', user_modules()))
+                    {{-- Products are not asked for on leads and deals (QA TC-0039/0040) --}}
+                    @if(false)
                         <div class="col-lg-4 mt-3">
                             <div class="form-group">
                                 <x-forms.label fieldId="selectProduct" :fieldLabel="__('app.menu.products')">
@@ -308,7 +309,7 @@
                             $('#add_more').val(false);
                         }
                     } else {
-                        window.location.href = response.redirectUrl;
+                        goWithMessage(response.redirectUrl, response.message);
                     }
 
                     if (typeof showTable !== 'undefined' && typeof showTable === 'function') {

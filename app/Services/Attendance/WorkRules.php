@@ -211,6 +211,67 @@ class WorkRules
         return $worked > 0 && $worked >= $this->halfSeconds($shift) - $grace ? 0.5 : 0.0;
     }
 
+    /**
+     * The day's credit from the punches themselves (what payroll uses).
+     *
+     * On top of the hours (credit()), two cases the hours alone got wrong:
+     * - In by the late mark and there until the shift ends is a full day. The
+     *   late allowance (20 min) is longer than the hours' grace (10 min), so
+     *   someone in at 09:45 who stayed to 18:30 had 7h45 and was paid a half.
+     * - A half day needs the work time of the shorter half of the shift (to
+     *   or from its half-day mark), not more: 09:30-14:00 less a 45-minute
+     *   lunch is 3h45, and a 4h half day could never be earned in the morning.
+     */
+    public function dayCredit(int $first, int $last, int $worked, ?object $shift, string $date): float
+    {
+        $credit = $this->credit($worked, $shift);
+
+        if ($credit >= 1.0 || self::isFlexible($shift) || !$this->hasTimes($shift)) {
+            return $credit;
+        }
+
+        $grace = (int) $this->s->wh_grace_minutes * 60;
+        $end = Carbon::parse($shift->day_end, $this->tz)->getTimestamp();
+
+        if ($last >= $end - $grace && !$this->isLate($first, $shift, $date)) {
+            return 1.0;
+        }
+
+        if ($credit < 0.5 && $worked > 0 && $worked >= $this->shorterHalfSeconds($shift) - $grace) {
+            return 0.5;
+        }
+
+        return $credit;
+    }
+
+    /** Work time of the shorter half of a timed shift: start to half-day mark, or mark to end. */
+    public function shorterHalfSeconds(?object $shift): int
+    {
+        $start = Carbon::parse($shift->day_start, $this->tz);
+        $end = Carbon::parse($shift->day_end, $this->tz);
+        $mark = $shift->halfday_mark_time ?? null;
+
+        if ($mark && $mark !== '00:00:00') {
+            $split = Carbon::parse($start->toDateString() . ' ' . $mark, $this->tz);
+
+            if ($split->lt($start)) {
+                $split->addDay();
+            }
+        } else {
+            $split = $start->copy()->addSeconds(intdiv($end->getTimestamp() - $start->getTimestamp(), 2));
+        }
+
+        if ($split->lte($start) || $split->gte($end)) {
+            return $this->halfSeconds($shift);
+        }
+
+        $date = $start->toDateString();
+        $morning = ($split->getTimestamp() - $start->getTimestamp()) - $this->breakOverlap($shift, $start->getTimestamp(), $split->getTimestamp(), $date);
+        $afternoon = ($end->getTimestamp() - $split->getTimestamp()) - $this->breakOverlap($shift, $split->getTimestamp(), $end->getTimestamp(), $date);
+
+        return (int) min($this->halfSeconds($shift), max(0, min($morning, $afternoon)));
+    }
+
     /** First punch after the late mark: the shift start + its late minutes, or one global time. */
     public function isLate(int $first, ?object $shift, string $date): bool
     {

@@ -50,8 +50,53 @@
 
     @if ($awaitingFeedback->isNotEmpty())
         <div class="alert alert-info f-14">
-            <i class="fa fa-clipboard-check mr-1"></i> <strong>{{ $awaitingFeedback->count() }}</strong> completed interview(s) are waiting for scorecards.
+            <i class="fa fa-clipboard-check mr-1"></i> <strong>{{ $awaitingFeedback->count() }}</strong> round(s) held are waiting for scorecards / marks.
             <a href="{{ route('recruit-interviews.index', ['when' => 'feedback']) }}" class="font-weight-600">See them</a>
+        </div>
+    @endif
+
+    {{-- Slots the system suggested: one click to confirm --}}
+    @if ($toConfirm->isNotEmpty())
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="f-15 font-weight-600 mb-0"><i class="fa fa-clock text-info mr-1"></i>Slots to confirm <span class="badge badge-info ml-1">{{ $toConfirmCount }}</span></h5>
+                    <a href="{{ route('recruit-interviews.index', ['when' => 'confirm']) }}" class="f-13">All</a>
+                </div>
+                @foreach ($toConfirm as $slot)
+                    <div class="d-flex flex-wrap justify-content-between align-items-center border-top py-2 f-13">
+                        <div class="mr-2">
+                            <a href="{{ route('candidates.show', $slot->application->candidate_id) }}" class="font-weight-600 text-darkest-grey">{{ $slot->application->candidate->name }}</a>
+                            <span class="text-dark-grey">· {{ $slot->application->positionLabel() }} · <strong>{{ $slot->round }}</strong></span>
+                            <div class="text-dark-grey">{{ $slot->whenText() }} · {{ $slot->interviewers()->pluck('name')->implode(', ') ?: 'no panel yet' }}</div>
+                        </div>
+                        <div class="text-nowrap">
+                            <a href="javascript:;" class="btn btn-sm btn-primary confirm-slot" data-id="{{ $slot->id }}"><i class="fa fa-check mr-1"></i>Confirm</a>
+                            <a href="{{ route('recruit-interviews.edit', $slot->id) }}" class="btn btn-sm btn-outline-secondary openRightModal">Change</a>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    @endif
+
+    {{-- Rounds: how candidates are doing in each --}}
+    @if ($roundStats->isNotEmpty())
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-body">
+                <h5 class="f-15 font-weight-600 mb-3">Rounds <span class="f-12 text-dark-grey font-weight-normal">(decided in the last 90 days)</span></h5>
+                <div class="d-flex flex-wrap" style="gap: 10px">
+                    @foreach ($roundStats as $stat)
+                        @php $total = (int) $stat->passed + (int) $stat->failed; @endphp
+                        <div class="border rounded px-3 py-2" style="min-width: 170px">
+                            <div class="f-13 font-weight-600">{{ $stat->round }}</div>
+                            <div class="f-21 font-weight-700">{{ $total ? round($stat->passed / $total * 100) : 0 }}%<span class="f-12 text-dark-grey font-weight-normal"> cleared</span></div>
+                            <div class="f-12 text-dark-grey">{{ (int) $stat->passed }} cleared · {{ (int) $stat->failed }} not ·
+                                avg {{ \App\Models\RecruitRound::num(round((float) $stat->avg_score, 1)) }}{{ $stat->round_type === 'test' ? ($stat->out_of ? ' / ' . \App\Models\RecruitRound::num(round($stat->out_of)) : '') : ' / 5' }}</div>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
         </div>
     @endif
 
@@ -236,3 +281,16 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+    // A suggested slot, confirmed in one click (the panel is told; the candidate is emailed when they have an email)
+    $('body').on('click', '.confirm-slot', function () {
+        $.easyAjax({
+            url: '{{ route('recruit-interviews.confirm', ':id') }}'.replace(':id', $(this).data('id')), type: 'POST', blockUI: true,
+            data: {_token: '{{ csrf_token() }}', email_candidate: 1},
+            success: function (response) { if (response.status === 'success') { window.location.reload(); } }
+        });
+    });
+</script>
+@endpush

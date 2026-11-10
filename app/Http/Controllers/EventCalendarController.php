@@ -707,8 +707,11 @@ class EventCalendarController extends AccountBaseController
 
         $userId = UserService::getUserId();
 
+        // Somebody invited to an event (an interview panel, say) may always open
+        // it, whatever their events permission: it is on their calendar.
         abort_403(!(
-            $this->viewPermission == 'all'
+            in_array($userId, $attendeesIds)
+            || $this->viewPermission == 'all'
             || ($this->viewPermission == 'added' && $this->event->added_by == $userId)
             || ($this->viewPermission == 'owned' && in_array($userId, $attendeesIds) || $this->event->host == $userId)
             || ($this->viewPermission == 'both' && (in_array($userId, $attendeesIds) || $this->event->added_by == $userId) || (!is_null(($this->event->mentionEvent))) && in_array($userId, $mentionUser) || $this->event->host == $userId)

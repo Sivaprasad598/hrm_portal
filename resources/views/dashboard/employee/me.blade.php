@@ -98,7 +98,7 @@
     <div class="col-xl-{{ $hasTeam ? '4' : '2' }} col-md-6 mb-3">
         @if ($d['otBank'] !== null)
             <a href="{{ route('employees.show', $me->id) }}?tab=ot-bank" class="pd-card">
-                <div class="pd-label">My OT bank <i class="bi bi-hourglass-split"></i></div>
+                <div class="pd-label">My overtime balance <i class="bi bi-hourglass-split"></i></div>
                 <div class="pd-big">{{ $fmt($d['otBank']) }} <small>hours</small></div>
                 <div class="pd-sub">available to use</div>
             </a>

@@ -1462,6 +1462,10 @@ class User extends BaseModel implements AuthenticatableContract, AuthorizableCon
                 // the profile page (assets, OT bank tabs) only opens for the employee role
                 'has_employee_record' => $this->employeeDetail !== null && in_array('employee', $roles),
                 'ot_bank' => $this->employeeDetail !== null && in_array('employee', $roles) && (new \App\Services\Payroll\OtBank())->enabled((int) $this->company_id),
+                // My Interviews: on the panel of a recruitment round (a plan, or an interview)
+                'recruit_interviewer' => \App\Models\RecruitInterview::withoutGlobalScopes()->whereIn('status', ['scheduled', 'completed'])
+                        ->whereJsonContains('interviewer_ids', (int) $this->id)->exists()
+                    || \App\Models\RecruitRound::withoutGlobalScopes()->whereJsonContains('interviewer_ids', (int) $this->id)->exists(),
                 default => true,
             };
 

@@ -25,7 +25,7 @@ class MyPayslipsController extends AccountBaseController
     public function __construct()
     {
         parent::__construct();
-        $this->pageTitle = 'app.menu.payslips';
+        $this->pageTitle = 'My Payslips';
     }
 
     public function index()

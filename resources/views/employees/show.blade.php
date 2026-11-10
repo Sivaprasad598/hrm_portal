@@ -63,7 +63,10 @@ if ($viewPermission == 'all'
 @endsection
 
 @section('content')
-    <div class="content-wrapper pt-0 border-top-0 client-detail-wrapper">
+    {{-- With no tab strip above (an employee on one part of their own record),
+         the page keeps the usual gap under the top bar, like every other page. --}}
+    @php $soloTab = \App\Services\Access\AssignedModules::selfService() && request()->filled('tab') && $employee->id === user()->id; @endphp
+    <div class="content-wrapper {{ $soloTab ? '' : 'pt-0' }} border-top-0 client-detail-wrapper">
         @include($view)
     </div>
 @endsection

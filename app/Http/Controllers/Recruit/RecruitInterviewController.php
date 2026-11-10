@@ -7,9 +7,11 @@ use App\Models\JobApplication;
 use App\Models\JobPosition;
 use App\Models\RecruitInterview;
 use App\Models\RecruitInterviewFeedback;
+use App\Models\RecruitRound;
 use App\Models\RecruitSetting;
 use App\Services\Recruit\InterviewScheduler;
 use App\Services\Recruit\Pipeline;
+use App\Services\Recruit\RecruitAutomation;
 use App\Services\Recruit\RecruitAccess;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -36,16 +38,14 @@ class RecruitInterviewController extends RecruitBaseController
             ->when($when === 'today', fn ($q) => $q->whereBetween('starts_at', [now()->tz($tz)->startOfDay()->utc(), now()->tz($tz)->endOfDay()->utc()]))
             ->when($when === 'upcoming', fn ($q) => $q->where('starts_at', '>=', now()->tz($tz)->startOfDay()->utc()))
             ->when($when === 'past', fn ($q) => $q->where('starts_at', '<', now()->tz($tz)->startOfDay()->utc()))
-            ->when($when === 'feedback', fn ($q) => $q->where('status', 'completed'))
+            ->when($when === 'feedback', fn ($q) => $q->whereIn('id', $this->awaitingIds()))
+            ->when($when === 'confirm', fn ($q) => $q->where('status', 'proposed'))
+            ->when($when !== 'confirm' && !$request->status, fn ($q) => $q->where('status', '<>', 'proposed'))
             ->when($request->status, fn ($q, $s) => $q->where('status', $s))
             ->when($request->mine, fn ($q) => $q->whereJsonContains('interviewer_ids', (int) user()->id))
             ->when($request->position_id, fn ($q, $p) => $q->whereHas('application', fn ($a) => $a->where('job_position_id', $p)))
             ->orderBy('starts_at', in_array($when, ['past', 'feedback'], true) ? 'desc' : 'asc')
             ->paginate(40)->withQueryString();
-
-        if ($when === 'feedback') {
-            $this->interviews->setCollection($this->interviews->getCollection()->filter(fn ($i) => $i->missingFeedbackIds())->values());
-        }
 
         $this->when = $when;
         $this->positions = JobPosition::orderBy('title')->get(['id', 'title', 'code']);
@@ -100,7 +100,7 @@ class RecruitInterviewController extends RecruitBaseController
         $this->needManage();
         $this->interview = RecruitInterview::with('application.candidate', 'application.position')->findOrFail($id);
 
-        if ($this->interview->status !== 'scheduled') {
+        if (!in_array($this->interview->status, ['scheduled', 'proposed'], true)) {
             return Reply::error('Only a scheduled interview can be rescheduled.');
         }
 
@@ -108,7 +108,7 @@ class RecruitInterviewController extends RecruitBaseController
         $this->rounds = RecruitSetting::forCompany(company()->id)->rounds();
         $this->employees = $this->employees();
 
-        return $this->panel('recruitment.interviews.form', 'Reschedule Interview');
+        return $this->panel('recruitment.interviews.form', $this->interview->status === 'proposed' ? 'Change Slot & Confirm' : 'Reschedule Interview');
     }
 
     public function update(Request $request, $id, InterviewScheduler $scheduler)
@@ -116,13 +116,139 @@ class RecruitInterviewController extends RecruitBaseController
         $this->needManage();
         $interview = RecruitInterview::with('application')->findOrFail($id);
 
-        if ($interview->status !== 'scheduled') {
+        if (!in_array($interview->status, ['scheduled', 'proposed'], true)) {
             return Reply::error('Only a scheduled interview can be rescheduled.');
         }
 
-        $scheduler->reschedule($interview, $this->validated($request), $request->boolean('email_candidate'));
+        $wasProposed = $interview->status === 'proposed';
 
-        return Reply::successWithData('Interview updated: ' . $interview->whenText() . '.', ['redirectUrl' => route('candidates.show', $interview->application->candidate_id)]);
+        try {
+            $scheduler->reschedule($interview, $this->validated($request), $request->boolean('email_candidate'));
+        } catch (\RuntimeException $e) {
+            return Reply::error($e->getMessage());
+        }
+
+        return Reply::successWithData(($wasProposed ? 'Confirmed: ' : 'Interview updated: ') . $interview->whenText() . '.',
+            ['redirectUrl' => route('candidates.show', $interview->application->candidate_id)]);
+    }
+
+    /** One click: the slot the system suggested becomes the interview. */
+    public function confirm(Request $request, $id, InterviewScheduler $scheduler)
+    {
+        $this->needManage();
+        $interview = RecruitInterview::with('application')->findOrFail($id);
+
+        try {
+            $scheduler->confirm($interview, $request->boolean('email_candidate'));
+        } catch (\RuntimeException $e) {
+            return Reply::error($e->getMessage());
+        }
+
+        return Reply::successWithData($interview->round . ' confirmed for ' . $interview->whenText() . '. The panel has been told.',
+            ['redirectUrl' => url()->previous() ?: route('candidates.show', $interview->application->candidate_id)]);
+    }
+
+    /** A test round's marks, by whoever conducts it or HR. */
+    public function marks(Request $request, $id, RecruitAutomation $automation, Pipeline $pipeline)
+    {
+        $interview = RecruitInterview::with('application.candidate')->findOrFail($id);
+        abort_403(!$interview->isInterviewer(user()->id) && !RecruitAccess::can('manage'));
+
+        if (!$interview->isTest()) {
+            return Reply::error('Marks are for a test round. Interview rounds take scorecards.');
+        }
+
+        if (in_array($interview->status, ['proposed', 'cancelled', 'no_show'], true) || ($interview->status === 'scheduled' && $interview->starts_at->isFuture())) {
+            return Reply::error('The marks can be entered once the test has taken place.');
+        }
+
+        if ($interview->marks !== null) {
+            return Reply::error('The marks for this test are already in (' . $automation->scoreText($interview) . '). HR can change the decision on the candidate\'s page.');
+        }
+
+        $max = (float) ($interview->max_marks ?: 100);
+        $request->validate(['marks' => 'required|numeric|min:0|max:' . $max, 'comments' => 'nullable|string|max:5000'],
+            ['marks.required' => 'Enter the marks.', 'marks.max' => 'The test is out of ' . RecruitRound::num($max) . '.']);
+
+        $interview->marks = (float) $request->marks;
+        $interview->status_note = trim((string) $request->comments) ?: $interview->status_note;
+        $interview->save();
+
+        if ($interview->status === 'scheduled') {
+            app(InterviewScheduler::class)->close($interview, 'completed', 'Marks entered by ' . user()->name
+                . (trim((string) $request->comments) !== '' ? ': ' . trim($request->comments) : ''));
+        }
+
+        $application = $interview->application;
+        $pipeline->log($application->candidate_id, $application->id, 'feedback', user()->name . ' (' . $interview->round . '): '
+            . RecruitRound::num($interview->marks) . ' / ' . RecruitRound::num($max) . ' marks'
+            . ($request->comments ? ' — ' . mb_substr(trim($request->comments), 0, 500) : ''), null, null, $interview->company_id);
+
+        $automation->evaluate($interview);
+        $interview->refresh();
+
+        return Reply::successWithData('Marks saved: ' . $automation->scoreText($interview)
+            . ($interview->result ? ' — ' . strtolower(RecruitInterview::RESULTS[$interview->result][0]) . '.' : '. HR decides this round.'),
+            ['redirectUrl' => route('recruit-interviews.feedback', $interview->id)]);
+    }
+
+    public function decideForm($id)
+    {
+        $this->needManage();
+        $this->interview = RecruitInterview::with('application.candidate', 'feedback')->findOrFail($id);
+        $this->scoreText = app(RecruitAutomation::class)->scoreText($this->interview);
+
+        return $this->panel('recruitment.interviews.decide', 'Decide Round — ' . $this->interview->round);
+    }
+
+    /** HR passes, fails or waives a round (also overriding the cut-off). */
+    public function decide(Request $request, $id, RecruitAutomation $automation)
+    {
+        $this->needManage();
+        $interview = RecruitInterview::with('application')->findOrFail($id);
+        $request->validate([
+            'result' => ['required', Rule::in(array_keys(RecruitInterview::RESULTS))],
+            'note' => 'required|string|min:3|max:2000',
+        ], ['result.required' => 'Choose the decision.', 'note.required' => 'Say why (it is kept on the candidate\'s record).']);
+
+        if ($interview->status === 'proposed' && $request->result !== 'waived') {
+            return Reply::error('This round has not been held yet. Confirm the slot, or waive the round.');
+        }
+
+        if (in_array($interview->application->stage, ['offered', 'offer_accepted', 'joined'], true)) {
+            return Reply::error('The candidate is past the rounds (an offer is out). Withdraw the offer first.');
+        }
+
+        try {
+            $automation->decide($interview, $request->result, trim($request->note));
+        } catch (\RuntimeException $e) {
+            return Reply::error($e->getMessage());
+        }
+
+        return Reply::successWithData($interview->round . ': ' . strtolower(RecruitInterview::RESULTS[$request->result][0]) . '.',
+            ['redirectUrl' => route('candidates.show', $interview->application->candidate_id)]);
+    }
+
+    /** My Space -> My Interviews: the rounds this employee takes. */
+    public function mine(Request $request)
+    {
+        $this->pageTitle = 'My Interviews';
+        $me = (int) user()->id;
+
+        $all = RecruitInterview::withoutGlobalScopes()->with(['application.candidate', 'application.position', 'feedback'])
+            ->where('company_id', company()->id)->whereIn('status', ['scheduled', 'completed'])
+            ->whereJsonContains('interviewer_ids', $me)->orderBy('starts_at')->get();
+
+        $mineToDo = fn ($i) => !$i->result && ($i->isTest() ? $i->marks === null : !$i->feedback->contains('user_id', $me))
+            && ($i->status === 'completed' || $i->starts_at->isPast());
+
+        $this->toDo = $all->filter($mineToDo)->values();
+        $this->upcoming = $all->filter(fn ($i) => $i->status === 'scheduled' && $i->starts_at->isFuture())->values();
+        $this->done = $all->reject($mineToDo)->reject(fn ($i) => $i->status === 'scheduled' && $i->starts_at->isFuture())
+            ->sortByDesc('starts_at')->take(50)->values();
+        $this->automation = app(RecruitAutomation::class);
+
+        return view('recruitment.interviews.mine', $this->data);
     }
 
     public function closeForm(Request $request, $id)
@@ -153,6 +279,11 @@ class RecruitInterviewController extends RecruitBaseController
 
         $scheduler->close($interview, $request->status, $request->note, $request->boolean('email_candidate'));
 
+        // A plan round that did not happen: the system suggests the next try now (or closes after a second no-show)
+        if ($interview->recruit_round_id && $request->status !== 'completed') {
+            app(RecruitAutomation::class)->advance($interview->application);
+        }
+
         return Reply::successWithData('Interview marked ' . strtolower(RecruitInterview::STATUSES[$request->status][0]) . '.',
             ['redirectUrl' => route('candidates.show', $interview->application->candidate_id)]);
     }
@@ -166,10 +297,14 @@ class RecruitInterviewController extends RecruitBaseController
 
         $this->isInterviewer = $isInterviewer;
         $this->mine = $this->interview->feedback->firstWhere('user_id', user()->id);
-        $this->questions = RecruitSetting::forCompany($this->interview->company_id)->questions();
+        $this->questions = $this->questionsFor($this->interview);
+        $this->automation = app(RecruitAutomation::class);
+        $this->canMarks = $this->interview->isTest() && $this->interview->marks === null
+            && ($isInterviewer || RecruitAccess::can('manage'))
+            && ($this->interview->status === 'completed' || ($this->interview->status === 'scheduled' && $this->interview->starts_at->isPast()));
         // An interviewer sees the others' scorecards once they have given their own, so theirs is their own view.
         $this->showScorecards = RecruitAccess::can('view') || $this->mine;
-        $this->canGive = $isInterviewer && !$this->mine && $this->interview->status !== 'cancelled'
+        $this->canGive = $isInterviewer && !$this->mine && !$this->interview->isTest() && !in_array($this->interview->status, ['cancelled', 'proposed', 'no_show'], true)
             && ($this->interview->status === 'completed' || $this->interview->starts_at->isPast());
         $this->pageTitle = 'Interview — ' . $this->interview->application->candidate->name;
 
@@ -181,7 +316,11 @@ class RecruitInterviewController extends RecruitBaseController
         $interview = RecruitInterview::with('application.candidate')->findOrFail($id);
         abort_403(!$interview->isInterviewer(user()->id));
 
-        if ($interview->status === 'cancelled' || ($interview->status === 'scheduled' && $interview->starts_at->isFuture())) {
+        if ($interview->isTest()) {
+            return Reply::error('This is a test round: enter the marks instead.');
+        }
+
+        if (in_array($interview->status, ['cancelled', 'proposed', 'no_show'], true) || ($interview->status === 'scheduled' && $interview->starts_at->isFuture())) {
             return Reply::error('The scorecard can be given once the interview has taken place.');
         }
 
@@ -189,7 +328,7 @@ class RecruitInterviewController extends RecruitBaseController
             return Reply::error('You have already given your scorecard for this interview.');
         }
 
-        $questions = RecruitSetting::forCompany($interview->company_id)->questions();
+        $questions = $this->questionsFor($interview);
         $request->validate([
             'ratings' => 'nullable|array',
             'ratings.*' => 'nullable|integer|min:1|max:5',
@@ -222,7 +361,28 @@ class RecruitInterviewController extends RecruitBaseController
             app(InterviewScheduler::class)->close($interview, 'completed', 'Closed when the first scorecard came in.');
         }
 
+        // The last scorecard in: the round's score, and the next step
+        app(RecruitAutomation::class)->evaluate($interview);
+
         return Reply::successWithData('Thank you - your scorecard is saved.', ['redirectUrl' => route('recruit-interviews.feedback', $interview->id)]);
+    }
+
+    /** The round's own scorecard questions, else the usual ones. */
+    private function questionsFor(RecruitInterview $interview): array
+    {
+        $own = $interview->recruit_round_id ? RecruitRound::withoutGlobalScopes()->find($interview->recruit_round_id)?->questionList() : [];
+
+        return $own ?: RecruitSetting::forCompany($interview->company_id)->questions();
+    }
+
+    /** Interviews held whose result waits on marks / scorecards. @return int[] */
+    private function awaitingIds(): array
+    {
+        $automation = app(RecruitAutomation::class);
+
+        return RecruitInterview::with('feedback')->whereIn('status', ['scheduled', 'completed'])->whereNull('result')
+            ->where('starts_at', '<', now())->where('starts_at', '>=', now()->subDays(60))->get()
+            ->filter(fn ($i) => $i->endsAt()->isPast() && $automation->waitingOn($i))->pluck('id')->all();
     }
 
     /**
@@ -262,7 +422,8 @@ class RecruitInterviewController extends RecruitBaseController
             'duration' => (int) $request->duration,
             'location' => $request->location ?: null,
             'meeting_link' => $request->mode === 'video' ? $request->meeting_link : null,
-            'interviewer_ids' => array_values(array_unique(array_map('intval', $request->interviewer_ids))),
+            'interviewer_ids' => array_values(array_intersect(array_unique(array_map('intval', $request->interviewer_ids)),
+                $this->employees()->pluck('id')->map(fn ($id) => (int) $id)->all())) ?: $this->fail('Choose at least one interviewer from the employees.'),
             'notes' => $request->notes ?: null,
         ];
     }

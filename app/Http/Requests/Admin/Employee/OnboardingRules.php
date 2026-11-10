@@ -49,6 +49,8 @@ trait OnboardingRules
             'declaration_candidate_copy.mimes' => 'The declaration copy must be a PDF, JPG or PNG.',
             'declaration_hr_copy.mimes' => 'The declaration copy must be a PDF, JPG or PNG.',
             'resume_file.mimes' => 'The resume must be a PDF.',
+            'emergency_name.*.regex' => 'An emergency contact name can have letters and spaces only (no numbers or emojis).',
+            'emergency_number.*.regex' => 'An emergency contact number must be a 10-digit Indian mobile number, optionally starting with +91.',
         ];
     }
 

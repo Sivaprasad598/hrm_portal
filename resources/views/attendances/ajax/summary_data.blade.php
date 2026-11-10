@@ -58,7 +58,7 @@ $overrideCredit = ['present' => 1, 'wfh' => 1, 'late' => 1, 'halfday' => 0.5, 'c
                         @php
                             $attendanceDate = \Carbon\Carbon::parse($year.'-'.$month.'-'.$key2);
                         @endphp
-                        <td class="px-1">
+                        <td class="px-1 att-day">
                             @if ($day == 'Leave')
                             <span data-toggle="tooltip" data-html="true"
                             data-original-title="{{ \Illuminate\Support\Str::limit(strip_tags($leaveReasons[$userId][$key2] ?? ''), 50, '...') }}">

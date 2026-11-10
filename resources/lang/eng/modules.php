@@ -1795,7 +1795,7 @@ return array(
     'leaves' => array(
         'assignLeave' => 'Assign Leave',
         'addLeaveType' => 'Add Leave Type',
-        'addLeave' => 'New Leave',
+        'addLeave' => 'Apply Leave',
         'editLeave' => 'Edit Leave',
         'leaveType' => 'Leave Type',
         'selectDuration' => 'Select Duration',

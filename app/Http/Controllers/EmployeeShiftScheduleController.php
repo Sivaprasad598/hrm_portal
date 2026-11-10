@@ -406,6 +406,9 @@ class EmployeeShiftScheduleController extends AccountBaseController
 
     public function update(Request $request, $id)
     {
+        // The remarks are saved by the observer from the request (QA TC-0053: no emojis)
+        $request->validate(['remarks' => ['nullable', 'max:1000', new \App\Rules\NoEmoji]]);
+
         $shift = EmployeeShiftSchedule::findOrFail($id);
         $shift->employee_shift_id = $request->employee_shift_id;
 
@@ -692,6 +695,9 @@ class EmployeeShiftScheduleController extends AccountBaseController
             }
 
             $shift->saveQuietly();
+
+            // Saved quietly (no observer): a Day Off still frees leave on that day
+            \App\Services\Leaves\DayOffLeaves::forShift((int) $userId, $date->format('Y-m-d'), (int) $shift->employee_shift_id);
 
             if ($request->hasFile('file')) {
                 $fileName = Files::uploadLocalOrS3($request->file, 'employee-shift-file/' . $shift->id);

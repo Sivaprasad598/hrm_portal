@@ -56,6 +56,15 @@ class RoleAccess
     /** Left out for a role: the CEO looks at Biometric, HR and the Admin work it. */
     public const NOT_FOR = ['ceo' => ['manage_biometric_exceptions', 'manage_biometric_mapping']];
 
+    /** Given to one role only, at "all": HR runs Recruitment (positions to offers, and its settings). */
+    public const ONLY_FOR = ['hr' => ['view_recruitment', 'manage_recruitment', 'manage_recruitment_settings']];
+
+    /** Sidebar entries for one role only, by route. */
+    public const MENU_ONLY_FOR = ['hr' => [
+        'recruitment.dashboard', 'job-positions.index', 'job-applications.index', 'candidates.index',
+        'recruit-interviews.index', 'recruitment-settings.index',
+    ]];
+
     /** Sidebar entries granted, by route (and the group headings they sit under). */
     public const MENU_ROUTES = [
         'dashboard', 'dashboard.advanced',
@@ -110,7 +119,8 @@ class RoleAccess
     {
         $all = (int) DB::table('permission_types')->where('name', 'all')->value('id');
         $roleName = DB::table('roles')->where('id', $roleId)->value('name');
-        $ids = DB::table('permissions')->whereIn('name', array_diff(self::PERMISSIONS, self::NOT_FOR[$roleName] ?? []))->pluck('id')
+        $names = array_merge(array_diff(self::PERMISSIONS, self::NOT_FOR[$roleName] ?? []), self::ONLY_FOR[$roleName] ?? []);
+        $ids = DB::table('permissions')->whereIn('name', $names)->pluck('id')
             ->merge(self::modulePermissionIds());
 
         foreach ($ids as $permissionId) {
@@ -121,7 +131,7 @@ class RoleAccess
         }
 
         // The menu entries, with the headings above them.
-        $menus = DB::table('sidebar_menus')->whereIn('route', self::MENU_ROUTES)->get(['id', 'parent_id']);
+        $menus = DB::table('sidebar_menus')->whereIn('route', array_merge(self::MENU_ROUTES, self::MENU_ONLY_FOR[$roleName] ?? []))->get(['id', 'parent_id']);
         $menuIds = $menus->pluck('id')->merge($menus->pluck('parent_id'))->filter()->unique();
 
         foreach ($menuIds as $menuId) {

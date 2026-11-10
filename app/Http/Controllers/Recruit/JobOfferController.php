@@ -41,18 +41,13 @@ class JobOfferController extends RecruitBaseController
             return Reply::error('An offer is made once the candidate is Selected (now: ' . $this->application->stageLabel() . ').');
         }
 
-        $position = $this->application->position;
+        if ($this->application->offers()->whereIn('status', JobOffer::OPEN)->exists()) {
+            return Reply::error('There is already an offer for this application. Edit or withdraw it instead of making another.');
+        }
+
         $candidate = $this->application->candidate;
-        $this->offer = new JobOffer([
-            'reference_no' => JobOffer::nextReference(),
-            'designation_id' => $position?->designation_id,
-            'department_id' => $position?->department_id,
-            'branch_id' => $position?->branch_id,
-            'annual_ctc' => $candidate->expected_ctc ?: ($position?->salary_max ?: null),
-            'offer_date' => now(),
-            'joining_date' => now()->addDays(max(15, (int) $candidate->notice_period_days)),
-            'valid_until' => now()->addDays(7),
-        ]);
+        $this->offer = new JobOffer(JobOffer::defaultsFor($this->application));
+        $this->offer->annual_ctc = $this->offer->annual_ctc ?: null;
         $this->lookups();
 
         return $this->panel('recruitment.offers.form', 'Make Offer — ' . $candidate->name);
@@ -65,6 +60,10 @@ class JobOfferController extends RecruitBaseController
 
         if ($application->stage !== 'selected') {
             return Reply::error('An offer is made once the candidate is Selected.');
+        }
+
+        if ($application->offers()->whereIn('status', JobOffer::OPEN)->exists()) {
+            return Reply::error('There is already an offer for this application. Edit or withdraw it instead of making another.');
         }
 
         $offer = JobOffer::create($this->validated($request) + [

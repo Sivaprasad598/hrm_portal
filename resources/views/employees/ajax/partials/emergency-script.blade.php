@@ -38,7 +38,7 @@
     $('#ecAddRow').on('click', function () {
         var row = '<tr>' +
             '<td class="align-middle text-center ec-serial"></td>' +
-            '<td><input type="text" name="emergency_name[]" class="form-control ec-name" maxlength="100"></td>' +
+            '<td><input type="hidden" name="emergency_id[]" value=""><input type="text" name="emergency_name[]" class="form-control ec-name" maxlength="100"></td>' +
             '<td><select name="emergency_relation[]" class="form-control ec-relation">' + ecRelationOptions + '</select></td>' +
             '<td><input type="text" name="emergency_number[]" class="form-control ec-number" maxlength="20"></td>' +
             '<td class="align-middle text-center"><button type="button" class="btn btn-sm btn-outline-danger ec-remove-row" title="Remove row"><i class="fa fa-trash"></i></button></td>' +

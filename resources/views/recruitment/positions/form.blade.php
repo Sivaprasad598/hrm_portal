@@ -98,6 +98,22 @@
                     </div>
                 </div>
 
+                {{-- Hiring rounds: the default plan, or this position's own --}}
+                <div class="px-20 pb-20">
+                    <h5 class="f-16 font-weight-600 mb-1 border-top-grey pt-3"><i class="fa fa-route mr-1"></i>Hiring Rounds</h5>
+                    <p class="f-13 text-dark-grey mb-2">The rounds a shortlisted candidate goes through, in order, and who takes each one.</p>
+                    <x-forms.checkbox fieldId="use_default_plan" fieldName="use_default_plan" fieldValue="1" :checked="!$ownPlan"
+                        fieldLabel="Use the default plan (Recruitment Settings → Hiring Rounds)" />
+                    <div id="own-plan" class="mt-2 {{ $ownPlan ? '' : 'd-none' }}">
+                        @include('recruitment.partials.round-plan', ['plan' => $plan, 'employees' => $employees, 'planId' => 'position-plan'])
+                    </div>
+                    <div id="default-plan-view" class="mt-2 f-13 {{ $ownPlan ? 'd-none' : '' }}">
+                        @foreach ($plan as $i => $round)
+                            <span class="rc-chip">{{ $i + 1 }}. {{ $round->name }} · {{ $round->isTest() ? 'Test' : 'Interview' }} · {{ $round->passText() }}</span>
+                        @endforeach
+                    </div>
+                </div>
+
                 <x-form-actions>
                     <x-forms.button-primary id="save-position" class="mr-3" icon="check">@lang('app.save')</x-forms.button-primary>
                     <x-forms.button-secondary id="cancel-position">@lang('app.cancel')</x-forms.button-secondary>
@@ -116,6 +132,12 @@
     $(function () {
         datepicker('#closing_date', {position: 'bl', ...datepickerConfig});
         $('#description').attr('rows', 6);
+
+        // Own plan: the editor starts from the default's rounds, to change
+        $('#use_default_plan').on('change', function () {
+            $('#own-plan').toggleClass('d-none', this.checked);
+            $('#default-plan-view').toggleClass('d-none', !this.checked);
+        });
 
         $('#save-position').on('click', function () {
             recruitSubmit('position-form', '{{ $editing ? route('job-positions.update', $position->id) : route('job-positions.store') }}', 'save-position');

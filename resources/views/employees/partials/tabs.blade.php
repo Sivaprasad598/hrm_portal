@@ -52,7 +52,7 @@
 
     @if (\Illuminate\Support\Facades\Schema::hasTable('ot_ledger')
         && (\App\Services\Access\PayrollAccess::any() || $employee->id == user()->id))
-        <li><x-tab :href="$tabUrl('ot-bank')" text="OT Bank" class="ot-bank" /></li>
+        <li><x-tab :href="$tabUrl('ot-bank')" text="Overtime Balance" class="ot-bank" /></li>
     @endif
 
     @if (user()->permission('manage_assets') === 'all' || $employee->id == user()->id)

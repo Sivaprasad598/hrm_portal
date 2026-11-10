@@ -28,9 +28,14 @@ class CandidateFile extends BaseModel
         return $this->belongsTo(Candidate::class);
     }
 
+    /**
+     * The link to open the file: through the app, after sign-in, for whoever may
+     * see the candidate (CandidateController::file). The folder itself refuses
+     * direct requests (its .htaccess) - resumes are personal data.
+     */
     public function getUrlAttribute(): string
     {
-        return asset_url_local_s3(self::FILE_PATH . '/' . $this->candidate_id . '/' . $this->hashname);
+        return route('candidate-files.show', $this->id);
     }
 
     /** Where the file sits on the local disk (the default disk is public/user-uploads). */

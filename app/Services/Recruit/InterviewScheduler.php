@@ -68,8 +68,73 @@ class InterviewScheduler
         return $interview;
     }
 
+    /**
+     * HR confirms a slot the system suggested: it becomes a scheduled
+     * interview - the calendar event, the panel told, the application in the
+     * Interview stage.
+     *
+     * @throws \RuntimeException when there is no panel yet
+     */
+    public function confirm(RecruitInterview $interview, bool $emailCandidate): RecruitInterview
+    {
+        if ($interview->status !== 'proposed') {
+            throw new \RuntimeException('This slot is already ' . strtolower(RecruitInterview::STATUSES[$interview->status][0] ?? $interview->status) . '.');
+        }
+
+        if (!$interview->interviewer_ids) {
+            throw new \RuntimeException('Choose who takes this round first (Change slot), then confirm.');
+        }
+
+        if (!in_array($interview->application->stage, ['new', 'shortlisted', 'interview'], true)) {
+            throw new \RuntimeException('The application is ' . strtolower($interview->application->stageLabel()) . ' now; this slot is not needed.');
+        }
+
+        DB::transaction(function () use ($interview) {
+            $interview->status = 'scheduled';
+            $interview->created_by = $interview->created_by ?: user()?->id;
+            $interview->save();
+            $interview->event_id = $this->saveEvent($interview)->id;
+            $interview->save();
+        });
+
+        $application = $interview->application;
+
+        if (in_array($application->stage, ['new', 'shortlisted', 'on_hold'], true)) {
+            $this->pipeline->move($application, 'interview', null, 'Interview scheduled', false);
+        }
+
+        $this->pipeline->log($application->candidate_id, $application->id, 'interview',
+            'Confirmed: ' . $interview->round . ' · ' . $interview->whenText() . ' · ' . $interview->modeLabel()
+            . ' · Panel: ' . $interview->interviewers()->pluck('name')->implode(', '));
+
+        $this->tellPanel($interview, $interview->interviewer_ids, 'invited');
+        $this->forgetMenus($interview->interviewer_ids);
+
+        if ($emailCandidate) {
+            $this->emailCandidate($interview, 'invited');
+        }
+
+        return $interview;
+    }
+
+    /** My Interviews shows once someone is on a round: their sidebar is rebuilt. */
+    public function forgetMenus(array $userIds): void
+    {
+        foreach (array_unique(array_map('intval', $userIds)) as $id) {
+            cache()->forget('sidebar_menus_' . $id);
+        }
+    }
+
     public function reschedule(RecruitInterview $interview, array $details, bool $emailCandidate): RecruitInterview
     {
+        // A suggested slot that HR changes: saved and confirmed in one go
+        if ($interview->status === 'proposed') {
+            $interview->fill($details);
+            $interview->save();
+
+            return $this->confirm($interview, $emailCandidate);
+        }
+
         $before = array_map('intval', $interview->interviewer_ids ?: []);
         $interview->fill($details);
         $interview->save();
@@ -79,6 +144,7 @@ class InterviewScheduler
         $this->tellPanel($interview, array_values(array_diff($now, $before)), 'invited');
         $this->tellPanel($interview, array_values(array_intersect($now, $before)), 'rescheduled');
         $this->tellPanel($interview, array_values(array_diff($before, $now)), 'cancelled');
+        $this->forgetMenus(array_merge($before, $now));
 
         $application = $interview->application;
         $this->pipeline->log($application->candidate_id, $application->id, 'interview',

@@ -69,6 +69,14 @@ return [
 
     'env' => env('APP_ENV', 'production'),
 
+    /*
+    | Scheduled jobs (cron) run on the server only. A development copy sets
+    | SCHEDULER_ENABLED=false in its .env, so `schedule:run` there does nothing
+    | (no biometric pulls, reminders or emails from a laptop). On by default,
+    | so the server needs no change.
+    */
+    'scheduler_enabled' => (bool) env('SCHEDULER_ENABLED', true),
+
     'currency_converter_key' => env('CURRENCY_CONVERTER_KEY'),
 
     /*

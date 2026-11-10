@@ -197,7 +197,7 @@
                                     fieldRequired="true" :popover="__('messages.leave.maritalStatus')" />
                                 <select class="form-control multiple-option" multiple name="marital_status[]"
                                     id="marital_status" data-live-search="true" data-size="8">
-                                    @foreach (\App\Enums\MaritalStatus::cases() as $status)
+                                    @foreach (\App\Enums\MaritalStatus::offered() as $status)
                                         <option selected value="{{ $status->value }}">{{ $status->label() }}</option>
                                     @endforeach
                                 </select>

@@ -144,7 +144,7 @@
         function totals() {
             var work = parseFloat($('#wh_work_hours').val()) || 0;
             $('#shift-rows tr').each(function () {
-                var keys = $(this).find('.s-breaks').val() || [];
+                var keys = $(this).find('select.s-breaks').val() || [];
                 var total = breaks.filter(function (b) { return keys.indexOf(b.key) !== -1; })
                     .reduce(function (sum, b) { return sum + minutesOf(b); }, 0);
                 var sh = shifts.filter(function (x) { return String(x.id) === String($(this).data('shift')); }, this)[0];
@@ -184,7 +184,7 @@
         function rememberShifts() {
             $('#shift-rows tr').each(function () {
                 var sh = shifts.filter(function (x) { return String(x.id) === String($(this).data('shift')); }, this)[0];
-                if (sh && $(this).find('.s-custom').val() === '1') { sh.selected = $(this).find('.s-breaks').val() || []; }
+                if (sh && $(this).find('.s-custom').val() === '1') { sh.selected = $(this).find('select.s-breaks').val() || []; }
             });
         }
         $('#shift-rows').on('changed.bs.select', '.s-breaks', function () {

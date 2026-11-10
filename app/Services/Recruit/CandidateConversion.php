@@ -40,6 +40,11 @@ class CandidateConversion
             return $candidate->name . ' has already been added as an employee.';
         }
 
+        // Joining follows an accepted offer (with its proof of acceptance)
+        if (!$candidate->applications()->where('stage', 'offer_accepted')->exists()) {
+            return $candidate->name . ' can be added as an employee once an offer is accepted.';
+        }
+
         if ($candidate->email && User::withoutGlobalScopes()->where('email', $candidate->email)->exists()) {
             return 'An employee or user with the email ' . $candidate->email . ' already exists. Check whether this person is already on file.';
         }
@@ -103,6 +108,11 @@ class CandidateConversion
         $candidate = Candidate::withoutGlobalScopes()->find($candidateId);
 
         if (!$candidate || $candidate->user_id) {
+            return;
+        }
+
+        // Only a candidate with an accepted offer is joined (the Add Employee form is filled only for them)
+        if (!$candidate->applications()->withoutGlobalScopes()->where('stage', 'offer_accepted')->exists()) {
             return;
         }
 

@@ -195,6 +195,42 @@ $answer = json_decode(curl_exec($ch), true);   // ['status' => 'success', 'refer
         </div>
     </div>
 
+    {{-- Hiring rounds --}}
+    <div class="bg-white rounded border mb-4" id="hiring-rounds">
+        <div class="p-20 border-bottom-grey">
+            <h5 class="f-16 font-weight-600 mb-1"><i class="fa fa-route mr-1"></i>Hiring Rounds</h5>
+            <p class="f-13 text-dark-grey mb-0">The default plan: every position uses it unless it has its own (set on the position).
+                Once HR shortlists a candidate, the system suggests each round's slot for HR to confirm, scores the round, and moves the candidate on —
+                or rejects them under the cut-off — and drafts the offer after the last round.</p>
+        </div>
+        <x-form id="rounds-form">
+            <input type="hidden" name="section" value="rounds">
+            <div class="p-20">
+                @include('recruitment.partials.round-plan', ['plan' => $plan, 'employees' => $employees, 'planId' => 'default-plan'])
+
+                <h6 class="f-14 font-weight-600 mt-4 mb-2">Timings</h6>
+                <div class="row">
+                    <div class="col-md-3 col-6">
+                        <x-forms.number fieldId="slot_lead_hours" fieldLabel="Earliest slot (hours from now)" fieldName="slot_lead_hours" :fieldValue="$setting->slot_lead_hours ?? 24" />
+                    </div>
+                    <div class="col-md-3 col-6">
+                        <x-forms.number fieldId="slot_horizon_days" fieldLabel="Look for a slot within (days)" fieldName="slot_horizon_days" :fieldValue="$setting->slot_horizon_days ?? 14" />
+                    </div>
+                    <div class="col-md-3 col-6">
+                        <x-forms.number fieldId="reminder_hours" fieldLabel="Remind the panel every (hours)" fieldName="reminder_hours" :fieldValue="$setting->reminder_hours ?? 24" />
+                    </div>
+                    <div class="col-md-3 col-6">
+                        <x-forms.number fieldId="escalate_hours" fieldLabel="Tell HR when overdue by (hours)" fieldName="escalate_hours" :fieldValue="$setting->escalate_hours ?? 48" />
+                    </div>
+                </div>
+                <p class="f-12 text-dark-grey mb-0">Slots are suggested inside office hours on office days, skipping holidays, the panel's leave, meetings and other interviews.</p>
+            </div>
+            <x-form-actions>
+                <x-forms.button-primary id="save-rounds" icon="check">Save</x-forms.button-primary>
+            </x-form-actions>
+        </x-form>
+    </div>
+
     {{-- Lists --}}
     <div class="bg-white rounded border mb-4">
         <div class="p-20 border-bottom-grey">
@@ -209,7 +245,7 @@ $answer = json_decode(curl_exec($ch), true);   // ['status' => 'success', 'refer
                     <textarea class="form-control f-14" rows="8" name="rejection_reasons" id="rejection_reasons">{{ implode("\n", $setting->rejectionReasons()) }}</textarea>
                 </div>
                 <div class="col-md-4">
-                    <x-forms.label fieldId="interview_rounds" fieldLabel="Interview rounds" />
+                    <x-forms.label fieldId="interview_rounds" fieldLabel="Round names for extra interviews" />
                     <textarea class="form-control f-14" rows="8" name="interview_rounds" id="interview_rounds">{{ implode("\n", $setting->rounds()) }}</textarea>
                 </div>
                 <div class="col-md-4">
@@ -241,6 +277,7 @@ $answer = json_decode(curl_exec($ch), true);   // ['status' => 'success', 'refer
         $('#save-mailbox').on('click', function () { save('mailbox-form', 'save-mailbox'); });
         $('#save-api').on('click', function () { save('api-form', 'save-api'); });
         $('#save-lists').on('click', function () { save('lists-form', 'save-lists'); });
+        $('#save-rounds').on('click', function () { save('rounds-form', 'save-rounds'); });
 
         $('#test-mailbox').on('click', function () {
             $.easyAjax({ url: '{{ route('recruitment-settings.test-mailbox') }}', type: 'POST', blockUI: true, disableButton: true,

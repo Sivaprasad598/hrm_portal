@@ -13,7 +13,7 @@
             @endif
 
             <div class="add-client bg-white rounded">
-                <h4 class="mb-0 p-20 f-21 font-weight-normal border-bottom-grey">{{ $editing ? 'Reschedule Interview' : 'Schedule Interview' }}</h4>
+                <h4 class="mb-0 p-20 f-21 font-weight-normal border-bottom-grey">{{ $interview->status === 'proposed' ? 'Change Slot & Confirm' : ($editing ? 'Reschedule Interview' : 'Schedule Interview') }}</h4>
 
                 <div class="row p-20">
                     <div class="col-12 f-14 mb-2">
@@ -89,7 +89,7 @@
                 </div>
 
                 <x-form-actions>
-                    <x-forms.button-primary id="save-interview" class="mr-3" icon="check">{{ $editing ? 'Save' : 'Schedule' }}</x-forms.button-primary>
+                    <x-forms.button-primary id="save-interview" class="mr-3" icon="check">{{ $interview->status === 'proposed' ? 'Save & confirm' : ($editing ? 'Save' : 'Schedule') }}</x-forms.button-primary>
                     <x-forms.button-secondary id="cancel-interview">@lang('app.cancel')</x-forms.button-secondary>
                 </x-form-actions>
             </div>

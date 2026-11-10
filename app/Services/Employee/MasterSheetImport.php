@@ -850,13 +850,14 @@ class MasterSheetImport
             }
 
             if ($rec['spouse']) {
-                DB::table('employee_relations')->insert(['user_id' => $userId, 'serial_no' => 1, 'name' => mb_substr($rec['spouse'], 0, 191),
-                    'relation' => 'Spouse', 'contact_number' => '', 'created_at' => $now, 'updated_at' => $now]);
+                // Emergency contacts live in emergency_contacts (what the profile shows)
+                DB::table('emergency_contacts')->insert(['company_id' => $companyId, 'user_id' => $userId, 'name' => mb_substr($rec['spouse'], 0, 191),
+                    'relation' => 'Spouse', 'mobile' => '', 'added_by' => $actorId, 'created_at' => $now, 'updated_at' => $now]);
             }
 
             if ($rec['alt_mobile']) {
-                DB::table('employee_relations')->insert(['user_id' => $userId, 'serial_no' => 2, 'name' => 'Alternate contact',
-                    'relation' => 'Other', 'contact_number' => $rec['alt_mobile'], 'created_at' => $now, 'updated_at' => $now]);
+                DB::table('emergency_contacts')->insert(['company_id' => $companyId, 'user_id' => $userId, 'name' => 'Alternate contact',
+                    'relation' => 'Other', 'mobile' => $rec['alt_mobile'], 'added_by' => $actorId, 'created_at' => $now, 'updated_at' => $now]);
             }
         }
 

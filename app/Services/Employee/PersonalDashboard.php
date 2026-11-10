@@ -95,6 +95,8 @@ class PersonalDashboard
             'name' => $q->leaveType->type_name,
             'code' => $q->leaveType->code ?: strtoupper(substr($q->leaveType->type_name, 0, 2)),
             'remaining' => (float) ($q->quotaDisplay['breakdown']['total_remaining'] ?? 0),
+            'given' => (float) ($q->quotaDisplay['breakdown']['total_allocated'] ?? 0),
+            'color' => $q->leaveType->color,
         ])->values()->all();
     }
 

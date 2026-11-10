@@ -51,7 +51,7 @@
 
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
         <p class="f-13 text-dark-grey mb-0">The system counts overtime from {{ $goLive->format('d M Y') }}. Earlier months come from past records
-            <span class="badge badge-info f-10">past</span>, entered on each employee's OT Bank tab or imported here.</p>
+            <span class="badge badge-info f-10">past</span>, entered on each employee's Overtime Balance tab or imported here.</p>
         <button type="button" class="btn btn-primary rounded f-14" data-toggle="modal" data-target="#ot-import-modal"><i class="fa fa-file-upload mr-1"></i>Import past OT</button>
     </div>
 

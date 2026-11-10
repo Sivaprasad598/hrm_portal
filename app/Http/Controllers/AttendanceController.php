@@ -1294,7 +1294,8 @@ class AttendanceController extends AccountBaseController
      */
     public function byMember()
     {
-        $this->pageTitle = 'modules.attendance.attendanceByMember';
+        // Someone looking at their own attendance (My Space) sees it titled as theirs
+        $this->pageTitle = (int) request('user_id') === (int) user()->id ? 'My Attendance' : 'modules.attendance.attendanceByMember';
 
         abort_403(!(in_array($this->viewAttendancePermission, ['all', 'added', 'owned', 'both'])));
 
@@ -1381,6 +1382,9 @@ class AttendanceController extends AccountBaseController
             'statusMeta' => PayrollAttendanceController::STATUSES,
             'userId' => $userId,
             'today' => now($tz)->toDateString(),
+            // Clocked in today and not out yet: only then is today "in progress"
+            'openNow' => Attendance::withoutGlobalScopes()->where('user_id', $userId)->whereNull('clock_out_time')
+                ->where('clock_in_time', '>=', now($tz)->startOfDay()->timezone('UTC'))->exists(),
             'canEditAttendance' => user()->permission('add_attendance') === 'all',
             'lop' => max(0, $count['working_days'] - $count['days_present']),
         ])->render();

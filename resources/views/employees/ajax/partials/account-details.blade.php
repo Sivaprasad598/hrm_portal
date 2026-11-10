@@ -17,11 +17,13 @@
     $middleName = $e ? ($e->middle_name ?? '') : '';
     $lastName = $e ? ($e->last_name ?: (count($nameParts) > 1 ? implode(' ', array_slice($nameParts, 1)) : '')) : '';
 
+    // The same contacts the profile shows (emergency_contacts); each row keeps
+    // its id so an edit updates it, leaving its email and address alone.
     $contacts = $e
-        ? \App\Models\EmployeeRelation::where('user_id', $e->id)->orderBy('serial_no')->get(['name', 'relation', 'contact_number'])
+        ? \App\Models\EmergencyContact::where('user_id', $e->id)->orderBy('id')->get(['id', 'name', 'relation', 'mobile'])
         : collect();
     if ($contacts->isEmpty()) {
-        $contacts = collect([(object) ['name' => '', 'relation' => '', 'contact_number' => '']]);
+        $contacts = collect([(object) ['id' => '', 'name' => '', 'relation' => '', 'mobile' => '']]);
     }
     $relations = ['Spouse', 'Father', 'Mother', 'Brother', 'Sister', 'Friend', 'Colleague', 'Other'];
 
@@ -368,7 +370,7 @@
             @foreach ($contacts as $i => $contact)
                 <tr>
                     <td class="align-middle text-center ec-serial">{{ $i + 1 }}.</td>
-                    <td><input type="text" name="emergency_name[]" class="form-control ec-name" maxlength="100" value="{{ $contact->name }}"></td>
+                    <td><input type="hidden" name="emergency_id[]" value="{{ $contact->id }}"><input type="text" name="emergency_name[]" class="form-control ec-name" maxlength="100" value="{{ $contact->name }}"></td>
                     <td>
                         <select name="emergency_relation[]" class="form-control ec-relation" data-no-search>
                             <option value="">-- Select --</option>
@@ -377,7 +379,7 @@
                             @endforeach
                         </select>
                     </td>
-                    <td><input type="text" name="emergency_number[]" class="form-control ec-number" maxlength="20" value="{{ $contact->contact_number }}"></td>
+                    <td><input type="text" name="emergency_number[]" class="form-control ec-number" maxlength="20" value="{{ $contact->mobile }}"></td>
                     <td class="align-middle text-center">
                         <button type="button" class="btn btn-sm btn-outline-danger ec-remove-row" title="Remove row"><i class="fa fa-trash"></i></button>
                     </td>

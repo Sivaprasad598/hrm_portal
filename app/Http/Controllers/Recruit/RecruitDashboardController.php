@@ -45,9 +45,20 @@ class RecruitDashboardController extends RecruitBaseController
 
         $this->overdueInterviews = RecruitInterview::where('status', 'scheduled')->where('starts_at', '<', now()->subHours(2))->count();
 
+        // Held, but the marks / scorecards are not all in (tests and interviews)
+        $automation = app(\App\Services\Recruit\RecruitAutomation::class);
         $this->awaitingFeedback = RecruitInterview::with('feedback', 'application.candidate')
-            ->where('status', 'completed')->where('completed_at', '>=', now()->subDays(60))->get()
-            ->filter(fn ($i) => $i->missingFeedbackIds())->values();
+            ->whereIn('status', ['scheduled', 'completed'])->whereNull('result')->where('starts_at', '>=', now()->subDays(60))
+            ->where('starts_at', '<', now())->get()
+            ->filter(fn ($i) => $i->endsAt()->isPast() && $automation->waitingOn($i))->values();
+        // Slots the system suggested, for HR to confirm
+        $this->toConfirm = RecruitInterview::with('application.candidate', 'application.position')->where('status', 'proposed')
+            ->orderBy('starts_at')->limit(10)->get();
+        $this->toConfirmCount = RecruitInterview::where('status', 'proposed')->count();
+        // How each round is going (last 90 days): cleared / not cleared, the average score
+        $this->roundStats = RecruitInterview::whereIn('result', ['passed', 'failed'])->where('result_at', '>=', now()->subDays(90))
+            ->selectRaw("round, round_type, sum(result = 'passed') as passed, sum(result = 'failed') as failed, avg(score) as avg_score, avg(max_marks) as out_of")
+            ->groupBy('round', 'round_type')->orderBy('round')->get();
 
         $this->offersOut = JobOffer::with('application.candidate', 'designation')->where('status', 'sent')->orderBy('valid_until')->get();
         $this->toJoin = JobApplication::with('candidate', 'position', 'offer')->where('stage', 'offer_accepted')->get()

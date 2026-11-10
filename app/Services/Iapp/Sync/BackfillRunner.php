@@ -273,9 +273,11 @@ class BackfillRunner
                 'status' => $exhausted ? IappBackfillRun::STATUS_PAUSED : IappBackfillRun::STATUS_RUNNING,
                 'error_count' => $failures,
                 'last_error' => $e->getMessage(),
-                'message' => $exhausted
+                // Say what went wrong, not only that something did (QA TC-0066)
+                'message' => ($exhausted
                     ? 'Paused after ' . $failures . ' failed attempts. Resume to try again.'
-                    : 'Hit an error, retrying (' . $failures . ' of ' . self::MAX_CONSECUTIVE_ERRORS . ').',
+                    : 'Hit an error, retrying (' . $failures . ' of ' . self::MAX_CONSECUTIVE_ERRORS . ').')
+                    . ' Reason: ' . \Illuminate\Support\Str::limit(trim($e->getMessage()), 160),
             ])->save();
         }
 

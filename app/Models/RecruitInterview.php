@@ -26,6 +26,13 @@ class RecruitInterview extends BaseModel
         'completed_at' => 'datetime',
         'interviewer_ids' => 'array',
         'candidate_notified' => 'boolean',
+        'max_marks' => 'float',
+        'cut_off' => 'float',
+        'marks' => 'float',
+        'score' => 'float',
+        'result_at' => 'datetime',
+        'reminded_at' => 'datetime',
+        'escalated_at' => 'datetime',
     ];
 
     public const MODES = [
@@ -35,6 +42,8 @@ class RecruitInterview extends BaseModel
     ];
 
     public const STATUSES = [
+        // a slot the system suggested, not yet confirmed by HR (no event, nobody told)
+        'proposed' => ['Slot suggested', 'info'],
         'scheduled' => ['Scheduled', 'primary'],
         'completed' => ['Completed', 'success'],
         'no_show' => ['No-show', 'danger'],
@@ -42,6 +51,34 @@ class RecruitInterview extends BaseModel
     ];
 
     public const DURATIONS = [15, 30, 45, 60, 90, 120];
+
+    /** A round's result (null: not decided yet) */
+    public const RESULTS = [
+        'passed' => ['Cleared', 'success'],
+        'failed' => ['Not cleared', 'danger'],
+        'waived' => ['Waived', 'secondary'],
+    ];
+
+    public function planRound(): BelongsTo
+    {
+        return $this->belongsTo(RecruitRound::class, 'recruit_round_id');
+    }
+
+    public function isTest(): bool
+    {
+        return $this->round_type === 'test';
+    }
+
+    public function resultBadge(): string
+    {
+        if (!$this->result) {
+            return '';
+        }
+
+        [$label, $class] = self::RESULTS[$this->result] ?? [ucfirst($this->result), 'secondary'];
+
+        return '<span class="badge badge-' . $class . '">' . e($label) . '</span>';
+    }
 
     public function application(): BelongsTo
     {
@@ -96,7 +133,8 @@ class RecruitInterview extends BaseModel
     /** "12-11-2026 10:30 AM – 11:00 AM", in the company's timezone. */
     public function whenText(): string
     {
-        $company = company();
+        // company() is not set in the background run: the interview's own company then
+        $company = company() ?: Company::find($this->company_id);
         $tz = $company?->timezone ?? config('app.timezone');
         $date = $company?->date_format ?? 'd-m-Y';
         $time = $company?->time_format ?? 'h:i A';

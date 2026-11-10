@@ -156,6 +156,8 @@ $approveRejectPermission = user()->permission('approve_or_reject_leaves');
             </div>
 
 
+            {{-- Bulk actions only where the table has tick-boxes (LeaveDataTable::bulkActions) --}}
+            @if (user()->permission('view_leave') == 'all')
             <x-datatable.actions>
                 <div class="select-status mr-3 pl-3">
                     <select name="action_type" class="form-control select-picker" id="quick-action-type" disabled>
@@ -174,6 +176,7 @@ $approveRejectPermission = user()->permission('approve_or_reject_leaves');
                     </select>
                 </div>
             </x-datatable.actions>
+            @endif
 
 
             @include('leaves.partials.view-switch', ['active' => 'table'])

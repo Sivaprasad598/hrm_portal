@@ -84,13 +84,22 @@
 
                     <div class="col-md-3">
                         <label class="f-12 text-lightest" for="employees">Employees</label>
-                        <select class="form-control form-control-sm select-picker" id="employees" multiple
-                                data-live-search="true" data-actions-box="true" data-selected-text-format="count > 1">
-                            @foreach ($mapping['employees'] as $employee)
-                                <option value="{{ $employee->id }}">{{ $employee->name }}</option>
+                        {{-- Every mapped employee is listed; search by name, employee ID,
+                             device code or card ID, or narrow by department (QA TC-0017) --}}
+                        <select class="form-control form-control-sm select-picker mb-1" id="sync-department" data-live-search="true" data-size="8">
+                            <option value="">All departments</option>
+                            @foreach ($departments as $deptId => $deptName)
+                                <option value="{{ $deptId }}">{{ $deptName }}</option>
                             @endforeach
                         </select>
-                        <span class="filter-hint">Leave empty for everyone mapped.</span>
+                        <select class="form-control form-control-sm select-picker" id="employees" multiple
+                                data-live-search="true" data-actions-box="true" data-selected-text-format="count > 1" data-size="8">
+                            @foreach ($pickList as $employee)
+                                <option value="{{ $employee->id }}" data-department="{{ $employee->department_id }}"
+                                        data-tokens="{{ $employee->tokens }}" data-subtext="{{ $employee->subtext }}">{{ $employee->name }}</option>
+                            @endforeach
+                        </select>
+                        <span class="filter-hint">Leave empty for everyone mapped (in the department, if one is picked).</span>
                     </div>
 
                     <div class="col-md-3">
@@ -312,10 +321,17 @@
             var rows = [];
 
             function params() {
+                var chosen = $('#employees').val() || [];
+
+                // A department picked but no one in it: everyone in that department
+                if (!chosen.length && $('#sync-department').val()) {
+                    chosen = $('#employees option:not([disabled])').map(function () { return this.value; }).get();
+                }
+
                 return {
                     start_date: $('#start-date').val(),
                     end_date: $('#end-date').val(),
-                    employees: $('#employees').val() || [],
+                    employees: chosen,
                     collapse: $('#collapse').is(':checked') ? 1 : 0,
                     _token: token
                 };
@@ -562,4 +578,5 @@
             $('#preview-btn').trigger('click');
         });
     </script>
+    @include('biometric.partials.department-filter', ['department' => 'sync-department', 'employee' => 'employees'])
 @endpush

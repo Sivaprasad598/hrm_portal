@@ -107,8 +107,11 @@
                         </div>
                         @if ($canManage && $application->stage !== 'joined')
                             <div class="mb-2">
+                                @if ($application->stage === 'new' && $application->job_position_id)
+                                    <a href="javascript:;" class="btn btn-sm btn-primary shortlist-app" data-id="{{ $application->id }}"><i class="fa fa-star mr-1"></i>Shortlist</a>
+                                @endif
                                 @if (in_array($application->stage, ['new', 'shortlisted', 'interview', 'on_hold']))
-                                    <a href="{{ route('recruit-interviews.create', ['application' => $application->id]) }}" class="btn btn-sm btn-primary openRightModal"><i class="fa fa-calendar-plus mr-1"></i>Schedule interview</a>
+                                    <a href="{{ route('recruit-interviews.create', ['application' => $application->id]) }}" class="btn btn-sm btn-outline-primary openRightModal"><i class="fa fa-calendar-plus mr-1"></i>{{ $application->job_position_id ? 'Extra interview' : 'Schedule interview' }}</a>
                                 @endif
                                 @if ($application->stage === 'selected')
                                     <a href="{{ route('job-offers.create', ['application' => $application->id]) }}" class="btn btn-sm btn-primary openRightModal"><i class="fa fa-file-signature mr-1"></i>Make offer</a>
@@ -131,10 +134,78 @@
                         </details>
                     @endif
 
-                    {{-- Interviews --}}
-                    @if ($application->interviews->isNotEmpty())
-                        <h6 class="f-13 font-weight-600 text-dark-grey mt-3 mb-2">Interviews</h6>
-                        @foreach ($application->interviews as $interview)
+                    {{-- Hiring rounds: the position's plan, run by the system --}}
+                    @php $planRounds = $automation->rounds($application); @endphp
+                    @if ($planRounds->isNotEmpty())
+                        <h6 class="f-13 font-weight-600 text-dark-grey mt-3 mb-2">Hiring rounds</h6>
+                        @if ($application->stage === 'new')
+                            <p class="f-12 text-dark-grey mb-2">Shortlist the candidate and the system suggests the first round's slot.</p>
+                        @endif
+                        @foreach ($planRounds as $item)
+                            @php
+                                $iv = $item->interview;
+                                $round = $item->round;
+                                $state = $item->state;
+                            @endphp
+                            <div class="rc-round border rounded p-2 mb-2 f-13 {{ in_array($state, ['passed', 'waived']) ? 'is-done' : '' }} {{ $state === 'failed' ? 'is-failed' : '' }}">
+                                <div class="d-flex flex-wrap justify-content-between align-items-start">
+                                    <div class="d-flex align-items-start mr-2">
+                                        <span class="rc-round-no mr-2">{{ $item->no }}</span>
+                                        <div>
+                                            <strong>{{ $round->name }}</strong>
+                                            <span class="text-dark-grey">· {{ $round->isTest() ? 'Test' : 'Interview' }} · {{ $round->passText() }}</span>
+                                            {!! \App\Services\Recruit\RecruitAutomation::stateBadge($state) !!}
+                                            @if ($iv)
+                                                <div class="text-dark-grey">
+                                                    <i class="fa {{ \App\Models\RecruitInterview::MODES[$iv->mode][1] ?? 'fa-circle' }} mr-1"></i>{{ $iv->modeLabel() }} · {{ $iv->whenText() }}
+                                                    @if ($iv->meeting_link) · <a href="{{ $iv->meeting_link }}" target="_blank">Meeting link</a> @endif
+                                                    @if ($iv->location) · {{ $iv->location }} @endif
+                                                </div>
+                                                <div class="text-dark-grey">{{ $round->isTest() ? 'Conducted by' : 'Panel' }}:
+                                                    {{ $iv->interviewers()->pluck('name')->implode(', ') ?: 'not assigned — choose at Change slot' }}
+                                                    @if (!$round->isTest() && in_array($iv->status, ['scheduled', 'completed']))
+                                                        · scorecards {{ $iv->feedback->count() }}/{{ count($iv->interviewer_ids ?: []) }}
+                                                    @endif
+                                                </div>
+                                                @if ($iv->score !== null || $iv->marks !== null)
+                                                    <div><strong>Score: {{ $automation->scoreText($iv) }}</strong></div>
+                                                @endif
+                                                @if ($iv->result_note && $iv->result_by)
+                                                    <div class="text-dark-grey"><em>HR: {{ $iv->result_note }}</em></div>
+                                                @endif
+                                            @elseif ($state === 'not_started')
+                                                <div class="text-lightest">{{ $item->no === 1 ? 'Starts when the candidate is shortlisted.' : 'After the round before it is cleared.' }}</div>
+                                            @endif
+                                        </div>
+                                    </div>
+                                    @if ($canManage && $iv && !in_array($application->stage, ['offered', 'offer_accepted', 'joined']))
+                                        <div class="text-right">
+                                            @if ($state === 'proposed')
+                                                <label class="f-12 text-dark-grey mr-1 mb-0"><input type="checkbox" class="mr-1 confirm-email" data-id="{{ $iv->id }}" @checked($candidate->email)>email candidate</label>
+                                                <a href="javascript:;" class="btn btn-sm btn-primary confirm-slot" data-id="{{ $iv->id }}"><i class="fa fa-check mr-1"></i>Confirm</a>
+                                                <a href="{{ route('recruit-interviews.edit', $iv->id) }}" class="btn btn-sm btn-outline-secondary openRightModal">Change slot</a>
+                                            @elseif ($iv->status === 'scheduled')
+                                                <a href="{{ route('recruit-interviews.edit', $iv->id) }}" class="btn btn-sm btn-outline-secondary openRightModal">Reschedule</a>
+                                                <a href="{{ route('recruit-interviews.close-form', $iv->id) }}" class="btn btn-sm btn-outline-secondary openRightModal">No-show / cancel</a>
+                                            @endif
+                                            @if (in_array($iv->status, ['scheduled', 'completed']))
+                                                <a href="{{ route('recruit-interviews.feedback', $iv->id) }}" class="btn btn-sm btn-link">{{ $round->isTest() ? ($iv->marks === null ? 'Enter marks' : 'Marks') : 'Scorecards' }}</a>
+                                            @endif
+                                            @if (in_array($state, ['awaiting', 'to_decide', 'passed', 'failed', 'proposed', 'scheduled']))
+                                                <a href="{{ route('recruit-interviews.decide-form', $iv->id) }}" class="btn btn-sm btn-link openRightModal">{{ in_array($state, ['passed', 'failed']) ? 'Change decision' : ($state === 'to_decide' ? 'Decide' : 'Decide / waive') }}</a>
+                                            @endif
+                                        </div>
+                                    @endif
+                                </div>
+                            </div>
+                        @endforeach
+                    @endif
+
+                    {{-- Interviews outside the plan (scheduled by hand) --}}
+                    @php $extraInterviews = $planRounds->isNotEmpty() ? $application->interviews->whereNull('recruit_round_id') : $application->interviews; @endphp
+                    @if ($extraInterviews->isNotEmpty())
+                        <h6 class="f-13 font-weight-600 text-dark-grey mt-3 mb-2">{{ $planRounds->isNotEmpty() ? 'Other interviews' : 'Interviews' }}</h6>
+                        @foreach ($extraInterviews as $interview)
                             <div class="border rounded p-2 mb-2 f-13">
                                 <div class="d-flex flex-wrap justify-content-between">
                                     <div>
@@ -344,6 +415,27 @@
 @push('scripts')
 <script>
     $(function () {
+        // HR shortlists; the system then suggests round 1's slot
+        $('body').on('click', '.shortlist-app', function () {
+            var id = $(this).data('id');
+            $.easyAjax({
+                url: '{{ route('job-applications.move', ':id') }}'.replace(':id', id), type: 'POST', blockUI: true,
+                data: {_token: '{{ csrf_token() }}', stage: 'shortlisted'},
+                success: function (response) { if (response.status === 'success') { window.location.reload(); } }
+            });
+        });
+
+        // One click: the suggested slot becomes the interview
+        $('body').on('click', '.confirm-slot', function () {
+            var id = $(this).data('id');
+            var email = $('.confirm-email[data-id="' + id + '"]').is(':checked') ? 1 : 0;
+            $.easyAjax({
+                url: '{{ route('recruit-interviews.confirm', ':id') }}'.replace(':id', id), type: 'POST', blockUI: true,
+                data: {_token: '{{ csrf_token() }}', email_candidate: email},
+                success: function (response) { if (response.status === 'success') { window.location.reload(); } }
+            });
+        });
+
         $('#add-note').on('click', function () {
             $.easyAjax({
                 url: '{{ route('candidates.note', $candidate->id) }}', container: '#note-form', type: 'POST', blockUI: true,

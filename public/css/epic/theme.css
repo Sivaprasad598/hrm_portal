@@ -1914,26 +1914,42 @@ body.epic .sidebar-menu .epic-menu-count {
     vertical-align: 1px;
 }
 
-/* Notification list (bell dropdown, all notifications page): compact rows, not
-   card headings - the copper heading style above is for real card titles */
-body.epic .notification-dropdown .card .card-title,
-body.epic #notification-list .card .card-title,
-body.epic .view-notification .card-title {
-    display: block;
-    font-size: 13px !important;
-    font-weight: 600 !important;
-    line-height: 1.35;
-    color: var(--epic-text) !important;
-    background: none !important;
-    -webkit-text-fill-color: currentColor;
-    margin-bottom: 2px !important;
-}
+/* Notifications (bell panel and the All notifications page): one compact row
+   each - avatar, title, detail, time - with a dot on the unread ones. */
+body.epic .notification-dropdown { width: 380px; max-width: calc(100vw - 24px); padding: 0 !important; overflow: hidden;
+    border-radius: 10px !important; background: #fff !important; }
+body.epic .notification-dropdown .nt-head { display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; border-bottom: 1px solid var(--epic-line, #e8e9e9); background: #fff; }
+body.epic .notification-dropdown .nt-head span { font-size: 14px; font-weight: 600; color: var(--epic-text, #212529); }
+body.epic .notification-dropdown .nt-head a { font-size: 12.5px; font-weight: 500; color: var(--epic-blue, #cb6b4f) !important; }
+body.epic .notification-dropdown .nt-head a:hover { text-decoration: underline; }
+body.epic #notification-list { max-height: min(420px, 70vh); overflow-y: auto; }
 
-body.epic .view-notification { display: block; padding-top: 6px; padding-bottom: 6px; }
-body.epic .view-notification .card-body p:not(.card-title):not(.card-text) { font-size: 12px; color: var(--epic-muted, #6e6e73) !important; line-height: 1.35; }
-body.epic .view-notification .card-text { font-size: 11px; margin: 2px 0 0; }
-body.epic .view-notification .card-img-small img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
-body.epic .view-notification:hover { background: var(--epic-page, #f6f6f8); text-decoration: none; }
+body.epic .nt-row { border-radius: 0 !important; background: #fff !important; margin: 0 !important; box-shadow: none !important; }
+body.epic .nt-row + .nt-row { border-top: 1px solid var(--epic-line, #eef0f2) !important; }
+body.epic .nt-link { display: flex !important; align-items: flex-start; gap: 12px; padding: 11px 16px !important;
+    color: var(--epic-text, #212529) !important; text-decoration: none !important; }
+body.epic .nt-link:hover { background: var(--epic-page, #f6f6f8); }
+body.epic .nt-img { flex: 0 0 34px; width: 34px; height: 34px; border-radius: 50%; overflow: hidden; display: inline-flex;
+    align-items: center; justify-content: center; background: #f1f3f6; }
+body.epic .nt-img img { width: 34px; height: 34px; object-fit: cover; }
+body.epic .nt-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+body.epic .nt-title { font-size: 13px; font-weight: 600; line-height: 1.35; color: var(--epic-text, #212529); }
+body.epic .nt-text { font-size: 12px; line-height: 1.4; color: var(--epic-muted, #6e6e73); overflow-wrap: anywhere; }
+body.epic .nt-time { font-size: 11px; color: var(--epic-muted, #99a5b5); }
+body.epic .nt-dot { flex: 0 0 8px; width: 8px; height: 8px; margin-top: 6px; border-radius: 50%; background: transparent; }
+body.epic .nt-row.is-unread .nt-link { background: color-mix(in srgb, var(--epic-blue, #cb6b4f) 6%, #fff); }
+body.epic .nt-row.is-unread .nt-link:hover { background: color-mix(in srgb, var(--epic-blue, #cb6b4f) 10%, #fff); }
+body.epic .nt-row.is-unread .nt-dot { background: var(--epic-blue, #cb6b4f); }
+body.epic .nt-empty { padding: 28px 16px; text-align: center; color: var(--epic-muted, #99a5b5); font-size: 13px; }
+body.epic .nt-empty i { display: block; font-size: 22px; margin-bottom: 8px; opacity: .6; }
+body.epic .nt-page .nt-link { padding: 14px 24px !important; }
+body.epic .nt-page .nt-img, body.epic .nt-page .nt-img img { flex-basis: 38px; width: 38px; height: 38px; }
+body.epic .nt-page .nt-title { font-size: 14px; }
+body.epic .nt-page .nt-text { font-size: 13px; }
+body.dark-theme.epic .notification-dropdown, body.dark-theme.epic .notification-dropdown .nt-head,
+body.dark-theme.epic .nt-row { background: #111827 !important; }
+body.dark-theme.epic .nt-row.is-unread .nt-link { background: #1f2937; }
 
 /* Attendance by Member: month carousel above the calendar */
 body.epic .mc-nav { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
@@ -2033,14 +2049,45 @@ body.epic .att-legend { display: flex; flex-wrap: wrap; align-items: center; gap
 body.epic .att-legend__title { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--epic-muted); margin-right: 4px; }
 body.epic .att-legend__item { display: inline-flex; align-items: center; gap: 7px; padding: 4px 12px 4px 4px; border-radius: 999px;
     background: #fff; border: 1px solid var(--epic-line); font-size: 12.5px; font-weight: 500; color: var(--epic-text); }
-body.epic .att-legend__icon { flex: 0 0 24px; width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; }
-body.epic .att-lg-holiday .att-legend__icon { background: #fef7e0 !important; color: #f5b301 !important; }
-body.epic .att-lg-dayoff .att-legend__icon  { background: #fdecea !important; color: #d64545 !important; }
-body.epic .att-lg-present .att-legend__icon { background: #e6f6ec !important; color: #28a745 !important; }
-body.epic .att-lg-wfh .att-legend__icon     { background: color-mix(in srgb, var(--epic-blue) 15%, #fff) !important; color: var(--epic-blue) !important; }
-body.epic .att-lg-half .att-legend__icon    { background: #fdecea !important; color: #d30000 !important; }
-body.epic .att-lg-absent .att-legend__icon  { background: #f0f1f3 !important; color: #8a919b !important; }
-body.epic .att-lg-leave .att-legend__icon   { background: #fdeceb !important; color: #e04f3f !important; }
+body.epic .att-legend__item { padding-left: 10px; }
+
+/* Attendance status as a solid coloured dot - the legend (.att-dot) and the
+   register's day cells (.att-day), where each status icon the grid already
+   draws is shown as a dot of its status colour instead of a glyph. */
+:root {
+    --att-present: #22a55a;  --att-wfh: #3b82f6;   --att-half: #f59e0b;
+    --att-leave: #8b5cf6;    --att-absent: #ef4444; --att-holiday: #eab308;
+    --att-dayoff: #9ca3af;   --att-lop: #991b1b;
+}
+body.epic .att-dot { display: inline-block; flex: 0 0 12px; width: 12px; height: 12px; border-radius: 50%; vertical-align: middle; }
+body.epic .att-dot--present { background: var(--att-present); }
+body.epic .att-dot--wfh     { background: var(--att-wfh); }
+body.epic .att-dot--half    { background: var(--att-half); }
+body.epic .att-dot--leave   { background: var(--att-leave); }
+body.epic .att-dot--absent  { background: var(--att-absent); }
+body.epic .att-dot--holiday { background: var(--att-holiday); }
+body.epic .att-dot--dayoff  { background: var(--att-dayoff); }
+
+body.epic td.att-day { text-align: center; }
+/* The icon is an <i class="fa ..."> or, once the Font Awesome script has run,
+   an <svg class="svg-inline--fa fa-..."> - either becomes the dot. */
+body.epic td.att-day .fa, body.epic td.att-day .svg-inline--fa {
+    font-size: 0 !important; display: inline-block; width: 12px !important; height: 12px !important; border-radius: 50%;
+    vertical-align: middle; overflow: hidden; color: transparent !important; background: var(--att-dayoff); transition: transform .12s ease; }
+body.epic td.att-day .fa::before { content: none !important; }
+body.epic td.att-day .svg-inline--fa path { fill: transparent !important; }
+body.epic td.att-day a:hover .fa, body.epic td.att-day a:hover .svg-inline--fa,
+body.epic td.att-day span:hover .fa, body.epic td.att-day span:hover .svg-inline--fa { transform: scale(1.35); }
+body.epic td.att-day .fa-check                 { background: var(--att-present) !important; }   /* present (and a late day) */
+body.epic td.att-day .fa-exclamation-circle    { background: var(--att-present) !important; }   /* marked "late": still present */
+body.epic td.att-day .fa-home                  { background: var(--att-wfh) !important; }
+body.epic td.att-day .fa-star-half-alt         { background: var(--att-half) !important; }
+body.epic td.att-day .fa-plane-departure,
+body.epic td.att-day .fa-file-alt              { background: var(--att-leave) !important; }     /* on leave, CL, SL */
+body.epic td.att-day .fa-times                 { background: var(--att-absent) !important; }
+body.epic td.att-day .fa-exclamation-triangle  { background: var(--att-lop) !important; }       /* loss of pay */
+body.epic td.att-day .fa-star                  { background: var(--att-holiday) !important; }
+body.epic td.att-day .fa-calendar-week         { background: var(--att-dayoff) !important; }
 
 /* A filter bar kept to one row (Attendance): the fields share the width */
 body.epic .filter-box .filter-box.filters-one-row { flex-wrap: nowrap !important; }
@@ -2124,3 +2171,248 @@ body.epic .wizard-step-item.completed .step-circle {
 body.epic .wizard-step-item.has-error .step-circle {
     background: linear-gradient(rgba(240, 68, 56, .18), rgba(240, 68, 56, .18)), var(--epic-dark) !important; }
 body.epic .wizard-step-item.active .step-circle { background: var(--epic-blue) !important; }
+
+/* --------------------------------------------------------------------------
+   My Space pages (My Payslips, My Assets, My Overtime, My Interviews): one
+   look - the standard data card (x-cards.data) holding count cards on top and
+   a plain table / list below. Same radius, border and accent as the theme.
+   -------------------------------------------------------------------------- */
+body.epic .ms-intro { margin: 6px 0 0; font-size: 12.5px; color: var(--epic-muted, #878a99); max-width: 820px; }
+body.epic .ms-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin-bottom: 22px; }
+body.epic .ms-stat { position: relative; text-align: left; width: 100%; background: #fff; border: 1px solid var(--border-color, #e8e9e9);
+    border-radius: var(--card-radius, 12px); padding: 14px 16px; display: flex; flex-direction: column; align-items: flex-start; font: inherit; }
+body.epic button.ms-stat { cursor: pointer; transition: border-color .12s ease, box-shadow .12s ease; }
+body.epic button.ms-stat:hover { border-color: color-mix(in srgb, var(--epic-blue, #cb6b4f) 40%, transparent); box-shadow: 0 3px 10px rgba(16, 24, 40, .08); }
+body.epic .ms-stat.active { border-color: var(--epic-blue, #cb6b4f); box-shadow: 0 0 0 1px var(--epic-blue, #cb6b4f) inset; }
+body.epic .ms-stat.is-total { background: color-mix(in srgb, var(--epic-blue, #cb6b4f) 7%, #fff); border-color: color-mix(in srgb, var(--epic-blue, #cb6b4f) 25%, transparent); }
+body.epic .ms-stat.is-warn { border-color: #fecaca; background: #fff7f7; }
+body.epic .ms-stat.is-warn .val { color: #b42318; }
+body.epic .ms-stat .lbl { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--epic-muted, #6e6e73); font-weight: 500; }
+body.epic .ms-stat .ic { width: 26px; height: 26px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px;
+    background: var(--ic-bg, #eef2f7); color: var(--ic-fg, #475467); flex: 0 0 26px; }
+body.epic .ms-stat .val { font-size: 24px; font-weight: 700; color: var(--epic-text, #212529); margin-top: 8px; line-height: 1.1; }
+body.epic .ms-stat .val small { font-size: 13px; font-weight: 500; color: var(--epic-muted, #878a99); margin-left: 2px; }
+body.epic .ms-stat .sub { font-size: 11.5px; color: var(--epic-muted, #878a99); margin-top: 4px; }
+body.epic .ms-stat .go { position: absolute; right: 14px; top: 14px; font-size: 11px; color: #b0b3bf; }
+body.epic .ms-stat.active .go { color: var(--epic-blue, #cb6b4f); }
+body.epic .ms-sec { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 12px; }
+body.epic .ms-sec h5 { font-size: 15px; font-weight: 600; margin: 0; color: var(--epic-text, #212529); }
+body.epic .ms-sec h5 span { font-size: 12px; font-weight: 400; color: var(--epic-muted, #878a99); margin-left: 6px; }
+body.epic .ms-table { width: 100%; font-size: 13px; }
+body.epic .ms-table th { font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--epic-muted, #878a99); font-weight: 600;
+    padding: 10px 12px; border-bottom: 1px solid var(--border-color, #e8e9e9); background: #fafbfc; white-space: nowrap; }
+body.epic .ms-table td { padding: 11px 12px; border-bottom: 1px solid var(--border-color, #f0f1f3); vertical-align: middle; }
+body.epic .ms-table tbody tr:hover td { background: #fafbfc; }
+body.epic .ms-table tfoot td { padding: 11px 12px; font-weight: 700; background: #fafbfc; }
+body.epic .ms-table .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+body.epic .ms-table .muted, body.epic .ms-muted { font-size: 11.5px; color: var(--epic-muted, #99a5b5); }
+body.epic .ms-table .nil { color: #c4c7cf; }
+body.epic .ms-pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 600; background: #f1f3f6; color: #475467; }
+body.epic .ms-pill.plus, body.epic .ms-pill.ok { background: #e7f6ec; color: #15803d; }
+body.epic .ms-pill.minus, body.epic .ms-pill.bad { background: #fdecec; color: #b42318; }
+body.epic .ms-pill.warn { background: #fff4e5; color: #b45309; }
+body.epic .ms-empty { text-align: center; padding: 32px 16px; border: 1px dashed var(--border-color, #e4e7ec); border-radius: var(--card-radius, 12px); color: var(--epic-muted, #878a99); font-size: 13px; }
+body.epic .ms-empty i { display: block; font-size: 26px; margin-bottom: 10px; opacity: .5; }
+body.epic .ms-empty b { display: block; color: var(--epic-text, #212529); font-size: 14px; margin-bottom: 4px; }
+body.epic .ms-item { border: 1px solid var(--border-color, #e8e9e9); border-radius: var(--card-radius, 12px); padding: 14px 16px; background: #fff; }
+body.epic .ms-item + .ms-item { margin-top: 10px; }
+body.dark-theme.epic .ms-stat, body.dark-theme.epic .ms-item { background: #111827; border-color: #374151; }
+
+/* --------------------------------------------------------------------------
+   Lists, calendars and their filter bar in the same card as the rest of the
+   theme (x-cards.data): rounded, thin border, soft shadow.
+   -------------------------------------------------------------------------- */
+body.epic .filter-box:not(.filter-box .filter-box),
+body.epic .w-tables.rounded.bg-white {
+    border: 1px solid var(--border-color, #e2e8f0) !important;
+    border-radius: var(--card-radius, 12px) !important;
+    box-shadow: var(--card-shadow, 0 1px 3px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.06)) !important;
+}
+body.epic .w-tables.rounded.bg-white { overflow: hidden; }
+
+/* Filter bar: quieter names, one field height, rounded fields, Filters to the right */
+body.epic .filter-box .filter-box { padding: 14px 18px !important; gap: 12px 16px; }
+body.epic .filter-box .select-box > p,
+body.epic .filter-box .select-box > label,
+body.epic .filter-box .task-search::before {
+    font-size: 12px !important; font-weight: 600 !important; letter-spacing: .02em;
+    color: var(--epic-muted, #6b7280) !important; margin: 0 0 6px !important;
+}
+body.epic .filter-box .select-box .bootstrap-select > .dropdown-toggle,
+body.epic .filter-box .select-box .bootstrap-select .btn-light.dropdown-toggle,
+body.epic .filter-box .select-box input.form-control,
+body.epic .filter-box .select-box .select2-selection,
+body.epic .filter-box .task-search .input-group {
+    height: 38px !important;
+    border: 1px solid var(--border-color, #e2e8f0) !important;
+    border-radius: 8px !important;
+    background: #fff !important;
+    transition: border-color .12s ease, box-shadow .12s ease;
+}
+body.epic .filter-box .select-box input.form-control:focus,
+body.epic .filter-box .task-search .input-group:focus-within,
+body.epic .filter-box .bootstrap-select.show > .dropdown-toggle {
+    border-color: var(--epic-blue, #cb6b4f) !important;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--epic-blue, #cb6b4f) 14%, transparent) !important;
+}
+body.epic .filter-box .task-search .input-group { overflow: hidden; }
+body.epic .filter-box .task-search .input-group-text { background: #fff !important; padding-left: 12px; padding-right: 4px; }
+body.epic .filter-box .task-search .form-control { padding-left: 6px !important; }
+body.epic .filter-box .task-search > form { width: 100%; }
+body.epic .filter-box .more-filters { margin-left: auto; }
+body.epic .filter-box .more-filters > a { border-radius: 8px; height: 38px; line-height: 38px; }
+
+/* Leave type in lists: its own colour as a dot */
+body.epic .lv-type { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 500; color: var(--epic-text, #212529); }
+body.epic .lv-type i { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 9px; }
+
+/* Leave calendar: soft tinted events in the type's colour; pending dashed,
+   rejected faded and struck through */
+body.epic #calendar .lv-ev { border-width: 0 0 0 3px !important; border-style: solid !important; border-radius: 6px !important;
+    padding: 2px 6px !important; font-size: 12px; font-weight: 500; }
+body.epic #calendar .lv-ev .fc-event-title, body.epic #calendar .lv-ev .fc-event-main { color: #1f2937 !important; }
+body.epic #calendar .lv-ev--pending { border-left-style: dashed !important; opacity: .85; }
+body.epic #calendar .lv-ev--rejected { opacity: .45; }
+body.epic #calendar .lv-ev--rejected .fc-event-title { text-decoration: line-through; }
+body.epic #calendar .fc-daygrid-day.fc-day-today { background: color-mix(in srgb, var(--epic-blue, #cb6b4f) 6%, #fff) !important; }
+body.epic #calendar .fc-col-header-cell { background: #fafbfc; }
+body.epic #calendar .fc-col-header-cell-cushion { font-size: 11.5px; font-weight: 600; letter-spacing: .04em; color: var(--epic-muted, #878a99); padding: 10px 4px; }
+
+/* Lists in a card: the first and last columns keep clear of the card's edge */
+body.epic .w-tables table.dataTable > thead > tr > th:first-child,
+body.epic .w-tables table.dataTable > tbody > tr > td:first-child { padding-left: 24px !important; }
+body.epic .w-tables table.dataTable > thead > tr > th:last-child,
+body.epic .w-tables table.dataTable > tbody > tr > td:last-child { padding-right: 24px !important; }
+body.epic .w-tables .dataTables_wrapper .row:last-child,
+body.epic .w-tables .dataTables_wrapper > .d-flex:last-child { padding-left: 24px; padding-right: 24px; }
+
+/* --------------------------------------------------------------------------
+   Employees (no other role), body.epic-solo: no menu panel on a desktop -
+   their pages are icons in the strip - and a welcome in the top bar.
+   (On a phone the panel stays: it is the mobile menu.)
+   -------------------------------------------------------------------------- */
+@media (min-width: 992px) {
+    body.epic.epic-solo .main-sidebar,
+    body.epic.epic-solo .sidebarTogglerBox { display: none !important; }
+    body.epic.epic-solo .main-header,
+    body.epic.epic-solo .main-container { margin-left: var(--epic-strip) !important; }
+    body.epic.epic-solo .preloader-container { margin-left: var(--epic-strip) !important; width: calc(100% - var(--epic-strip)) !important; }
+    /* (no scrolling box round the icons: it made the tooltips flip back under the pointer and flicker) */
+}
+/* On the left, ahead of the page title, set off from it by a thin rule */
+body.epic .epic-welcome { align-items: center; gap: 10px; margin: 0 18px 0 12px; padding-right: 18px;
+    border-right: 1px solid rgba(255, 255, 255, .18); color: rgba(255, 255, 255, .78); font-size: 13.5px; white-space: nowrap; }
+body.epic .epic-welcome b { color: #fff; font-weight: 600; }
+
+/* --------------------------------------------------------------------------
+   Employee dashboard (dashboard/employee/index + personal): looks only.
+   One card style with the rest of the theme; the welcome as a header card;
+   the shortcuts as compact chips; today in the theme colour.
+   -------------------------------------------------------------------------- */
+body.epic .emp-dashboard { padding-top: 22px !important; }
+body.epic .emp-dashboard > .row.pt-4 { padding-top: 0 !important; }
+body.epic .emp-dashboard .alert-info {
+    display: flex; align-items: center; gap: 8px; padding: 12px 16px; margin-bottom: 18px;
+    background: color-mix(in srgb, var(--epic-blue, #cb6b4f) 7%, #fff) !important;
+    border: 1px solid color-mix(in srgb, var(--epic-blue, #cb6b4f) 22%, transparent) !important;
+    border-left: 4px solid var(--epic-blue, #cb6b4f) !important; border-radius: 10px !important; color: var(--epic-text, #212529) !important;
+}
+body.epic .emp-dashboard .alert-info a, body.epic .emp-dashboard .alert-info a u { color: var(--epic-text, #212529) !important; text-decoration: none; font-weight: 500; }
+body.epic .emp-dashboard .alert-info a:hover u { text-decoration: underline; }
+body.epic .emp-dashboard .alert-info .fa, body.epic .emp-dashboard .alert-info svg { color: var(--epic-blue, #cb6b4f) !important; }
+
+/* Welcome header card */
+body.epic .epic-dash-hero {
+    background: linear-gradient(120deg, color-mix(in srgb, var(--epic-blue, #cb6b4f) 9%, #fff) 0%, #fff 62%);
+    border: 1px solid var(--border-color, #e2e8f0); border-radius: var(--card-radius, 12px);
+    box-shadow: var(--card-shadow, 0 1px 3px rgba(0,0,0,.08)); padding: 20px 24px !important; margin-bottom: 18px;
+}
+body.epic .epic-dash-hero .heading-h3 { font-size: 22px !important; letter-spacing: -.01em; }
+body.epic .epic-dash-hero .epic-welcome-sub { color: var(--epic-muted, #6b7280); font-size: 13.5px; margin-top: 4px; }
+body.epic .epic-dash-hero .clock-in-out { align-items: center; gap: 14px; }
+body.epic .epic-dash-hero #dashboard-clock { font-size: 20px; font-weight: 700; color: var(--epic-text, #212529); font-variant-numeric: tabular-nums; }
+body.epic .epic-dash-hero .clock-in-out .btn { border-radius: 8px !important; height: 40px; padding: 0 18px !important; display: inline-flex; align-items: center; }
+
+/* Shortcuts: compact chips, icon beside the label */
+body.epic .emp-dashboard .epic-shortcuts { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 18px !important; }
+body.epic .emp-dashboard .epic-shortcut {
+    flex-direction: row; justify-content: flex-start; gap: 12px; padding: 14px 16px;
+    border: 1px solid var(--border-color, #e2e8f0); border-radius: var(--card-radius, 12px);
+    box-shadow: 0 1px 2px rgba(16, 24, 40, .04); transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+body.epic .emp-dashboard .epic-shortcut:hover { border-color: color-mix(in srgb, var(--epic-blue, #cb6b4f) 45%, transparent);
+    box-shadow: 0 6px 16px rgba(16, 24, 40, .08); transform: translateY(-1px); }
+body.epic .emp-dashboard .epic-shortcut__icon { width: 40px; height: 40px; border-radius: 10px; font-size: 18px; flex: 0 0 40px;
+    background: color-mix(in srgb, var(--epic-blue, #cb6b4f) 12%, #fff); color: var(--epic-blue, #cb6b4f); }
+body.epic .emp-dashboard .epic-shortcut:hover .epic-shortcut__icon { background: var(--epic-blue, #cb6b4f); color: #fff; }
+body.epic .emp-dashboard .epic-shortcut__label { font-size: 14.5px; font-weight: 600; }
+
+/* Figure and list cards */
+body.epic .emp-dashboard .pd-card {
+    border: 1px solid var(--border-color, #e2e8f0); border-radius: var(--card-radius, 12px);
+    box-shadow: 0 1px 2px rgba(16, 24, 40, .04); padding: 18px 20px; transition: border-color .15s ease, box-shadow .15s ease;
+}
+body.epic .emp-dashboard a.pd-card:hover { border-color: color-mix(in srgb, var(--epic-blue, #cb6b4f) 45%, transparent); box-shadow: 0 6px 16px rgba(16, 24, 40, .08); }
+body.epic .emp-dashboard .pd-label { font-size: 12.5px; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--epic-muted, #6b7280); align-items: center; margin-bottom: 10px; }
+body.epic .emp-dashboard .pd-label i { width: 30px; height: 30px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-size: 15px;
+    background: color-mix(in srgb, var(--epic-blue, #cb6b4f) 10%, #fff); color: var(--epic-blue, #cb6b4f); }
+body.epic .emp-dashboard .pd-big { font-size: 28px; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+body.epic .emp-dashboard .pd-leaves strong { font-size: 22px; }
+body.epic .emp-dashboard .pd-leaves div { color: var(--epic-muted, #6b7280); font-weight: 500; }
+body.epic .emp-dashboard .pd-head { font-size: 15.5px; font-weight: 700; color: var(--epic-text, #212529); padding-bottom: 12px; margin-bottom: 12px;
+    border-bottom: 1px solid var(--border-color, #eef0f3); -webkit-text-fill-color: currentColor; background: none; }
+body.epic .emp-dashboard .pd-head a { color: var(--epic-blue, #cb6b4f); font-weight: 600; }
+body.epic .emp-dashboard .pd-list li { padding: 10px 0; }
+body.epic .emp-dashboard .pd-pill { font-weight: 600; padding: 3px 10px; }
+
+/* This week: today in the theme colour */
+body.epic .emp-dashboard .pd-week { gap: 8px; }
+body.epic .emp-dashboard .pd-day { border-radius: 10px; padding: 10px 4px; }
+body.epic .emp-dashboard .pd-day b { font-size: 17px; margin: 2px 0; }
+body.epic .emp-dashboard .pd-day.today { outline: 2px solid var(--epic-blue, #cb6b4f); box-shadow: 0 4px 12px color-mix(in srgb, var(--epic-blue, #cb6b4f) 18%, transparent); }
+
+/* Dashboard leave balance: each type by name, days left of days given, a bar */
+body.epic .pd-lbal { display: flex; flex-direction: column; gap: 9px; }
+body.epic .pd-lbal__row { display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto; column-gap: 10px; row-gap: 4px; align-items: baseline; }
+body.epic .pd-lbal__name { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 500; color: var(--epic-text, #212529); min-width: 0; }
+body.epic .pd-lbal__name i { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 8px; }
+body.epic .pd-lbal__num { font-size: 12px; color: var(--epic-muted, #878a99); white-space: nowrap; font-variant-numeric: tabular-nums; }
+body.epic .pd-lbal__num b { font-size: 15px; font-weight: 700; color: var(--epic-text, #212529); }
+body.epic .pd-lbal__bar { grid-column: 1 / -1; height: 4px; border-radius: 999px; background: #eef0f3; overflow: hidden; }
+body.epic .pd-lbal__bar span { display: block; height: 100%; border-radius: 999px; }
+
+/* Top bar bell: the unread count as a small round badge on the bell's own
+   top-right corner (it used to sit across the sign-out button), ringed in the
+   bar's colour; a little more room before sign-out */
+body.epic .main-header .notification_box { position: relative; }
+body.epic .main-header .notification_box > .header-icon-box { position: relative; display: inline-flex !important; align-items: center; justify-content: center; }
+body.epic .main-header .unread-notifications-count {
+    position: absolute !important; top: -11px !important; right: -15px !important; left: auto !important; bottom: auto !important;
+    min-width: 17px; height: 17px; padding: 0 4px !important; margin: 0 !important; border-radius: 999px !important;
+    display: inline-flex !important; align-items: center; justify-content: center;
+    font-size: 10px !important; font-weight: 700 !important; line-height: 1 !important; color: #fff !important;
+    background: var(--epic-blue, #cb6b4f) !important; box-shadow: 0 0 0 2px var(--epic-dark, #231f20); pointer-events: none; z-index: 1;
+}
+body.epic .main-header li:has(> .notification_box) { margin-right: 14px; }
+
+/* Top bar Clock Out icon (shown only while clocked in): red, as the dashboard's Clock Out */
+body.epic .main-header .epic-clockout i,
+body.epic .main-header .epic-clockout svg { color: #f87171 !important; }
+body.epic .main-header .epic-clockout:hover i,
+body.epic .main-header .epic-clockout:hover svg { color: #ef4444 !important; }
+
+/* Side menu greeting: photo, then a small "Welcome" over the name. The row is
+   the top bar's height so their bottom edges meet, and starts where the menu
+   icons below it start. */
+body.epic .sidebar-brand-box { height: 63px; padding: 0 !important; display: flex; align-items: center;
+    border-bottom: 1px solid var(--border-color, #eef0f3) !important; }
+body.epic .sidebar-brand-box .sidebar-brand { padding: 0 16px 0 15px !important; height: 100%; width: 100%; }
+body.epic .sidebar-brand-box .sidebar-brand-name { min-width: 0; width: 100%; }
+body.epic .sidebar-greeting { display: flex; align-items: center; gap: 11px; min-width: 0; }
+body.epic .sidebar-greeting__photo { flex: 0 0 36px; width: 36px; height: 36px; border-radius: 50%; background: #eef0f3 center / cover no-repeat;
+    box-shadow: 0 0 0 2px #fff, 0 0 0 3px color-mix(in srgb, var(--epic-blue, #cb6b4f) 35%, transparent); }
+body.epic .sidebar-brand-box .sidebar-greeting__text { display: flex; flex-direction: column; min-width: 0; line-height: 1.25 !important; }
+body.epic .sidebar-brand-box .sidebar-greeting__text small { font-size: 11px !important; font-weight: 600 !important; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--epic-blue, #cb6b4f) !important; }
+body.epic .sidebar-brand-box .sidebar-greeting__text span { font-size: 15px !important; font-weight: 700 !important; color: var(--epic-text, #1f2937) !important;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px; }

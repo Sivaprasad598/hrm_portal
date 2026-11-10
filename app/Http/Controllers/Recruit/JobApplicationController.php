@@ -47,10 +47,65 @@ class JobApplicationController extends RecruitBaseController
         }
 
         $this->stage = $stage;
+        $this->progress = $this->roundProgress($this->board ? $this->applications->flatten(1) : $this->applications->getCollection());
+        // Applicants by position, for the tabs over the board
+        $this->positionCounts = JobApplication::whereIn('stage', JobApplication::ACTIVE)->whereNotNull('job_position_id')
+            ->selectRaw('job_position_id, count(*) as n')->groupBy('job_position_id')->pluck('n', 'job_position_id');
         $this->positions = JobPosition::orderByRaw("FIELD(status, 'open', 'on_hold', 'draft', 'closed')")->orderBy('title')->get(['id', 'title', 'code', 'status']);
         $this->unassignedCount = JobApplication::whereNull('job_position_id')->whereIn('stage', JobApplication::ACTIVE)->count();
 
         return view('recruitment.applications.index', $this->data);
+    }
+
+    /**
+     * Where each application is in its rounds, for the cards: "Round 2 of 3"
+     * and the scores so far. One query for the rounds of all of them.
+     *
+     * @return array<int, array{at: ?int, of: int, scores: string[]}>
+     */
+    private function roundProgress($applications): array
+    {
+        $applications = collect($applications)->filter(fn ($a) => $a->job_position_id);
+
+        if ($applications->isEmpty()) {
+            return [];
+        }
+
+        $interviews = \App\Models\RecruitInterview::whereIn('job_application_id', $applications->pluck('id'))->whereNotNull('recruit_round_id')
+            ->orderBy('id')->get()->groupBy('job_application_id');
+        $plans = [];
+        $out = [];
+
+        foreach ($applications as $application) {
+            $plan = $plans[$application->job_position_id] ??= \App\Models\RecruitRound::planFor($application->job_position_id)->values();
+
+            if ($plan->isEmpty()) {
+                continue;
+            }
+
+            $mine = $interviews->get($application->id, collect());
+            $at = null;
+            $scores = [];
+
+            foreach ($plan as $i => $round) {
+                $iv = $mine->where('recruit_round_id', $round->id)->last();
+                $score = $iv?->score ?? $iv?->marks;
+
+                if ($score !== null) {
+                    $scores[] = 'R' . ($i + 1) . ' ' . \App\Models\RecruitRound::num($score) . ($iv->isTest() ? '' : '/5')
+                        . ($iv->result === 'passed' ? ' ✓' : ($iv->result === 'failed' ? ' ✗' : ''));
+                }
+
+                if ($at === null && !in_array($iv?->result, ['passed', 'waived'], true)) {
+                    $at = $i + 1;
+                }
+            }
+
+            $out[$application->id] = ['at' => $at, 'of' => $plan->count(), 'scores' => $scores,
+                'proposed' => $mine->contains('status', 'proposed')];
+        }
+
+        return $out;
     }
 
     /** Put a candidate forward for a position. */
@@ -95,6 +150,47 @@ class JobApplicationController extends RecruitBaseController
     }
 
     /** Move to another stage, and / or set the position of an unassigned application. */
+    /**
+     * One applicant at a glance, from a board card: who they are, what they
+     * bring, how the rounds went, with Shortlist / Reject / Move right there
+     * - so HR screens the New column without leaving the board.
+     */
+    public function quick($id)
+    {
+        $this->needView();
+        $this->application = JobApplication::with('candidate.resume', 'position')->findOrFail($id);
+        $this->candidate = $this->application->candidate;
+        $this->progress = $this->roundProgress([$this->application])[$this->application->id] ?? null;
+        $this->choices = Pipeline::choices($this->application);
+        $this->canManage = \App\Services\Recruit\RecruitAccess::can('manage');
+        $this->otherApplications = JobApplication::with('position')->where('candidate_id', $this->candidate->id)
+            ->where('id', '<>', $this->application->id)->latest('id')->get();
+        $this->fmt = company()->date_format;
+
+        return $this->panel('recruitment.applications.quick', $this->candidate->name);
+    }
+
+    /**
+     * The same panel from Resumes, where a row is a person: their application
+     * that is still moving, else the latest one. Someone with no application at
+     * all goes to their full profile.
+     */
+    public function candidateQuick($candidateId)
+    {
+        $this->needView();
+
+        $application = JobApplication::where('candidate_id', $candidateId)
+            ->orderByRaw('CASE WHEN stage IN (' . implode(',', array_fill(0, count(JobApplication::ACTIVE), '?')) . ') THEN 0 ELSE 1 END', JobApplication::ACTIVE)
+            ->latest('id')
+            ->first();
+
+        if (!$application) {
+            return \App\Helper\Reply::redirect(route('candidates.show', $candidateId));
+        }
+
+        return $this->quick($application->id);
+    }
+
     public function moveForm(Request $request, $id)
     {
         $this->needManage();

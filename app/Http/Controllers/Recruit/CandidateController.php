@@ -45,7 +45,8 @@ class CandidateController extends RecruitBaseController
             ->when($request->status === 'pool', fn ($q) => $q->whereNull('user_id')->whereDoesntHave('applications', fn ($a) => $a->whereIn('stage', JobApplication::ACTIVE)))
             ->when($request->status === 'joined', fn ($q) => $q->whereNotNull('user_id'))
             ->orderByDesc('id')
-            ->paginate(30)->withQueryString();
+            // 10 a page by default; Show 10 / 25 / 50 at the foot of the list
+            ->paginate(in_array((int) $request->per_page, [10, 25, 50], true) ? (int) $request->per_page : 10)->withQueryString();
 
         $this->positions = JobPosition::orderByDesc('id')->get(['id', 'title', 'code', 'status']);
 
@@ -110,6 +111,7 @@ class CandidateController extends RecruitBaseController
         $this->conversionProblem = CandidateConversion::problem($this->candidate);
         $this->aiReady = AiSetting::forCompany(company()->id)->ready();
         $this->setting = RecruitSetting::forCompany(company()->id);
+        $this->automation = app(\App\Services\Recruit\RecruitAutomation::class);
 
         return view('recruitment.candidates.show', $this->data);
     }
@@ -239,6 +241,31 @@ class CandidateController extends RecruitBaseController
         $pipeline->log($candidate->id, null, 'file', $file->name);
 
         return Reply::successWithData('File added.', ['redirectUrl' => route('candidates.show', $candidate->id)]);
+    }
+
+    /**
+     * Open a candidate's file (resume, document, signed offer): Recruitment
+     * viewers, and the employees on one of the candidate's interview panels.
+     */
+    public function file($fileId)
+    {
+        $file = CandidateFile::findOrFail($fileId);
+        $applicationIds = JobApplication::where('candidate_id', $file->candidate_id)->pluck('id');
+        $onPanel = RecruitInterview::whereIn('job_application_id', $applicationIds)->whereIn('status', ['scheduled', 'completed'])
+            ->whereJsonContains('interviewer_ids', (int) user()->id)->exists();
+        abort_403(!\App\Services\Recruit\RecruitAccess::can('view') && !$onPanel);
+
+        $path = $file->localPath();
+        abort_unless(is_file($path), 404);
+
+        $name = str_replace(['"', "\r", "\n"], '', $file->filename ?: basename($path));
+
+        return response()->file($path, [
+            'Content-Type' => $file->mime ?: (mime_content_type($path) ?: 'application/octet-stream'),
+            'Content-Disposition' => 'inline; filename="' . $name . '"',
+            'Cache-Control' => 'private, no-store',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
     }
 
     public function deleteFile($fileId, Pipeline $pipeline)

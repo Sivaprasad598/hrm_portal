@@ -199,17 +199,20 @@ if ($employeeId > 0) {
             $finalDeclaration = array_merge($finalDeclaration, (array) $finalRow);
         }
 
-        $emergencyRows = $db->table('employee_relations')
-            ->select(['serial_no', 'name', 'relation', 'contact_number'])
+        // The first two emergency contacts on file (emergency_contacts, the
+        // table the profile and the employee form use)
+        $emergencyRows = $db->table('emergency_contacts')
+            ->select(['name', 'relation', 'mobile'])
             ->where('user_id', $employeeId)
-            ->whereIn('serial_no', [1, 2])
+            ->orderBy('id')
+            ->limit(2)
             ->get();
 
-        foreach ($emergencyRows as $emergencyRow) {
-            $emergencyContacts[(int) $emergencyRow->serial_no] = [
+        foreach ($emergencyRows->values() as $index => $emergencyRow) {
+            $emergencyContacts[$index + 1] = [
                 'name' => $emergencyRow->name ?? '',
                 'relation' => $emergencyRow->relation ?? '',
-                'contact_number' => $emergencyRow->contact_number ?? '',
+                'contact_number' => $emergencyRow->mobile ?? '',
             ];
         }
     }

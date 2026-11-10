@@ -17,7 +17,8 @@
                     ['Days in Month', $summary['days'], 'text-dark-grey', 'up to today'],
                     ['Synced', $summary['synced'], 'text-primary', number_format($summary['punches']) . ' punches'],
                     ['Not Synced', $summary['never'], $summary['never'] > 0 ? 'text-red' : 'text-dark-grey', 'never pulled'],
-                    ['No Punches', $summary['empty'], 'text-yellow', 'pulled, day was empty'],
+                    // Working days pulled with far fewer punches than usual, or none (QA TC-0079)
+                    ['Look Incomplete', $summary['low'], $summary['low'] > 0 ? 'text-red' : 'text-dark-grey', 'working days with few or no punches - re-sync them'],
                 ];
             @endphp
 
@@ -199,7 +200,10 @@
 
                                                 @if ($selectable)
                                                     <div class="cell-body mt-1">
-                                                        @if ($cell['status'] === IappDaySync::STATUS_NEVER)
+                                                        @if (!empty($cell['low']))
+                                                            <p class="mb-0 f-11 text-red font-weight-bold" title="{{ $cell['status_label'] }}">Looks incomplete</p>
+                                                            <p class="mb-0 f-11 text-lightest">{{ number_format($cell['punches']) }} punches</p>
+                                                        @elseif ($cell['status'] === IappDaySync::STATUS_NEVER)
                                                             <p class="mb-0 f-11 text-lightest">Not synced</p>
                                                         @elseif ($cell['status'] === IappDaySync::STATUS_EMPTY)
                                                             <p class="mb-0 f-11 text-yellow">No punches</p>
@@ -234,7 +238,7 @@
                     <span class="mr-3"><span class="status-dot bg-success mr-1"></span> Synced, has punches</span>
                     <span class="mr-3"><span class="status-dot bg-warning mr-1"></span> Pulled, day was empty</span>
                     <span class="mr-3"><span class="status-dot bg-secondary mr-1"></span> Never synced</span>
-                    <span class="mr-3"><span class="status-dot bg-danger mr-1"></span> Failed</span>
+                    <span class="mr-3"><span class="status-dot bg-danger mr-1"></span> Failed, or looks incomplete (few or no punches on a working day)</span>
                 </div>
             </div>
         </div>
@@ -497,7 +501,10 @@
 
                     var body = cell.find('.cell-body');
 
-                    if (state.status === 'ok') {
+                    if (state.low) {
+                        body.html('<p class="mb-0 f-11 text-red font-weight-bold">Looks incomplete</p><p class="mb-0 f-11 text-lightest">' +
+                            state.punches.toLocaleString() + ' punches</p>');
+                    } else if (state.status === 'ok') {
                         body.html('<p class="mb-0 f-11 text-dark-grey">' + state.punches.toLocaleString() +
                             ' punches</p><p class="mb-0 f-11 text-lightest">' + state.employees + ' staff</p>');
                     } else if (state.status === 'empty') {

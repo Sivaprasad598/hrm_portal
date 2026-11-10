@@ -75,7 +75,7 @@ $editDocumentPermission = user()->permission('edit_documents');
             $docTypes = \App\Services\Employee\DocumentTypes::class;
             $visibleDocs = $employee->documents->filter(fn ($file) => $viewDocumentPermission == 'all'
                 || ($viewDocumentPermission == 'added' && $file->added_by == user()->id)
-                || ($viewDocumentPermission == 'owned' && ($file->user_id == user()->id && $file->added_by != user()->id))
+                || ($viewDocumentPermission == 'owned' && $file->user_id == user()->id)
                 || ($viewDocumentPermission == 'both' && ($file->added_by == user()->id || $file->user_id == user()->id)));
             $typeOrder = array_keys($docTypes::TYPES);
             $byType = $visibleDocs->groupBy(fn ($file) => $docTypes::of($file))
@@ -113,7 +113,7 @@ $editDocumentPermission = user()->permission('edit_documents');
                                     aria-labelledby="dropdownMenuLink" tabindex="0">
                                     @if ($viewDocumentPermission == 'all'
                                     || ($viewDocumentPermission == 'added' && $file->added_by == user()->id)
-                                    || ($viewDocumentPermission == 'owned' && ($file->user_id == user()->id && $file->added_by != user()->id))
+                                    || ($viewDocumentPermission == 'owned' && $file->user_id == user()->id)
                                     || ($viewDocumentPermission == 'both' && ($file->added_by == user()->id || $file->user_id == user()->id)))
 
                                         <a class="cursor-pointer d-block text-dark-grey f-13 pt-3 px-3 "

@@ -645,12 +645,19 @@ class BiometricController extends AccountBaseController
         $rows = IappDaySync::whereIn('sync_date', $dates)->get()
             ->keyBy(fn ($row) => $row->sync_date->toDateString());
 
+        $check = $this->incompleteDayCheck($dates);
+
         $states = [];
 
         foreach ($dates as $date) {
             $row = $rows[$date] ?? null;
+            $low = $row && $check($date, (int) $row->punch_count, (string) $row->status);
 
             $states[$date] = [
+                // A working day pulled with far fewer punches than usual (or none):
+                // most likely the devices had not sent everything yet (QA TC-0079)
+                'low' => $low,
+                'typical' => $check->typical,
                 'status' => $row->status ?? IappDaySync::STATUS_NEVER,
                 'status_label' => $row
                     ? $row->status_label
@@ -665,9 +672,59 @@ class BiometricController extends AccountBaseController
                 'sync_count' => (int) ($row->sync_count ?? 0),
                 'error' => $row->last_error ?? null,
             ];
+
+            if ($low) {
+                $states[$date]['status_label'] = 'Looks incomplete - ' . number_format((int) $row->punch_count) . ' punches against about '
+                    . number_format($check->typical) . ' on a normal day. Re-sync it.';
+                $states[$date]['status_color'] = 'danger';
+            }
         }
 
         return $states;
+    }
+
+    /**
+     * Whether a pulled day looks incomplete: a working day (open in the
+     * company's default shift, not a holiday) with under a quarter of the
+     * punches a normal day has, or none. "Normal" is the median of the synced
+     * working days in the 60 days before the first date asked about.
+     */
+    private function incompleteDayCheck(array $dates): object
+    {
+        $first = min($dates);
+        $last = max($dates);
+
+        $setting = DB::table('attendance_settings')->where('company_id', company()->id)->first();
+        $openDays = json_decode((string) DB::table('employee_shifts')->where('id', $setting->default_employee_shift ?? 0)->value('office_open_days'), true);
+        $openDays = array_map('intval', is_array($openDays) && $openDays ? $openDays : [1, 2, 3, 4, 5, 6]);
+
+        $holidays = DB::table('holidays')->where('company_id', company()->id)
+            ->whereBetween('date', [Carbon::parse($first)->subDays(60)->toDateString(), $last])
+            ->pluck('date')->map(fn ($d) => substr((string) $d, 0, 10))->flip();
+
+        $isWorkingDay = fn (string $date) => in_array(Carbon::parse($date)->dayOfWeek, $openDays, true) && !isset($holidays[$date]);
+
+        $recent = IappDaySync::where('status', IappDaySync::STATUS_OK)
+            ->whereBetween('sync_date', [Carbon::parse($first)->subDays(60)->toDateString(), $last])
+            ->get(['sync_date', 'punch_count'])
+            ->filter(fn ($r) => $isWorkingDay($r->sync_date->toDateString()))
+            ->pluck('punch_count')->map(fn ($n) => (int) $n)->sort()->values();
+
+        $typical = $recent->count() >= 5 ? (int) $recent->median() : 0;
+
+        return new class ($typical, $isWorkingDay) {
+            public function __construct(public int $typical, private \Closure $isWorkingDay)
+            {
+            }
+
+            public function __invoke(string $date, int $punches, string $status): bool
+            {
+                return $this->typical > 0
+                    && in_array($status, [IappDaySync::STATUS_OK, IappDaySync::STATUS_EMPTY], true)
+                    && ($this->isWorkingDay)($date)
+                    && $punches < $this->typical * 0.25;
+            }
+        };
     }
 
     /** @return array<int, string> */
@@ -689,7 +746,7 @@ class BiometricController extends AccountBaseController
      */
     private function monthSummary(array $weeks): array
     {
-        $summary = ['days' => 0, 'synced' => 0, 'never' => 0, 'empty' => 0, 'failed' => 0, 'punches' => 0];
+        $summary = ['days' => 0, 'synced' => 0, 'never' => 0, 'empty' => 0, 'failed' => 0, 'punches' => 0, 'low' => 0];
 
         foreach ($weeks as $week) {
             foreach ($week as $cell) {
@@ -706,6 +763,10 @@ class BiometricController extends AccountBaseController
                     IappDaySync::STATUS_FAILED => $summary['failed']++,
                     default => $summary['never']++,
                 };
+
+                if (!empty($cell['low'])) {
+                    $summary['low']++;
+                }
             }
         }
 
@@ -757,6 +818,9 @@ class BiometricController extends AccountBaseController
         $this->startDate = $startDate;
         $this->endDate = $endDate;
         $this->mapping = $sync->mapping();
+        // The mapped employees, searchable by employee ID / card, with departments
+        $this->pickList = $this->employeePickList(collect($this->mapping['employees'])->pluck('id')->all());
+        $this->departments = $this->pickDepartments($this->pickList);
         $this->recentRuns = IappAttendanceSyncRun::with('startedBy:id,name')
             ->orderByDesc('id')->limit(10)->get();
 
@@ -951,6 +1015,44 @@ class BiometricController extends AccountBaseController
     /**
      * Raw punches from the access controllers.
      */
+    /**
+     * Employees for a biometric picker, each with what it can be searched by
+     * (employee ID, device code, card ID) and its department, so the dropdown
+     * finds someone by card and a Department filter narrows it (QA TC-0016/0017).
+     */
+    private function employeePickList(?array $onlyIds = null): \Illuminate\Support\Collection
+    {
+        $codes = DB::table('iapp_employees')->whereNotNull('user_id')
+            ->get(['user_id', 'emp_code', 'card_id'])->groupBy('user_id');
+
+        return DB::table('users as u')
+            ->join('employee_details as ed', 'ed.user_id', '=', 'u.id')
+            ->leftJoin('teams as t', 't.id', '=', 'ed.department_id')
+            ->where('u.company_id', company()->id)
+            ->when($onlyIds !== null, fn ($q) => $q->whereIn('u.id', $onlyIds ?: [0]))
+            ->orderBy('u.name')
+            ->get(['u.id', 'u.name', 'ed.employee_id', 'ed.employee_card_id', 'ed.department_id', 't.team_name as department'])
+            ->map(function ($e) use ($codes) {
+                $device = $codes->get($e->id, collect());
+                $e->tokens = trim(implode(' ', array_filter(array_merge(
+                    [$e->employee_id, $e->employee_card_id],
+                    $device->pluck('emp_code')->all(),
+                    $device->pluck('card_id')->all()
+                ))));
+                $e->subtext = $e->employee_card_id ?: ($device->first()->emp_code ?? '');
+
+                return $e;
+            });
+    }
+
+    /** Departments that have someone in this pick list. */
+    private function pickDepartments($people): array
+    {
+        return $people->filter(fn ($e) => $e->department_id)
+            ->mapWithKeys(fn ($e) => [$e->department_id => $e->department])
+            ->sort()->all();
+    }
+
     public function punchLog(Request $request)
     {
         $this->pageTitle = 'app.menu.punchLog';
@@ -969,13 +1071,18 @@ class BiometricController extends AccountBaseController
                 Carbon::parse($endDate)->endOfDay(),
             ])
             ->when($request->user_id, fn ($q) => $q->where('user_id', $request->user_id))
+            // A department with no one person picked: everyone in it
+            ->when(!$request->user_id && $request->department_id, fn ($q) => $q->whereIn('user_id',
+                DB::table('employee_details')->where('department_id', $request->department_id)->pluck('user_id')))
             ->when($request->controller_code, fn ($q) => $q->where('controller_code', $request->controller_code))
             ->orderByDesc('punch_time')
             ->paginate(100)
             ->withQueryString();
 
         $this->controllers = $this->deviceOptions();
-        $this->employees = User::allEmployees(null, true);
+        $this->employees = $this->employeePickList();
+        $this->departments = $this->pickDepartments($this->employees);
+        $this->departmentId = $request->department_id;
 
         return view('biometric.punch-log', $this->data);
     }

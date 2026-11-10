@@ -19,18 +19,29 @@
                         <label class="f-12 text-dark-grey">@lang('app.endDate')</label>
                         <input type="date" name="end_date" value="{{ $endDate }}" class="form-control f-14">
                     </div>
-                    <div class="col-md-3 mb-2">
-                        <label class="f-12 text-dark-grey">@lang('app.employee')</label>
-                        <select name="user_id" class="form-control f-14">
+                    <div class="col-md-2 mb-2">
+                        <label class="f-12 text-dark-grey">@lang('app.department')</label>
+                        <select name="department_id" id="pick-department" class="form-control f-14 select-picker" data-live-search="true" data-size="8">
                             <option value="">@lang('app.all')</option>
-                            @foreach ($employees as $employee)
-                                <option value="{{ $employee->id }}" @selected($userId == $employee->id)>
-                                    {{ $employee->name }}
-                                </option>
+                            @foreach ($departments as $deptId => $deptName)
+                                <option value="{{ $deptId }}" @selected($departmentId == $deptId)>{{ $deptName }}</option>
                             @endforeach
                         </select>
                     </div>
-                    <div class="col-md-3 mb-2">
+                    <div class="col-md-2 mb-2">
+                        <label class="f-12 text-dark-grey">@lang('app.employee')</label>
+                        {{-- Searchable by name, employee ID, device code or card ID (QA TC-0016) --}}
+                        <select name="user_id" id="pick-employee" class="form-control f-14 select-picker" data-live-search="true" data-size="8"
+                                title="@lang('app.all')">
+                            <option value="">@lang('app.all')</option>
+                            @foreach ($employees as $employee)
+                                <option value="{{ $employee->id }}" data-department="{{ $employee->department_id }}"
+                                        data-tokens="{{ $employee->tokens }}" data-subtext="{{ $employee->subtext }}"
+                                        @selected($userId == $employee->id)>{{ $employee->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-md-2 mb-2">
                         <label class="f-12 text-dark-grey">Device</label>
                         <select name="controller_code" class="form-control f-14">
                             <option value="">@lang('app.all')</option>
@@ -110,3 +121,7 @@
     </div>
 
 @endsection
+
+@push('scripts')
+    @include('biometric.partials.department-filter', ['department' => 'pick-department', 'employee' => 'pick-employee'])
+@endpush

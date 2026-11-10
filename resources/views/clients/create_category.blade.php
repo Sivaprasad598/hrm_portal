@@ -17,6 +17,8 @@
                 <td data-row-id="{{ $category->id }}" contenteditable="true">{{ $category->category_name }}
                 </td>
                 <td class="text-right">
+                    {{-- The name is edited in place; this makes that visible (QA TC-0070) --}}
+                    <button type="button" class="btn btn-secondary rounded f-14 p-2 mr-2" onclick="jQuery(this).closest('tr').find('[contenteditable=true]').trigger('focus')"><i class="fa fa-edit mr-1"></i>@lang('app.edit')</button>
                     @if ($deletePermission == 'all' || $deletePermission == 'added')
                         <x-forms.button-secondary data-cat-id="{{ $category->id }}" icon="trash"
                             class="delete-category">

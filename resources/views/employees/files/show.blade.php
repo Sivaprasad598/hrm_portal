@@ -10,7 +10,7 @@ $permission = 0; // assuming we do have permission for all uploaded files
 @forelse($files as $file)
     @if ($viewDocumentPermission == 'all'
     || ($viewDocumentPermission == 'added' && $file->added_by == user()->id)
-    || ($viewDocumentPermission == 'owned' && ($file->user_id == user()->id && $file->added_by != user()->id))
+    || ($viewDocumentPermission == 'owned' && $file->user_id == user()->id)
     || ($viewDocumentPermission == 'both' && ($file->added_by == user()->id || $file->user_id == user()->id)))
         <x-file-card :fileName="$file->name" :dateAdded="$file->created_at->diffForHumans()">
             @if ($file->icon == 'images')
@@ -30,7 +30,7 @@ $permission = 0; // assuming we do have permission for all uploaded files
                             aria-labelledby="dropdownMenuLink" tabindex="0">
                             @if ($viewDocumentPermission == 'all'
                             || ($viewDocumentPermission == 'added' && $file->added_by == user()->id)
-                            || ($viewDocumentPermission == 'owned' && ($file->user_id == user()->id && $file->added_by != user()->id))
+                            || ($viewDocumentPermission == 'owned' && $file->user_id == user()->id)
                             || ($viewDocumentPermission == 'both' && ($file->added_by == user()->id || $file->user_id == user()->id)))
                                 @if ($file->icon != 'fa-file-image')
                                     <a class="cursor-pointer d-block text-dark-grey f-13 pt-3 px-3 " target="_blank"

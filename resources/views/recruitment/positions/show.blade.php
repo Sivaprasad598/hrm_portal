@@ -48,6 +48,29 @@
             </div>
         @endif
 
+        {{-- The rounds candidates go through here --}}
+        @if ($plan->isNotEmpty())
+            <h6 class="f-13 font-weight-600 text-dark-grey mt-3 mb-2">Hiring rounds
+                <span class="font-weight-normal">({{ $ownPlan ? 'this position\'s own' : 'the default plan' }})</span></h6>
+            <div class="d-flex flex-wrap" style="gap: 8px">
+                @foreach ($plan as $i => $round)
+                    @php
+                        $results = $roundResults->get($round->id, collect());
+                        $panel = \App\Models\User::withoutGlobalScopes()->whereIn('id', $round->interviewer_ids ?: [])->pluck('name')->implode(', ');
+                    @endphp
+                    <div class="border rounded px-3 py-2 f-13" style="min-width: 190px">
+                        <div><span class="rc-round-no mr-1">{{ $i + 1 }}</span><strong>{{ $round->name }}</strong></div>
+                        <div class="text-dark-grey">{{ $round->isTest() ? 'Test' : 'Interview' }} · {{ $round->passText() }}</div>
+                        <div class="text-dark-grey">{{ $panel ?: 'Panel chosen at confirm' }}</div>
+                        @if ($results->isNotEmpty())
+                            <div class="mt-1"><span class="text-success">{{ $results->where('result', 'passed')->count() }} cleared</span>
+                                · <span class="text-danger">{{ $results->where('result', 'failed')->count() }} not</span></div>
+                        @endif
+                    </div>
+                @endforeach
+            </div>
+        @endif
+
         @if ($position->description)
             <details class="mt-2">
                 <summary class="f-13 text-primary cursor-pointer">Job description</summary>

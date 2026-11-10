@@ -77,6 +77,13 @@ if ($pdo && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_notice_p
         $formEditId = $editingId;
         $formMonths = $_POST['months'] ?? '';
         $formName = $name;
+    } elseif (!preg_match('/^[\pL\pM\s.\'()\/-]+$/u', $name)) {
+        // Letters and spaces only: no numbers or emojis (the months go in their own box)
+        $error = 'The notice period name can have letters and spaces only (no numbers or emojis).';
+        $openModal = true;
+        $formEditId = $editingId;
+        $formMonths = $_POST['months'] ?? '';
+        $formName = $name;
     } elseif ($months < 0 || $months > 60) {
         $error = 'Please enter a valid number of months (0-60).';
         $openModal = true;
@@ -844,6 +851,8 @@ button {
                                 id="noticeName"
                                 name="name"
                                 maxlength="100"
+                                pattern="[A-Za-z\s.'\(\)\/\-]+"
+                                title="Letters and spaces only (no numbers or emojis)"
                                 placeholder="Enter notice period name"
                                 value="<?= e($formNameValue) ?>"
                                 required

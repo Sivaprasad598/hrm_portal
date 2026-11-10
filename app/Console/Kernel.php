@@ -123,6 +123,11 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule)
     {
+        // Server only: a development copy has SCHEDULER_ENABLED=false (config/app.php)
+        if (!config('app.scheduler_enabled', true)) {
+            return;
+        }
+
 
         $schedule->command('recurring-task-create')->dailyAt('00:30');
         $schedule->command('auto-stop-timer')->everyThirtyMinutes();
@@ -136,6 +141,8 @@ class Kernel extends ConsoleKernel
         $schedule->command('sync-user-permissions')->everyMinute();
         // $schedule->command('fetch-ticket-emails')->everyMinute(); // phpcs:ignore
         $schedule->command('recruit:fetch-mail')->everyFifteenMinutes()->withoutOverlapping(30);
+        // Recruitment rounds: scorecard reminders, overdue alerts to HR, offer expiry, next steps (server cron only)
+        $schedule->command('recruit:automate')->everyFifteenMinutes()->withoutOverlapping(30);
         $schedule->command('send-auto-followup-reminder')->everyMinute();
         $schedule->command('send-time-tracker')->everyMinute();
 

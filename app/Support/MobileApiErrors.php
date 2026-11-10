@@ -13,7 +13,8 @@ use Throwable;
 /**
  * Errors from the mobile app API in the same shape as its answers:
  * { success: false, message, errors }. Nothing internal is shown for an
- * unexpected error; it is still logged. Used by App\Http\Middleware\MobileApi.
+ * unexpected error (except a "debug" block while APP_DEBUG is on); it is
+ * still logged. Used by App\Http\Middleware\MobileApi.
  */
 class MobileApiErrors
 {
@@ -29,7 +30,18 @@ class MobileApiErrors
             default => [500, 'Something went wrong. Please try again.', []],
         };
 
-        return response()->json(['success' => false, 'message' => $message, 'errors' => (object) $errors], $status);
+        $body = ['success' => false, 'message' => $message, 'errors' => (object) $errors];
+
+        // While APP_DEBUG is on (never in production), say what actually broke.
+        if ($status >= 500 && config('app.debug')) {
+            $body['debug'] = [
+                'exception' => get_class($e),
+                'error' => $e->getMessage(),
+                'at' => str_replace(base_path() . DIRECTORY_SEPARATOR, '', $e->getFile()) . ':' . $e->getLine(),
+            ];
+        }
+
+        return response()->json($body, $status);
     }
 
     private static function httpMessage(HttpExceptionInterface $e): string

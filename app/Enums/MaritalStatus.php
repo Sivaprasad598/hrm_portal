@@ -24,6 +24,15 @@ enum MaritalStatus: string
         };
     }
 
+    /**
+     * The choices offered on forms: Single and Married only (QA TC-0005).
+     * The other cases stay so a value already stored still reads.
+     */
+    public static function offered(): array
+    {
+        return [self::Single, self::Married];
+    }
+
     // This method is return all the values as array.
     public static function toArray(): array
     {

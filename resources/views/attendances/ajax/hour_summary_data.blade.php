@@ -26,7 +26,7 @@ $iteration = 0;
                         @php
                             $attendanceDate = \Carbon\Carbon::parse($year.'-'.$month.'-'.$key2);
                         @endphp
-                        <td class="px-2">
+                        <td class="px-2 att-day">
                             @if ($day == 'Leave')
                                 <span data-toggle="tooltip" data-original-title="{{ $leaveReasons[$userId][$key2] }}"><i
                                 class="fa fa-plane-departure text-red"></i></span>

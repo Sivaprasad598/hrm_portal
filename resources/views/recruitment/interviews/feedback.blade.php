@@ -19,7 +19,20 @@
                 <div class="f-13 text-dark-grey mb-3">{{ $application->positionLabel() }}</div>
 
                 <div class="f-13">
-                    <div class="mb-1"><strong>{{ $interview->round }}</strong> {!! $interview->statusBadge() !!}</div>
+                    <div class="mb-1"><strong>{{ $interview->round }}</strong> {!! $interview->statusBadge() !!} {!! $interview->resultBadge() !!}</div>
+                    <div class="mb-1 text-dark-grey">{{ $interview->isTest() ? 'Test / exam' : 'Face-to-face interview' }}
+                        @if ($interview->isTest())
+                            · out of {{ \App\Models\RecruitRound::num($interview->max_marks ?: 100) }}{{ $interview->cut_off !== null ? ' · cut-off ' . \App\Models\RecruitRound::num($interview->cut_off) : '' }}
+                        @elseif ($interview->cut_off !== null)
+                            · pass mark {{ \App\Models\RecruitRound::num($interview->cut_off) }} / 5
+                        @endif
+                    </div>
+                    @if ($interview->score !== null || $interview->marks !== null)
+                        <div class="mb-1 f-14"><strong>Score: {{ $automation->scoreText($interview) }}</strong></div>
+                    @endif
+                    @if ($interview->result_note && $interview->result_by)
+                        <div class="mb-1 text-dark-grey"><em>HR: {{ $interview->result_note }}</em></div>
+                    @endif
                     <div class="mb-1"><i class="fa fa-calendar mr-1 text-dark-grey"></i>{{ $interview->whenText() }}</div>
                     <div class="mb-1"><i class="fa {{ \App\Models\RecruitInterview::MODES[$interview->mode][1] ?? 'fa-circle' }} mr-1 text-dark-grey"></i>{{ $interview->modeLabel() }}
                         @if ($interview->meeting_link) · <a href="{{ $interview->meeting_link }}" target="_blank">Join</a> @endif
@@ -41,6 +54,26 @@
         </div>
 
         <div class="col-lg-7">
+            @if ($canMarks)
+                <div class="bg-white rounded b-shadow-4 p-20 mb-3">
+                    <h5 class="f-16 font-weight-600 mb-3">Enter the marks</h5>
+                    <x-form id="marks-form">
+                        <div class="row align-items-end">
+                            <div class="col-md-4">
+                                <x-forms.number fieldId="marks" :fieldLabel="'Marks (out of ' . \App\Models\RecruitRound::num($interview->max_marks ?: 100) . ')'" fieldName="marks" :fieldRequired="true" />
+                            </div>
+                            <div class="col-md-8">
+                                <x-forms.text fieldId="marks_comments" fieldLabel="Remarks" fieldName="comments" fieldPlaceholder="Optional" />
+                            </div>
+                        </div>
+                        <p class="f-12 text-dark-grey">{{ $interview->cut_off !== null ? 'At or over ' . \App\Models\RecruitRound::num($interview->cut_off) . ' clears the round and the next one is set up; under it, the candidate is not taken forward.' : 'There is no cut-off: HR decides this round.' }}</p>
+                        <x-forms.button-primary id="save-marks" icon="check">Save marks</x-forms.button-primary>
+                    </x-form>
+                </div>
+            @elseif ($interview->isTest() && $interview->marks === null && $isInterviewer)
+                <div class="alert alert-info f-14">The marks can be entered once the test has taken place.</div>
+            @endif
+
             @if ($canGive)
                 <div class="bg-white rounded b-shadow-4 p-20 mb-3">
                     <h5 class="f-16 font-weight-600 mb-3">Your scorecard</h5>
@@ -86,6 +119,7 @@
                 </div>
             @endif
 
+            @unless ($interview->isTest())
             <div class="bg-white rounded b-shadow-4 p-20 mb-3">
                 <h5 class="f-16 font-weight-600 mb-3">Scorecards ({{ $interview->feedback->count() }}/{{ count($interview->interviewer_ids ?: []) }})</h5>
                 @if (!$showScorecards)
@@ -116,6 +150,12 @@
                     <p class="f-12 text-warning mt-2 mb-0">Waiting for: {{ \App\Models\User::withoutGlobalScopes()->whereIn('id', $missing)->pluck('name')->implode(', ') }}</p>
                 @endif
             </div>
+            @endunless
+
+            @if (\App\Services\Recruit\RecruitAccess::can('manage') && $interview->recruit_round_id && $interview->status !== 'cancelled')
+                <a href="{{ route('recruit-interviews.decide-form', $interview->id) }}" class="btn btn-sm btn-outline-secondary openRightModal">
+                    <i class="fa fa-gavel mr-1"></i>{{ $interview->result ? 'Change the decision' : 'Decide / waive this round' }}</a>
+            @endif
         </div>
     </div>
 </div>
@@ -123,6 +163,14 @@
 
 @push('scripts')
 <script>
+    $('#save-marks').on('click', function () {
+        $.easyAjax({
+            url: '{{ route('recruit-interviews.marks', $interview->id) }}', container: '#marks-form', type: 'POST', blockUI: true,
+            disableButton: true, buttonSelector: '#save-marks', data: $('#marks-form').serialize(),
+            success: function (response) { if (response.status === 'success') { window.location.href = response.redirectUrl; } }
+        });
+    });
+
     $('#save-feedback').on('click', function () {
         $.easyAjax({
             url: '{{ route('recruit-interviews.feedback.store', $interview->id) }}', container: '#feedback-form', type: 'POST', blockUI: true,

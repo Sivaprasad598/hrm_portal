@@ -282,12 +282,15 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account'], function () {
     Route::get('job-applications', [App\Http\Controllers\Recruit\JobApplicationController::class, 'index'])->name('job-applications.index');
     Route::get('job-applications/create', [App\Http\Controllers\Recruit\JobApplicationController::class, 'create'])->name('job-applications.create');
     Route::post('job-applications', [App\Http\Controllers\Recruit\JobApplicationController::class, 'store'])->name('job-applications.store');
-    Route::get('job-applications/{application}/move', [App\Http\Controllers\Recruit\JobApplicationController::class, 'moveForm'])->name('job-applications.move-form');
+    Route::get('candidates/{candidate}/quick', [App\Http\Controllers\Recruit\JobApplicationController::class, 'candidateQuick'])->name('candidates.quick');
+    Route::get('job-applications/{application}/quick',[App\Http\Controllers\Recruit\JobApplicationController::class, 'quick'])->name('job-applications.quick');
+    Route::get('job-applications/{application}/move',[App\Http\Controllers\Recruit\JobApplicationController::class, 'moveForm'])->name('job-applications.move-form');
     Route::post('job-applications/{application}/move', [App\Http\Controllers\Recruit\JobApplicationController::class, 'move'])->name('job-applications.move');
     Route::post('candidates/ai-preview', [App\Http\Controllers\Recruit\CandidateController::class, 'aiPreview'])->name('candidates.ai-preview');
     Route::post('candidates/{candidate}/ai', [App\Http\Controllers\Recruit\CandidateController::class, 'aiFill'])->name('candidates.ai');
     Route::post('candidates/{candidate}/files', [App\Http\Controllers\Recruit\CandidateController::class, 'uploadFile'])->name('candidates.files.store');
     Route::delete('candidates/files/{file}', [App\Http\Controllers\Recruit\CandidateController::class, 'deleteFile'])->name('candidates.files.destroy');
+    Route::get('candidate-files/{file}', [App\Http\Controllers\Recruit\CandidateController::class, 'file'])->name('candidate-files.show');
     Route::post('candidates/{candidate}/note', [App\Http\Controllers\Recruit\CandidateController::class, 'note'])->name('candidates.note');
     Route::get('candidates/{candidate}/convert', [App\Http\Controllers\Recruit\CandidateController::class, 'convert'])->name('candidates.convert');
     Route::resource('candidates', App\Http\Controllers\Recruit\CandidateController::class);
@@ -298,6 +301,12 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account'], function () {
     Route::put('recruit-interviews/{interview}', [App\Http\Controllers\Recruit\RecruitInterviewController::class, 'update'])->name('recruit-interviews.update');
     Route::get('recruit-interviews/{interview}/close', [App\Http\Controllers\Recruit\RecruitInterviewController::class, 'closeForm'])->name('recruit-interviews.close-form');
     Route::post('recruit-interviews/{interview}/close', [App\Http\Controllers\Recruit\RecruitInterviewController::class, 'close'])->name('recruit-interviews.close');
+    // The rounds the system runs: confirm a suggested slot, a test's marks, HR's decision on a round
+    Route::post('recruit-interviews/{interview}/confirm', [App\Http\Controllers\Recruit\RecruitInterviewController::class, 'confirm'])->name('recruit-interviews.confirm');
+    Route::post('recruit-interviews/{interview}/marks', [App\Http\Controllers\Recruit\RecruitInterviewController::class, 'marks'])->name('recruit-interviews.marks');
+    Route::get('recruit-interviews/{interview}/decide', [App\Http\Controllers\Recruit\RecruitInterviewController::class, 'decideForm'])->name('recruit-interviews.decide-form');
+    Route::post('recruit-interviews/{interview}/decide', [App\Http\Controllers\Recruit\RecruitInterviewController::class, 'decide'])->name('recruit-interviews.decide');
+    Route::get('my-interviews', [App\Http\Controllers\Recruit\RecruitInterviewController::class, 'mine'])->name('my-interviews.index');
     Route::get('recruit-interviews/{interview}', [App\Http\Controllers\Recruit\RecruitInterviewController::class, 'feedbackForm'])->name('recruit-interviews.feedback');
     Route::post('recruit-interviews/{interview}/feedback', [App\Http\Controllers\Recruit\RecruitInterviewController::class, 'feedback'])->name('recruit-interviews.feedback.store');
     Route::get('job-offers/create', [App\Http\Controllers\Recruit\JobOfferController::class, 'create'])->name('job-offers.create');

@@ -37,10 +37,11 @@
             $status = $day['status'];
             [$label] = $statusMeta[$status] ?? [ucfirst(str_replace('_', ' ', $status))];
             $isToday = $date === $today;
-            // Today with a punch but not a full day yet: still going.
+            // Today with a punch but not a full day yet: still going while
+            // clocked in; once clocked out, say so (it is counted at day end).
             if ($isToday && $day['first_in'] && in_array($status, ['absent', 'half_day'], true)) {
-                $status = 'in_progress';
-                $label = 'In progress';
+                $status = ($openNow ?? false) ? 'in_progress' : 'clocked_out';
+                $label = ($openNow ?? false) ? 'In progress' : 'Clocked out';
             }
             $attendanceId = $attendanceIds[$date] ?? null;
             $opens = $status !== 'upcoming';

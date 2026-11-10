@@ -107,6 +107,8 @@ $empDesignation = '';
 $empBranch = '';
 $empJoiningDate = '';
 $empCtcDisplay = '';
+$employeeAddressee = '';
+$employeeAddress = '';
 
 $dbConfig = @include __DIR__ . '/config/database.php';
 $dbConn = $dbConfig['connections']['mysql'] ?? null;
@@ -122,6 +124,9 @@ if ($dbConn && $empCardId !== '') {
 
         $stmt = $pdo->prepare(
             "SELECT u.name AS employee_name,
+                    u.gender,
+                    ed.address,
+                    ed.permanent_address,
                     u.employee_ctc,
                     d.name AS designation_name,
                     b.branch_name,
@@ -144,6 +149,13 @@ if ($dbConn && $empCardId !== '') {
             if (!empty($row['joining_date'])) {
                 $empJoiningDate = date('jS F Y', strtotime($row['joining_date']));
             }
+
+            // The letter is addressed to the employee: their name and address,
+            // a reference from their employee ID and today's date. These were
+            // sample text ("Mr. Mehul Parmar", XXXX/2026) for everyone (QA TC-0056).
+            $employeeSalutation = ['male' => 'Mr. ', 'female' => 'Ms. '][strtolower((string) ($row['gender'] ?? ''))] ?? '';
+            $employeeAddressee = $employeeSalutation . $empName;
+            $employeeAddress = trim((string) ($row['address'] ?: ($row['permanent_address'] ?? '')));
 
             if (!empty($row['employee_ctc']) && (float) $row['employee_ctc'] > 0) {
                 $ctc = (float) $row['employee_ctc'];
@@ -210,6 +222,27 @@ if ($dbConn && $offerId > 0) {
         }
     } catch (PDOException $ex) {
         error_log('Offer letter offer fetch failed: ' . $ex->getMessage());
+    }
+}
+
+// An employee's letter (not a recruitment offer): addressed to them, with a
+// reference and today's date; the name and position in the link are used
+// when the card number is not found.
+if ($offerAddressee === '') {
+    if ($empName === '' && isset($_GET['emp_name'])) {
+        $empName = trim((string) $_GET['emp_name']);
+        $employeeAddressee = $empName;
+    }
+    if ($empDesignation === '' && isset($_GET['emp_designation'])) {
+        $empDesignation = trim((string) $_GET['emp_designation']);
+    }
+    $offerAddressee = $employeeAddressee;
+    $offerAddress = $employeeAddress;
+    if ($offerRef === '' && $empCardId !== '') {
+        $offerRef = 'OL/' . $empCardId . '/' . date('Y');
+    }
+    if ($offerDate === '' && $empName !== '') {
+        $offerDate = date('jS F Y');
     }
 }
 ?>
@@ -1096,11 +1129,11 @@ body {
         <div class="offer-meta">
 
             <div>
-                Reference No.: <?= $offerRef !== '' ? e($offerRef) : 'XXXX/2026' ?>
+                Reference No.: <?= $offerRef !== '' ? e($offerRef) : '__________' ?>
             </div>
 
             <div class="offer-date">
-                <?php if ($offerDate !== ''): ?><?= e($offerDate) ?><?php else: ?>11<sup>th</sup> August 2026<?php endif; ?>
+                <?php if ($offerDate !== ''): ?><?= e($offerDate) ?><?php else: ?><?= e(date('jS F Y')) ?><?php endif; ?>
             </div>
 
         </div>
@@ -1114,14 +1147,9 @@ body {
             <?= e($offerAddressee) ?><br>
             <?= nl2br(e($offerAddress)) ?>
 <?php else: ?>
-
-            Mr. Mehul Parmar<br>
-
-            201, Tower 1, Tropical Lagoon,<br>
-
-            Anand Nagar, GB Road,<br>
-
-            Thane West – 400 615
+            ______________________<br>
+            ______________________<br>
+            ______________________
 <?php endif; ?>
 
         </div>

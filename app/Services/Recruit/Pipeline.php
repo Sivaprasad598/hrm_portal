@@ -25,11 +25,19 @@ class Pipeline
     /** The stages HR can choose on "Move to". */
     public const MANUAL = ['new', 'shortlisted', 'interview', 'selected', 'rejected', 'on_hold', 'withdrawn'];
 
+    /** Stages that follow an offer */
+    public const OFFER_STAGES = ['offered', 'offer_accepted'];
+
     /** @return string[] the stages this application can be moved to by hand */
     public static function choices(JobApplication $application): array
     {
         if ($application->stage === 'joined') {
             return [];
+        }
+
+        // With an offer out or accepted, only closing it is a hand move (withdraw the offer to go back)
+        if (in_array($application->stage, self::OFFER_STAGES, true)) {
+            return ['rejected', 'withdrawn'];
         }
 
         return array_values(array_filter(self::MANUAL, fn ($stage) => $stage !== $application->stage));
@@ -52,6 +60,10 @@ class Pipeline
 
         if ($from === 'joined') {
             throw new RuntimeException('This candidate has already joined; the application is closed.');
+        }
+
+        if ($byHand && in_array($from, self::OFFER_STAGES, true) && !in_array($to, ['rejected', 'withdrawn'], true)) {
+            throw new RuntimeException('There is an offer out for this application. Withdraw the offer first to move it back.');
         }
 
         if ($byHand && !in_array($to, self::MANUAL, true)) {
@@ -77,11 +89,40 @@ class Pipeline
         if ($to === 'joined' && $application->job_position_id) {
             $this->closeWhenFilled($application->position);
         }
+
+        // Out of the running (rejected, on hold, withdrawn): slots suggested and not yet confirmed go
+        if (in_array($to, JobApplication::CLOSING, true)) {
+            \App\Models\RecruitInterview::withoutGlobalScopes()->where('job_application_id', $application->id)->where('status', 'proposed')
+                ->update(['status' => 'cancelled', 'status_note' => 'Slot dropped: application ' . JobApplication::STAGES[$to][0], 'updated_at' => now()]);
+        }
+
+        // HR shortlisted (or moved to Interview by hand): the system suggests the next round's slot
+        if ($to === 'shortlisted' || ($to === 'interview' && $byHand)) {
+            try {
+                app(RecruitAutomation::class)->advance($application);
+            } catch (\Throwable $e) {
+                logger()->warning('Could not suggest the first round', ['application' => $application->id, 'error' => $e->getMessage()]);
+            }
+        }
     }
 
     /** Selected needs a completed interview, and every interviewer's scorecard for each one completed. */
     public function assertReadyToSelect(JobApplication $application): void
     {
+        // A position with a round plan: every round cleared or waived
+        $rounds = app(RecruitAutomation::class)->rounds($application);
+
+        if ($rounds->isNotEmpty()) {
+            $open = $rounds->filter(fn ($r) => !in_array($r->state, ['passed', 'waived'], true));
+
+            if ($open->isNotEmpty()) {
+                throw new RuntimeException('Rounds still to clear: ' . $open->map(fn ($r) => $r->round->name)->implode(', ')
+                    . '. Each round is cleared by its score, or decided / waived by HR.');
+            }
+
+            return;
+        }
+
         $completed = $application->interviews()->with('feedback')->where('status', 'completed')->get();
 
         if ($completed->isEmpty()) {

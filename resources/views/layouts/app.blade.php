@@ -154,7 +154,7 @@
 </head>
 
 
-<body id="body" class="{{ user()->dark_theme ? 'dark-theme' : 'epic' }} {{ isRtl('rtl') }}">
+<body id="body" class="{{ user()->dark_theme ? 'dark-theme' : 'epic' }} {{ \App\Services\Access\AssignedModules::plainEmployee() ? 'epic-solo' : '' }} {{ isRtl('rtl') }}">
 <script>
     if (checkMiniSidebar == "yes" || checkMiniSidebar == "") {
         $('body').addClass('sidebar-toggled');
@@ -219,6 +219,16 @@
 <!-- Global Required Javascript -->
 <script src="{{ asset('js/main.js') }}"></script>
 <script>
+    // Row action menus near the bottom of a list opened downwards and were cut
+    // off by the table's scroll box (QA TC-0043/0044): while a menu is open the
+    // table stops being a scroll box, so the menu measures its room against the
+    // page (opening upwards when needed) and spills out instead of being clipped.
+    // Not a global boundary: Bootstrap then makes every parent static, which
+    // stretched select menus to the card's full width.
+    $(document)
+        .on('show.bs.dropdown', '.table-responsive', function () { $(this).css('overflow', 'visible'); })
+        .on('hidden.bs.dropdown', '.table-responsive', function () { $(this).css('overflow', ''); });
+
     // Translation of default values for the select picker box.
     $.fn.selectpicker.Constructor.DEFAULTS.noneSelectedText = "@lang('placeholders.noneSelectedText')";
     $.fn.selectpicker.Constructor.DEFAULTS.noneResultsText = "@lang('placeholders.noneResultsText')";
@@ -259,6 +269,24 @@
             info: (message) => toastrToast('info', message)
         };
     }
+
+    // A form that saves and then goes to another page lost its "saved" message
+    // with the page (QA TC-0039/0040/0071). goWithMessage() keeps it for the
+    // next page, which shows it on load.
+    window.goWithMessage = function (url, message) {
+        try {
+            if (message) { sessionStorage.setItem('arw-flash', message); }
+        } catch (e) {}
+        window.location.href = url;
+    };
+    document.addEventListener('DOMContentLoaded', function () {
+        let flash = null;
+        try {
+            flash = sessionStorage.getItem('arw-flash');
+            sessionStorage.removeItem('arw-flash');
+        } catch (e) {}
+        if (flash && window.toastr) { window.toastr.success(flash); }
+    });
     const company = @json(companyOrGlobalSetting());
     const pusher_setting = @json(pusher_settings());
     const message_setting = @json(message_setting());

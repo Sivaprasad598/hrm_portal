@@ -25,7 +25,7 @@ class StoreTaskCategory extends CoreRequest
     public function rules()
     {
         return [
-            'category_name' => 'required|unique:task_category,category_name,null,id,company_id,' . company()->id
+            'category_name' => ['required', 'unique:task_category,category_name,null,id,company_id,' . company()->id, new \App\Rules\NoEmoji]
         ];
     }
 

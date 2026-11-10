@@ -349,8 +349,11 @@ class LeaveController extends AccountBaseController
             ->applicableTo($employee->employeeDetails)
             ->get('date');
 
-        $multiDates = collect($multiDates)->filter(function ($date) use ($holidays) {
-            return $holidays->where('date', $date)->isEmpty();
+        // Nor on a Day Off on the employee's shift roster
+        $dayOffDates = \App\Services\Leaves\DayOffLeaves::dayOffDates((int) $request->user_id, $multiDatesFormatted);
+
+        $multiDates = collect($multiDates)->filter(function ($date) use ($holidays, $dayOffDates) {
+            return $holidays->where('date', $date)->isEmpty() && !in_array($date->format('Y-m-d'), $dayOffDates, true);
         });
 
         if ($multiDates->isEmpty()) {
@@ -668,6 +671,10 @@ class LeaveController extends AccountBaseController
             return Reply::error(__('messages.holidayLeaveApplyError'));
         }
 
+        if (\App\Services\Leaves\DayOffLeaves::dayOffDates((int) $leave->user_id, [$leaveDate->format('Y-m-d')])) {
+            return Reply::error('This day is a Day Off on the shift roster, so no leave is needed.');
+        }
+
         $leaveApplied = Leave::whereIn('status', ['approved', 'pending'])
             ->where('user_id', $request->user_id)
             ->where('leave_date', $leaveDate->format('Y-m-d'))
@@ -812,7 +819,7 @@ class LeaveController extends AccountBaseController
                 ->join('leave_types', 'leave_types.id', 'leaves.leave_type_id')
                 ->join('employee_details', 'employee_details.user_id', 'users.id')
                 ->where('users.status', 'active')
-                ->select('leaves.id', 'users.name', 'leaves.leave_date', 'leaves.status', 'leave_types.type_name', 'leave_types.color', 'leaves.leave_date', 'leaves.duration', 'leaves.status');
+                ->select('leaves.id', 'leaves.user_id', 'users.name', 'leaves.leave_date', 'leaves.status', 'leave_types.type_name', 'leave_types.color', 'leaves.duration', 'leaves.half_day_type');
 
             if (!is_null($request->startDate)) {
                 $startDate = companyToDateString($request->startDate);
@@ -866,8 +873,14 @@ class LeaveController extends AccountBaseController
             $leaves = $leavesList->get();
 
             foreach ($leaves as $key => $leave) {
-                /** @phpstan-ignore-next-line */
-                $title = $leave->name;
+                // Your own leave reads as what it is (its type); someone else's
+                // as who and what. Half days and undecided / refused leave say so.
+                $what = $leave->type_name . ($leave->duration === 'half day' ? ' (half day)' : '');
+                $title = $leave->user_id == user()->id ? $what : $leave->name . ' · ' . $what;
+
+                if ($leave->status !== 'approved') {
+                    $title .= ' · ' . ucfirst($leave->status);
+                }
 
                 $leaveArray[] = [
                     'id' => $leave->id,
@@ -875,7 +888,8 @@ class LeaveController extends AccountBaseController
                     'start' => $leave->leave_date->format('Y-m-d'),
                     'end' => $leave->leave_date->format('Y-m-d'),
                     /** @phpstan-ignore-next-line */
-                    'color' => $leave->color
+                    'color' => $leave->color,
+                    'classNames' => ['lv-ev', 'lv-ev--' . $leave->status],
                 ];
             }
 

@@ -18,9 +18,12 @@
                     <!-- SIDEBAR BRAND NAME START -->
                     {{-- A greeting for the person signed in, in place of the company name. --}}
                     <div class="sidebar-brand-name">
-                        <h1 class="mb-0 f-16 f-w-500 text-white-shade mt-0" data-placement="bottom" data-toggle="tooltip"
-                            data-original-title="{{ $userName }}">Hi, {{ $userName }}
-                        </h1>
+                        {{-- Their photo, then two lines: a small "Welcome" over the name in full.
+                             (The photo is a background: images in this row are hidden on purpose.) --}}
+                        <div class="sidebar-greeting" data-placement="bottom" data-toggle="tooltip" data-original-title="{{ $userName }}">
+                            <span class="sidebar-greeting__photo" style="background-image: url('{{ user()->image_url }}')"></span>
+                            <h1 class="mb-0 mt-0 sidebar-greeting__text"><small>Welcome</small><span>{{ $userName }}</span></h1>
+                        </div>
                     </div>
                     <!-- SIDEBAR BRAND NAME END -->
                     <!-- SIDEBAR BRAND LOGO START -->

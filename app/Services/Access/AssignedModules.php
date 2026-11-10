@@ -48,6 +48,15 @@ class AssignedModules
         return !array_intersect(self::MANAGING_ROLES, user_roles());
     }
 
+    /**
+     * Somebody who holds no role but employee: they get the simple layout (no
+     * menu panel, their pages as icons in the strip, a welcome in the top bar).
+     */
+    public static function plainEmployee(): bool
+    {
+        return user() && collect(user_roles())->diff(['employee'])->isEmpty();
+    }
+
     /** @return string[] */
     public static function forUser(): array
     {

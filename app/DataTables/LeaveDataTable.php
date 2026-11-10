@@ -60,9 +60,9 @@ class LeaveDataTable extends BaseDataTable
             ->addColumn('leave_paid', function ($row) {
 
                 if ($row->paid == 1) {
-                    $leavePaidStatus = '<span class="badge badge-success">' . __('app.paid') . '</span>';
+                    $leavePaidStatus = '<span class="ms-pill ok">' . __('app.paid') . '</span>';
                 } else {
-                    $leavePaidStatus = '<span class="badge badge-danger">' . __('app.unpaid') . '</span>';
+                    $leavePaidStatus = '<span class="ms-pill bad">' . __('app.unpaid') . '</span>';
                 }
 
                 if ($row->over_utilized == 1) {
@@ -72,7 +72,10 @@ class LeaveDataTable extends BaseDataTable
                 return $leavePaidStatus;
             })
             ->addColumn('leave_date', function ($row) {
-                return Carbon::parse($row->leave_date)->translatedFormat($this->company->date_format) . ' (' . Carbon::parse($row->leave_date)->translatedFormat('l') . ')';
+                $date = Carbon::parse($row->leave_date);
+
+                return '<span class="f-w-500 text-darkest-grey">' . $date->translatedFormat($this->company->date_format) . '</span>'
+                    . ' <span class="ms-muted ml-1">' . $date->translatedFormat('l') . '</span>';
             })
             ->addColumn('status', function ($row) {
                 if ($row->status == 'approved') {
@@ -96,7 +99,8 @@ class LeaveDataTable extends BaseDataTable
                                     ' . __('app.view') . ' ' . __('app.status') . '
                                     </a></h5>';
                 } else {
-                    $leaveStatus = '<i class="fa fa-circle mr-1 ' . $class . ' f-10"></i> ' . $status;
+                    $pill = ['approved' => 'ok', 'pending' => 'warn'][$row->status] ?? 'bad';
+                    $leaveStatus = '<span class="ms-pill ' . $pill . '">' . $status . '</span>';
 
                     if ($row->manager_status_permission === 'pre-approve') {
                         $leaveStatus .= '<div><span class="badge badge-success">' . __('modules.leaves.preApproved') . '</span></div>';
@@ -124,7 +128,7 @@ class LeaveDataTable extends BaseDataTable
                 return $leave;
             })
             ->addColumn('leave_type', function ($row) {
-                $type = '<span class="badge badge-success" style="background-color:' . $row->color . '">' . $row->type_name . '</span>';
+                $type = '<span class="lv-type"><i style="background:' . e($row->color) . '"></i>' . e($row->type_name) . '</span>';
 
                 if ($row->duration == 'half day') {
                     if (!is_null($row->half_day_type)) {
@@ -280,7 +284,7 @@ class LeaveDataTable extends BaseDataTable
             })
             ->smart(false)
             ->setRowId(fn($row) => 'row-' . $row->id)
-            ->rawColumns(['status', 'leave_type', 'action', 'check', 'employee', 'duration', 'leave_paid']);
+            ->rawColumns(['status', 'leave_type', 'action', 'check', 'employee', 'duration', 'leave_paid', 'leave_date']);
     }
 
     /**
@@ -385,7 +389,8 @@ class LeaveDataTable extends BaseDataTable
      */
     public function html()
     {
-        $dataTable = $this->setBuilder('leaves-table', 2)
+        // Newest leave date first (column 5, leaves.leave_date); it sorted by id (QA TC-0045)
+        $dataTable = $this->setBuilder('leaves-table', $this->bulkActions() ? 5 : 4)
             ->parameters([
                 'initComplete' => 'function () {
                    window.LaravelDataTables["leaves-table"].buttons().container()
@@ -402,6 +407,12 @@ class LeaveDataTable extends BaseDataTable
         return $dataTable;
     }
 
+    /** Whether this person gets the tick-boxes and bulk actions. */
+    public function bulkActions(): bool
+    {
+        return $this->viewLeavePermission == 'all';
+    }
+
     /**
      * Get columns.
      *
@@ -409,17 +420,22 @@ class LeaveDataTable extends BaseDataTable
      */
     protected function getColumns()
     {
-        return [
-            'check' => [
-                'title' => '<input type="checkbox" name="select_all_table" id="select-all-table" onclick="selectAllTable(this)">',
-                'exportable' => false,
-                'orderable' => false,
-                'searchable' => false,
-                'visible' => ($this->viewLeavePermission == 'all')
-            ],
+        // Tick-boxes (bulk status change / delete) only for whoever manages
+        // everybody's leave. Elsewhere - an employee's own list - the column is
+        // left out entirely, so a saved table state cannot bring it back.
+        $check = $this->bulkActions() ? ['check' => [
+            'title' => '<input type="checkbox" name="select_all_table" id="select-all-table" onclick="selectAllTable(this)">',
+            'exportable' => false,
+            'orderable' => false,
+            'searchable' => false,
+        ]] : [];
+
+        return $check + [
             '#' => ['data' => 'DT_RowIndex', 'orderable' => false, 'searchable' => false, 'visible' => false, 'title' => '#'],
             __('app.id') => ['data' => 'id', 'name' => 'id', 'title' => __('app.id'), 'visible' => false],
-            __('app.employee') => ['data' => 'employee', 'name' => 'user.name', 'exportable' => false, 'title' => __('app.employee')],
+            // Left out on someone's own list (it only ever said "It's you")
+            __('app.employee') => ['data' => 'employee', 'name' => 'user.name', 'exportable' => false, 'title' => __('app.employee'),
+                'visible' => \App\Http\Controllers\LeaveController::access()['team']],
             __('app.employee') . ' ' => ['data' => 'employee_name', 'name' => 'user.name', 'visible' => false, 'title' => __('app.employee')],
             __('app.leaveDate') => ['data' => 'leave_date', 'name' => 'leaves.leave_date', 'title' => __('app.leaveDate')],
             __('app.duration') => ['data' => 'duration', 'name' => 'duration', 'title' => __('app.duration')],

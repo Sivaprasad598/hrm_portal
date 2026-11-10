@@ -28,7 +28,7 @@ use App\Models\Designation;
 use App\Models\EmployeeActivity;
 use App\Models\EmployeeDetails;
 use App\Models\EmployeeExperience;
-use App\Models\EmployeeRelation;
+use App\Models\EmergencyContact;
 use App\Models\EmployeeSkill;
 use App\Models\LanguageSetting;
 use App\Models\Leave;
@@ -377,20 +377,7 @@ class EmployeeController extends AccountBaseController
                 $storedDocuments = app(\App\Services\Employee\OnboardingDocuments::class)
                     ->saveFromRequest($request, $user->id, company()->id);
 
-                $ecNames     = $request->get('emergency_name', []);
-                $ecRelations = $request->get('emergency_relation', []);
-                $ecNumbers   = $request->get('emergency_number', []);
-
-                foreach ($ecNames as $i => $ecName) {
-                    if (!$ecName) { continue; }
-                    $employeeRelation = new EmployeeRelation();
-                    $employeeRelation->user_id        = $user->id;
-                    $employeeRelation->serial_no      = $i + 1;
-                    $employeeRelation->name           = $ecName;
-                    $employeeRelation->relation       = $ecRelations[$i] ?? '';
-                    $employeeRelation->contact_number = $ecNumbers[$i] ?? '';
-                    $employeeRelation->save();
-                }
+                $this->saveEmergencyContacts($request, $user);
 
                 $expCompanies    = $request->get('exp_company', []);
                 $expLocations    = $request->get('exp_location', []);
@@ -987,21 +974,7 @@ class EmployeeController extends AccountBaseController
 
         // Emergency contacts, as on Add Employee: the rows on the form replace those on file.
         if ($request->has('emergency_name')) {
-            EmployeeRelation::where('user_id', $user->id)->delete();
-
-            foreach ((array) $request->get('emergency_name', []) as $i => $contactName) {
-                if (!$contactName) {
-                    continue;
-                }
-
-                $relation = new EmployeeRelation();
-                $relation->user_id = $user->id;
-                $relation->serial_no = $i + 1;
-                $relation->name = $contactName;
-                $relation->relation = $request->get('emergency_relation', [])[$i] ?? '';
-                $relation->contact_number = $request->get('emergency_number', [])[$i] ?? '';
-                $relation->save();
-            }
+            $this->saveEmergencyContacts($request, $user);
         }
 
         // The employee's own shift. Recorded only when it changes, from the date
@@ -1150,6 +1123,14 @@ class EmployeeController extends AccountBaseController
         }
 
         $this->pageTitle = $this->employee->name;
+
+        // Your own My Space pages (assets, overtime) are titled as such, not
+        // with your own name.
+        $mySpaceTitles = ['assets' => 'My Assets', 'ot-bank' => 'My Overtime'];
+        if ($this->employee->id == user()->id && isset($mySpaceTitles[$tab])) {
+            $this->pageTitle = $mySpaceTitles[$tab];
+        }
+
         $viewDocumentPermission = user()->permission('view_documents');
         $viewImmigrationPermission = user()->permission('view_immigration');
 
@@ -1810,6 +1791,47 @@ class EmployeeController extends AccountBaseController
             $hasPendingTasks = false;
         }
         return response()->json(['hasPendingTasks' => $hasPendingTasks]);
+    }
+
+    /**
+     * The emergency contact rows on Add / Edit Employee, saved where the
+     * profile, Profile Settings and the mobile app read them
+     * (emergency_contacts). A row that came with an id updates that contact,
+     * so its email and address stay; rows taken off the form are removed.
+     */
+    private function saveEmergencyContacts($request, User $user): void
+    {
+        $ids = (array) $request->get('emergency_id', []);
+        $relations = (array) $request->get('emergency_relation', []);
+        $numbers = (array) $request->get('emergency_number', []);
+        $kept = [];
+
+        foreach ((array) $request->get('emergency_name', []) as $i => $name) {
+            $name = trim((string) $name);
+
+            if ($name === '') {
+                continue;
+            }
+
+            $contact = !empty($ids[$i])
+                ? EmergencyContact::where('user_id', $user->id)->find((int) $ids[$i])
+                : null;
+
+            if (!$contact) {
+                $contact = new EmergencyContact();
+                $contact->user_id = $user->id;
+                $contact->company_id = $user->company_id;
+            }
+
+            $contact->name = $name;
+            $contact->relation = $relations[$i] ?? '';
+            $contact->mobile = trim((string) ($numbers[$i] ?? ''));
+            $contact->save();
+
+            $kept[] = $contact->id;
+        }
+
+        EmergencyContact::where('user_id', $user->id)->whereNotIn('id', $kept ?: [0])->delete();
     }
 
     /**

@@ -25,9 +25,14 @@ class PayslipWriter
     }
 
     /**
-     * @return array{ok: bool, message: string, payslip_id: ?int}
+     * $anyway: HR chose "Issue anyway" for someone held only because the
+     * device feed has not been pulled to the end of the period (the device
+     * server down, say): the payslip is made from the attendance already in,
+     * rather than nobody being paid (QA: payroll must never be stuck).
+     *
+     * @return array{ok: bool, message: string, payslip_id: ?int, overridable?: bool}
      */
-    public function issue(int $userId, int $month, int $year, ?int $issuedBy = null): array
+    public function issue(int $userId, int $month, int $year, ?int $issuedBy = null, bool $anyway = false): array
     {
         $cycle = PayPeriod::forMonth($month, $year);
         $period = $cycle->label;
@@ -43,7 +48,7 @@ class PayslipWriter
             ->leftJoin('designations as d', 'd.id', '=', 'ed.designation_id')
             ->where('u.id', $userId)
             ->first(['u.id', 'u.name', 'u.pan_number', 'u.employee_ctc', 'u.basic_for_payroll', 'u.monthly_tds',
-                'ed.employee_card_id', 'ed.company_id', 'd.name as designation']);
+                'ed.employee_card_id', 'ed.company_id', 'ed.attendance_exempt', 'd.name as designation']);
 
         if (!$employee) {
             return $this->refuse('That employee no longer exists');
@@ -59,7 +64,7 @@ class PayslipWriter
         }
 
         if ((float) $employee->employee_ctc <= 0) {
-            return $this->refuse($employee->name . ' has no CTC on record');
+            return $this->refuse($employee->name . ' has no CTC on record - enter it on their employee form (Salary) and run payroll again');
         }
 
         // The cycle must be over, and for anyone on the device the feed must
@@ -67,14 +72,22 @@ class PayslipWriter
         $pipeline = new \App\Services\Iapp\Pipeline\PipelineStatus();
 
         if ($blocker = $pipeline->payslipBlocker($userId, $cycle)) {
-            return $this->refuse($employee->name . ': ' . $blocker);
+            // The period not over yet is final; the device feed lagging can be
+            // passed by HR's "Issue anyway".
+            $deviceLag = str_starts_with($blocker, 'device attendance');
+
+            if (!$deviceLag || !$anyway) {
+                return $this->refuse($employee->name . ': ' . $blocker, $deviceLag);
+            }
         }
 
         // Nothing at all to pay from: not on any device we pull, no attendance and no
         // approved leave in the cycle. Paying that would be a whole month of LOP (230
         // drafts of ~27 LOP days came from branches whose devices are not pulled), so
         // it is held until attendance is in, or entered by hand.
-        if (!$pipeline->deviceCodeFor($userId)) {
+        // Attendance-exempt people (directors, heads who do not punch) are paid
+        // in full but for leave, so they never wait for attendance.
+        if (!$pipeline->deviceCodeFor($userId) && !$employee->attendance_exempt) {
             $hasAttendance = DB::table('attendances')->where('user_id', $userId)
                 ->whereBetween('clock_in_time', [$cycle->start->copy()->startOfDay(), $cycle->end->copy()->endOfDay()])->exists();
             $hasLeave = DB::table('leaves')->where('user_id', $userId)->where('status', 'approved')
@@ -82,7 +95,8 @@ class PayslipWriter
 
             if (!$hasAttendance && !$hasLeave) {
                 return $this->refuse($employee->name . ': no attendance recorded for ' . $cycle->describe()
-                    . ' (not on a biometric device that is pulled, and none entered). Pull their device or mark their attendance first.');
+                    . ' (not on a biometric device that is pulled, and none entered). Mark their attendance, or if they do not'
+                    . ' record attendance at all, tick "Attendance exempt" on their employee form to pay them in full.');
             }
         }
 
@@ -161,6 +175,13 @@ class PayslipWriter
         }
 
         $settings = $this->calculator->settings();
+
+        // The month's standing pay rules and the instalment due on an advance or
+        // loan are drawn in here too. They were drawn only when the Payroll Run
+        // screen was opened, so a payslip issued any other way (automatically
+        // after the month, say) missed the recovery. Both are idempotent: a
+        // rule or an instalment is applied once per period.
+        $this->components->forPeriod($userId, $cycle->start);
 
         // Stored the way the payslip screens store it: net salary here is the
         // employee's side only (gross less their PF, ESI, PT and TDS); the
@@ -284,9 +305,9 @@ class PayslipWriter
     }
 
     /** @return array{ok: bool, message: string, payslip_id: null} */
-    protected function refuse(string $message): array
+    protected function refuse(string $message, bool $overridable = false): array
     {
-        return ['ok' => false, 'message' => $message, 'payslip_id' => null];
+        return ['ok' => false, 'message' => $message, 'payslip_id' => null, 'overridable' => $overridable];
     }
 
 }

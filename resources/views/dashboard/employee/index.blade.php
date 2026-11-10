@@ -107,7 +107,7 @@
             </div>
         @endif
 
-        <div class="d-lg-flex d-md-flex d-block py-2 pb-2 align-items-center">
+        <div class="d-lg-flex d-md-flex d-block py-2 pb-2 align-items-center epic-dash-hero">
 
             <!-- WELOCOME NAME START -->
             <div>
@@ -123,7 +123,7 @@
                     class="mb-0 text-lg-right text-md-right f-18 font-weight-bold text-dark-grey d-grid align-items-center">
 
                     <span id="dashboard-clock">
-                        {!! now()->timezone(company()->timezone)->translatedFormat(company()->time_format) . '</span><span class="f-10 font-weight-normal">' . now()->timezone(company()->timezone)->translatedFormat('l') . '</span>' !!}
+                        {{ now()->timezone(company()->timezone)->translatedFormat(company()->time_format) }}</span>
 
                     @if (!is_null($currentClockIn))
                         <span class="f-11 font-weight-normal text-lightest">
@@ -263,15 +263,20 @@
          @if (\App\Services\Employee\PersonalDashboard::applies())
             @include('dashboard.employee.personal')
          @else
-         {{-- HR, Admin: their own figures and what waits for their decision, then the company view --}}
-         @include('dashboard.employee.me')
+         {{-- HR, Admin: their own figures and what waits for their decision, then the company view.
+              Not the Super Admin login: a system account, not an employee, so
+              its own leave / OT bank / profile cards led to pages that do not exist. --}}
+         @unless (\App\Services\Access\SystemAccounts::is(user()->id))
+            @include('dashboard.employee.me')
+         @endunless
          <!-- EMPLOYEE DASHBOARD DETAIL START -->
          <div class="row emp-dash-detail">
             <!-- EMP DASHBOARD INFO NOTICES START -->
             @if(count(array_intersect(['profile', 'shift_schedule', 'birthday', 'notices'], $activeWidgets)) > 0)
                 <div class="col-xl-5 col-lg-12 col-md-12 e-d-info-notices">
                     <div class="row">
-                        @if (in_array('profile', $activeWidgets))
+                        {{-- Not for the Super Admin login: no employee profile to open --}}
+                        @if (in_array('profile', $activeWidgets) && !\App\Services\Access\SystemAccounts::is(user()->id))
                         <!-- EMP DASHBOARD INFO START -->
                         <div class="col-md-12">
                             <div class="card border-0 b-shadow-4 mb-3 e-d-info">

@@ -1425,7 +1425,9 @@ $departmentsJson = json_encode(array_values($departments));
 
             let html = '';
             records.forEach((rec, index) => {
-                const initials = rec.name.split(' ').map(n => n[0]).join('').toUpperCase();
+                // Two letters at most (first and last name): long names gave "SSCVRRB", which spilled over the name
+                const parts = String(rec.name || '').trim().split(/\s+/).filter(Boolean);
+                const initials = ((parts[0] || '')[0] || '').concat(parts.length > 1 ? parts[parts.length - 1][0] : '').toUpperCase();
                 const statusClass = rec.status.toLowerCase().replace(' ', '');
                 html += `
                         <tr>

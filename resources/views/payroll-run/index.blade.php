@@ -301,7 +301,7 @@
                                     @if ($b = $row['ot_bank'] ?? null)
                                         {{-- OT bank: brought forward, earned this period, LOP covered / encashed, carried forward. --}}
                                         <br><span class="f-10 text-dark-grey" title="Brought forward + earned this period - used = carried forward">
-                                            OT bank {{ $num($b['bf']) }}h{{ $b['earned'] > 0 ? ' +' . $num($b['earned']) . 'h' : '' }}{{ $b['comp_days'] > 0 ? ' · covers ' . $num($b['comp_days']) . ' LOP' : '' }}{{ $b['enc_hours'] > 0 ? ' · encash ' . $num($b['enc_hours']) . 'h' : '' }} → {{ $num($b['cf']) }}h
+                                            OT balance {{ $num($b['bf']) }}h{{ $b['earned'] > 0 ? ' +' . $num($b['earned']) . 'h' : '' }}{{ $b['comp_days'] > 0 ? ' · covers ' . $num($b['comp_days']) . ' LOP' : '' }}{{ $b['enc_hours'] > 0 ? ' · encash ' . $num($b['enc_hours']) . 'h' : '' }} → {{ $num($b['cf']) }}h
                                         </span>
                                         @unless ($row['status'] === 'generated' || $b['issued'])
                                             <a href="#" class="ot-bank f-10 ml-1" data-user="{{ $row['user_id'] }}"
@@ -448,7 +448,7 @@
     <div class="modal-dialog modal-dialog-centered" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title f-16">OT bank: <span id="ot-name"></span></h5>
+                <h5 class="modal-title f-16">Overtime balance: <span id="ot-name"></span></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
             </div>
             <div class="modal-body f-13">
@@ -745,7 +745,7 @@
                 Swal.fire({
                     title: 'Issue ' + $('<div>').text(name).html() + '’s payslip?',
                     html: '<p class="mb-0" style="font-size:13px">For <strong>{{ $monthName }}</strong>, using the figures in their row ' +
-                          '(OT bank cover and encashment included). Nobody else is touched.</p>',
+                          '(overtime cover and encashment included). Nobody else is touched.</p>',
                     icon: 'question',
                     showCancelButton: true,
                     confirmButtonText: 'Issue payslip',
@@ -757,8 +757,8 @@
 
             // Issued a few at a time, so the screen can report as it goes and a
             // long run cannot outlast the server's time limit.
-            function run(ids) {
-                var total = ids.length, done = 0, created = 0, skipped = 0, reasons = [], stopped = null;
+            function run(ids, anyway) {
+                var total = ids.length, done = 0, created = 0, skipped = 0, reasons = [], stopped = null, overridable = [];
 
                 Swal.fire({
                     title: 'Issuing ' + total + ' payslip(s)',
@@ -791,6 +791,10 @@
                         detail += '<div class="text-left" style="font-size:12px">and ' + (reasons.length - 5) + ' more</div>';
                     }
 
+                    // People held only because the device feed is behind: payroll is
+                    // never stuck on it - HR can issue them from the attendance in.
+                    var canForce = !stopped && overridable.length > 0;
+
                     Swal.fire({
                         icon: stopped ? 'error' : (created ? 'success' : 'warning'),
                         title: stopped ? 'Stopped' : (created ? 'Payslips issued' : 'Nothing issued'),
@@ -799,8 +803,17 @@
                               '<strong>' + created + '</strong> issued' +
                               (skipped ? ', <strong>' + skipped + '</strong> skipped' : '') +
                               ' out of ' + total + '.</p>' +
-                              (detail ? '<p class="mb-1" style="font-size:12px"><strong>Skipped:</strong></p>' + detail : '')
-                    }).then(function () { window.location.reload(); });
+                              (detail ? '<p class="mb-1" style="font-size:12px"><strong>Skipped:</strong></p>' + detail : '') +
+                              (canForce ? '<p class="mt-2 mb-0" style="font-size:12px;color:#b45309">' + overridable.length +
+                                  ' of them only wait for the device data to be pulled. Issue anyway uses the attendance already in;' +
+                                  ' days not pulled yet count as absent unless entered.</p>' : ''),
+                        showDenyButton: canForce,
+                        denyButtonText: 'Issue those ' + overridable.length + ' anyway',
+                        confirmButtonText: 'OK'
+                    }).then(function (result) {
+                        if (result.isDenied) { run(overridable.slice(), true); return; }
+                        window.location.reload();
+                    });
                 }
 
                 function next() {
@@ -808,11 +821,12 @@
 
                     var batch = ids.slice(done, done + BATCH_SIZE);
 
-                    $.post(generateRoute, { user_ids: batch, month: month, year: year, _token: csrf })
+                    $.post(generateRoute, { user_ids: batch, month: month, year: year, anyway: anyway ? 1 : 0, _token: csrf })
                         .done(function (response) {
                             created += response.created || 0;
                             skipped += response.skipped || 0;
                             reasons = reasons.concat(response.reasons || []);
+                            overridable = overridable.concat(response.overridable || []);
                             done += batch.length;
                             paint();
                             next();

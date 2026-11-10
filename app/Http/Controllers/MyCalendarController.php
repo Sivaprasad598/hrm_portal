@@ -14,6 +14,7 @@ use App\Models\Ticket;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class MyCalendarController extends AccountBaseController
 {
@@ -33,12 +34,7 @@ class MyCalendarController extends AccountBaseController
      */
     public function index()
     {
-        $this->types = ['task' => __('app.menu.tasks'),
-            'events' => __('app.menu.events'),
-            'tickets' => __('app.menu.tickets'),
-            'leaves' => __('app.menu.leaves'),
-            'follow_ups' => __('modules.dashboard.followUps')
-        ];
+        $this->types = $this->allowedTypes();
 
         $startDate = Carbon::parse(request('start'));
         $endDate = Carbon::parse(request('end'));
@@ -46,46 +42,45 @@ class MyCalendarController extends AccountBaseController
 
         // get calendar view current logined user
         if ($type == null || $type == 'null' || $type == 'all') {
-            $calendar_type_array = ['task', 'events', 'tickets', 'leaves', 'follow_ups'];
+            $calendar_type_array = array_keys($this->types);
         }
         else {
-            $calendar_type_array = [$type];
+            $calendar_type_array = array_intersect([$type], array_keys($this->types));
         }
 
         if (request('start') && request('end'))
         {
             $eventData = array();
 
-            $viewEventPerm = user()->permission('view_events');
+            // Only your own events (invited to, or added by you) are read here,
+            // so no events permission is needed: an interview panel member sees
+            // the interview they are on.
+            if (in_array('events', $calendar_type_array)) {
+                // Events
+                $model = Event::with('attendee', 'attendee.user');
 
-            if (!is_null($viewEventPerm) && $viewEventPerm != 'none') {
-
-                if (in_array('events', $calendar_type_array)) {
-                    // Events
-                    $model = Event::with('attendee', 'attendee.user');
-
-                    $model->where(function ($query) {
-                        $query->whereHas('attendee', function ($query) {
-                            $query->where('user_id', user()->id);
-                        });
-                        $query->orWhere('added_by', user()->id);
+                $model->where(function ($query) {
+                    $query->whereHas('attendee', function ($query) {
+                        $query->where('user_id', user()->id);
                     });
+                    $query->orWhere('added_by', user()->id);
+                });
 
-                    $model->whereBetween('start_date_time', [$startDate->toDateString(), $endDate->toDateString()]);
+                $model->whereBetween('start_date_time', [$startDate->toDateString(), $endDate->toDateString()]);
 
-                    $events = $model->get();
+                $events = $model->get();
 
 
-                    foreach ($events as $event) {
-                        $eventData[] = [
-                            'id' => $event->id,
-                            'title' => $event->event_name,
-                            'start' => $event->start_date_time,
-                            'end' => $event->end_date_time,
-                            'event_type' => 'event',
-                            'extendedProps' => ['bg_color' => $event->label_color, 'color' => '#fff', 'icon' => 'fa-calendar']
-                        ];
-                    }
+                foreach ($events as $event) {
+                    $eventData[] = [
+                        'id' => $event->id,
+                        'title' => $event->event_name,
+                        // Stored in UTC: shown in the company's time, like follow-ups
+                        'start' => Carbon::parse($event->start_date_time)->timezone(company()->timezone)->toDateTimeString(),
+                        'end' => Carbon::parse($event->end_date_time)->timezone(company()->timezone)->toDateTimeString(),
+                        'event_type' => 'event',
+                        'extendedProps' => ['bg_color' => $event->label_color, 'color' => '#fff', 'icon' => 'fa-calendar']
+                    ];
                 }
             }
 
@@ -229,6 +224,37 @@ class MyCalendarController extends AccountBaseController
         }
 
         return view('my-calendar.index', $this->data);
+    }
+
+    /**
+     * The kinds of entry this person's calendar offers: only those from
+     * modules their role opens (the sidebar they were given) and that their
+     * permissions let them read. Events are always offered - they are the
+     * person's own invitations, interviews among them.
+     */
+    private function allowedTypes(): array
+    {
+        $routes = [];
+        $walk = function ($menus) use (&$walk, &$routes) {
+            foreach ($menus as $menu) {
+                if ($menu->route) {
+                    $routes[] = $menu->route;
+                }
+                $walk($menu->children);
+            }
+        };
+        $walk(user()->visibleMenus());
+
+        $opens = fn (string ...$prefixes) => collect($routes)->contains(fn ($r) => Str::startsWith($r, $prefixes));
+        $may = fn (string $permission) => !in_array(user()->permission($permission), [null, 'none'], true);
+
+        return array_filter([
+            'task' => $opens('tasks.') && $may('view_tasks') ? __('app.menu.tasks') : null,
+            'events' => __('app.menu.events'),
+            'tickets' => $opens('tickets.') && $may('view_tickets') ? __('app.menu.tickets') : null,
+            'leaves' => $opens('leaves.') && $may('view_leave') ? __('app.menu.leaves') : null,
+            'follow_ups' => $opens('deals.', 'leads.') && $may('view_deals') ? __('modules.dashboard.followUps') : null,
+        ]);
     }
 
 }

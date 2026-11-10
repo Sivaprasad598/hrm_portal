@@ -38,6 +38,8 @@ class RecruitSettingController extends RecruitBaseController
         $this->aiReady = AiSetting::forCompany(company()->id)->ready();
         $this->newKey = session('recruit_new_api_key');
         $this->apiUrl = url('/api/recruit/v1/applications');
+        $this->plan = \App\Models\RecruitRound::planFor(null, company()->id);
+        $this->employees = $this->employees();
         $this->inboundCounts = RecruitInbound::where('created_at', '>=', now()->subDays(30))
             ->selectRaw('channel, status, count(*) as n')->groupBy('channel', 'status')->get();
 
@@ -47,7 +49,11 @@ class RecruitSettingController extends RecruitBaseController
     public function update(Request $request)
     {
         $request->validate([
-            'section' => 'required|in:mailbox,api,lists',
+            'section' => 'required|in:mailbox,api,lists,rounds',
+            'slot_lead_hours' => 'nullable|integer|min:0|max:336',
+            'slot_horizon_days' => 'nullable|integer|min:1|max:60',
+            'reminder_hours' => 'nullable|integer|min:1|max:168',
+            'escalate_hours' => 'nullable|integer|min:1|max:720',
             'imap_host' => 'nullable|required_if:mailbox_enabled,1|string|max:191',
             'imap_port' => 'nullable|required_if:mailbox_enabled,1|integer|min:1|max:65535',
             'imap_encryption' => ['nullable', Rule::in(array_keys(RecruitSetting::ENCRYPTIONS))],
@@ -92,6 +98,26 @@ class RecruitSettingController extends RecruitBaseController
             if ($setting->mailbox_enabled && !$setting->password()) {
                 return Reply::error('Enter the mailbox password (for Gmail, an app password) before switching the mailbox on.');
             }
+        } elseif ($request->section === 'rounds') {
+            // The default round plan (positions without their own use it) and the timings
+            $rows = $this->planRows($request);
+
+            if (!$rows) {
+                return Reply::error('Keep at least one round in the default plan.');
+            }
+
+            try {
+                \App\Models\RecruitRound::savePlan(null, $rows, company()->id);
+            } catch (\RuntimeException $e) {
+                return Reply::error($e->getMessage());
+            }
+            $setting->fill([
+                'slot_lead_hours' => (int) ($request->slot_lead_hours ?? 24),
+                'slot_horizon_days' => (int) ($request->slot_horizon_days ?: 14),
+                'reminder_hours' => (int) ($request->reminder_hours ?: 24),
+                'escalate_hours' => (int) ($request->escalate_hours ?: 48),
+            ]);
+            app(\App\Services\Recruit\InterviewScheduler::class)->forgetMenus(collect($rows)->pluck('interviewer_ids')->flatten()->all());
         } elseif ($request->section === 'api') {
             $setting->api_enabled = $request->boolean('api_enabled');
 

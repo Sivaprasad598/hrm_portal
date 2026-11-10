@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Admin\Employee;
 
 use App\Http\Requests\CoreRequest;
+use App\Rules\NoEmoji;
 
 class StoreEmergencyContactRequest extends CoreRequest
 {
@@ -24,17 +25,24 @@ class StoreEmergencyContactRequest extends CoreRequest
      */
     public function rules()
     {
-        $rules = [
-            'name' => 'required|max:50',
-            'mobile' => 'required',
-            'relationship' => 'required',
+        $text = 'regex:' . NoEmoji::TEXT_ONLY;
+
+        return [
+            'name' => ['required', 'max:50', $text],
+            'email' => ['nullable', 'max:100', 'email:rfc,strict', new NoEmoji],
+            'mobile' => ['required', 'regex:' . NoEmoji::INDIAN_MOBILE],
+            'relationship' => ['required', 'max:50', $text],
+            'address' => ['nullable', 'max:500', new NoEmoji],
         ];
+    }
 
-        if (request()->get('email')) {
-            $rules['email'] = 'email:rfc';
-        }
-
-        return $rules;
+    public function messages()
+    {
+        return [
+            'name.regex' => 'The name can have letters and spaces only (no numbers or emojis).',
+            'relationship.regex' => 'The relationship can have letters and spaces only (no numbers or emojis).',
+            'mobile.regex' => 'Enter a 10-digit Indian mobile number, optionally starting with +91.',
+        ];
     }
 
 }

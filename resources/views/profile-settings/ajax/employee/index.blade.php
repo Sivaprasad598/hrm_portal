@@ -36,7 +36,7 @@ $editDocumentPermission = user()->permission('edit_documents');
         @forelse($user->documents as $file)
             @if ($viewDocumentPermission == 'all'
             || ($viewDocumentPermission == 'added' && $file->added_by == user()->id)
-            || ($viewDocumentPermission == 'owned' && ($file->user_id == user()->id && $file->added_by != user()->id))
+            || ($viewDocumentPermission == 'owned' && $file->user_id == user()->id)
             || ($viewDocumentPermission == 'both' && ($file->added_by == user()->id || $file->user_id == user()->id)))
                 <x-file-card :fileName="$file->name" :dateAdded="$file->created_at->diffForHumans()">
                     <x-file-view-thumbnail :file="$file"></x-file-view-thumbnail>
@@ -52,7 +52,7 @@ $editDocumentPermission = user()->permission('edit_documents');
                                 aria-labelledby="dropdownMenuLink" tabindex="0">
                                 @if ($viewDocumentPermission == 'all'
                                 || ($viewDocumentPermission == 'added' && $file->added_by == user()->id)
-                                || ($viewDocumentPermission == 'owned' && ($file->user_id == user()->id && $file->added_by != user()->id))
+                                || ($viewDocumentPermission == 'owned' && $file->user_id == user()->id)
                                 || ($viewDocumentPermission == 'both' && ($file->added_by == user()->id || $file->user_id == user()->id)))
 
                                     <a class="cursor-pointer d-block text-dark-grey f-13 pt-3 px-3 "

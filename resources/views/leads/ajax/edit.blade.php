@@ -118,7 +118,8 @@ $changeDealStagesPermission = user()->permission('change_deal_stages');
                                 :fieldValue="(($deal->close_date) ? $deal->close_date->format(company()->date_format) : '')"/>
                     </div>
 
-                    @if(in_array('products', user_modules()) || in_array('purchase', user_modules()))
+                    {{-- Products are not asked for on leads and deals (QA TC-0039/0040) --}}
+                    @if(false)
                         <div class="col-lg-4 mt-3">
                             <div class="form-group">
                                 <x-forms.label fieldId="selectProduct" :fieldLabel="__('app.menu.products')" >

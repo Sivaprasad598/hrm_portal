@@ -32,7 +32,29 @@ class JobOffer extends BaseModel
         'accepted' => ['Accepted', 'success'],
         'declined' => ['Declined', 'danger'],
         'withdrawn' => ['Withdrawn', 'dark'],
+        'expired' => ['Expired', 'dark'],
     ];
+
+    /** An offer still standing: only one of these per application */
+    public const OPEN = ['draft', 'sent', 'accepted'];
+
+    /** What a new offer starts from: the position's role, the candidate's expected CTC. */
+    public static function defaultsFor(JobApplication $application): array
+    {
+        $position = $application->position;
+        $candidate = $application->candidate;
+
+        return [
+            'reference_no' => self::nextReference(),
+            'designation_id' => $position?->designation_id,
+            'department_id' => $position?->department_id,
+            'branch_id' => $position?->branch_id,
+            'annual_ctc' => $candidate?->expected_ctc ?: ($position?->salary_max ?: 0),
+            'offer_date' => now(),
+            'joining_date' => now()->addDays(max(15, (int) $candidate?->notice_period_days)),
+            'valid_until' => now()->addDays(7),
+        ];
+    }
 
     public function application(): BelongsTo
     {

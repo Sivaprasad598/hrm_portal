@@ -261,9 +261,20 @@
 
             button.prop('disabled', true).html('<i class="fa fa-spinner fa-spin mr-1"></i> Pulling…');
 
-            $.easyAjax({
+            // A Cancel beside it while the pull runs (QA TC-0018). It stops
+            // waiting; punches already fetched are kept, as with a re-sync.
+            var cancel = $('<button type="button" class="btn btn-sm btn-outline-danger ml-2" id="cancel-pull"><i class="fa fa-times mr-1"></i> Cancel</button>');
+            button.after(cancel);
+
+            var restore = function () {
+                cancel.remove();
+                button.prop('disabled', false).html('<i class="fa fa-download mr-1"></i> Pull from Device');
+            };
+
+            var request = $.ajax({
                 url: "{{ route('biometric.sync') }}",
                 type: 'POST',
+                dataType: 'json',
                 data: { start_date: startDate, end_date: endDate, _token: '{{ csrf_token() }}' },
                 success: function (response) {
                     if (response.status === 'success') {
@@ -271,11 +282,21 @@
                         return;
                     }
 
-                    button.prop('disabled', false).html('<i class="fa fa-download mr-1"></i> Pull from Device');
+                    restore();
+                    Swal.fire({ icon: 'error', text: response.message || 'The pull did not finish.' });
                 },
-                error: function () {
-                    button.prop('disabled', false).html('<i class="fa fa-download mr-1"></i> Pull from Device');
+                error: function (xhr, status) {
+                    restore();
+
+                    if (status !== 'abort') {
+                        Swal.fire({ icon: 'error', text: (xhr.responseJSON && xhr.responseJSON.message) || 'The pull did not finish. Please try again.' });
+                    }
                 }
+            });
+
+            cancel.on('click', function () {
+                request.abort();
+                Swal.fire({ icon: 'info', text: 'Pull cancelled. Punches already fetched are kept; pull again to fetch the rest.' });
             });
         });
     });

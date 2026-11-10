@@ -38,6 +38,9 @@ class StoreClientRequest extends CoreRequest
 
         $rules = $this->customFieldRules($rules);
 
+        // No emojis in the text fields (QA tracker)
+        $rules = \App\Rules\NoEmoji::addTo($rules, ['name', 'company_name', 'address', 'shipping_address', 'note']);
+
         return $rules;
     }
 

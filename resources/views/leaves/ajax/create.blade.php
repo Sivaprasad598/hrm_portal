@@ -90,6 +90,8 @@
                                 </x-slot>
                             @endif
                         </x-forms.input-group>
+                        {{-- This month's use of each type with a monthly limit (QA TC-0006) --}}
+                        <div id="leave-usage" class="f-12 text-dark-grey mt-1"></div>
                     </div>
 
                     {{-- One's own leave goes in as Pending; the status is set when it is approved. --}}
@@ -505,9 +507,17 @@
                 success: function(data) {
                     $('#leave_type_id').html(data.data);
                     $('#leave_type_id').selectpicker('refresh');
+                    $('#leave-usage').html(data.usage || '');
                 }
             })
         });
+
+        // The usage line for the employee already chosen when the form opens
+        if ($('#user_id').val()) {
+            $.get("{{ route('employee-leaves.employee_leave_types', ':id') }}".replace(':id', $('#user_id').val()), function (data) {
+                $('#leave-usage').html((data && data.usage) || '');
+            });
+        }
 
         function getDate(value) {
             let url = "{{ route('leaves.date') }}";

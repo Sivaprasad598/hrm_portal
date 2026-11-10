@@ -44,7 +44,7 @@ class ProfileController extends MobileController
             'country_phonecode' => 'nullable|integer|min:1|max:9999',
             'gender' => 'nullable|in:male,female,others',
             'date_of_birth' => 'sometimes|required|date_format:Y-m-d|before_or_equal:' . now($tz)->toDateString(),
-            'marital_status' => ['nullable', Rule::in(array_map(fn ($c) => $c->value, MaritalStatus::cases()))],
+            'marital_status' => ['nullable', Rule::in(array_map(fn ($c) => $c->value, MaritalStatus::offered()))],
             'marriage_date' => 'nullable|required_if:marital_status,married|date_format:Y-m-d|before_or_equal:' . now($tz)->toDateString(),
             'address' => 'nullable|string|max:500',
             'photo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',

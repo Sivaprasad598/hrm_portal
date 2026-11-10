@@ -20,13 +20,15 @@ class RecruitInterviewNotice extends BaseNotification
         'rescheduled' => 'Interview rescheduled: :candidate for :position',
         'cancelled' => 'Interview cancelled: :candidate for :position',
         'feedback' => 'Scorecard needed: :candidate (:round)',
+        'overdue' => 'Scorecard overdue: :candidate (:round)',
     ];
 
     private const INTROS = [
         'invited' => 'You are on the interview panel for this candidate.',
         'rescheduled' => 'This interview has been moved. The new details are below.',
         'cancelled' => 'This interview has been cancelled.',
-        'feedback' => 'Please hand in your scorecard for this interview. The candidate cannot be selected until every interviewer has.',
+        'feedback' => 'Please hand in your scorecard (or the marks, for a test) for this round. The candidate moves on once it is in.',
+        'overdue' => 'The scorecard / marks for this round are overdue. Remind the panel, change the panel, or decide the round yourself.',
     ];
 
     public function __construct(private RecruitInterview $interview, private string $type)
@@ -73,7 +75,7 @@ class RecruitInterviewNotice extends BaseNotification
                 'url' => $this->type === 'cancelled' ? null : getDomainSpecificUrl(route('recruit-interviews.feedback', $this->interview->id), $this->company),
                 'content' => implode('<br>', $lines),
                 'themeColor' => $this->company?->header_color,
-                'actionText' => $this->type === 'feedback' ? 'Give feedback' : 'Open interview',
+                'actionText' => $this->type === 'feedback' ? 'Give feedback' : ($this->type === 'overdue' ? 'Open round' : 'Open interview'),
                 'notifiableName' => $notifiable->name,
             ]);
 

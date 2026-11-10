@@ -67,7 +67,10 @@
 
 
         <!-- SEARCH BY LEAVE START -->
-        <div class="leave-search d-flex  py-1 px-lg-3 px-0 border-right-grey align-items-center">
+        {{-- Searches people by name: only for whoever sees other people's leave.
+             Styled as the standard search (task-search) like every other list. --}}
+        @if (\App\Http\Controllers\LeaveController::access()['team'])
+        <div class="task-search leave-search d-flex py-1 px-lg-3 px-0 border-right-grey align-items-center">
             <form class="w-100 mr-1 mr-lg-0 mr-md-1 ml-md-1 ml-0 ml-lg-0">
                 <div class="input-group bg-grey rounded">
                     <div class="input-group-prepend">
@@ -76,10 +79,11 @@
                         </span>
                     </div>
                     <input type="text" class="form-control f-14 p-1 border-additional-grey" id="search-text-field"
-                        placeholder="@lang('app.startTyping')">
+                        placeholder="Search by name">
                 </div>
             </form>
         </div>
+        @endif
         <!-- SEARCH BY LEAVE END -->
 
         <!-- RESET START -->
@@ -192,6 +196,15 @@ $addLeavePermission = user()->permission('add_leave');
 
                 getEventDetail(arg.event.id);
             },
+            // Leave: a soft tint of its type's colour with a strong left edge,
+            // instead of a solid block (see .lv-ev in epic/theme.css)
+            eventDidMount: function(info) {
+                if (!info.el.classList.contains('lv-ev')) { return; }
+                var c = info.event.backgroundColor || '#cb6b4f';
+                info.el.style.background = 'color-mix(in srgb, ' + c + ' 16%, #fff)';
+                info.el.style.borderLeftColor = c;
+                info.el.title = info.event.title;
+            },
             editable: false,
             dayMaxEvents: true, // allow "more" link when too many events
             eventSources: [{
@@ -204,7 +217,7 @@ $addLeavePermission = user()->permission('add_leave');
                     var employeeId = $('#employee_id').val();
                     var leaveTypeId = $('#leave_type').val();
                     var status = $('#status').val();
-                    var searchText = $('#search-text-field').val();
+                    var searchText = $('#search-text-field').val() || '';
 
                     return {
                         employeeId: employeeId,

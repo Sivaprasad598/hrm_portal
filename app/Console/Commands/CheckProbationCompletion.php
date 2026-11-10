@@ -60,18 +60,27 @@ class CheckProbationCompletion extends Command
             ->orderByDesc('id')
             ->first();
 
-        if (!$setting) {
-            return;
-        }
-
         $today = now($company->timezone)->startOfDay();
 
+        // On probation: marked so, or given a probation end date on the
+        // employee form without a status yet (QA TC-0054 set only the date).
         $employees = EmployeeDetails::with('user')
             ->where('employee_details.company_id', $company->id)
-            ->where('employee_details.employment_status', 'probation')
+            ->where(function ($q) {
+                $q->where('employee_details.employment_status', 'probation')
+                    ->orWhere(function ($q) {
+                        $q->where(fn ($s) => $s->whereNull('employee_details.employment_status')->orWhere('employee_details.employment_status', ''))
+                            ->whereNotNull('employee_details.probation_end_date');
+                    });
+            })
             ->whereNull('employee_details.probation_review_status')
-            ->whereNotNull('employee_details.joining_date')
+            ->where(fn ($q) => $q->whereNotNull('employee_details.joining_date')->orWhereNotNull('employee_details.probation_end_date'))
             ->get();
+
+        // No company-wide period: only employees with their own end date can be checked
+        if (!$setting) {
+            $employees = $employees->filter(fn ($e) => !empty($e->probation_end_date));
+        }
 
         if ($employees->isEmpty()) {
             return;
@@ -82,7 +91,7 @@ class CheckProbationCompletion extends Command
         $admins = User::allAdmins($company->id);
 
         foreach ($employees as $employeeDetails) {
-            $this->checkAndFlag($employeeDetails, $setting->months, $today, $admins);
+            $this->checkAndFlag($employeeDetails, $setting ? (int) $setting->months : 0, $today, $admins);
         }
     }
 
@@ -97,7 +106,11 @@ class CheckProbationCompletion extends Command
      */
     private function checkAndFlag(EmployeeDetails $employeeDetails, int $months, Carbon $today, $admins): void
     {
-        $completionDate = Carbon::parse($employeeDetails->joining_date)->addMonths($months)->startOfDay();
+        // The employee's own probation end date (Employee > Employment) wins;
+        // otherwise joining date + the company's probation period.
+        $completionDate = $employeeDetails->probation_end_date
+            ? Carbon::parse($employeeDetails->probation_end_date)->startOfDay()
+            : Carbon::parse($employeeDetails->joining_date)->addMonths($months)->startOfDay();
 
         if ($completionDate->gt($today)) {
             return;

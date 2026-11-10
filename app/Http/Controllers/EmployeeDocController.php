@@ -132,7 +132,7 @@ class EmployeeDocController extends AccountBaseController
 
         abort_403(!($viewPermission == 'all'
             || ($viewPermission == 'added' && $this->file->added_by == user()->id)
-            || ($viewPermission == 'owned' && ($this->file->user_id == user()->id && $this->file->added_by != user()->id))
+            || ($viewPermission == 'owned' && $this->file->user_id == user()->id)
             || ($viewPermission == 'both' && ($this->file->added_by == user()->id || $this->file->user_id == user()->id))));
 
         return download_local_s3($this->file, EmployeeDocument::FILE_PATH . '/' . $this->file->user_id . '/' . $this->file->hashname);

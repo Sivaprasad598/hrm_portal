@@ -67,7 +67,7 @@ if ($companyId > 0) {
             ->leftJoin('designations as d', 'd.id', '=', 'ed.designation_id')
             ->where('u.company_id', $companyId)
             ->orderBy('u.name')
-            ->get(['u.id', 'u.name', 'ed.employee_card_id', 'ed.department_id', 't.team_name as department_name', 'd.name as designation_name'])
+            ->get(['u.id', 'u.name', 'ed.employee_card_id', 'ed.department_id', 't.team_name as department_name', 'd.name as designation_name', 'ed.joining_date'])
             ->toArray();
 
         // Allocation/carry-forward now come straight from the Leave Settings
@@ -197,6 +197,12 @@ if (empty($leaveViewAll)) {
 $policy['marriage']['monthlyAllocation'] = 0;
 
 $policyJson = json_encode($policy);
+// Leave Settings > General: count leaves from the date of joining, or from the year start
+$countFromJoining = false;
+try {
+    $countFromJoining = ($db->table('companies')->where('id', $companyId)->value('leaves_start_from') === 'joining_date');
+} catch (Throwable $e) {
+}
 $leavesByUserJson = json_encode($leavesByUser);
 
 $employeesJson = json_encode(array_map(function ($employee) {
@@ -207,6 +213,7 @@ $employeesJson = json_encode(array_map(function ($employee) {
         'departmentId' => $employee->department_id !== null ? (int) $employee->department_id : null,
         'departmentName' => (string) ($employee->department_name ?? ''),
         'designationName' => (string) ($employee->designation_name ?? ''),
+        'joiningDate' => !empty($employee->joining_date) ? substr((string) $employee->joining_date, 0, 10) : null,
     ];
 }, $employees));
 ?>
@@ -1298,8 +1305,6 @@ $employeesJson = json_encode(array_map(function ($employee) {
                             <th>CL Used</th>
                             <th>SL Used</th>
                             <th>Half‑Days</th>
-                            <th>CL Pending</th>
-                            <th>SL Pending</th>
                             <th>Carry Fwd CL</th>
                             <th>Remaining CL</th>
                             <th>Remaining SL</th>
@@ -1329,6 +1334,9 @@ $employeesJson = json_encode(array_map(function ($employee) {
 
         // Real allocation / carry-forward / half-day rules from the leave_policy table.
         const POLICY = <?php echo $policyJson; ?>;
+        // Leave Settings: allocation starts from the date of joining (months before it get none)
+        const COUNT_FROM_JOINING = <?php echo $countFromJoining ? 'true' : 'false'; ?>;
+        const CURRENT_YEAR = <?php echo (int) date('Y'); ?>;
 
         const departmentFilter = document.getElementById('departmentFilter');
         const userSearch = document.getElementById('userSearch');
@@ -1456,10 +1464,16 @@ $employeesJson = json_encode(array_map(function ($employee) {
         // Allocation, carry-forward, and half-day conversion all come from
         // the leave_policy table (POLICY), not hardcoded constants.
 
-        function computeMonthlyData(rawData) {
+        function computeMonthlyData(rawData, employee) {
             let carryForwardCL = 0;
 
-            return rawData.map((row) => {
+            // Counting from the date of joining: months of this year before the
+            // employee joined earn no CL or SL (QA TC-0010).
+            const joined = (COUNT_FROM_JOINING && employee && employee.joiningDate) ? new Date(employee.joiningDate + 'T00:00:00') : null;
+            const firstMonth = !joined ? 0 : (joined.getFullYear() > CURRENT_YEAR ? 12 : (joined.getFullYear() < CURRENT_YEAR ? 0 : joined.getMonth()));
+
+            return rawData.map((row, monthIndex) => {
+                const beforeJoining = monthIndex < firstMonth;
                 // Carry-in: unused CL brought forward from the previous month.
                 // (Captured before this iteration overwrites carryForwardCL with
                 // this month's own carry-out — otherwise "Carry Fwd CL" and
@@ -1467,8 +1481,8 @@ $employeesJson = json_encode(array_map(function ($employee) {
                 const carryInCL = carryForwardCL;
 
                 // 1. Monthly allocation (from leave_policy)
-                const clAllocated = POLICY.cl.monthlyAllocation;
-                const slAllocated = POLICY.sl.monthlyAllocation;
+                const clAllocated = beforeJoining ? 0 : POLICY.cl.monthlyAllocation;
+                const slAllocated = beforeJoining ? 0 : POLICY.sl.monthlyAllocation;
 
                 // 2. Half-days count against their own type at the policy's
                 // rate (2 half days = 1 day): two half-day CLs are one CL. All
@@ -1825,14 +1839,12 @@ $employeesJson = json_encode(array_map(function ($employee) {
                     <td>${badgeHtml(row.clUsed, 'used')}</td>
                     <td>${badgeHtml(row.slUsed, 'used')}</td>
                     <td>${badgeHtml(row.halfDays, 'half')}</td>
-                    <td>${badgeHtml(row.clPending, 'pending')}</td>
-                    <td>${badgeHtml(row.slPending, 'pending')}</td>
                     <td>${badgeHtml(row.carryForwardCL, 'available')}</td>
                     <td>${badgeHtml(row.clRemaining, 'available')}</td>
                     <td>${badgeHtml(row.slRemaining, 'available')}</td>
                     <td>${badgeHtml(row.lop, 'lop')}</td>
                 </tr>
-            `).join('') || `<tr><td colspan="12" style="text-align:center; color:var(--gray-400); padding:20px;">No data for this month.</td></tr>`;
+            `).join('') || `<tr><td colspan="10" style="text-align:center; color:var(--gray-400); padding:20px;">No data for this month.</td></tr>`;
         }
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1870,8 +1882,6 @@ $employeesJson = json_encode(array_map(function ($employee) {
                 { icon: 'fa-clock', color: 'amber', label: 'CL Used', value: row.clUsed, sub: 'taken' },
                 { icon: 'fa-clock', color: 'red', label: 'SL Used', value: row.slUsed, sub: 'taken' },
                 { icon: 'fa-clock', color: 'teal', label: 'Half‑Days', value: row.halfDays, sub: 'taken' },
-                { icon: 'fa-hourglass-half', color: 'amber', label: 'CL Pending', value: row.clPending, sub: 'requests' },
-                { icon: 'fa-hourglass-half', color: 'amber', label: 'SL Pending', value: row.slPending, sub: 'requests' },
                 { icon: 'fa-boxes', color: 'purple', label: 'Carry Fwd CL', value: row.carryForwardCL, sub: 'brought in' },
                 { icon: 'fa-check-circle', color: 'green', label: 'Remaining CL', value: row.clRemaining, sub: 'available' },
                 { icon: 'fa-check-circle', color: 'blue', label: 'Remaining SL', value: row.slRemaining, sub: 'available' },
@@ -1899,7 +1909,7 @@ $employeesJson = json_encode(array_map(function ($employee) {
 
         function renderForEmployee(userId) {
             const rawData = getRawDataFor(userId);
-            currentMonthlyData = computeMonthlyData(rawData);
+            currentMonthlyData = computeMonthlyData(rawData, employeesData.find(e => e.id === userId) || null);
 
             const totals = computeTotals(currentMonthlyData);
             renderSummary(totals);
@@ -1960,8 +1970,8 @@ $employeesJson = json_encode(array_map(function ($employee) {
 
         function downloadCsv() {
             const employee = employeesData.find(item => item.id === shownUserId);
-            const columns = ['month', 'clAllocated', 'slAllocated', 'clUsed', 'slUsed', 'halfDays', 'clPending', 'slPending', 'carryForwardCL', 'clRemaining', 'slRemaining', 'lop'];
-            const header = ['Month', 'CL Alloc.', 'SL Alloc.', 'CL Used', 'SL Used', 'Half-Days', 'CL Pending', 'SL Pending', 'Carry Fwd CL', 'Remaining CL', 'Remaining SL', 'LOP'];
+            const columns = ['month', 'clAllocated', 'slAllocated', 'clUsed', 'slUsed', 'halfDays', 'carryForwardCL', 'clRemaining', 'slRemaining', 'lop'];
+            const header = ['Month', 'CL Alloc.', 'SL Alloc.', 'CL Used', 'SL Used', 'Half-Days', 'Carry Fwd CL', 'Remaining CL', 'Remaining SL', 'LOP'];
             const filterMonth = monthFilter ? monthFilter.value : '';
             const rows = filterMonth ? currentMonthlyData.filter(row => row.month === filterMonth) : currentMonthlyData;
             const quote = value => '"' + String(value ?? '').replace(/"/g, '""') + '"';
