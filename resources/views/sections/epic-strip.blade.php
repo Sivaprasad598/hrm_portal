@@ -83,12 +83,18 @@
             <img src="{{ companyOrGlobalSetting()->favicon_url }}" alt="">
         </a>
 
-        @foreach ($shortcuts as [$label, $url, $icon, $active])
-            <a href="{{ $url }}" class="epic-strip__link {{ $active ? 'active' : '' }}"
-               data-toggle="tooltip" data-placement="right" data-boundary="window" title="{{ $label }}">
-                <i class="{{ $icon }}"></i>
-            </a>
-        @endforeach
+        @if ($selfService)
+            @foreach ($shortcuts as [$label, $url, $icon, $active])
+                <a href="{{ $url }}" class="epic-strip__link {{ $active ? 'active' : '' }}"
+                   data-toggle="tooltip" data-placement="right" data-boundary="window" title="{{ $label }}">
+                    <i class="{{ $icon }}"></i>
+                </a>
+            @endforeach
+        @else
+            {{-- HR / admin: one icon per section of their menu panel, built from the
+                 panel itself (script below), so the two always agree --}}
+            <div id="epic-strip-sections" class="epic-strip__sections"></div>
+        @endif
     </div>
 
     <div class="epic-strip__bottom">
@@ -112,3 +118,58 @@
         @endunless
     </div>
 </div>
+
+@unless ($selfService)
+<script>
+    // Sections: an icon for each top-level entry of the menu panel. Clicking one
+    // opens the panel (if it was hidden) with that section expanded and the
+    // others folded; a section that is a single page (Dashboard, Settings) opens it.
+    (function () {
+        function build() {
+            var box = document.getElementById('epic-strip-sections');
+            var items = document.querySelectorAll('#sideMenuScroll li.accordionItem');
+            if (!box || !items.length) { return; }
+
+            items.forEach(function (li) {
+                var head = li.querySelector(':scope > a.nav-item');
+                if (!head) { return; }
+                var label = (head.getAttribute('title') || head.textContent || '').trim();
+                if (/^settings$/i.test(label)) { return; }               // the gear at the bottom
+                var hasSub = !!li.querySelector(':scope > .accordionItemContent');
+                var a = document.createElement('a');
+                a.className = 'epic-strip__link';
+                a.href = hasSub ? 'javascript:;' : (head.getAttribute('href') || 'javascript:;');
+                a.title = label;
+                a.setAttribute('data-toggle', 'tooltip');
+                a.setAttribute('data-placement', 'right');
+                a.setAttribute('data-boundary', 'window');
+                var icon = head.querySelector('.side-icon, svg, i');
+                if (icon) { var c = icon.cloneNode(true); c.classList.remove('side-icon'); a.appendChild(c); }
+                if (li.classList.contains('openIt') || head.classList.contains('active')) { a.classList.add('active'); }
+                if (hasSub) {
+                    a.addEventListener('click', function () { openSection(li, a); });
+                }
+                box.appendChild(a);
+            });
+            if (window.jQuery && jQuery.fn.tooltip) { jQuery(box).find('[data-toggle="tooltip"]').tooltip(); }
+        }
+
+        function openSection(li, a) {
+            // Panel hidden (menu toggled away): bring it back first
+            if (document.body.classList.contains('sidebar-toggled')) {
+                var t = document.getElementById('sidebarToggle');
+                if (t) { t.click(); }
+            }
+            document.querySelectorAll('#sideMenuScroll li.accordionItem').forEach(function (other) {
+                if (other !== li) { other.className = 'accordionItem closeIt'; }
+            });
+            li.className = 'accordionItem openIt';
+            document.querySelectorAll('#epic-strip-sections .epic-strip__link').forEach(function (x) { x.classList.remove('active'); });
+            a.classList.add('active');
+            li.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+
+        if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', build); } else { build(); }
+    })();
+</script>
+@endunless

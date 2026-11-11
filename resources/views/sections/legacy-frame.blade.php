@@ -46,7 +46,10 @@
 
                 var css = doc.createElement('style');
                 css.id = 'legacy-frame-fit';
-                css.textContent = 'html, body { min-height: 0 !important; height: auto !important; } html { overflow: hidden !important; }';
+                // No page colour or outer padding of its own: inside the app the
+                // page's grey showed as a box around the cards.
+                css.textContent = 'html, body { min-height: 0 !important; height: auto !important; } html { overflow: hidden !important; }'
+                    + ' html, body { background: transparent !important; } body { padding: 0 !important; }';
                 doc.head.appendChild(css);
 
                 frame.style.minHeight = '0';

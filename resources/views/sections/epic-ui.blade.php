@@ -181,9 +181,48 @@
             }
         });
 
+        // Every info / warning / danger notice on a page gets a close (x) at its
+        // right. A closed one stays closed for this browser tab (by page and
+        // wording), so it does not return on every reload; a new session or a
+        // changed message brings it back. Notices with their own close, and
+        // those inside pop-ups and form fields, are left alone.
+        function closableAlerts(root) {
+            $(root).find('.alert-info, .alert-warning, .alert-danger, .alert-primary, .alert-secondary').each(function () {
+                var box = this;
+                if (box.dataset.epicClosable || box.querySelector('.close, [data-dismiss="alert"]')
+                    || $(box).closest('.modal, .dropdown-menu, .invalid-feedback, form .form-group').length) {
+                    return;
+                }
+                box.dataset.epicClosable = '1';
+                var text = (box.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 120);
+                var key = 'epic-alert:' + location.pathname + ':' + text;
+                try { if (sessionStorage.getItem(key)) { box.style.display = 'none'; return; } } catch (e) {}
+                box.classList.add('epic-closable');
+                var x = document.createElement('button');
+                x.type = 'button';
+                x.className = 'close epic-alert-close';
+                x.setAttribute('aria-label', 'Close');
+                x.innerHTML = '<span aria-hidden="true">&times;</span>';
+                x.dataset.epicKey = key;
+                box.appendChild(x);
+            });
+        }
+
+        // One handler for all of them (a notice redrawn by the page keeps working)
+        document.addEventListener('click', function (e) {
+            var x = e.target && e.target.closest ? e.target.closest('.epic-alert-close') : null;
+            if (!x) { return; }
+            e.preventDefault();
+            try { sessionStorage.setItem(x.dataset.epicKey, '1'); } catch (err) {}
+            var box = x.closest('.alert');
+            if (box) { box.style.setProperty('display', 'none', 'important'); }
+        }, true);
+
         $(function () {
             tagCounts(document.body);
             cardOptions();
+            closableAlerts(document.body);
+            $(document).ajaxComplete(function () { setTimeout(function () { closableAlerts(document.body); }, 50); });
 
             if (window.MutationObserver) {
                 new MutationObserver(function (changes) {

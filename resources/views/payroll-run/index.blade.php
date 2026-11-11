@@ -94,7 +94,7 @@
         {{-- Who payroll cannot value, said up front. Without this they are
              simply absent, and only a failed run would reveal why. --}}
         @if ($leftOut['total'] > 0)
-            <div class="alert alert-info f-13 d-flex align-items-start">
+            <div class="alert alert-info f-13 d-flex align-items-start pr-alert" data-pr-alert="unpaid">
                 <i class="fa fa-info-circle mr-2 mt-1"></i>
                 <div class="mr-auto">
                     <strong>{{ $leftOut['total'] }} of {{ $leftOut['active'] }} employees cannot be paid yet.</strong>
@@ -117,13 +117,14 @@
                         Show them
                     </a>
                 @endunless
+                <button type="button" class="close pr-alert-close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
             </div>
         @endif
 
         {{-- The figure payroll deducts is written on to the employee; the Income
              Tax screen recomputes it. Nothing else would say they disagree. --}}
         @if (($taxDrift['drifted'] ?? 0) > 0)
-            <div class="alert alert-warning f-13 d-flex align-items-start">
+            <div class="alert alert-warning f-13 d-flex align-items-start pr-alert" data-pr-alert="tax">
                 <i class="fa fa-exclamation-triangle mr-2 mt-1"></i>
                 <div class="mr-auto">
                     <strong>{{ $taxDrift['drifted'] }} employee(s) are having the wrong income tax deducted.</strong>
@@ -133,21 +134,24 @@
                 <a class="btn btn-sm btn-outline-secondary ml-2 flex-shrink-0" href="{{ route('income-tax.index') }}">
                     Put it right
                 </a>
+                <button type="button" class="close pr-alert-close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
             </div>
         @endif
 
         @if ($isCurrentMonth)
-            <div class="alert alert-warning f-13">
+            <div class="alert alert-warning f-13 pr-alert" data-pr-alert="running">
                 <strong>{{ $monthName }} is still running</strong> (until {{ $cycle->end->format('d M') }}).
                 The figures below are an estimate from the days so far. Payslips can be issued from
                 {{ $cycle->end->copy()->addDay()->format('d M') }}{{ $autoPayslips ? ', when drafts are also made automatically' : '' }} —
                 a payslip issued now would leave the rest of the cycle unpaid once it is locked.
+                <button type="button" class="close pr-alert-close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
             </div>
         @elseif ($deviceBehind)
-            <div class="alert alert-warning f-13">
+            <div class="alert alert-warning f-13 pr-alert" data-pr-alert="device">
                 <strong>Device attendance only reaches {{ $deviceThrough ? $deviceThrough->format('d M') : 'no date' }}.</strong>
                 Employees on the biometric device cannot be paid for {{ $monthName }} until it reaches
                 {{ $cycle->end->format('d M') }}. <a href="{{ route('biometric.overview') }}">Pull now on Biometric → Overview</a>.
+                <button type="button" class="close pr-alert-close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
             </div>
         @endif
 
@@ -440,6 +444,27 @@
             The rates are on the payroll settings screen.
         </p>
     </div>
+
+{{-- Close buttons on the notices above: a closed one stays closed for this
+     browser session (per month), so it does not return on every Apply. --}}
+<style>
+    .pr-alert { position: relative; padding-right: 44px !important; }
+    .pr-alert-close { position: absolute; top: 8px; right: 12px; float: none; font-size: 20px; line-height: 1; opacity: .55; padding: 2px 6px; }
+    .pr-alert-close:hover { opacity: .9; }
+</style>
+<script>
+    (function () {
+        var period = @json(($monthName ?? '') . '');
+        document.querySelectorAll('.pr-alert').forEach(function (box) {
+            var key = 'pr-alert:' + box.dataset.prAlert + ':' + period;
+            try { if (sessionStorage.getItem(key)) { box.remove(); return; } } catch (e) {}
+            box.querySelector('.pr-alert-close').addEventListener('click', function () {
+                try { sessionStorage.setItem(key, '1'); } catch (e) {}
+                box.remove();
+            });
+        });
+    })();
+</script>
 @endsection
 
 

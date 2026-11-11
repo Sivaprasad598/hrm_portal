@@ -65,17 +65,7 @@ $approveRejectPermission = user()->permission('approve_or_reject_leaves');
 
 <script>
     $('body').on('click', '.leave-action-approved', function() {
-        let action = $(this).data('leave-action');
-        let leaveId = $(this).data('leave-id');
-        var type = $(this).data('type');
-            if(type == undefined){
-                var type = 'single';
-            }
-        let searchQuery = "?leave_action=" + action + "&leave_id=" + leaveId + "&type=" + type;
-        let url = "{{ route('leaves.show_approved_modal') }}" + searchQuery;
-
-        $(MODAL_LG + ' ' + MODAL_HEADING).html('...');
-        $.ajaxModal(MODAL_LG, url);
+        window.approveLeaveNow(this);
     });
 
     $('body').on('click', '.leave-action-reject', function() {

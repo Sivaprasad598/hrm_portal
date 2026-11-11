@@ -27,6 +27,25 @@
         </div>
     </div>
 
+    {{-- Sandwich rule (App\Services\Leaves\SandwichRule) --}}
+    <div class="border rounded p-3 mb-4" id="sandwich-rule">
+        <div class="d-flex align-items-start justify-content-between flex-wrap">
+            <div class="mr-3" style="max-width: 760px">
+                <h4 class="f-15 font-weight-bold text-dark mb-1">Sandwich rule</h4>
+                <p class="f-12 text-dark-grey mb-2">When on, weekly offs, holidays and roster Day Offs that fall <b>between</b> days of one leave
+                    request count as leave: they are taken from that leave's balance, and inside unpaid (LOP) leave they are unpaid.
+                    Off days at the start or end of a request, or just next to a leave, are never counted.</p>
+                <p class="f-12 text-lightest mb-0">Example (Sunday weekly off): leave Saturday to Monday is 3 days with the rule on, 2 days with it off.
+                    Off: every off day in a request is left out.</p>
+            </div>
+            <div class="custom-control custom-switch mt-1">
+                <input type="checkbox" class="custom-control-input" id="sandwich_rule"
+                       @checked((bool) (\Illuminate\Support\Facades\DB::table('leave_settings')->value('sandwich_rule') ?? false))>
+                <label class="custom-control-label f-14" for="sandwich_rule">Use the sandwich rule</label>
+            </div>
+        </div>
+    </div>
+
     {{-- Leave approval steps (App\Services\Leaves\LeaveApprovals) --}}
     @php
         $chainSetting = \App\Services\Leaves\LeaveApprovals::settings();
@@ -98,6 +117,13 @@
                 levels: $('.approval-level:checked').map(function () { return this.value; }).get(),
                 escalate_after_days: $('#escalate_after_days').val()
             }
+        });
+    });
+
+    $('#sandwich_rule').on('change', function () {
+        $.easyAjax({
+            url: "{{ route('leaves-settings.sandwich') }}", type: 'POST', blockUI: true,
+            data: { _token: '{{ csrf_token() }}', sandwich_rule: this.checked ? 1 : 0 }
         });
     });
 

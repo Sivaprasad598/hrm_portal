@@ -24,6 +24,26 @@
         ['My Calendar', route('my-calendar.index'), 'bi bi-calendar3'],
     ]));
 
+    // Only pages the person's own menu holds (Settings -> Assign Menus): a page
+    // taken off their menu loses its tile too. My Calendar is personal and not a
+    // menu entry, so it stays.
+    $menuRoutes = [];
+    $walkMenu = function ($menus) use (&$walkMenu, &$menuRoutes) {
+        foreach ($menus as $m) {
+            if ($m->route) { $menuRoutes[] = strtok((string) $m->route, '|?'); }
+            $walkMenu($m->children);
+        }
+    };
+    $walkMenu(user()->visibleMenus());
+    $tileRoutes = [
+        'Employees' => ['employees.index'], 'Attendance' => ['attendances.index'], 'My Attendance' => ['attendances.by_member'],
+        'Leaves' => ['leaves.index', 'leaves.personal'], 'My Leaves' => ['leaves.personal', 'leaves.index'],
+        'Holidays' => ['holidays.index'], 'Payroll' => ['payroll-dashboard.index', 'payroll-run.index'],
+        'My Payslips' => ['my-payslips.index'], 'My Assets' => ['employees.show'],
+    ];
+    $epicTiles = array_values(array_filter($epicTiles, fn ($t) => !isset($tileRoutes[$t[0]])
+        || array_intersect($tileRoutes[$t[0]], $menuRoutes)));
+
     $epicTiles = array_slice($epicTiles, 0, 6);
 @endphp
 

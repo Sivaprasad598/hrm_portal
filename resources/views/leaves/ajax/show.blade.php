@@ -4,18 +4,28 @@ $deleteLeavePermission = user()->permission('delete_leave');
 $approveRejectPermission = user()->permission('approve_or_reject_leaves');
 @endphp
 
+<style>
+    .lv-head-actions { gap: 8px; }
+    .lv-decide-bar { display: inline-flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    .lv-decide-bar .btn { border-radius: 8px; font-size: 13px; font-weight: 600; padding: 6px 14px; }
+    .lv-own-note { display: inline-block; font-size: 12.5px; color: var(--epic-muted, #6b7280); margin-right: 10px; vertical-align: middle; }
+</style>
 <div id="leave-detail-section">
     <div class="row">
         <div class="col-sm-12">
             <div class="card bg-white border-0 b-shadow-4">
                 <div class="card-header bg-white  border-bottom-grey  justify-content-between p-20">
                     <div class="row">
-                        <div class="col-md-10 col-10">
+                        <div class="col-md-6 col-12">
                             <h3 class="heading-h1">@lang('app.leavesDetails')</h3>
                             <div class="f-10 text-lightest">@lang('app.applyDate') - {{ $leave->created_at->timezone(company()->timezone)->translatedFormat(company()->date_format .' ' . company()->time_format) }}</div>
                         </div>
-                        <div class="col-md-2 col-2 text-right">
-                            <div class="dropdown">
+                        <div class="col-md-6 col-12 text-right">
+                            {{-- Someone's own pending leave: why there is nothing to decide here --}}
+                            @if ($leave->status == 'pending' && (int) $leave->user_id === (int) user()->id)
+                                <span class="lv-own-note"><i class="fa fa-info-circle mr-1"></i>Your own leave is approved by your manager or HR, not by you.</span>
+                            @endif
+                            <div class="dropdown d-inline-flex align-items-center lv-head-actions">
                                 @if ($leave->status == 'pending')
                                         {{-- Built first; the menu shows only when there is something in it --}}
                                         @php
@@ -84,10 +94,10 @@ $approveRejectPermission = user()->permission('approve_or_reject_leaves');
                                                 @endif
                                             @endif
 
-                                            @if ($editLeavePermission == 'all'
+                                            @if (\App\Services\Access\SystemAccounts::is((int) user()->id) && ($editLeavePermission == 'all'
                                             || ($editLeavePermission == 'added' && user()->id == $leave->added_by)
                                             || ($editLeavePermission == 'owned' && user()->id == $leave->user_id)
-                                            || ($editLeavePermission == 'both' && (user()->id == $leave->user_id || user()->id == $leave->added_by)))
+                                            || ($editLeavePermission == 'both' && (user()->id == $leave->user_id || user()->id == $leave->added_by))))
                                                 <a class="dropdown-item openRightModal"
                                                 data-redirect-url="{{ url()->previous() }}"
                                                 href="{{ route('leaves.edit', $leave->id) }}"><i class="fa fa-edit mr-2"></i> @lang('app.edit')</a>
@@ -99,7 +109,22 @@ $approveRejectPermission = user()->permission('approve_or_reject_leaves');
                                             || ($deleteLeavePermission == 'both' && (user()->id == $leave->user_id || user()->id == $leave->added_by))))
                                                 <a class="dropdown-item delete-leave"><i class="fa fa-trash mr-2"></i> @lang('app.delete')</a>
                                             @endif
-                                        @php $leaveMenu = trim(ob_get_clean()); @endphp
+                                        @php
+                                            $leaveMenu = trim(ob_get_clean());
+                                            // Approve / reject / approve-ahead / pre-approve: buttons on the page
+                                            $decide = [];
+                                            $styles = ['leave-action-approved' => 'btn-primary', 'leave-action-reject' => 'btn-outline-danger',
+                                                'leave-action-override' => 'btn-outline-secondary', 'leave-action-preapprove' => 'btn-outline-primary'];
+                                            $leaveMenu = preg_replace_callback('/<a\b[^>]*class="dropdown-item ([a-z-]+)[^"]*"[^>]*>.*?<\/a>/s', function ($m) use (&$decide, $styles) {
+                                                if (!isset($styles[$m[1]])) { return $m[0]; }
+                                                $decide[] = str_replace('dropdown-item ' . $m[1], 'btn btn-sm ' . $styles[$m[1]] . ' lv-decide ' . $m[1], $m[0]);
+                                                return '';
+                                            }, $leaveMenu);
+                                            $leaveMenu = trim($leaveMenu);
+                                        @endphp
+                                        @if ($decide)
+                                            <div class="lv-decide-bar">{!! implode('', $decide) !!}</div>
+                                        @endif
                                     @if ($leaveMenu !== '')
                                         <button class="btn f-14 px-0 py-0 text-dark-grey dropdown-toggle" type="button"
                                             data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
@@ -445,17 +470,7 @@ $approveRejectPermission = user()->permission('approve_or_reject_leaves');
     });
 
     $('body').on('click', '.leave-action-approved', function() {
-        let action = $(this).data('leave-action');
-        let leaveId = $(this).data('leave-id');
-        var type = $(this).data('type');
-            if(type == undefined){
-                var type = 'single';
-            }
-        let searchQuery = "?leave_action=" + action + "&leave_id=" + leaveId + "&type=" + type;
-        let url = "{{ route('leaves.show_approved_modal') }}" + searchQuery;
-
-        $(MODAL_LG + ' ' + MODAL_HEADING).html('...');
-        $.ajaxModal(MODAL_LG, url);
+        window.approveLeaveNow(this);
     });
 
     $('body').on('click', '.leave-action-reject', function() {

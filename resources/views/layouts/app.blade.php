@@ -604,6 +604,29 @@
     </script>
 @endif
 
+
+<script>
+    // Approving a leave needs no reason: a confirmation, then it is approved.
+    // (Rejecting still asks why - leaves/reject.) Used by the leave list, the
+    // leave page and the multi-day leave view.
+    window.approveLeaveNow = function (el) {
+        var $el = $(el);
+        var type = $el.data('type') || 'single';
+        Swal.fire({
+            title: 'Approve this leave?', icon: 'question', showCancelButton: true,
+            confirmButtonText: 'Approve', cancelButtonText: "@lang('app.cancel')",
+            customClass: { confirmButton: 'btn btn-primary mr-3', cancelButton: 'btn btn-secondary' }, buttonsStyling: false
+        }).then(function (result) {
+            if (!result.isConfirmed) { return; }
+            $.easyAjax({
+                url: "{{ route('leaves.leave_action') }}", type: 'POST', blockUI: true,
+                data: { action: 'approved', leaveId: $el.data('leave-id'), userId: $el.data('user-id'), type: type,
+                        approveReason: '', override: 0, _token: '{{ csrf_token() }}' },
+                success: function (response) { if (response.status == 'success') { window.location.reload(); } }
+            });
+        });
+    };
+</script>
 </body>
 
 </html>

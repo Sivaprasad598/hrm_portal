@@ -1296,6 +1296,7 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account'], function () {
     Route::post('payslips/generated/approve', [App\Http\Controllers\PayslipListController::class, 'approve'])->name('payslips.generated.approve');
     Route::post('payslips/generated/mark-paid', [App\Http\Controllers\PayslipListController::class, 'markPaid'])->name('payslips.generated.paid');
     Route::post('payslips/generated/{id}/revoke', [App\Http\Controllers\PayslipListController::class, 'revoke'])->name('payslips.generated.revoke');
+    Route::post('payslips/generated/bulk-delete', [App\Http\Controllers\PayslipListController::class, 'bulkDestroy'])->name('payslips.generated.bulk-delete');
     Route::post('payslips/generated/{id}/delete', [App\Http\Controllers\PayslipListController::class, 'destroy'])->name('payslips.generated.delete');
     Route::get('payslips', [App\Http\Controllers\LegacyController::class, 'payslips'])->name('payslips.index');
 

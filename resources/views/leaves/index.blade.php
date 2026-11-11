@@ -165,7 +165,10 @@ $approveRejectPermission = user()->permission('approve_or_reject_leaves');
                         @if ($approveRejectPermission == 'all')
                             <option value="change-leave-status">@lang('app.changeLeaveStatus')</option>
                         @endif
-                        <option value="delete">@lang('app.delete')</option>
+                        {{-- Bulk delete: the Super Admin only --}}
+                        @if (\App\Services\Access\SystemAccounts::is((int) user()->id))
+                            <option value="delete">@lang('app.delete')</option>
+                        @endif
                     </select>
                 </div>
                 <div class="select-status mr-3 d-none quick-action-field" id="change-status-action">
@@ -479,17 +482,7 @@ $approveRejectPermission = user()->permission('approve_or_reject_leaves');
         });
 
         $('body').on('click', '.leave-action-approved', function() {
-            let action = $(this).data('leave-action');
-            let leaveId = $(this).data('leave-id');
-            var type = $(this).data('type');
-            if(type == undefined){
-                var type = 'single';
-            }
-            let searchQuery = "?leave_action=" + action + "&leave_id=" + leaveId + "&type=" + type;
-            let url = "{{ route('leaves.show_approved_modal') }}" + searchQuery;
-
-            $(MODAL_LG + ' ' + MODAL_HEADING).html('...');
-            $.ajaxModal(MODAL_LG, url);
+            window.approveLeaveNow(this);
         });
 
         $('body').on('click', '.leave-action-reject', function() {

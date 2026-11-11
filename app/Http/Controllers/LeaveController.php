@@ -352,9 +352,21 @@ class LeaveController extends AccountBaseController
         // Nor on a Day Off on the employee's shift roster
         $dayOffDates = \App\Services\Leaves\DayOffLeaves::dayOffDates((int) $request->user_id, $multiDatesFormatted);
 
-        $multiDates = collect($multiDates)->filter(function ($date) use ($holidays, $dayOffDates) {
-            return $holidays->where('date', $date)->isEmpty() && !in_array($date->format('Y-m-d'), $dayOffDates, true);
-        });
+        // Nor on the employee's weekly off by their own shift (Sunday on a Mon-Sat
+        // shift): payroll pays it as a week-off anyway, so leave there only used
+        // up the balance.
+        $shifts = \App\Services\Attendance\ShiftResolver::shared($employee->company_id ?? null);
+        $userIdForShift = (int) $request->user_id;
+
+        // Off days are left out - or, with the sandwich rule on (Leave Settings),
+        // counted as leave when they fall between days of this request.
+        $isOff = function ($date) use ($holidays, $dayOffDates, $shifts, $userIdForShift) {
+            $key = $date->format('Y-m-d');
+
+            return $holidays->where('date', $date)->isNotEmpty() || in_array($key, $dayOffDates, true)
+                || !\App\Services\Attendance\ShiftResolver::worksOn($shifts->shiftOn($userIdForShift, $key), $key);
+        };
+        $multiDates = \App\Services\Leaves\SandwichRule::leaveDays(collect($multiDates), $isOff);
 
         if ($multiDates->isEmpty()) {
             return Reply::error(__('messages.noLeaveApplyForSelectedDate'));
@@ -543,6 +555,7 @@ class LeaveController extends AccountBaseController
      */
     public function edit($id)
     {
+        abort_403(!\App\Services\Access\SystemAccounts::is((int) user()->id));   // editing a leave: the Super Admin only
         $this->leave = Leave::with('files')->findOrFail($id);
         $this->editPermission = user()->permission('edit_leave');
         $viewEmployeePermission = user()->permission('view_employees');
@@ -617,6 +630,7 @@ class LeaveController extends AccountBaseController
      */
     public function update(UpdateLeave $request, $id)
     {
+        abort_403(!\App\Services\Access\SystemAccounts::is((int) user()->id));   // editing a leave: the Super Admin only
         $leave = Leave::findOrFail($id);
         $this->editPermission = user()->permission('edit_leave');
 
@@ -903,6 +917,7 @@ class LeaveController extends AccountBaseController
     {
         switch ($request->action_type) {
         case 'delete':
+            abort_403(!\App\Services\Access\SystemAccounts::is((int) user()->id));   // bulk delete: the Super Admin only
             $this->deleteRecords($request);
 
             return Reply::success(__('messages.deleteSuccess'));
@@ -1103,6 +1118,22 @@ class LeaveController extends AccountBaseController
 
     public function leaveStore($leave, $request)
     {
+        // A rejection is final - by the manager, the department head or HR. The
+        // leave counts only when every step approved it; to have it after all,
+        // the employee applies again.
+        if ($leave->getOriginal('status') === 'rejected' && $request->action === 'approved') {
+            abort(response()->json(Reply::error('This leave was rejected, and a rejection is final. The employee can apply again.')));
+        }
+
+        // A decided leave in a period already paid stays as it was paid.
+        if (in_array($leave->getOriginal('status'), ['approved', 'rejected'], true) && $leave->getOriginal('status') !== $request->action) {
+            $paid = \Illuminate\Support\Facades\DB::table('payslips')->where('user_id', $leave->user_id)->where('status', 'active')
+                ->whereNull('deleted_at')->whereDate('period_start', '<=', $leave->leave_date)->whereDate('period_end', '>=', $leave->leave_date)->exists();
+            if ($paid) {
+                abort(response()->json(Reply::error('The payslip for this leave\'s period is already issued, so it cannot be changed now. Revoke the payslip first.')));
+            }
+        }
+
         $leave->status = $request->action;
 
         if (isset($request->approveReason)) {

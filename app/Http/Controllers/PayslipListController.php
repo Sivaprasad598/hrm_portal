@@ -381,21 +381,56 @@ class PayslipListController extends AccountBaseController
                 . 'It is part of the payment record.');
         }
 
-        DB::table('payslips')->where('id', $id)->update([
-            'deleted_at' => now(),
-            'revoked_by' => user()->id,
-        ]);
-
-        $this->releaseEncashment((int) $id);
-        (new \App\Services\Payroll\PayComponents())->releaseFromPayslip((int) $id);
-        // Its banked overtime comes out; its OT cover / encashment is open again.
-        (new \App\Services\Payroll\OtBank())->onRevoke((int) $id);
+        $this->deleteOne((int) $id);
 
         return Reply::success(sprintf(
             'Payslip deleted for %s, %s.',
             $slip->emp_name ?: 'this employee',
             $slip->period ?: 'that period'
         ));
+    }
+
+    /**
+     * Delete the ticked payslips. Paid ones are part of the payment record and
+     * are left alone; the reply says how many were deleted and how many kept.
+     */
+    public function bulkDestroy(Request $request)
+    {
+        abort_403(!\App\Services\Access\PayrollAccess::can('revoke'));
+        $request->validate(['ids' => 'required|array|max:1000', 'ids.*' => 'integer']);
+
+        $slips = DB::table('payslips')->whereNull('deleted_at')->whereIn('id', $request->ids)->get(['id', 'approval_status']);
+        $deleted = 0;
+        $paid = 0;
+
+        foreach ($slips as $slip) {
+            if ($slip->approval_status === 'paid') {
+                $paid++;
+                continue;
+            }
+            $this->deleteOne((int) $slip->id);
+            $deleted++;
+        }
+
+        if (!$deleted) {
+            return Reply::error($paid ? 'The selected payslips are paid, so none were deleted.' : 'Nothing to delete.');
+        }
+
+        return Reply::success($deleted . ' payslip(s) deleted.' . ($paid ? ' ' . $paid . ' paid payslip(s) were kept.' : ''));
+    }
+
+    /** Delete one payslip and give back what it had taken (encashment, components, OT). */
+    protected function deleteOne(int $id): void
+    {
+        DB::table('payslips')->where('id', $id)->update([
+            'deleted_at' => now(),
+            'revoked_by' => user()->id,
+        ]);
+
+        $this->releaseEncashment($id);
+        (new \App\Services\Payroll\PayComponents())->releaseFromPayslip($id);
+        // Its banked overtime comes out; its OT cover / encashment is open again.
+        (new \App\Services\Payroll\OtBank())->onRevoke($id);
     }
 
     /**

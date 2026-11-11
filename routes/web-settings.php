@@ -166,6 +166,7 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account/settings'], function 
 
     Route::post('leaves-settings/encashment', [LeaveSettingController::class, 'saveEncashment'])->name('leaves-settings.encashment');
     Route::post('leaves-settings/approval', [LeaveSettingController::class, 'saveApproval'])->name('leaves-settings.approval');
+    Route::post('leaves-settings/sandwich', [LeaveSettingController::class, 'saveSandwich'])->name('leaves-settings.sandwich');
     Route::resource('leaves-settings', LeaveSettingController::class);
     Route::post('leaves-settings/change-permission', [LeaveSettingController::class, 'changePermission'])->name('leaves-settings.changePermission');
 

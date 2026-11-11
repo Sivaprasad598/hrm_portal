@@ -240,7 +240,10 @@ class LeaveDataTable extends BaseDataTable
                     }
                 }
 
-                if ($row->status == 'pending' && ($row->duration != 'multiple' || is_null($row->unique_id))) {
+                // Editing a leave is the Super Admin's alone; everyone else cancels
+                // and applies again, so what was approved is what was asked for.
+                if ($row->status == 'pending' && ($row->duration != 'multiple' || is_null($row->unique_id))
+                    && \App\Services\Access\SystemAccounts::is((int) user()->id)) {
                     if (
                         $this->editLeavePermission == 'all'
                         || ($this->editLeavePermission == 'added' && user()->id == $row->added_by)
@@ -273,6 +276,15 @@ class LeaveDataTable extends BaseDataTable
                                     ' . __('app.delete') . '
                             </a>' : '';
                     }
+                }
+
+                // An approved single-day leave can be cancelled here (asks why) by whoever
+                // decides leave for everybody, not their own. A rejection is final: at
+                // any step it ends the request, and nobody turns it into an approval -
+                // the employee applies again. Refused on the server once its payslip is out.
+                if ($row->status === 'approved' && $this->approveRejectPermission == 'all'
+                    && (int) $row->user_id !== (int) user()->id && ($row->duration != 'multiple' || is_null($row->unique_id))) {
+                    $actions .= '<a data-leave-id=' . $row->id . ' data-leave-action="rejected" data-user-id="' . $row->user_id . '" data-leave-type-id="' . $row->leave_type_id . '" class="dropdown-item leave-action-reject" href="javascript:;"><i class="fa fa-times mr-2"></i>Change to Rejected</a>';
                 }
 
                 $actions .= '</div> </div> </div>';

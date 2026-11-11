@@ -2,6 +2,24 @@
 
 @push('styles')
     <style>
+    /* Rule and advance forms: a four-column grid, labels on top, one height, the button on its own line at the right */
+    .pe-form { padding: 20px 22px 18px !important; border-top: 1px solid var(--border-color, #eef0f3); }
+    .pe-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px 18px; align-items: start; }
+    @media (max-width: 991.98px) { .pe-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 575.98px) { .pe-grid { grid-template-columns: 1fr; } }
+    .pe-field { display: flex; flex-direction: column; min-width: 0; }
+    .pe-field > label { font-size: 12.5px; font-weight: 600; color: var(--epic-text, #344054); margin: 0 0 6px; }
+    .pe-opt { font-weight: 400; color: var(--epic-muted, #98a2b3); margin-left: 4px; }
+    .pe-field .form-control, .pe-field .bootstrap-select > .dropdown-toggle { height: 40px !important; border-radius: 8px !important; }
+    .pe-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .pe-hint { display: block; margin-top: 5px; font-size: 11.5px; color: var(--epic-muted, #98a2b3); min-height: 16px; }
+    .pe-wide { grid-column: span 2; }
+    .pe-wide3 { grid-column: span 3; }
+    @media (max-width: 991.98px) { .pe-wide, .pe-wide3 { grid-column: 1 / -1; } }
+    .pe-actions { display: flex; justify-content: flex-end; margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--border-color, #eaecf0); }
+    .pe-actions .btn { min-width: 180px; height: 40px; border-radius: 8px; }
+    .pe-stop { border-radius: 6px; font-size: 12px; font-weight: 600; padding: 3px 12px; white-space: nowrap; }
+
         .element-table th, .element-table td { white-space: nowrap; }
         .element-table thead th { background: #f8f9fa; }
         .assign-rows { max-height: 46vh; overflow-y: auto; }
@@ -93,10 +111,10 @@
         <ul class="nav nav-tabs border-0 mb-0" role="tablist">
             @foreach ([
                 'period' => $monthName . ' amounts',
-                'rules' => 'Standing rules',
+                'rules' => 'Recurring Earnings',
                 'groups' => 'Groups',
                 'types' => 'Element types',
-                'arrangements' => 'Advances & loans',
+                'arrangements' => 'Recoveries (Advances & Loans)',
             ] as $key => $label)
                 <li class="nav-item">
                     <a class="nav-link f-14 {{ $tab === $key ? 'active' : '' }}" data-toggle="tab"
@@ -369,7 +387,7 @@
             <div class="tab-pane fade {{ $tab === 'rules' ? 'show active' : '' }}" id="tab-rules">
                 <div class="card bg-white border-0 b-shadow-4 mb-3">
                     <div class="card-header bg-white border-bottom p-3">
-                        <h6 class="mb-0 f-14">Give an element every period, automatically</h6>
+                        <h6 class="mb-0 f-14">Recurring earnings: pay an amount every month, automatically</h6>
                         <p class="mb-0 f-12 text-lightest">
                             "Everyone in Gis Department gets ₹1,000 a month." The rule adds one line per employee
                             per pay period, from the month it starts until it is stopped. Two rules reaching the
@@ -377,23 +395,23 @@
                             amount came from.
                         </p>
                     </div>
-                    <div class="card-body p-3">
+                    <div class="card-body pe-form">
                         @if ($activeTypes === [])
                             <p class="f-13 text-lightest mb-0">Add an element type first.</p>
                         @else
-                            <div class="row align-items-end">
-                                <div class="col-md-2 mb-2">
-                                    <label class="f-12 text-dark-grey">Element</label>
+                            <div class="pe-grid">
+                                <div class="pe-field">
+                                    <label>Element</label>
                                     <select id="rule-type" class="form-control f-14">
-                                        @foreach ($activeTypes as $type)
+                                        @foreach (collect($activeTypes)->where('kind', 'earning') as $type)
                                             <option value="{{ $type->id }}" data-default="{{ $type->default_amount }}">
                                                 {{ $type->name }} ({{ $kindWord($type->kind) }})
                                             </option>
                                         @endforeach
                                     </select>
                                 </div>
-                                <div class="col-md-2 mb-2">
-                                    <label class="f-12 text-dark-grey">Who it is for</label>
+                                <div class="pe-field">
+                                    <label>Who it is for</label>
                                     <select id="rule-scope" class="form-control f-14">
                                         <option value="everyone">Everyone</option>
                                         <option value="department">A department</option>
@@ -402,23 +420,36 @@
                                         <option value="employee">One employee</option>
                                     </select>
                                 </div>
-                                <div class="col-md-3 mb-2" id="rule-target-wrap" style="display:none">
-                                    <label class="f-12 text-dark-grey">Which one</label>
-                                    <select id="rule-target" class="form-control f-14"></select>
+                                <div class="pe-field" id="rule-target-wrap" style="display:none">
+                                    <label>Which one</label>
+                                    <select id="rule-target" class="form-control f-14" data-live-search="true" data-size="8"></select>
                                 </div>
-                                <div class="col-md-2 mb-2">
-                                    <label class="f-12 text-dark-grey">Amount each period</label>
-                                    <input type="number" step="0.01" min="0.01" class="form-control f-14" id="rule-amount">
+                                <div class="pe-field">
+                                    <label>Amount each period (₹)</label>
+                                    <input type="number" step="0.01" min="0.01" class="form-control f-14" id="rule-amount" placeholder="1000">
                                 </div>
-                                <div class="col-md-3 mb-2">
-                                    <button type="button" class="btn btn-primary f-14 w-100" id="rule-save">
-                                        <i class="fa fa-plus mr-1"></i> Start from {{ $monthName }}
-                                    </button>
+                            </div>
+                            <div class="pe-grid mt-3">
+                                <div class="pe-field">
+                                    <label>First period</label>
+                                    <div class="pe-pair">
+                                        <select id="rule-start-month" class="form-control f-14">
+                                            @foreach (range(1, 12) as $m)
+                                                <option value="{{ $m }}" @selected($m == $month)>{{ \Carbon\Carbon::create(null, $m, 1)->format('M') }}</option>
+                                            @endforeach
+                                        </select>
+                                        <select id="rule-start-year" class="form-control f-14">
+                                            @foreach (range(now()->year - 1, now()->year + 2) as $y)
+                                                <option value="{{ $y }}" @selected($y == $year)>{{ $y }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <small class="pe-hint" id="rule-start-cycle"></small>
                                 </div>
-                                <div class="col-md-3 mb-2">
-                                    <label class="f-12 text-dark-grey">Last period (optional)</label>
-                                    <div class="d-flex">
-                                        <select id="rule-end-month" class="form-control f-14 mr-1">
+                                <div class="pe-field">
+                                    <label>Last period <span class="pe-opt">optional</span></label>
+                                    <div class="pe-pair">
+                                        <select id="rule-end-month" class="form-control f-14">
                                             <option value="">No end</option>
                                             @foreach (range(1, 12) as $m)
                                                 <option value="{{ $m }}">{{ \Carbon\Carbon::create(null, $m, 1)->format('M') }}</option>
@@ -430,12 +461,16 @@
                                             @endforeach
                                         </select>
                                     </div>
+                                    <small class="pe-hint">Leave as "No end" to run until stopped</small>
                                 </div>
-                                <div class="col-md-6 mb-2">
-                                    <label class="f-12 text-dark-grey">Note (shows on the payslip line)</label>
+                                <div class="pe-field pe-wide">
+                                    <label>Note <span class="pe-opt">shows on the payslip line</span></label>
                                     <input type="text" class="form-control f-14" id="rule-note" maxlength="255"
                                            placeholder="e.g. Site allowance agreed for the Gis team">
                                 </div>
+                            </div>
+                            <div class="pe-actions">
+                                <button type="button" class="btn btn-primary f-14" id="rule-save"><i class="fa fa-plus mr-1"></i> Add recurring earning</button>
                             </div>
                         @endif
                     </div>
@@ -475,14 +510,14 @@
                                         </td>
                                         <td class="text-right">
                                             @if ($rule->status === 'active')
-                                                <a href="#" class="stop-rule f-12 text-red" data-id="{{ $rule->id }}">Stop</a>
+                                                <button type="button" class="btn btn-sm btn-outline-danger pe-stop stop-rule" data-id="{{ $rule->id }}"><i class="fa fa-stop-circle mr-1"></i>Stop</button>
                                             @endif
                                         </td>
                                     </tr>
                                 @empty
                                     <tr>
                                         <td colspan="8" class="text-center text-lightest p-4 f-13">
-                                            No standing rules yet. Anything added here happens every period on its own.
+                                            No recurring earnings yet. Anything added here is paid every period on its own.
                                         </td>
                                     </tr>
                                 @endforelse
@@ -575,18 +610,18 @@
             <div class="tab-pane fade {{ $tab === 'arrangements' ? 'show active' : '' }}" id="tab-arrangements">
                 <div class="card bg-white border-0 b-shadow-4 mb-3">
                     <div class="card-header bg-white border-bottom p-3">
-                        <h6 class="mb-0 f-14">Recover something over several months</h6>
+                        <h6 class="mb-0 f-14">Recoveries: take an advance or loan back, a little each month</h6>
                         <p class="mb-0 f-12 text-lightest">
                             ₹30,000 advanced, ₹5,000 a month: one instalment is taken each pay period, the last
                             one trimmed to whatever is left, and it stops of its own accord. Leave the total
                             blank for something that runs every month until it is stopped.
                         </p>
                     </div>
-                    <div class="card-body p-3">
-                        <div class="row align-items-end">
-                            <div class="col-md-3 mb-2">
-                                <label class="f-12 text-dark-grey">@lang('app.employee')</label>
-                                <select id="arr-employee" class="form-control f-14" data-live-search="true">
+                    <div class="card-body pe-form">
+                        <div class="pe-grid">
+                            <div class="pe-field">
+                                <label>@lang('app.employee')</label>
+                                <select id="arr-employee" class="form-control f-14" data-live-search="true" data-size="8">
                                     @foreach ($employees as $employee)
                                         <option value="{{ $employee->id }}">
                                             {{ $employee->name }}{{ $employee->employee_card_id ? ' · ' . $employee->employee_card_id : '' }}
@@ -594,36 +629,50 @@
                                     @endforeach
                                 </select>
                             </div>
-                            <div class="col-md-2 mb-2">
-                                <label class="f-12 text-dark-grey">Element</label>
+                            <div class="pe-field">
+                                <label>Element</label>
                                 <select id="arr-type" class="form-control f-14">
-                                    @foreach ($activeTypes as $type)
+                                    @foreach (collect($activeTypes)->where('kind', 'deduction') as $type)
                                         <option value="{{ $type->id }}" @selected($type->allows_arrangement)>
                                             {{ $type->name }} ({{ $kindWord($type->kind) }})
                                         </option>
                                     @endforeach
                                 </select>
                             </div>
-                            <div class="col-md-2 mb-2">
-                                <label class="f-12 text-dark-grey">Total (blank = no end)</label>
-                                <input type="number" step="0.01" min="0" class="form-control f-14" id="arr-total"
-                                       placeholder="30000">
+                            <div class="pe-field">
+                                <label>Total (₹) <span class="pe-opt">blank = no end</span></label>
+                                <input type="number" step="0.01" min="0" class="form-control f-14" id="arr-total" placeholder="30000">
                             </div>
-                            <div class="col-md-2 mb-2">
-                                <label class="f-12 text-dark-grey">Each month</label>
-                                <input type="number" step="0.01" min="0.01" class="form-control f-14" id="arr-instalment"
-                                       placeholder="5000">
+                            <div class="pe-field">
+                                <label>Each month (₹)</label>
+                                <input type="number" step="0.01" min="0.01" class="form-control f-14" id="arr-instalment" placeholder="5000">
                             </div>
-                            <div class="col-md-3 mb-2">
-                                <button type="button" class="btn btn-primary f-14 w-100" id="arr-save">
-                                    <i class="fa fa-plus mr-1"></i> Start from {{ $monthName }}
-                                </button>
+                        </div>
+                        <div class="pe-grid mt-3">
+                            <div class="pe-field">
+                                <label>First period</label>
+                                <div class="pe-pair">
+                                    <select id="arr-start-month" class="form-control f-14">
+                                        @foreach (range(1, 12) as $m)
+                                            <option value="{{ $m }}" @selected($m == $month)>{{ \Carbon\Carbon::create(null, $m, 1)->format('M') }}</option>
+                                        @endforeach
+                                    </select>
+                                    <select id="arr-start-year" class="form-control f-14">
+                                        @foreach (range(now()->year - 1, now()->year + 2) as $y)
+                                            <option value="{{ $y }}" @selected($y == $year)>{{ $y }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <small class="pe-hint" id="arr-start-cycle"></small>
                             </div>
-                            <div class="col-md-6 mb-2">
-                                <label class="f-12 text-dark-grey">Note (optional)</label>
+                            <div class="pe-field pe-wide3">
+                                <label>Note <span class="pe-opt">optional</span></label>
                                 <input type="text" class="form-control f-14" id="arr-note" maxlength="255"
                                        placeholder="e.g. advance paid on 2 October by bank transfer">
                             </div>
+                        </div>
+                        <div class="pe-actions">
+                            <button type="button" class="btn btn-primary f-14" id="arr-save"><i class="fa fa-plus mr-1"></i> Start recovery</button>
                         </div>
                     </div>
                     <div class="table-responsive">
@@ -665,8 +714,8 @@
                                         </td>
                                         <td class="text-right">
                                             @if ($arrangement->status === 'active')
-                                                <a href="#" class="cancel-arrangement f-12 text-red"
-                                                   data-id="{{ $arrangement->id }}">Stop</a>
+                                                <button type="button" class="btn btn-sm btn-outline-danger pe-stop cancel-arrangement"
+                                                   data-id="{{ $arrangement->id }}"><i class="fa fa-stop-circle mr-1"></i>Stop</button>
                                             @endif
                                         </td>
                                     </tr>
@@ -911,6 +960,24 @@
                 container: 'body', width: '100%'
             });
 
+            // Searchable pickers: who a rule is for, and whose advance it is
+            $('#rule-target, #arr-employee').selectpicker({ liveSearch: true, size: 8, container: 'body', width: '100%' });
+
+            // The first pay period each form starts in, and its dates (the cycle
+            // runs from the start day of the month before to the day before it).
+            var cycleStartDay = {{ (int) \App\Services\Payroll\PayPeriod::configuredStartDay() }};
+            function cycleText(m, y) {
+                var mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                if (cycleStartDay <= 1) { return mon[m - 1] + ' ' + y + ' (whole month)'; }
+                var pm = m === 1 ? 12 : m - 1, py = m === 1 ? y - 1 : y;
+                return cycleStartDay + ' ' + mon[pm - 1] + ' ' + py + ' – ' + (cycleStartDay - 1) + ' ' + mon[m - 1] + ' ' + y;
+            }
+            ['rule', 'arr'].forEach(function (k) {
+                var show = function () { $('#' + k + '-start-cycle').text(cycleText(+$('#' + k + '-start-month').val(), +$('#' + k + '-start-year').val())); };
+                $('#' + k + '-start-month, #' + k + '-start-year').on('change', show);
+                show();
+            });
+
             $('#rule-scope').on('change', function () {
                 var scope = $(this).val();
                 var options = ruleTargets[scope];
@@ -924,6 +991,7 @@
                 }).join('');
 
                 $('#rule-target').html(html || '<option value="">Nothing to choose</option>');
+                $('#rule-target').selectpicker('refresh');
             }).trigger('change');
 
             $('#rule-type').on('change', function () {
@@ -943,7 +1011,7 @@
                 }
 
                 if (scope !== 'everyone' && !$('#rule-target').val()) {
-                    Swal.fire({ icon: 'info', title: 'Choose who the rule is for' });
+                    Swal.fire({ icon: 'info', title: 'Choose who it is for' });
 
                     return;
                 }
@@ -951,7 +1019,7 @@
                 post('{{ route('pay-elements.rule.store') }}', {
                     element_type_id: $('#rule-type').val(), scope: scope,
                     scope_id: scope === 'everyone' ? null : $('#rule-target').val(),
-                    amount: amount, month: month, year: year,
+                    amount: amount, month: $('#rule-start-month').val(), year: $('#rule-start-year').val(),
                     end_month: $('#rule-end-month').val() || null,
                     end_year: $('#rule-end-month').val() ? $('#rule-end-year').val() : null,
                     note: $('#rule-note').val()
@@ -963,7 +1031,7 @@
                 var id = $(this).data('id');
 
                 Swal.fire({
-                    title: 'Stop this rule?',
+                    title: 'Stop this recurring earning?',
                     text: 'Lines it has already added stay where they are. Nothing further will be added.',
                     icon: 'question',
                     showCancelButton: true,
@@ -1028,7 +1096,7 @@
                 post('{{ route('pay-elements.arrangement.store') }}', {
                     user_id: $('#arr-employee').val(), element_type_id: $('#arr-type').val(),
                     total_amount: $('#arr-total').val() || null, instalment: instalment,
-                    month: month, year: year, note: $('#arr-note').val()
+                    month: $('#arr-start-month').val(), year: $('#arr-start-year').val(), note: $('#arr-note').val()
                 });
             });
 

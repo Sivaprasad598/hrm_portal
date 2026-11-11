@@ -238,6 +238,13 @@
                     </button>
                 @endif
 
+                {{-- Ticked rows: delete them together (paid ones are never deleted) --}}
+                @if ($canRevoke)
+                    <button type="button" class="btn btn-sm btn-danger mr-2 d-none" id="bulk-delete">
+                        <i class="fa fa-trash mr-1"></i> Delete <span id="bulk-count">0</span> selected
+                    </button>
+                @endif
+
                 @if ($canPrepare)
                     <a href="{{ route('payslips.index') }}" class="btn btn-sm btn-outline-secondary">
                         <i class="fa fa-calculator mr-1"></i> Payslip calculator
@@ -249,6 +256,9 @@
                 <table class="table table-hover mb-0 f-13">
                     <thead>
                         <tr class="bg-light">
+                            @if ($canRevoke)
+                                <th style="width:36px"><input type="checkbox" id="slip-all" title="Select all on this page"></th>
+                            @endif
                             <th>Employee</th>
                             <th>Designation</th>
                             <th>Department</th>
@@ -276,6 +286,15 @@
                             @endphp
                             <tr @class(['table-revoked' => $slip->status === 'revoked'])
                                 @if ($revokedNote) title="{{ $revokedNote }}" @endif>
+                                @if ($canRevoke)
+                                    <td>
+                                        @if ($slip->approval_status !== 'paid')
+                                            <input type="checkbox" class="slip-pick" value="{{ $slip->id }}">
+                                        @else
+                                            <i class="fa fa-lock text-lightest" title="Paid: cannot be deleted"></i>
+                                        @endif
+                                    </td>
+                                @endif
                                 <td>
                                     <span class="font-weight-bold">{{ $slip->emp_name ?: '—' }}</span>
                                     @if ($slip->warnings)
@@ -434,7 +453,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="11" class="text-center text-lightest p-4">
+                                <td colspan="{{ $canRevoke ? 12 : 11 }}" class="text-center text-lightest p-4">
                                     No payslips match these filters.
                                 </td>
                             </tr>
@@ -699,6 +718,33 @@
 
                     act('{{ url('account/payslips/generated') }}/' + button.data('id') + '/revoke',
                         { reason: result.value, _token: csrf }, 'Payslip revoked');
+                });
+            });
+
+            // Bulk delete: tick rows (or all on the page), then delete them together
+            function picked() { return $('.slip-pick:checked').map(function () { return this.value; }).get(); }
+            function refreshBulk() {
+                var n = picked().length;
+                $('#bulk-count').text(n);
+                $('#bulk-delete').toggleClass('d-none', n === 0);
+                var all = $('.slip-pick'), on = all.filter(':checked').length;
+                $('#slip-all').prop('checked', all.length > 0 && on === all.length).prop('indeterminate', on > 0 && on < all.length);
+            }
+            $(document).on('change', '.slip-pick', refreshBulk);
+            $('#slip-all').on('change', function () { $('.slip-pick').prop('checked', this.checked); refreshBulk(); });
+            $('#bulk-delete').on('click', function () {
+                var ids = picked();
+                if (!ids.length) { return; }
+                Swal.fire({
+                    title: 'Delete ' + ids.length + ' payslip(s)?',
+                    html: '<p class="mb-0" style="font-size:12px;color:#888">They disappear from these lists and their months are released. ' +
+                          'Paid payslips are never deleted. Prefer <strong>Revoke</strong> if a payslip was issued and you need a record of why.</p>',
+                    icon: 'warning', showCancelButton: true, confirmButtonText: 'Delete', confirmButtonColor: '#d33',
+                    cancelButtonText: '@lang('app.cancel')'
+                }).then(function (result) {
+                    if (result.isConfirmed) {
+                        act('{{ route('payslips.generated.bulk-delete') }}', { ids: ids, _token: csrf }, 'Payslips deleted');
+                    }
                 });
             });
 

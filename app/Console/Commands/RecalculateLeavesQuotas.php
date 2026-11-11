@@ -87,7 +87,7 @@ class RecalculateLeavesQuotas extends Command
                         // yearly setting year_start
             
                         $yearFrom = $settings && $settings->year_starts_from ? $settings->year_starts_from : 1;
-                        $startingDate = Carbon::create(now()->year, $yearFrom)->startOfMonth();
+                        $startingDate = self::leaveYearStart((int) $yearFrom);
 
                     }
 
@@ -268,6 +268,15 @@ class RecalculateLeavesQuotas extends Command
 
     }
 
+    /** The first day of the leave year running now (year starts in month $yearFrom). */
+    public static function leaveYearStart(int $yearFrom): Carbon
+    {
+        $yearFrom = $yearFrom >= 1 && $yearFrom <= 12 ? $yearFrom : 1;
+        $start = Carbon::create(now()->year, $yearFrom, 1)->startOfDay();
+
+        return $start->gt(now()) ? $start->subYear() : $start;
+    }
+
     public function calculateNoOfLeavesAlloted($settings, $joiningDate, $user, $value)
     {
         $leaves = $value->no_of_leaves;
@@ -303,7 +312,10 @@ class RecalculateLeavesQuotas extends Command
             // yearly setting year_start
 
             $yearFrom = $settings && $settings->year_starts_from ? $settings->year_starts_from : 1;
-            $startingDate = Carbon::create(now()->year, $yearFrom)->startOfMonth();
+            // The leave year running now: April 2026 - March 2027 also in Jan - Mar 2027
+            // (it used this calendar year's April, so in Jan - Mar it counted back
+            // from a date still ahead and gave 4, 3, 2 days instead of 10, 11, 12).
+            $startingDate = self::leaveYearStart((int) $yearFrom);
 
             $accrualStart = $startingDate->copy();
 
@@ -311,11 +323,12 @@ class RecalculateLeavesQuotas extends Command
                 $accrualStart = $joiningDate->copy()->startOfMonth();
             }
 
-            $differenceMonth = now()->startOfMonth()->diffInMonths($accrualStart, true);
-
-            $differenceMonth = $differenceMonth + 1; // Include current month also
-
-            $countOfMonthsAllowed = $differenceMonth > 12 ? $differenceMonth - 12 : $differenceMonth;
+            // Months from the start of accrual to this month, this month included;
+            // nobody earns anything before they join (it counted the gap either way).
+            $countOfMonthsAllowed = $accrualStart->gt(now()->startOfMonth())
+                ? 0
+                : min(12, (int) $accrualStart->diffInMonths(now()->startOfMonth()) + 1);
+            $differenceMonth = $countOfMonthsAllowed;   // used below for yearly leave joined mid-year
 
             $remainingDays = 0;
             $currentYearJoiningDate = Carbon::parse($user->employeeDetail->joining_date->format((now($settings->timezone)->year) . '-m-d'));;
@@ -351,8 +364,11 @@ class RecalculateLeavesQuotas extends Command
                 }
 
             } else {
+                // Monthly leave (Earned Leave): joined by the 15th, the joining month
+                // counts in full; joined after the 15th, it does not count at all -
+                // the leave starts from the next month.
                 if ($joiningDate->day > 15) {
-                    $leaveToSubtract = ($value->no_of_leaves / 2);
+                    $leaveToSubtract = $value->no_of_leaves;
                 }
             }
 
@@ -369,7 +385,8 @@ class RecalculateLeavesQuotas extends Command
                 $leaveToSubtract = ($monthlyLeaves / 2);
                 
             } else {
-                $leaveToSubtract = ($value->no_of_leaves / 2);
+                // Monthly leave: a joining month after the 15th does not count.
+                $leaveToSubtract = $value->no_of_leaves;
             }
 
         }
@@ -378,7 +395,7 @@ class RecalculateLeavesQuotas extends Command
             $leaves = $value->no_of_leaves - $leaveToSubtract;
         
         } else if ($value->leavetype == 'monthly') {
-            $leaves = ($value->no_of_leaves * $countOfMonthsAllowed) - $leaveToSubtract;
+            $leaves = max(0, ($value->no_of_leaves * $countOfMonthsAllowed) - $leaveToSubtract);
 
         }
 

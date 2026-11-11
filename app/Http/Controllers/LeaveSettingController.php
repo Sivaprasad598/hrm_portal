@@ -131,6 +131,18 @@ class LeaveSettingController extends AccountBaseController
         return Reply::success('Approval steps saved: ' . implode(' → ', array_map(fn ($s) => \App\Services\Leaves\LeaveApprovals::label($s), $levels)) . '.');
     }
 
+    /** The sandwich rule: off days between days of one leave request count as leave. */
+    public function saveSandwich(Request $request)
+    {
+        $on = $request->boolean('sandwich_rule');
+        LeaveSetting::query()->update(['sandwich_rule' => $on]);
+        \App\Services\Leaves\SandwichRule::forget();
+
+        return Reply::success($on
+            ? 'Sandwich rule on: weekly offs and holidays between days of a leave now count as leave.'
+            : 'Sandwich rule off: weekly offs and holidays are never counted as leave.');
+    }
+
     public function changePermission(Request $request)
     {
         $permission = LeaveSetting::findOrFail($request->id);

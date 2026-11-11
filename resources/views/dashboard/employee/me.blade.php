@@ -20,7 +20,7 @@
 <div class="row">
     {{-- Waiting for their decision (the HR step) --}}
     @unless ($hasTeam)
-        <div class="col-xl-5 mb-3">
+        <div class="col-xl-{{ $hasTeam ? '5' : '4' }} mb-3">
             <div class="pd-card">
                 <div class="pd-head">Waiting for you
                     @if ($leavesWaiting->count() + $correctionsWaiting->count())
@@ -74,13 +74,19 @@
     </div>
 
     {{-- Their own leave --}}
-    <div class="col-xl-{{ $hasTeam ? '4' : '2' }} col-md-6 mb-3">
+    <div class="col-xl-{{ $hasTeam ? '4' : '3' }} col-md-6 mb-3">
         <div class="pd-card">
             <div class="pd-label">My leave <a href="{{ route('leaves.personal') }}"><i class="bi bi-calendar2-heart"></i></a></div>
             @if ($d['leave'])
-                <div class="pd-leaves">
+                {{-- Each type by name: left of given, with a bar (as on the employee dashboard) --}}
+                <div class="pd-lbal">
                     @foreach ($d['leave'] as $l)
-                        <div title="{{ $l['name'] }}"><strong>{{ $fmt($l['remaining']) }}</strong>{{ $l['code'] }}</div>
+                        @php $leftPct = ($l['given'] ?? 0) > 0 ? max(0, min(100, round($l['remaining'] / $l['given'] * 100))) : 0; @endphp
+                        <div class="pd-lbal__row">
+                            <span class="pd-lbal__name"><i style="background: {{ $l['color'] ?? '#cb6b4f' }}"></i>{{ $l['name'] }}</span>
+                            <span class="pd-lbal__num"><b>{{ $fmt($l['remaining']) }}</b>@if (($l['given'] ?? 0) > 0)<small> / {{ $fmt($l['given']) }}</small>@endif</span>
+                            <span class="pd-lbal__bar"><span style="width: {{ $leftPct }}%; background: {{ $l['color'] ?? '#cb6b4f' }}"></span></span>
+                        </div>
                     @endforeach
                 </div>
             @else

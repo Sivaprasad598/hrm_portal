@@ -177,7 +177,14 @@ class LeaveController extends MobileController
         // Holidays are not leave days.
         $holidays = Holiday::whereIn('date', $dates->map->format('Y-m-d'))->applicableTo($employee->employeeDetail)->pluck('date')
             ->map(fn ($d) => Carbon::parse($d)->toDateString());
-        $dates = $dates->reject(fn ($d) => $holidays->contains($d->toDateString()))->values();
+        // Holidays, roster Day Offs and the weekly off of their own shift are left
+        // out (as on the web) - or, with the sandwich rule on, counted as leave
+        // when they fall between days of this request.
+        $dayOffs = \App\Services\Leaves\DayOffLeaves::dayOffDates((int) $employee->id, $dates);
+        $shifts = \App\Services\Attendance\ShiftResolver::shared($employee->company_id ?? null);
+        $isOff = fn ($d) => $holidays->contains($d->toDateString()) || in_array($d->toDateString(), $dayOffs, true)
+            || !\App\Services\Attendance\ShiftResolver::worksOn($shifts->shiftOn((int) $employee->id, $d->toDateString()), $d->toDateString());
+        $dates = \App\Services\Leaves\SandwichRule::leaveDays($dates, $isOff);
 
         if ($dates->isEmpty()) {
             return $this->fail(__('messages.noLeaveApplyForSelectedDate'), 422);

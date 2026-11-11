@@ -216,11 +216,23 @@ class PayElementsController extends AccountBaseController
         ]);
 
         $type = DB::table('pay_element_types')->find($request->element_type_id);
+
+        // Advances and loans recover money: deductions only (credits go on standing rules)
+        if (($type->kind ?? '') !== 'deduction') {
+            return Reply::error('Recoveries take money back, so only a deduction can be used. To pay something every month, use Recurring Earnings.');
+        }
         $cycle = PayPeriod::forMonth((int) $request->month, (int) $request->year);
         $total = $request->total_amount !== null && $request->total_amount !== '' ? (float) $request->total_amount : null;
 
         if ($total !== null && $total > 0 && (float) $request->instalment > $total) {
             return Reply::error('The monthly amount is more than the total. Set the total higher, or leave it blank for an open-ended arrangement.');
+        }
+
+        // A period whose payslip is already issued can take nothing more: start after it.
+        $paid = DB::table('payslips')->where('user_id', $request->user_id)->where('period', $cycle->label)
+            ->where('status', 'active')->whereNull('deleted_at')->exists();
+        if ($paid) {
+            return Reply::error('The payslip for ' . $cycle->describe() . ' is already issued, so nothing can be taken from it. Choose a later first period.');
         }
 
         $components->openArrangement((int) $request->user_id, $type->kind, $type->name, $total,
@@ -277,6 +289,11 @@ class PayElementsController extends AccountBaseController
         }
 
         $type = DB::table('pay_element_types')->find($request->element_type_id);
+
+        // Standing rules pay something every period: credits only (recoveries go on Advances & loans)
+        if (($type->kind ?? '') !== 'earning') {
+            return Reply::error('Recurring Earnings pay an amount every period, so only a credit can be used. To take money back, use Recoveries.');
+        }
 
         DB::table('pay_element_rules')->insert([
             'company_id' => DB::table('employee_details')->where('user_id', user()->id)->value('company_id'),

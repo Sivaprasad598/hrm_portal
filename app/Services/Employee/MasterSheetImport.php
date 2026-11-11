@@ -396,11 +396,18 @@ class MasterSheetImport
      */
     protected function masterPlan(array &$records): array
     {
-        $teams = DB::table('teams')->get(['id', 'team_name', 'parent_id']);
+        $teams = DB::table('teams')->orderBy('id')->get(['id', 'team_name', 'parent_id']);
+        // "IT", "IT Department" and "it dept" are one team. One already on record
+        // is reused wherever it sits; under a given parent first, if one is asked for.
         $findTeam = function (string $name, $parentId = false) use ($teams) {
-            $key = $this->key($name);
+            $key = $this->teamKey($name);
+            $same = $teams->filter(fn ($t) => $this->teamKey($t->team_name) === $key);
 
-            return $teams->first(fn ($t) => $this->key($t->team_name) === $key && ($parentId === false || (int) $t->parent_id === (int) $parentId));
+            if ($parentId !== false) {
+                return $same->first(fn ($t) => (int) $t->parent_id === (int) $parentId);
+            }
+
+            return $same->first();
         };
 
         // The most common spelling of each name stands for all of them.
@@ -420,26 +427,48 @@ class MasterSheetImport
             }, $counts);
         };
 
-        $groupNames = $spelling(array_column($records, 'grouping'));
-        $deptNames = $spelling(array_column($records, 'department'));
-        $divNames = $spelling(array_column($records, 'division'));
+        $teamSpelling = function (array $names) {
+            $counts = [];
+
+            foreach ($names as $n) {
+                if ($n !== '') {
+                    $counts[$this->teamKey($n)][$n] = ($counts[$this->teamKey($n)][$n] ?? 0) + 1;
+                }
+            }
+
+            return array_map(function ($variants) {
+                arsort($variants);
+
+                return array_key_first($variants);
+            }, $counts);
+        };
+        $groupNames = $teamSpelling(array_column($records, 'grouping'));
+        $deptNames = $teamSpelling(array_column($records, 'department'));
+        $divNames = $teamSpelling(array_column($records, 'division'));
 
         $groupings = [];
         $departments = [];
         $divisions = [];
+
+        $groupVotes = [];
 
         foreach ($records as $i => $rec) {
             if ($rec['skip']) {
                 continue;
             }
 
-            $gKey = $rec['grouping'] !== '' ? $this->key($rec['grouping']) : null;
-            $dKey = $rec['department'] !== '' ? $this->key($rec['department']) : null;
-            $vKey = $rec['division'] !== '' ? $this->key($rec['division']) : null;
+            $gKey = $rec['grouping'] !== '' ? $this->teamKey($rec['grouping']) : null;
+            $dKey = $rec['department'] !== '' ? $this->teamKey($rec['department']) : null;
+            $vKey = $rec['division'] !== '' ? $this->teamKey($rec['division']) : null;
+
+            // A grouping named like the department is the department itself.
+            if ($gKey !== null && $gKey === $dKey) {
+                $gKey = null;
+            }
 
             if ($gKey && !isset($groupings[$gKey])) {
                 $existing = $findTeam($groupNames[$gKey]);
-                $groupings[$gKey] = ['name' => $groupNames[$gKey], 'id' => $existing?->id, 'count' => 0];
+                $groupings[$gKey] = ['name' => $existing->team_name ?? $groupNames[$gKey], 'id' => $existing?->id, 'count' => 0];
             }
 
             if ($gKey) {
@@ -447,27 +476,29 @@ class MasterSheetImport
             }
 
             if ($dKey) {
-                $node = ($gKey ?? '-') . '|' . $dKey;
-
-                if (!isset($departments[$node])) {
+                // One department, one node: listed under two groupings it is still
+                // one department (it goes under the grouping most of its rows give).
+                if (!isset($departments[$dKey])) {
                     $existing = $findTeam($deptNames[$dKey]);
-                    $departments[$node] = ['name' => $deptNames[$dKey], 'group' => $gKey, 'id' => $existing?->id,
-                        'moves' => $existing && $gKey && (!$existing->parent_id || ($groupings[$gKey]['id'] && (int) $existing->parent_id !== (int) $groupings[$gKey]['id'])),
-                        'count' => 0];
+                    $departments[$dKey] = ['name' => $existing->team_name ?? $deptNames[$dKey], 'group' => null, 'id' => $existing?->id,
+                        'moves' => false, 'count' => 0, 'existing_parent' => $existing?->parent_id];
                 }
 
-                $departments[$node]['count']++;
-                $records[$i]['department_node'] = $node;
+                $departments[$dKey]['count']++;
+                if ($gKey) {
+                    $groupVotes[$dKey][$gKey] = ($groupVotes[$dKey][$gKey] ?? 0) + 1;
+                }
+                $records[$i]['department_node'] = $dKey;
             }
 
-            // A division named like its department is the department itself.
-            if ($vKey && $dKey && $vKey !== $dKey) {
-                $node = ($gKey ?? '-') . '|' . $dKey . '|' . $vKey;
+            // A division named like its department (or its grouping) is that team itself.
+            if ($vKey && $dKey && $vKey !== $dKey && $vKey !== $gKey) {
+                $node = $dKey . '|' . $vKey;
 
                 if (!isset($divisions[$node])) {
-                    $parent = $departments[($gKey ?? '-') . '|' . $dKey];
+                    $parent = $departments[$dKey];
                     $existing = $parent['id'] ? $findTeam($divNames[$vKey], $parent['id']) : null;
-                    $divisions[$node] = ['name' => $divNames[$vKey], 'department' => ($gKey ?? '-') . '|' . $dKey, 'id' => $existing?->id,
+                    $divisions[$node] = ['name' => $existing->team_name ?? $divNames[$vKey], 'department' => $dKey, 'id' => $existing?->id,
                         'variants' => [], 'count' => 0];
                 }
 
@@ -476,6 +507,18 @@ class MasterSheetImport
                 $records[$i]['division_node'] = $node;
             }
         }
+
+        // Each department's grouping: the one most of its rows give; never itself.
+        foreach ($departments as $dKey => &$dept) {
+            if (!empty($groupVotes[$dKey])) {
+                arsort($groupVotes[$dKey]);
+                $dept['group'] = array_key_first($groupVotes[$dKey]);
+                $groupId = $groupings[$dept['group']]['id'] ?? null;
+                $dept['moves'] = $dept['id'] && (!$dept['existing_parent'] || ($groupId && (int) $dept['existing_parent'] !== (int) $groupId))
+                    && (int) $groupId !== (int) $dept['id'];
+            }
+        }
+        unset($dept);
 
         // Designations: case, dots, hyphens and spaces do not make a new title,
         // nor do a few common misspellings.
@@ -658,7 +701,13 @@ class MasterSheetImport
 
         DB::transaction(function () use (&$master, $preview, $options, $password, $createBranches, $companyId, $actorId, &$result) {
             $now = now();
-            $team = function (string $name, ?int $parentId) use ($companyId, $actorId, $now, &$result) {
+            $made = [];
+            $team = function (string $name, ?int $parentId) use ($companyId, $actorId, $now, &$result, &$made) {
+                // Made already in this run (the same name reached twice): that one
+                $mk = $this->teamKey($name) . '|' . (int) $parentId;
+                if (isset($made[$mk])) {
+                    return $made[$mk];
+                }
                 $result['teams']++;
 
                 $id = DB::table('teams')->insertGetId(['company_id' => $companyId, 'team_name' => mb_substr($name, 0, 191),
@@ -666,7 +715,7 @@ class MasterSheetImport
                 // Leave types list the departments they apply to; a new one must be on them.
                 \App\Services\Leaves\LeaveTypeScope::include('department', [$id]);
 
-                return $id;
+                return $made[$mk] = $id;
             };
 
             foreach ($master['groupings'] as $k => $g) {
@@ -677,8 +726,9 @@ class MasterSheetImport
                 $parent = $d['group'] ? $master['groupings'][$d['group']]['id'] : null;
 
                 if ($d['id']) {
-                    // An existing department goes under its grouping.
-                    if ($parent && (int) DB::table('teams')->where('id', $d['id'])->value('parent_id') !== (int) $parent) {
+                    // An existing department goes under its grouping (never under itself).
+                    if ($parent && (int) $parent !== (int) $d['id']
+                        && (int) DB::table('teams')->where('id', $d['id'])->value('parent_id') !== (int) $parent) {
                         DB::table('teams')->where('id', $d['id'])->update(['parent_id' => $parent, 'updated_at' => $now]);
                     }
                 } else {
@@ -1192,6 +1242,19 @@ class MasterSheetImport
     protected function key(string $name): string
     {
         return preg_replace('/[^a-z0-9]/', '', strtolower($name));
+    }
+
+    /**
+     * A team's identity: case, spaces and punctuation aside, and a trailing
+     * "Department" / "Dept" / "Division" / "Team" too - "IT", "IT Department"
+     * and "it dept." are one team.
+     */
+    protected function teamKey(string $name): string
+    {
+        $key = $this->key($name);
+        $short = preg_replace('/(department|dept|division|team)$/', '', $key);
+
+        return $short !== '' ? $short : $key;
     }
 
     protected function nameKey(string $name): string

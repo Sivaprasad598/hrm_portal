@@ -228,6 +228,16 @@ class AttendanceDays
                     $extra['worked_minutes'] = intdiv($rules->worked($edge['first'], $edge['last'], $shift, $key), 60);
                 }
 
+                // Sandwich rule (Leave Settings): an off day booked inside an unpaid
+                // leave is unpaid too - unless they worked it.
+                $offLeave = $leaveByDay[$key] ?? null;
+                if ($offLeave && (float) ($offLeave['unpaid'] ?? 0) >= 1.0 && empty($extra['worked_minutes'])
+                    && \App\Services\Leaves\SandwichRule::enabled()) {
+                    $breakdown['lop_leave'] += 1.0;
+                    $day($key, 'lop_leave', 0.0, $shift, ['note' => 'Sandwich rule: inside unpaid leave']);
+                    continue;
+                }
+
                 $breakdown[$weekOff ? 'week_off' : 'holiday']++;
                 $daysPresent++;
                 $day($key, $weekOff ? 'week_off' : 'holiday', 1.0, $shift,
