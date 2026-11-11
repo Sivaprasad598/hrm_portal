@@ -20,7 +20,12 @@ $dbConn = $dbConfig['connections']['mysql'] ?? null;
 $userRole = isset($_GET['user_role']) ? trim($_GET['user_role']) : 'employee';
 
 if (function_exists('user_roles')) {
-    $userRole = in_array('admin', (array) user_roles()) ? 'admin' : 'employee';
+    // Whoever may prepare payroll (HR included, not only the admin role) gets
+    // the calculator tools: back to calculator, attendance, print, and the
+    // "not generated" notice. The same test as the Payslip Calculator page.
+    $canPreparePayroll = class_exists(\App\Services\Access\PayrollAccess::class)
+        && \App\Services\Access\PayrollAccess::can('prepare');
+    $userRole = (in_array('admin', (array) user_roles()) || $canPreparePayroll) ? 'admin' : 'employee';
 }
 
 // This page's links back to the calculator, which lives at /account/legacy/...
@@ -129,8 +134,15 @@ if ($dbConn) {
                 );
                 $guardUserStmt->execute([':card' => $_POST['emp_id'] ?? '']);
                 $guardCycle = \App\Services\Payroll\PayPeriod::forMonth((int) date('n', $periodStart), (int) date('Y', $periodStart));
-                $guardBlocker = (new \App\Services\Iapp\Pipeline\PipelineStatus())
-                    ->payslipBlocker((int) $guardUserStmt->fetchColumn(), $guardCycle);
+                // Same rules as Payroll Run (AttendanceGate): cycle over, device
+                // feed only when payroll uses it, and some attendance in the
+                // system unless the employee is "Attendance exempt".
+                $guardUserId = (int) $guardUserStmt->fetchColumn();
+                $guardCompany = function_exists('company') && is_object(company()) ? (int) company()->id : null;
+                $guardBlocked = $guardUserId
+                    ? (new \App\Services\Payroll\AttendanceGate())->blocker($guardUserId, $guardCycle, $guardCompany)
+                    : null;
+                $guardBlocker = $guardBlocked[0] ?? null;
             }
 
             $figureError = match (true) {
@@ -150,7 +162,9 @@ if ($dbConn) {
                     . ' A payslip can only be issued for the current month or an earlier one.';
                 $id = 0;
             } elseif ($guardBlocker) {
-                $payslipBlockedMessage = 'Not yet: ' . htmlspecialchars($guardBlocker, ENT_QUOTES, 'UTF-8');
+                // "No attendance recorded…" is not a matter of waiting, so it gets no "Not yet:".
+                $payslipBlockedMessage = (str_starts_with($guardBlocker, 'no attendance') ? '' : 'Not yet: ')
+                    . htmlspecialchars(str_starts_with($guardBlocker, 'no attendance') ? ucfirst($guardBlocker) : $guardBlocker, ENT_QUOTES, 'UTF-8');
                 $id = 0;
             } elseif ($existingSlipId) {
                 $payslipBlockedMessage = 'A payslip for '
@@ -434,9 +448,19 @@ if ($dbConn) {
             }
         }
 
+        $refusedEmpId = (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset($_POST['from_calculator']))
+            ? trim((string) ($_POST['emp_id'] ?? '')) : '';
+
         if ($id > 0) {
             $stmt = $pdo->prepare("SELECT * FROM payslips WHERE id = :id");
             $stmt->execute([':id' => $id]);
+            $row = $stmt->fetch();
+        } elseif ($refusedEmpId !== '') {
+            // A generation was refused: show that employee's slip for the month
+            // asked for, else their latest - never another employee's.
+            $stmt = $pdo->prepare("SELECT * FROM payslips WHERE emp_id = :empId AND deleted_at IS NULL
+                                   ORDER BY (period = :period) DESC, id DESC LIMIT 1");
+            $stmt->execute([':empId' => $refusedEmpId, ':period' => trim((string) ($_POST['period'] ?? ''))]);
             $row = $stmt->fetch();
         } elseif (!empty($_GET['emp_id'])) {
             // A month/year filter was selected on the dashboard — show that specific
@@ -785,10 +809,24 @@ if ($dbConn) {
                     'month' => (int) date('n', strtotime($row['period_end'])), 'year' => (int) date('Y', strtotime($row['period_end']))])
                 : null;
 
+            // The company's registered name for the Modern header (Classic prints
+            // only the logo and the address), from the company record.
+            $companyLegalName = 'AROWANA';
+            try {
+                $companyStmt = $pdo->prepare('SELECT company_name FROM companies WHERE id = :id LIMIT 1');
+                $companyStmt->execute([':id' => (int) ($row['company_id'] ?? 1)]);
+                $companyLegalName = trim((string) $companyStmt->fetchColumn()) ?: $companyLegalName;
+            } catch (PDOException $e) {
+                // The short name will do.
+            }
+
             // Build full structure
             $payslip = [
+                // Plain-text address (one line per line) for templates that escape
+                // what they print; company.address below keeps Classic's HTML.
+                'address' => trim(html_entity_decode(strip_tags(str_ireplace(['<br>', '<br/>', '<br />'], "\n", $companyAddress)))),
                 'company' => [
-                    'name'    => 'AROWANA',
+                    'name'    => $companyLegalName,
                     'mark'    => '△',
                     'tagline' => 'PRECISION ▲ INNOVATION ▲ SUCCESS',
                     'address' => $companyAddress,
@@ -841,10 +879,19 @@ if (!$payslip) {
     ?>
     <!DOCTYPE html>
     <html>
-    <head><title>No Payslip Found</title></head>
-    <body>
-        <p>No payroll record found. Please generate a payslip first using the calculator.</p>
-        <p><a href="<?= e($calculatorUrl) ?>?compact=1">Go to Calculator</a></p>
+    <head><title>No Payslip Found</title><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+    <body style="font-family: Arial, Helvetica, sans-serif; background:#f4f6fa; margin:0; padding:32px 16px;">
+        <div style="max-width:720px; margin:0 auto;">
+        <?php if (!empty($payslipBlockedMessage)): ?>
+            <div style="padding:12px 16px; border:1px solid #f0c36d; background:#fdf7e3; border-radius:6px; color:#7a5d00; font-size:14px; line-height:1.5; margin-bottom:14px;">
+                <strong>Payslip not generated.</strong> <?= $payslipBlockedMessage ?>
+            </div>
+            <p style="font-size:14px; color:#475467;">This employee has no payslip on record yet.</p>
+        <?php else: ?>
+            <p>No payroll record found. Please generate a payslip first using the calculator.</p>
+        <?php endif; ?>
+            <p><a href="<?= e($calculatorUrl) ?>?compact=1" style="color:#1f5b91;">← Back to calculator</a></p>
+        </div>
     </body>
     </html>
     <?php
@@ -860,7 +907,12 @@ if (!$payslip) {
 // ---------------------------------------------------------------------------
 $payslipTemplate = null;
 
-if (isset($row) && is_array($row) && !empty($row['template'])) {
+// A payslip keeps the design it carries only once it has been handed over:
+// e-mailed or paid. Until then (draft or approved) it shows the design chosen
+// in Payslip Settings now, so changing the setting is seen straight away.
+$payslipHandedOver = isset($row) && is_array($row) && (!empty($row['sent_at']) || !empty($row['paid_at']));
+
+if ($payslipHandedOver && !empty($row['template'])) {
     $payslipTemplate = (string) $row['template'];
 } elseif ($pdo) {
     try {

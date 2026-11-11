@@ -227,7 +227,7 @@ class PayslipListController extends AccountBaseController
             DB::table('payslips')->where('id', $slip->id)->update([
                 'approval_status' => 'paid', 'paid_by' => user()->id, 'paid_at' => now(),
                 'payment_reference' => $request->reference,
-            ]);
+            ] + $this->designLockedNow($slip));
 
             $paid++;
         }
@@ -297,7 +297,7 @@ class PayslipListController extends AccountBaseController
 
                 DB::table('payslips')->where('id', $slip->id)->update([
                     'sent_at' => now(), 'sent_to' => $address, 'sent_by' => user()->id,
-                ]);
+                ] + $this->designLockedNow($slip));
 
                 $sent++;
             } catch (\Throwable $failure) {
@@ -703,6 +703,20 @@ class PayslipListController extends AccountBaseController
 
             return true;
         });
+    }
+
+    /**
+     * The design a payslip keeps from here on. Until it is e-mailed or paid it
+     * shows whatever Payslip Settings selects now (payslips.php); the first
+     * hand-over writes that design onto it, so it never changes afterwards.
+     */
+    protected function designLockedNow(object $slip): array
+    {
+        if (!empty($slip->sent_at) || !empty($slip->paid_at)) {
+            return [];
+        }
+
+        return ['template' => app(\App\Services\Payroll\PayslipTemplates::class)->selected((int) $slip->company_id ?: null)];
     }
 
 }

@@ -188,6 +188,28 @@
                     <div class="tab-pane fade" id="payrollCalculationTabPane" role="tabpanel"
                          aria-labelledby="payroll-calculation-tab">
 
+                        {{-- Where payroll takes attendance from (AttendanceGate). --}}
+                        <div class="border rounded p-3 mb-3 d-flex align-items-start justify-content-between flex-wrap" style="gap:12px;">
+                            <div style="max-width: 760px;">
+                                <h6 class="f-15 f-w-500 mb-1">Use biometric attendance for payroll</h6>
+                                <p class="f-13 text-dark-grey mb-0">
+                                    <strong>On:</strong> before issuing a payslip, payroll waits until the biometric feed has reached the
+                                    last day of the pay cycle, and writes any device days into attendance first.<br>
+                                    <strong>Off:</strong> payroll pays from the attendance already in the system (the daily biometric sync,
+                                    web and app clock-ins, HR entries) and never waits on the device.<br>
+                                    Either way, someone with no attendance at all in the cycle is not paid until it is entered, or
+                                    "Attendance exempt" is ticked on their employee form.
+                                </p>
+                            </div>
+                            <div class="custom-control custom-switch mt-1">
+                                <input type="checkbox" class="custom-control-input" id="use_biometric_attendance"
+                                       @checked($useBiometricAttendance)>
+                                <label class="custom-control-label f-14" for="use_biometric_attendance">
+                                    {{ $useBiometricAttendance ? 'On' : 'Off' }}
+                                </label>
+                            </div>
+                        </div>
+
                         <div class="d-flex justify-content-end mb-3">
                             <x-forms.button-primary icon="plus" id="addPayrollCalculation">
                                 @lang('modules.payslipSettings.addPayrollCalculation')
@@ -246,9 +268,9 @@
 
                         <div class="alert alert-info f-13" role="alert">
                             <i class="fa fa-info-circle mr-1"></i>
-                            This applies to payslips issued <strong>from now on</strong>. A payslip already
-                            issued keeps the design it was issued in, so nothing that has been sent or filed
-                            changes.
+                            This applies <strong>straight away</strong> to every payslip that has not been
+                            e-mailed or paid yet, drafts and approved ones included. A payslip already e-mailed or
+                            paid keeps the design it went out in, so nothing that has been sent or filed changes.
                         </div>
 
                         <div class="row">
@@ -618,6 +640,15 @@
                 return '<div>' + $('<div>').text(p).html() + '</div>';
             }).join(''));
         }
+
+        $('#use_biometric_attendance').on('change', function () {
+            var on = this.checked;
+            $(this).next('label').text(on ? 'On' : 'Off');
+            $.easyAjax({
+                url: "{{ route('payslip-settings.attendance-source') }}", type: 'POST', blockUI: true,
+                data: { _token: '{{ csrf_token() }}', use_biometric_attendance: on ? 1 : 0 }
+            });
+        });
 
         var payrollCalculationBaseUrl = "{{ route('legacy.page', 'payslip_inputs') }}";
 

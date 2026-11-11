@@ -110,8 +110,14 @@ if (!empty($ytdSource['label'])) {
   /* The buttons above the sheet are for a monitor only: hidden on paper and,
      since DomPDF skips @media screen, in the PDF too. */
   .actions { display: none; }
+  .blocked-note { display: none; }
 
   @media screen {
+    .blocked-note {
+      display: block; width: 210mm; max-width: 100%; margin: 0 auto 12px; box-sizing: border-box;
+      padding: 10px 14px; border: 1px solid #f0c36d; background: #fdf7e3; border-radius: 6px;
+      color: #7a5d00; font-family: 'Open Sans', Arial, Helvetica, sans-serif; font-size: 13px; line-height: 1.5;
+    }
     .actions {
       display: flex; gap: 10px; justify-content: flex-end;
       width: 210mm; max-width: 100%; margin: 0 auto 12px;
@@ -274,6 +280,13 @@ if (!empty($ytdSource['label'])) {
   <button type="button" onclick="window.print()">🖨 Print</button>
 </div>
 <?php endif; ?>
+<?php if (!empty($payslipBlockedMessage)): ?>
+  <?php // A generation was refused; the slip already on record is shown below. Screen only. ?>
+  <div class="blocked-note">
+    <strong>Payslip not generated.</strong>
+    <?= $payslipBlockedMessage ?>
+  </div>
+<?php endif; ?>
 <div class="sheet">
 
   <!-- who issued it -->
@@ -288,7 +301,7 @@ if (!empty($ytdSource['label'])) {
       <td class="org">
         <div class="org-name"><?= e($company['name'] ?? '') ?></div>
         <?php if (!empty($payslip['address'])) { ?>
-          <div class="org-line"><?= e($payslip['address']) ?></div>
+          <div class="org-line"><?= nl2br(e($payslip['address'])) ?></div>
         <?php } ?>
         <?php if (!empty($payslip['branch_name'])) { ?>
           <div class="org-line"><?= e($payslip['branch_name']) ?></div>

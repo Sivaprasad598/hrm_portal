@@ -1501,6 +1501,9 @@ function allocation_footer($label, $opening, $amount)
                 <select id="payslip_year" name="year"></select>
             </div>
         </div>
+        <!-- Shown when the employee has no month that can be paid yet (e.g. joins in the future). -->
+        <div id="noMonthAlert" role="alert" style="display:none; margin:0 0 0.75rem; padding:0.6rem 0.85rem; border-radius:8px; background:#fff4e5; border:1px solid #f5c27a; color:#8a5300; font-size:0.85rem;"></div>
+        <style>#generatePayslipBtn:disabled { opacity: .45; cursor: not-allowed; }</style>
         <!-- The salary period's attendance, day by day, once an employee and month are picked. -->
         <div id="periodAttendanceLink" style="display:none; font-size:0.8rem; margin:-0.25rem 0 0.6rem;">
             <a href="#" target="_blank" title="Every day of this salary period, as payroll counts it">📅 View attendance for this salary period</a>
@@ -2391,6 +2394,31 @@ function allocation_footer($label, $opening, $amount)
             const currentMonth = new Date().getMonth() + 1;
             if (selectedYear === new Date().getFullYear() && currentMonth >= startMonth) {
                 monthSelect.value = currentMonth;
+            }
+
+            // No month to pay (the employee joins later): say why, rather than an empty list.
+            const noMonthAlert = byId('noMonthAlert');
+            if (!monthSelect.options.length) {
+                const none = document.createElement('option');
+                none.value = '';
+                none.textContent = 'No month available';
+                none.disabled = true;
+                none.selected = true;
+                monthSelect.appendChild(none);
+
+                const joinDate = joiningDateInput.value ? new Date(joiningDateInput.value) : null;
+                const joinText = joinDate && !isNaN(joinDate)
+                    ? joinDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+                    : null;
+                noMonthAlert.textContent = joinText
+                    ? '⚠ No month to pay yet: this employee joins on ' + joinText + '. If that date is wrong, correct it on the employee\'s page (HR → Employees → Edit).'
+                    : '⚠ No month is available for the selected year.';
+                noMonthAlert.style.display = 'block';
+                generateBtn.disabled = true;
+            } else {
+                noMonthAlert.style.display = 'none';
+                noMonthAlert.textContent = '';
+                generateBtn.disabled = false;
             }
         }
 

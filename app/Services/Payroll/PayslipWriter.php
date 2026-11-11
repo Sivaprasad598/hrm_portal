@@ -67,36 +67,20 @@ class PayslipWriter
             return $this->refuse($employee->name . ' has no CTC on record - enter it on their employee form (Salary) and run payroll again');
         }
 
-        // The cycle must be over, and for anyone on the device the feed must
-        // reach its last day - see PipelineStatus::payslipBlocker().
+        // The cycle must be over; the device feed waited on only when payroll uses
+        // biometric attendance; and nobody is paid a whole month of LOP for want
+        // of any attendance in the system unless marked "Attendance exempt"
+        // (230 drafts of ~27 LOP days once came from devices not pulled).
+        // See AttendanceGate - Generate One Payslip applies the same rules.
         $pipeline = new \App\Services\Iapp\Pipeline\PipelineStatus();
+        $useDevice = AttendanceGate::useBiometric((int) $employee->company_id ?: null);
 
-        if ($blocker = $pipeline->payslipBlocker($userId, $cycle)) {
-            // The period not over yet is final; the device feed lagging can be
-            // passed by HR's "Issue anyway".
-            $deviceLag = str_starts_with($blocker, 'device attendance');
+        if ($blocked = (new AttendanceGate())->blocker($userId, $cycle, (int) $employee->company_id ?: null, $employee->name)) {
+            [$reason, $deviceLag] = $blocked;
 
+            // The device feed lagging can be passed by HR's "Issue anyway".
             if (!$deviceLag || !$anyway) {
-                return $this->refuse($employee->name . ': ' . $blocker, $deviceLag);
-            }
-        }
-
-        // Nothing at all to pay from: not on any device we pull, no attendance and no
-        // approved leave in the cycle. Paying that would be a whole month of LOP (230
-        // drafts of ~27 LOP days came from branches whose devices are not pulled), so
-        // it is held until attendance is in, or entered by hand.
-        // Attendance-exempt people (directors, heads who do not punch) are paid
-        // in full but for leave, so they never wait for attendance.
-        if (!$pipeline->deviceCodeFor($userId) && !$employee->attendance_exempt) {
-            $hasAttendance = DB::table('attendances')->where('user_id', $userId)
-                ->whereBetween('clock_in_time', [$cycle->start->copy()->startOfDay(), $cycle->end->copy()->endOfDay()])->exists();
-            $hasLeave = DB::table('leaves')->where('user_id', $userId)->where('status', 'approved')
-                ->whereBetween('leave_date', [$cycle->start->toDateString(), $cycle->end->toDateString()])->exists();
-
-            if (!$hasAttendance && !$hasLeave) {
-                return $this->refuse($employee->name . ': no attendance recorded for ' . $cycle->describe()
-                    . ' (not on a biometric device that is pulled, and none entered). Mark their attendance, or if they do not'
-                    . ' record attendance at all, tick "Attendance exempt" on their employee form to pay them in full.');
+                return $this->refuse($reason, $deviceLag);
             }
         }
 
@@ -110,8 +94,9 @@ class PayslipWriter
 
         // Device days that have not been written into ERP attendance yet would
         // count as absence, so write them first. Skip mode: a day already holding
-        // attendance from anywhere else is left as it is.
-        if ($pipeline->deviceInUse() && $pipeline->deviceCodeFor($userId)
+        // attendance from anywhere else is left as it is. Not when payroll is set
+        // to pay from the system's attendance alone.
+        if ($useDevice && $pipeline->deviceInUse() && $pipeline->deviceCodeFor($userId)
             && $pipeline->pendingPushDays($cycle->start, $cycle->end, [$userId]) > 0) {
             (new \App\Services\Iapp\Sync\AttendanceSync($pipeline->config()))->run(
                 $cycle->start->copy()->startOfDay(),

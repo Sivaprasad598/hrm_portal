@@ -87,6 +87,15 @@ class LegacyPageController extends AccountBaseController
         }
 
         $file = base_path($definition['file']);
+
+        // Linux servers tell "Attendance_Dashboard.php" from "attendance_dashboard.php";
+        // Windows does not, so a copy uploaded from a PC can carry another case.
+        if (!is_file($file)) {
+            $wanted = strtolower($definition['file']);
+            $found = collect(glob(base_path('*.php')) ?: [])->first(fn ($path) => strtolower(basename($path)) === $wanted);
+            $file = $found ?: $file;
+        }
+
         abort_unless(is_file($file), 404);
 
         $this->pageTitle = $definition['title'];

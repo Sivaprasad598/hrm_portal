@@ -35,7 +35,17 @@ class PayslipSettingController extends AccountBaseController
         $this->payslipTemplates = $templates->all();
         $this->payslipTemplate = $templates->selected();
 
+        $this->useBiometricAttendance = \App\Services\Payroll\AttendanceGate::useBiometric(company()?->id);
+
         return view('payslip-settings.index', $this->data);
+    }
+
+    /** Payroll Calculation -> "Use biometric attendance for payroll" (AttendanceGate). */
+    public function saveAttendanceSource(\Illuminate\Http\Request $request)
+    {
+        \App\Services\Payroll\AttendanceGate::setUseBiometric(company()?->id, $request->boolean('use_biometric_attendance'));
+
+        return Reply::success(__('messages.updateSuccess'));
     }
 
     public function create()
