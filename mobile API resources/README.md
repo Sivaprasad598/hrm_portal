@@ -358,7 +358,8 @@ The payslip as a **PDF**: the same document the website and e-mail give.
 ### How the app should drive the clock screen
 1. On opening the screen, call **`GET /attendance/today`**. It tells you whether the employee is clocked in, whether a break is running, and whether a photo or location is needed.
 2. Show **Clock in** or **Clock out**, plus **Start break** or **End break**, from `clocked_in` and `on_break`.
-3. After every action, call `GET /attendance/today` again, or use the action's own answer.
+3. For the clock card, use **`clock_status`**: it says in plain words where the person stands and where the punch came from (biometric device, app, website, HR), with a ready-made `message`. See [clock_status](#clock_status-where-the-employee-stands-right-now).
+4. After every action, call `GET /attendance/today` again, or use the action's own answer. Clock-in and clock-out also return `clock_status`.
 
 The app follows the **same Attendance Settings as the website's clock-in**:
 - **Employees may clock in themselves.** When HR turns this off, clock-in answers `403`. Clock-out still works.
@@ -386,11 +387,21 @@ The shift's clock-in window is **not** applied. The app may clock in at any hour
     "requirements": { "photo": "optional", "location": "optional" },
     "can_clock_in": true,
     "office_radius_m": null,
-    "offices": [ { "id": 1, "name": "Visakhapatnam, Andhra Pradesh 530007", "is_default": true, "latitude": 17.7462, "longitude": 83.2631 } ]
+    "offices": [ { "id": 1, "name": "Visakhapatnam, Andhra Pradesh 530007", "is_default": true, "latitude": 17.7462, "longitude": 83.2631 } ],
+    "clock_status": {
+      "state": "clocked_in",
+      "message": "Clocked in on the mobile app at 09:12 AM",
+      "show_clock_in_button": false,
+      "show_clock_out_button": true,
+      "clock_in": { "time": "09:12 AM", "at": "2026-10-27T09:12:06+05:30", "source": "mobile_app", "source_label": "Mobile app", "device": null },
+      "clock_out": null,
+      "biometric_synced_at": "2026-10-27T13:15:00+05:30"
+    }
   }
 }
 ```
 
+- `clock_status`: see [below](#clock_status-where-the-employee-stands-right-now).
 - `can_clock_in: false`: HR has turned off self clock-in. Hide the **Clock in** button.
 - `office_radius_m`: the allowed distance from the office in metres, or `null` when the distance is not checked.
 - `offices`: the company's offices, for an optional "where are you" picker. Send the chosen `id` as `location_id`.
@@ -418,7 +429,8 @@ The shift's clock-in window is **not** applied. The app may clock in at any hour
 **201**
 ```json
 { "success": true, "message": "Clocked in at 09:12 AM.",
-  "data": { "id": 17987, "clock_in": "2026-10-27T09:12:06+05:30", "clock_out": null, "source": "mobile_app", "work_from": "office", "minutes": null } }
+  "data": { "id": 17987, "clock_in": "2026-10-27T09:12:06+05:30", "clock_out": null, "source": "mobile_app", "work_from": "office", "minutes": null,
+            "clock_status": { "state": "clocked_in", "message": "Clocked in on the mobile app at 09:12 AM", "...": "as in GET /attendance/today" } } }
 ```
 
 Refusals:
@@ -438,10 +450,66 @@ Same fields as clock-in. It closes the open session.
 **200**
 ```json
 { "success": true, "message": "Clocked out at 06:41 PM.",
-  "data": { "id": 17987, "clock_in": "2026-10-27T09:12:06+05:30", "clock_out": "2026-10-27T18:41:22+05:30", "source": "mobile_app", "work_from": "office", "minutes": 569 } }
+  "data": { "id": 17987, "clock_in": "2026-10-27T09:12:06+05:30", "clock_out": "2026-10-27T18:41:22+05:30", "source": "mobile_app", "work_from": "office", "minutes": 569,
+            "clock_status": { "state": "clocked_out", "message": "Clocked out on the mobile app at 06:41 PM. Waiting for the biometric exit.", "...": "as in GET /attendance/today" } } }
 ```
 
 A session left open for more than 20 hours, for example after forgetting to clock out, is no longer treated as "clocked in". The employee can clock in again the next day, and HR can correct the forgotten session.
+
+### `clock_status`: where the employee stands right now
+
+Returned by `GET /attendance/today`, `POST /attendance/clock-in` and `POST /attendance/clock-out`. It describes the open session, or else the latest session today. The full list stays in `sessions`. All older fields keep their meaning; `clock_status` is only added beside them.
+
+| Field | Values |
+|---|---|
+| `state` | `clocked_in`, `clocked_out`, `not_clocked_in` |
+| `message` | Ready to show, e.g. *"Clocked in on the biometric device at 09:30 AM"* |
+| `show_clock_in_button`, `show_clock_out_button` | Which button to show. (`can_clock_in` still says whether HR allows self clock-in at all.) |
+| `clock_in`, `clock_out` | `null`, or `{ time, at, source, source_label, device }`. `clock_out` also has `device_check`. |
+| `source` | `biometric` (the device), `mobile_app`, `web` (the website), `hr` (entered by HR), `auto` (automatic clock-out; clock-out only) |
+| `device` | The biometric device's name for a biometric punch, e.g. `"Muralinagar -ii"`; otherwise `null` |
+| `device_check` | Only for a clock-out made on the app or the website: `pending` (the device saw them today; waiting for its exit), `hr_notified` (no device exit, HR has been told), or `null` (nothing to check) |
+| `biometric_synced_at` | When device punches were last brought in. They come in every 15 minutes. |
+
+**How the biometric device and the app work together**
+- A punch on the biometric device shows as clocked in within about 15 minutes, with `source: "biometric"`; the app then offers only **Clock out**.
+- Clocked in on the app, out on the device: the device's exit closes the session (`clock_out.source: "biometric"`).
+- Clocked out on the app on a day the device saw them: the device comes first. If the device has an exit, its time replaces the app's clock-out on the next sync. If it has none 30 minutes later, the app's clock-out is kept and HR is notified (`device_check: "hr_notified"`).
+- Never on the device that day (e.g. working from home): nothing to check, `device_check: null`.
+
+Biometric session, still at work:
+```json
+"clock_status": {
+  "state": "clocked_in",
+  "message": "Clocked in on the biometric device at 09:30 AM",
+  "show_clock_in_button": false,
+  "show_clock_out_button": true,
+  "clock_in": { "time": "09:30 AM", "at": "2026-11-12T09:30:00+05:30", "source": "biometric", "source_label": "Biometric device", "device": "Muralinagar -ii" },
+  "clock_out": null,
+  "biometric_synced_at": "2026-11-12T09:45:00+05:30"
+}
+```
+
+Clocked out on the app, no device exit after 30 minutes:
+```json
+"clock_status": {
+  "state": "clocked_out",
+  "message": "Clocked out on the mobile app at 06:05 PM. The biometric device has no exit; HR has been notified.",
+  "show_clock_in_button": true,
+  "show_clock_out_button": false,
+  "clock_in":  { "time": "09:00 AM", "at": "2026-11-13T09:00:00+05:30", "source": "mobile_app", "source_label": "Mobile app", "device": null },
+  "clock_out": { "time": "06:05 PM", "at": "2026-11-13T18:05:00+05:30", "source": "mobile_app", "source_label": "Mobile app", "device": null, "device_check": "hr_notified" },
+  "biometric_synced_at": "2026-11-13T18:45:00+05:30"
+}
+```
+
+The device exit at 06:20 PM came through later:
+```json
+"clock_out": { "time": "06:20 PM", "at": "2026-11-13T18:20:00+05:30", "source": "biometric", "source_label": "Biometric device", "device": "Muralinagar -ii", "device_check": null },
+"message": "Clocked out on the biometric device at 06:20 PM"
+```
+
+Not clocked in yet: `"state": "not_clocked_in"`, `"message": "Not clocked in today"`, `clock_in` and `clock_out` both `null`.
 
 ### POST `/attendance/breaks/start`
 

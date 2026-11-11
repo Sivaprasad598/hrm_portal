@@ -170,11 +170,12 @@
         </div>
 
         @if(!in_array('client', user_roles()))
+            {{-- Date of birth and joining date are HR records: shown here, changed
+                 only by HR on the employee's page (ProfileController ignores both). --}}
             <div class="col-lg-4">
-                <x-forms.datepicker fieldId="date_of_birth" :fieldLabel="__('modules.employees.dateOfBirth')"
-                                    :fieldRequired="!\App\Services\Access\SystemAccounts::is((int) $user->id)"
-                                    fieldName="date_of_birth" :fieldPlaceholder="__('placeholders.date')"
-                                    :fieldValue="($user->employeeDetail->date_of_birth ? $user->employeeDetail->date_of_birth->format(company()->date_format) : '')"/>
+                <x-forms.text fieldId="date_of_birth_view" :fieldLabel="__('modules.employees.dateOfBirth')" fieldName="date_of_birth_view"
+                    :fieldValue="$user->employeeDetail?->date_of_birth ? $user->employeeDetail->date_of_birth->format(company()->date_format) : '--'"
+                    fieldReadOnly="true" fieldHelp="Set by HR" />
             </div>
             {{-- Hidden: Slack member ID (kept as it is).
             <div class="col-lg-4">
@@ -214,21 +215,15 @@
                     fieldName="marriage_anniversary_date" :fieldPlaceholder="__('placeholders.date')"
                     :fieldValue="$user->employeeDetail->marriage_anniversary_date ? Carbon\Carbon::parse($user->employeeDetail->marriage_anniversary_date)->format(company()->date_format) : '' " />
             </div>
-            {{-- The joining date drives payroll and leave, so HR sets it: with the
-                 calendar for someone who may edit employees, shown read-only to others. --}}
+            {{-- The joining date drives payroll and leave: set by HR on the
+                 employee's page, read-only here for everyone. --}}
             <div class="col-lg-4 col-md-6">
-                @if (user()->permission('edit_employees') === 'all')
-                    <x-forms.datepicker fieldId="joining_date" :fieldLabel="__('modules.employees.joiningDate')"
-                        fieldName="joining_date" :fieldPlaceholder="__('placeholders.date')"
-                        :fieldValue="$user->employeeDetail->joining_date ? $user->employeeDetail->joining_date->format(company()->date_format) : ''" />
-                @else
-                    <x-forms.text fieldId="joining_date_view" :fieldLabel="__('modules.employees.joiningDate')" fieldName="joining_date_view"
-                        :fieldValue="$user->employeeDetail->joining_date ? $user->employeeDetail->joining_date->format(company()->date_format) : '--'"
-                        fieldReadOnly="true" fieldHelp="Set by HR" />
-                    <style>#joining_date_view[readonly] { background: #f2f4f7; cursor: not-allowed; }</style>
-                @endif
+                <x-forms.text fieldId="joining_date_view" :fieldLabel="__('modules.employees.joiningDate')" fieldName="joining_date_view"
+                    :fieldValue="$user->employeeDetail->joining_date ? $user->employeeDetail->joining_date->format(company()->date_format) : '--'"
+                    fieldReadOnly="true" fieldHelp="Set by HR" />
             </div>
         @endif
+        <style>#joining_date_view[readonly], #date_of_birth_view[readonly] { background: #f2f4f7; cursor: not-allowed; }</style>
 
         <div class="col-md-12">
             <div class="my-3 form-group">
@@ -292,26 +287,10 @@
     $(document).ready(function () {
 
         @if (!in_array('client', user_roles()))
-            datepicker('#date_of_birth', {
-                position: 'bl',
-                maxDate: new Date(),
-                @if(!is_null($user->employeeDetail->date_of_birth))
-                dateSelected: new Date("{{ $user->employeeDetail->date_of_birth ? str_replace('-', '/', $user->employeeDetail->date_of_birth) : str_replace('-', '/', now()) }}"),
-                @endif
-                ...datepickerConfig
-            });
-
             datepicker('#marriage_anniversary_date', {
                 position: 'bl',
                 ...datepickerConfig
             });
-
-            if (document.getElementById('joining_date')) {
-                datepicker('#joining_date', {
-                    position: 'bl',
-                    ...datepickerConfig
-                });
-            }
 
         @endif
 

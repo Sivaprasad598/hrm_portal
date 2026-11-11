@@ -54,7 +54,7 @@ class IappSyncPunches extends Command
         // how often a pull actually happens. Measured from the last full pull,
         // so a missed tick (a sleeping PC) is caught up on the next one.
         if ($this->option('scheduled')) {
-            $interval = max(5, (int) ($config->setting()?->sync_interval_minutes ?: 30));
+            $interval = max(5, (int) ($config->setting()?->sync_interval_minutes ?: 15));
             $last = (new \App\Services\Iapp\Pipeline\PipelineStatus($config))->lastPull();
 
             if ($last && $last->started_at && $last->started_at->gt(now()->subMinutes($interval - 1))) {

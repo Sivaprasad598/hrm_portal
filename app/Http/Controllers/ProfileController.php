@@ -110,7 +110,8 @@ class ProfileController extends AccountBaseController
             $employee->user_id = $user->id;
         }
 
-        $employee->date_of_birth = $request->date_of_birth ? companyToYmd($request->date_of_birth) : null;
+        // Date of birth and joining date are HR records: not changed from one's
+        // own profile (HR edits them on the employee's page).
         $employee->address = $request->address;
 
         // Slack and About are no longer on the form: kept as they were.
@@ -120,12 +121,6 @@ class ProfileController extends AccountBaseController
 
         if ($request->has('about_me')) {
             $employee->about_me = $request->about_me;
-        }
-
-        // The joining date drives payroll and leave: only someone who may edit
-        // employees changes it here (the form shows it read-only to others).
-        if ($request->filled('joining_date') && user()->permission('edit_employees') === 'all') {
-            $employee->joining_date = companyToYmd($request->joining_date);
         }
 
         if (in_array('employee', user_roles())) {

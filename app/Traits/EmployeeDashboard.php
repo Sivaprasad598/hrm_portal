@@ -927,6 +927,9 @@ trait EmployeeDashboard
 
         $attendance->clock_out_time = $now->copy()->timezone(config('app.timezone'));
         $attendance->clock_out_ip = request()->ip();
+        // The employee's own clock-out: the biometric sync keeps it when the
+        // device has no exit, and tells HR (AttendanceSync::USER_EXITS).
+        $attendance->clock_out_type = 'web';
 
         $attendance->clock_out_time_location_id = $request->clockOutLocation;
         $attendance->clock_out_time_work_from_type = $request->clockOutWorkFromType;

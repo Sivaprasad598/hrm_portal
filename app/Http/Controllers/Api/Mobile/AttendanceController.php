@@ -5,8 +5,11 @@ namespace App\Http\Controllers\Api\Mobile;
 use App\Http\Controllers\PayrollAttendanceController;
 use App\Models\Attendance;
 use App\Models\AttendanceBreakLog;
+use App\Models\BiometricException;
+use App\Models\IappAttendanceLink;
 use App\Services\Attendance\ClockInCapture;
 use App\Services\Attendance\ShiftResolver;
+use App\Services\Iapp\Sync\AttendanceSync;
 use App\Services\Payroll\AttendanceDays;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -31,6 +34,15 @@ class AttendanceController extends MobileController
 
     /** The longest period the attendance list answers in one call. */
     const MAX_RANGE_DAYS = 92;
+
+    /** clock_status: where a clock-in or clock-out came from, for display. */
+    const SOURCE_LABELS = [
+        'biometric' => 'Biometric device',
+        'mobile_app' => 'Mobile app',
+        'web' => 'Website',
+        'hr' => 'HR',
+        'auto' => 'Automatic clock-out',
+    ];
 
     public function today()
     {
@@ -59,6 +71,7 @@ class AttendanceController extends MobileController
             'can_clock_in' => $this->settings()->employee_clock_in_out === 'yes',
             'office_radius_m' => $this->settings()->radius_check === 'yes' ? (int) $this->settings()->radius : null,
             'offices' => $this->offices(),
+            'clock_status' => $this->clockStatus(),
         ]);
     }
 
@@ -111,7 +124,7 @@ class AttendanceController extends MobileController
         $attendance->added_by = $user->id;
         $attendance->save();
 
-        return $this->ok($this->session($attendance->fresh()), 'Clocked in at ' . $now->format('h:i A') . '.', 201);
+        return $this->ok($this->session($attendance->fresh()) + ['clock_status' => $this->clockStatus()], 'Clocked in at ' . $now->format('h:i A') . '.', 201);
     }
 
     public function clockOut(Request $request)
@@ -156,7 +169,7 @@ class AttendanceController extends MobileController
             }
         });
 
-        return $this->ok($this->session($attendance->fresh()), 'Clocked out at ' . $now->format('h:i A') . '.');
+        return $this->ok($this->session($attendance->fresh()) + ['clock_status' => $this->clockStatus()], 'Clocked out at ' . $now->format('h:i A') . '.');
     }
 
     public function startBreak(Request $request)
@@ -568,6 +581,168 @@ class AttendanceController extends MobileController
                 'minutes' => (int) $breaks->sum(fn ($b) => $b->ended_at ? intdiv($b->ended_at->diffInSeconds($b->started_at, true), 60) : 0),
             ],
         ];
+    }
+
+    /**
+     * Where the person stands right now, in plain terms, for the app's clock
+     * card: clocked in or out, and from where - the biometric device, the app,
+     * the website, HR, or the automatic clock-out. Describes the open session,
+     * or else the latest one today. Added beside the existing fields, which
+     * keep their meaning.
+     *
+     * A clock-out made on the app or the website on a day the device saw the
+     * person is checked against the device (AttendanceSync): device_check is
+     * "pending" until the device exit arrives (its time then replaces the
+     * clock-out) and "hr_notified" when it never did.
+     */
+    private function clockStatus(): array
+    {
+        $user = $this->me();
+        $session = $this->openSession() ?? $this->sessionsOn(now($this->tz())->toDateString())->last();
+        $syncedAt = $this->time(DB::table('iapp_settings')->where('company_id', $user->company_id)->value('last_sync_at'));
+
+        if (!$session) {
+            return [
+                'state' => 'not_clocked_in',
+                'message' => 'Not clocked in today',
+                'show_clock_in_button' => true,
+                'show_clock_out_button' => false,
+                'clock_in' => null,
+                'clock_out' => null,
+                'biometric_synced_at' => $syncedAt,
+            ];
+        }
+
+        $fromDevice = IappAttendanceLink::where('attendance_id', $session->id)
+            ->where('link_type', IappAttendanceLink::TYPE_CREATED)->exists();
+        $open = $session->clock_out_time === null;
+
+        $inSource = $this->inSource($session, $fromDevice);
+        $in = $this->clockPoint($session, 'clock_in_time', $inSource);
+        $out = null;
+
+        if (!$open) {
+            $outSource = $this->outSource($session, $fromDevice);
+            $out = $this->clockPoint($session, 'clock_out_time', $outSource)
+                + ['device_check' => in_array($outSource, AttendanceSync::USER_EXITS, true) ? $this->deviceCheck($session) : null];
+        }
+
+        $verb = $open ? 'Clocked in' : 'Clocked out';
+        $point = $open ? $in : $out;
+        $message = $verb . ' on the ' . strtolower($point['source_label']) . ' at ' . $point['time'];
+
+        if (!$open && $out['device_check'] === 'pending') {
+            $message .= '. Waiting for the biometric exit.';
+        }
+        elseif (!$open && $out['device_check'] === 'hr_notified') {
+            $message .= '. The biometric device has no exit; HR has been notified.';
+        }
+
+        return [
+            'state' => $open ? 'clocked_in' : 'clocked_out',
+            'message' => $message,
+            'show_clock_in_button' => !$open,
+            'show_clock_out_button' => $open,
+            'clock_in' => $in,
+            'clock_out' => $out,
+            'biometric_synced_at' => $syncedAt,
+        ];
+    }
+
+    /** biometric | mobile_app | web | hr */
+    private function inSource(Attendance $a, bool $fromDevice): string
+    {
+        if ($fromDevice) {
+            return 'biometric';
+        }
+
+        if ($a->clock_in_type === 'mobile_app') {
+            return 'mobile_app';
+        }
+
+        return (int) $a->added_by === (int) $a->user_id ? 'web' : 'hr';
+    }
+
+    /** biometric | mobile_app | web | auto | hr */
+    private function outSource(Attendance $a, bool $fromDevice): string
+    {
+        if (in_array($a->clock_out_type, [AttendanceSync::BIOMETRIC_EXIT, ...AttendanceSync::USER_EXITS], true)) {
+            return $a->clock_out_type;
+        }
+
+        if ($a->auto_clock_out) {
+            return 'auto';
+        }
+
+        // A day built from the device closes at its exit punch.
+        if ($fromDevice) {
+            return 'biometric';
+        }
+
+        // Clock-outs from before they were marked: the employee's own session,
+        // closed on the same channel it was opened on.
+        if ((int) $a->added_by === (int) $a->user_id) {
+            return $a->clock_in_type === 'mobile_app' ? 'mobile_app' : 'web';
+        }
+
+        return 'hr';
+    }
+
+    private function clockPoint(Attendance $a, string $field, string $source): array
+    {
+        $at = Carbon::parse($a->getRawOriginal($field), 'UTC')->setTimezone($this->tz());
+
+        return [
+            'time' => $at->format('h:i A'),
+            'at' => $at->toIso8601String(),
+            'source' => $source,
+            'source_label' => self::SOURCE_LABELS[$source] ?? ucfirst($source),
+            'device' => $source === 'biometric' ? $this->deviceAt($a->user_id, $at) : null,
+        ];
+    }
+
+    /** The biometric device that recorded a punch at this moment (within a few minutes), by name. */
+    private function deviceAt(int $userId, Carbon $local): ?string
+    {
+        $punch = DB::table('iapp_device_transactions')
+            ->where('user_id', $userId)
+            ->whereBetween('punch_time', [$local->copy()->subMinutes(3)->format('Y-m-d H:i:s'), $local->copy()->addMinutes(3)->format('Y-m-d H:i:s')])
+            ->orderByRaw('ABS(TIMESTAMPDIFF(SECOND, punch_time, ?))', [$local->format('Y-m-d H:i:s')])
+            ->first(['controller_code', 'raw_payload']);
+
+        if (!$punch) {
+            return null;
+        }
+
+        $name = json_decode((string) $punch->raw_payload, true)['controllerName'] ?? null;
+
+        return $name ?: ($punch->controller_code ?: null);
+    }
+
+    /**
+     * A clock-out made on the app or the website, against the device:
+     * hr_notified (no device exit, HR told), pending (the device saw them that
+     * day; its exit, if any, replaces this clock-out on the next sync), or null
+     * (the device never saw them, or HR has already dealt with it).
+     */
+    private function deviceCheck(Attendance $a): ?string
+    {
+        $in = Carbon::parse($a->getRawOriginal('clock_in_time'), 'UTC')->setTimezone($this->tz());
+        $date = $in->toDateString();
+
+        $escalation = BiometricException::withoutGlobalScopes()
+            ->where('fingerprint', 'exit_not_on_device|' . $date . '|' . $a->user_id)->first();
+
+        if ($escalation) {
+            return $escalation->status === BiometricException::OPEN ? 'hr_notified' : null;
+        }
+
+        $seen = DB::table('iapp_device_transactions')
+            ->where('user_id', $a->user_id)
+            ->whereBetween('punch_time', [$in->copy()->startOfDay()->format('Y-m-d H:i:s'), $in->copy()->endOfDay()->format('Y-m-d H:i:s')])
+            ->exists();
+
+        return $seen ? 'pending' : null;
     }
 
     private function session(Attendance $a, bool $full = false): array

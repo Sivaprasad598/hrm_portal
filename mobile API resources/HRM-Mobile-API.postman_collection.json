@@ -717,7 +717,7 @@
                 "today"
               ]
             },
-            "description": "Clocked in? On a break? Today's sessions and breaks, and whether photo / location are required.\n\nAlso returns can_clock_in (Attendance Settings switch), office_radius_m (null when the radius is not checked) and offices[] for the office picker."
+            "description": "Clocked in? On a break? Today's sessions and breaks, and whether photo / location are required.\n\nAlso returns can_clock_in (Attendance Settings switch), office_radius_m (null when the radius is not checked) and offices[] for the office picker.\n\nclock_status: where the employee stands right now and where the punch came from (biometric device, mobile app, website, HR), with a ready-made message. Biometric punches come in every 15 minutes. See README, section 6."
           },
           "response": [
             {
@@ -731,7 +731,7 @@
                 }
               ],
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"success\": true,\n  \"message\": \"OK\",\n  \"data\": {\n    \"date\": \"2026-10-27\",\n    \"shift\": {\n      \"name\": \"General Shift\",\n      \"type\": \"strict\",\n      \"start\": \"09:30\",\n      \"end\": \"18:30\",\n      \"working_day\": true\n    },\n    \"clocked_in\": true,\n    \"open_session\": {\n      \"id\": 17990,\n      \"clock_in\": \"2026-10-27T08:20:30+05:30\",\n      \"clock_out\": null,\n      \"source\": \"mobile_app\",\n      \"work_from\": \"office\",\n      \"minutes\": null\n    },\n    \"on_break\": true,\n    \"running_break\": {\n      \"id\": 8,\n      \"type\": \"lunch\",\n      \"label\": \"Lunch break\",\n      \"note\": \"canteen\",\n      \"started_at\": \"2026-10-27T08:20:33+05:30\",\n      \"ended_at\": null,\n      \"minutes\": null\n    },\n    \"sessions\": [\n      {\n        \"id\": 17990,\n        \"clock_in\": \"2026-10-27T08:20:30+05:30\",\n        \"clock_out\": null,\n        \"source\": \"mobile_app\",\n        \"work_from\": \"office\",\n        \"minutes\": null\n      }\n    ],\n    \"breaks\": [\n      {\n        \"id\": 8,\n        \"type\": \"lunch\",\n        \"label\": \"Lunch break\",\n        \"note\": \"canteen\",\n        \"started_at\": \"2026-10-27T08:20:33+05:30\",\n        \"ended_at\": null,\n        \"minutes\": null\n      }\n    ],\n    \"worked_minutes\": 0,\n    \"requirements\": {\n      \"photo\": \"optional\",\n      \"location\": \"optional\"\n    }\n  }\n}"
+              "body": "{\n  \"success\": true,\n  \"message\": \"OK\",\n  \"data\": {\n    \"date\": \"2026-10-27\",\n    \"shift\": {\n      \"name\": \"General Shift\",\n      \"type\": \"strict\",\n      \"start\": \"09:30\",\n      \"end\": \"18:30\",\n      \"working_day\": true\n    },\n    \"clocked_in\": true,\n    \"open_session\": {\n      \"id\": 17990,\n      \"clock_in\": \"2026-10-27T08:20:30+05:30\",\n      \"clock_out\": null,\n      \"source\": \"mobile_app\",\n      \"work_from\": \"office\",\n      \"minutes\": null\n    },\n    \"on_break\": true,\n    \"running_break\": {\n      \"id\": 8,\n      \"type\": \"lunch\",\n      \"label\": \"Lunch break\",\n      \"note\": \"canteen\",\n      \"started_at\": \"2026-10-27T08:20:33+05:30\",\n      \"ended_at\": null,\n      \"minutes\": null\n    },\n    \"sessions\": [\n      {\n        \"id\": 17990,\n        \"clock_in\": \"2026-10-27T08:20:30+05:30\",\n        \"clock_out\": null,\n        \"source\": \"mobile_app\",\n        \"work_from\": \"office\",\n        \"minutes\": null\n      }\n    ],\n    \"breaks\": [\n      {\n        \"id\": 8,\n        \"type\": \"lunch\",\n        \"label\": \"Lunch break\",\n        \"note\": \"canteen\",\n        \"started_at\": \"2026-10-27T08:20:33+05:30\",\n        \"ended_at\": null,\n        \"minutes\": null\n      }\n    ],\n    \"worked_minutes\": 0,\n    \"requirements\": {\n      \"photo\": \"optional\",\n      \"location\": \"optional\"\n    },\n    \"clock_status\": {\n      \"state\": \"clocked_in\",\n      \"message\": \"Clocked in on the mobile app at 08:20 AM\",\n      \"show_clock_in_button\": false,\n      \"show_clock_out_button\": true,\n      \"clock_in\": {\n        \"time\": \"08:20 AM\",\n        \"at\": \"2026-10-27T08:20:30+05:30\",\n        \"source\": \"mobile_app\",\n        \"source_label\": \"Mobile app\",\n        \"device\": null\n      },\n      \"clock_out\": null,\n      \"biometric_synced_at\": \"2026-10-27T13:15:00+05:30\"\n    }\n  }\n}"
             },
             {
               "name": "Not clocked in",
@@ -744,7 +744,33 @@
                 }
               ],
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"success\": true,\n  \"message\": \"OK\",\n  \"data\": {\n    \"date\": \"2026-10-27\",\n    \"shift\": {\n      \"name\": \"General Shift\",\n      \"type\": \"strict\",\n      \"start\": \"09:30\",\n      \"end\": \"18:30\",\n      \"working_day\": true\n    },\n    \"clocked_in\": false,\n    \"open_session\": null,\n    \"on_break\": false,\n    \"running_break\": null,\n    \"sessions\": [],\n    \"breaks\": [],\n    \"worked_minutes\": 0,\n    \"requirements\": {\n      \"photo\": \"optional\",\n      \"location\": \"optional\"\n    }\n  }\n}"
+              "body": "{\n  \"success\": true,\n  \"message\": \"OK\",\n  \"data\": {\n    \"date\": \"2026-10-27\",\n    \"shift\": {\n      \"name\": \"General Shift\",\n      \"type\": \"strict\",\n      \"start\": \"09:30\",\n      \"end\": \"18:30\",\n      \"working_day\": true\n    },\n    \"clocked_in\": false,\n    \"open_session\": null,\n    \"on_break\": false,\n    \"running_break\": null,\n    \"sessions\": [],\n    \"breaks\": [],\n    \"worked_minutes\": 0,\n    \"requirements\": {\n      \"photo\": \"optional\",\n      \"location\": \"optional\"\n    },\n    \"clock_status\": {\n      \"state\": \"not_clocked_in\",\n      \"message\": \"Not clocked in today\",\n      \"show_clock_in_button\": true,\n      \"show_clock_out_button\": false,\n      \"clock_in\": null,\n      \"clock_out\": null,\n      \"biometric_synced_at\": \"2026-10-27T13:15:00+05:30\"\n    }\n  }\n}"
+            },
+            {
+              "name": "Clocked in on the biometric device",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"OK\",\n  \"data\": {\n    \"date\": \"2026-10-27\",\n    \"shift\": {\n      \"name\": \"General Shift\",\n      \"type\": \"strict\",\n      \"start\": \"09:30\",\n      \"end\": \"18:30\",\n      \"working_day\": true\n    },\n    \"clocked_in\": true,\n    \"open_session\": {\n      \"id\": 41881,\n      \"clock_in\": \"2026-10-27T09:30:00+05:30\",\n      \"clock_out\": null,\n      \"source\": \"web\",\n      \"work_from\": \"other\",\n      \"minutes\": null\n    },\n    \"on_break\": false,\n    \"running_break\": null,\n    \"sessions\": [\n      {\n        \"id\": 41881,\n        \"clock_in\": \"2026-10-27T09:30:00+05:30\",\n        \"clock_out\": null,\n        \"source\": \"web\",\n        \"work_from\": \"other\",\n        \"minutes\": null\n      }\n    ],\n    \"breaks\": [],\n    \"worked_minutes\": 30,\n    \"requirements\": {\n      \"photo\": \"optional\",\n      \"location\": \"optional\"\n    },\n    \"clock_status\": {\n      \"state\": \"clocked_in\",\n      \"message\": \"Clocked in on the biometric device at 09:30 AM\",\n      \"show_clock_in_button\": false,\n      \"show_clock_out_button\": true,\n      \"clock_in\": {\n        \"time\": \"09:30 AM\",\n        \"at\": \"2026-10-27T09:30:00+05:30\",\n        \"source\": \"biometric\",\n        \"source_label\": \"Biometric device\",\n        \"device\": \"Muralinagar -ii\"\n      },\n      \"clock_out\": null,\n      \"biometric_synced_at\": \"2026-10-27T13:15:00+05:30\"\n    }\n  }\n}"
+            },
+            {
+              "name": "Clocked out on the app, no device exit (HR notified)",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"OK\",\n  \"data\": {\n    \"date\": \"2026-10-27\",\n    \"shift\": {\n      \"name\": \"General Shift\",\n      \"type\": \"strict\",\n      \"start\": \"09:30\",\n      \"end\": \"18:30\",\n      \"working_day\": true\n    },\n    \"clocked_in\": false,\n    \"open_session\": null,\n    \"on_break\": false,\n    \"running_break\": null,\n    \"sessions\": [\n      {\n        \"id\": 41882,\n        \"clock_in\": \"2026-10-27T09:00:00+05:30\",\n        \"clock_out\": \"2026-10-27T18:05:00+05:30\",\n        \"source\": \"mobile_app\",\n        \"work_from\": \"office\",\n        \"minutes\": 545\n      }\n    ],\n    \"breaks\": [],\n    \"worked_minutes\": 545,\n    \"requirements\": {\n      \"photo\": \"optional\",\n      \"location\": \"optional\"\n    },\n    \"clock_status\": {\n      \"state\": \"clocked_out\",\n      \"message\": \"Clocked out on the mobile app at 06:05 PM. The biometric device has no exit; HR has been notified.\",\n      \"show_clock_in_button\": true,\n      \"show_clock_out_button\": false,\n      \"clock_in\": {\n        \"time\": \"09:00 AM\",\n        \"at\": \"2026-10-27T09:00:00+05:30\",\n        \"source\": \"mobile_app\",\n        \"source_label\": \"Mobile app\",\n        \"device\": null\n      },\n      \"clock_out\": {\n        \"time\": \"06:05 PM\",\n        \"at\": \"2026-10-27T18:05:00+05:30\",\n        \"source\": \"mobile_app\",\n        \"source_label\": \"Mobile app\",\n        \"device\": null,\n        \"device_check\": \"hr_notified\"\n      },\n      \"biometric_synced_at\": \"2026-10-27T13:15:00+05:30\"\n    }\n  }\n}"
             }
           ]
         },
@@ -843,7 +869,7 @@
                 }
               ],
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"success\": true,\n  \"message\": \"Clocked in at 08:20 AM.\",\n  \"data\": {\n    \"id\": 17990,\n    \"clock_in\": \"2026-10-27T08:20:30+05:30\",\n    \"clock_out\": null,\n    \"source\": \"mobile_app\",\n    \"work_from\": \"office\",\n    \"minutes\": null\n  }\n}"
+              "body": "{\n  \"success\": true,\n  \"message\": \"Clocked in at 08:20 AM.\",\n  \"data\": {\n    \"id\": 17990,\n    \"clock_in\": \"2026-10-27T08:20:30+05:30\",\n    \"clock_out\": null,\n    \"source\": \"mobile_app\",\n    \"work_from\": \"office\",\n    \"minutes\": null,\n    \"clock_status\": {\n      \"state\": \"clocked_in\",\n      \"message\": \"Clocked in on the mobile app at 08:20 AM\",\n      \"show_clock_in_button\": false,\n      \"show_clock_out_button\": true,\n      \"clock_in\": {\n        \"time\": \"08:20 AM\",\n        \"at\": \"2026-10-27T08:20:30+05:30\",\n        \"source\": \"mobile_app\",\n        \"source_label\": \"Mobile app\",\n        \"device\": null\n      },\n      \"clock_out\": null,\n      \"biometric_synced_at\": \"2026-10-27T13:15:00+05:30\"\n    }\n  }\n}"
             },
             {
               "name": "Already clocked in",
@@ -981,7 +1007,7 @@
                 }
               ],
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"success\": true,\n  \"message\": \"Clocked out at 08:20 AM.\",\n  \"data\": {\n    \"id\": 17990,\n    \"clock_in\": \"2026-10-27T08:20:30+05:30\",\n    \"clock_out\": \"2026-10-27T08:20:39+05:30\",\n    \"source\": \"mobile_app\",\n    \"work_from\": \"office\",\n    \"minutes\": 0\n  }\n}"
+              "body": "{\n  \"success\": true,\n  \"message\": \"Clocked out at 08:20 AM.\",\n  \"data\": {\n    \"id\": 17990,\n    \"clock_in\": \"2026-10-27T08:20:30+05:30\",\n    \"clock_out\": \"2026-10-27T08:20:39+05:30\",\n    \"source\": \"mobile_app\",\n    \"work_from\": \"office\",\n    \"minutes\": 0,\n    \"clock_status\": {\n      \"state\": \"clocked_out\",\n      \"message\": \"Clocked out on the mobile app at 08:20 AM. Waiting for the biometric exit.\",\n      \"show_clock_in_button\": true,\n      \"show_clock_out_button\": false,\n      \"clock_in\": {\n        \"time\": \"08:20 AM\",\n        \"at\": \"2026-10-27T08:20:30+05:30\",\n        \"source\": \"mobile_app\",\n        \"source_label\": \"Mobile app\",\n        \"device\": null\n      },\n      \"clock_out\": {\n        \"time\": \"08:20 AM\",\n        \"at\": \"2026-10-27T08:20:39+05:30\",\n        \"source\": \"mobile_app\",\n        \"source_label\": \"Mobile app\",\n        \"device\": null,\n        \"device_check\": \"pending\"\n      },\n      \"biometric_synced_at\": \"2026-10-27T13:15:00+05:30\"\n    }\n  }\n}"
             },
             {
               "name": "Not clocked in",

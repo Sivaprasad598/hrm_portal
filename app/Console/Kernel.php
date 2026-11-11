@@ -180,9 +180,6 @@ class Kernel extends ConsoleKernel
         $schedule->command('app:recalculate-leaves-quotas')->monthly();
 
         // Biometric (iApp) integration. Read-only against the devices.
-        // Punches every 30 minutes: the feed returns 100 rows per request and
-        // ignores page size, so a frequent small pull is cheaper than a rare
-        // large one. withoutOverlapping() stops a slow run stacking up.
         // The nightly routine (attendance:daily), times on Biometric Settings:
         // 01:00 pull the previous day from the selected devices, 02:00 build
         // Device Attendance, 03:00 write ERP attendance and cross-check device
@@ -190,11 +187,13 @@ class Kernel extends ConsoleKernel
         // retried and a server that was off overnight catches up on waking.
         // "Nightly automatic run" in Settings switches it off.
         $schedule->command('attendance:daily --scheduled')->everyFifteenMinutes();
-        // Every hour through the day as well: punches of yesterday and today from
-        // the selected devices, rebuilt into device days and written into ERP
-        // attendance (days already there from elsewhere are left alone), so
-        // attendance is never more than an hour behind. Off with "Sync enabled".
-        $schedule->command('iapp:sync-punches --scheduled --days=1 --push')->hourly()->withoutOverlapping(120)->runInBackground();
+        // Every 15 minutes through the day as well: punches of yesterday and
+        // today from the selected devices, rebuilt into device days and written
+        // into ERP attendance, so a punch shows on the dashboard as clocked in
+        // within about 15 minutes. A day clocked in on the website keeps its
+        // session, but the device's exit closes it; a website clock-out the
+        // device never saw goes to HR (AttendanceSync). Off with "Sync enabled".
+        $schedule->command('iapp:sync-punches --scheduled --days=1 --push')->everyFifteenMinutes()->withoutOverlapping(60)->runInBackground();
         // Leave approval steps left undecided past the days in Leave Settings move on.
         $schedule->command('leaves:escalate-approvals')->hourly()->withoutOverlapping(30);
         // Employees' own shifts, written into the roster 60 days ahead (ShiftAssignments).

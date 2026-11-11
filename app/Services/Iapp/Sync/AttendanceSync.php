@@ -5,14 +5,17 @@ namespace App\Services\Iapp\Sync;
 use App\Imports\AttendanceImport;
 use App\Jobs\ImportAttendanceJob;
 use App\Models\Attendance;
+use App\Models\BiometricException;
 use App\Models\Company;
 use App\Models\IappAttendanceLink;
 use App\Models\IappAttendanceSyncRun;
 use App\Models\User;
 use App\Services\Iapp\IappConfig;
+use App\Notifications\ExitNotOnDeviceNotice;
 use App\Services\Iapp\Timeline\DayTimeline;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 
 /**
  * Pushes device punches into the ERP's own `attendances` table.
@@ -38,6 +41,24 @@ use Illuminate\Support\Facades\DB;
  */
 class AttendanceSync
 {
+
+    /** Clock-outs the employee made themselves, on the website or the mobile app. */
+    public const USER_EXITS = ['web', 'mobile_app'];
+
+    /** A clock-out written from the device's exit punch. */
+    public const BIOMETRIC_EXIT = 'biometric';
+
+    /**
+     * How long after an employee's own clock-out the device may still bring
+     * the exit punch (the feed lags, and the sync runs every 15 minutes) before
+     * HR is told the device never saw them leave.
+     */
+    public const EXIT_GRACE_MINUTES = 30;
+
+    /** Everything a clock-out writes, kept together when a session is rebuilt. */
+    protected const EXIT_FIELDS = ['clock_out_time', 'clock_out_type', 'clock_out_ip', 'clock_out_latitude', 'clock_out_longitude',
+        'clock_out_place', 'clock_out_photo', 'clock_out_photo_requirement', 'clock_out_time_location_id',
+        'clock_out_time_work_from_type', 'clock_out_time_working_from'];
 
     public function __construct(
         protected IappConfig $config
@@ -415,6 +436,10 @@ class AttendanceSync
                 $counts['skipped']++;
                 $skipped[] = ['user' => $row['name'], 'date' => $row['date'], 'rows' => $row['conflict_rows']];
 
+                // The day stays the employee's own (web clock-in), but the
+                // device still decides when they left.
+                $this->settleOwnSession($user, $row, $tz);
+
                 continue;
             }
 
@@ -521,29 +546,15 @@ class AttendanceSync
     ): array {
         $date = $row['date'];
         $replaced = 0;
+        $userExit = null;
 
-        // The hours that belong to this day: the calendar day, or for an overnight
-        // shift from its start to the next morning (ShiftResolver::dayWindow).
-        [$localStart, $localEnd] = $this->shifts()->dayWindow($user->id, $date, $tz);
-
-        $punches = DB::table('iapp_device_transactions')
-            ->when($this->config->companyId(), fn ($q, $id) => $q->where('company_id', $id))
-            ->whereIn('emp_code', $row['codes'])
-            ->whereBetween('punch_time', [$localStart->format('Y-m-d H:i:s'), $localEnd->format('Y-m-d H:i:s')])
-            ->orderBy('punch_time')
-            ->get(['emp_code', 'punch_time', 'punch_direction', 'controller_code']);
-
-        if ($punches->isEmpty()) {
-            return ['punches' => 0, 'created' => 0, 'replaced' => 0];
-        }
-
-        $events = $collapse ? $this->collapse($date, $punches) : $this->rawEvents($punches);
+        [$events, $window] = $this->deviceDay($user, $row, $tz, $collapse);
 
         if ($events === []) {
             return ['punches' => 0, 'created' => 0, 'replaced' => 0];
         }
 
-        DB::transaction(function () use ($run, $user, $date, $tz, $mode, &$replaced) {
+        DB::transaction(function () use ($run, $user, $date, $tz, $mode, &$replaced, &$userExit) {
             $existing = $this->existingIndex([$user->id], Carbon::parse($date), Carbon::parse($date));
             $ids = $existing[$user->id][$date] ?? [];
 
@@ -570,6 +581,13 @@ class AttendanceSync
             }
 
             $rows = Attendance::withoutGlobalScopes()->whereIn('id', $removable)->get();
+
+            // The employee's own clock-out on a session this sync wrote: the
+            // rebuild below would otherwise reopen it from the punches alone.
+            $own = $rows->filter(fn ($a) => in_array((int) $a->id, $ourIds, true)
+                && $a->clock_out_time && in_array($a->clock_out_type, self::USER_EXITS, true))
+                ->sortByDesc('clock_out_time')->first();
+            $userExit = $own ? array_intersect_key($own->getAttributes(), array_flip(self::EXIT_FIELDS)) : null;
 
             foreach ($rows as $attendance) {
                 $wasOurs = in_array((int) $attendance->id, $ourIds, true);
@@ -601,8 +619,6 @@ class AttendanceSync
 
         // Bounded to the day being written: plucking every attendance id the
         // employee has ever had would be two whole-history scans per day synced.
-        $window = [$localStart->copy()->setTimezone('UTC'), $localEnd->copy()->setTimezone('UTC')];
-
         $before = Attendance::withoutGlobalScopes()
             ->where('user_id', $user->id)->whereBetween('clock_in_time', $window)->pluck('id')->all();
 
@@ -616,6 +632,8 @@ class AttendanceSync
             // applyPunch expects UTC, exactly as processRow hands it over.
             $job->applyPunch($user, $event['type'], $moment->timezone('UTC'));
         }
+
+        $this->keepUserExit($user, $date, $row, $userExit, $window);
 
         $this->closeDayEnd($user, $date, $tz, $events, $window);
 
@@ -636,6 +654,212 @@ class AttendanceSync
         }
 
         return ['punches' => count($events), 'created' => count($created), 'replaced' => $replaced];
+    }
+
+    /**
+     * The device's events for one employee-day, and the UTC hours of that day.
+     *
+     * @return array{0: array<int, array{time:string, type:string}>, 1: array{0: Carbon, 1: Carbon}}
+     */
+    protected function deviceDay(User $user, array $row, string $tz, bool $collapse = true): array
+    {
+        // The hours that belong to this day: the calendar day, or for an overnight
+        // shift from its start to the next morning (ShiftResolver::dayWindow).
+        [$localStart, $localEnd] = $this->shifts()->dayWindow($user->id, $row['date'], $tz);
+        $window = [$localStart->copy()->setTimezone('UTC'), $localEnd->copy()->setTimezone('UTC')];
+
+        $punches = DB::table('iapp_device_transactions')
+            ->when($this->config->companyId(), fn ($q, $id) => $q->where('company_id', $id))
+            ->whereIn('emp_code', $row['codes'])
+            ->whereBetween('punch_time', [$localStart->format('Y-m-d H:i:s'), $localEnd->format('Y-m-d H:i:s')])
+            ->orderBy('punch_time')
+            ->get(['emp_code', 'punch_time', 'punch_direction', 'controller_code']);
+
+        if ($punches->isEmpty()) {
+            return [[], $window];
+        }
+
+        $running = Carbon::now('UTC')->lte($window[1]);
+
+        return [$collapse ? $this->collapse($row['date'], $punches, $running) : $this->rawEvents($punches), $window];
+    }
+
+    /** A stored attendance time as the UTC moment it is (stored UTC, read whatever the clock's zone). */
+    protected static function utc(Attendance $a, string $field): ?Carbon
+    {
+        $raw = $a->getRawOriginal($field) ?? $a->getAttributes()[$field] ?? null;
+
+        return $raw ? Carbon::parse($raw instanceof \DateTimeInterface ? $raw->format('Y-m-d H:i:s') : (string) $raw, 'UTC') : null;
+    }
+
+    /** The device's exit, in UTC, when the last thing it saw that day was the person leaving. */
+    protected function deviceExit(string $date, string $tz, array $events): ?Carbon
+    {
+        $last = $events === [] ? null : end($events);
+
+        if (!$last || $last['type'] !== 'out') {
+            return null;
+        }
+
+        return AttendanceImport::parsePunchTime($this->eventMoment($date, $last['time']), $tz)?->timezone('UTC');
+    }
+
+    /**
+     * A device-written day the employee clocked out of themselves.
+     *
+     * The device comes first: when its punches end with an exit, the rebuilt
+     * sessions are already closed at the device's time and the employee's own
+     * clock-out is dropped. When they do not (no exit punch yet), the session
+     * is closed with the employee's clock-out rather than reopened, and HR is
+     * told the device never saw them leave.
+     */
+    protected function keepUserExit(User $user, string $date, array $row, ?array $userExit, array $window): void
+    {
+        $open = Attendance::withoutGlobalScopes()
+            ->where('user_id', $user->id)
+            ->whereNull('clock_out_time')
+            ->whereBetween('clock_in_time', $window)
+            ->orderByDesc('clock_in_time')
+            ->first();
+
+        $exitAt = $userExit ? Carbon::parse($userExit['clock_out_time'], 'UTC') : null;
+
+        if (!$open || !$exitAt || !$exitAt->greaterThan(self::utc($open, 'clock_in_time'))) {
+            $this->exitConfirmed($user->id, $date);
+
+            return;
+        }
+
+        $open->forceFill($userExit)->saveQuietly();
+        $this->exitUnconfirmed($user, $date, $row, $open);
+    }
+
+    /**
+     * A day the employee clocked in on the website or the app, which the device
+     * also saw. Their own session stays, but the device decides the exit:
+     *
+     *  - the device's last punch is an exit: the session is closed (or its
+     *    clock-out corrected) at the device's time;
+     *  - the employee clocked out, but the device has no exit after their
+     *    clock-in: the clock-out stays and HR is told.
+     *
+     * Only the employee's own clock-outs and earlier device ones are touched:
+     * anything HR entered or the auto clock-out wrote is left as it is.
+     */
+    protected function settleOwnSession(User $user, array $row, string $tz): void
+    {
+        $date = $row['date'];
+        [$events, $window] = $this->deviceDay($user, $row, $tz);
+
+        if ($events === []) {
+            return;
+        }
+
+        $session = Attendance::withoutGlobalScopes()
+            ->where('user_id', $user->id)
+            ->whereBetween('clock_in_time', $window)
+            ->orderByDesc('clock_in_time')
+            ->first();
+
+        if (!$session) {
+            return;
+        }
+
+        $closedBy = $session->clock_out_time ? (string) $session->clock_out_type : null;
+
+        if ($closedBy !== null && !in_array($closedBy, [...self::USER_EXITS, self::BIOMETRIC_EXIT], true)) {
+            return;
+        }
+
+        $deviceOut = $this->deviceExit($date, $tz, $events);
+
+        if ($deviceOut && $deviceOut->greaterThan(self::utc($session, 'clock_in_time'))) {
+            if (!$session->clock_out_time || !self::utc($session, 'clock_out_time')->equalTo($deviceOut) || $closedBy !== self::BIOMETRIC_EXIT) {
+                $session->clock_out_time = $deviceOut->format('Y-m-d H:i:s');
+                $session->clock_out_type = self::BIOMETRIC_EXIT;
+                $session->saveQuietly();
+            }
+
+            $this->exitConfirmed($user->id, $date);
+
+            return;
+        }
+
+        if ($closedBy !== null && in_array($closedBy, self::USER_EXITS, true)) {
+            $this->exitUnconfirmed($user, $date, $row, $session);
+        }
+    }
+
+    /**
+     * HR is told, once, that the employee clocked out on the website or the app
+     * but the device has no exit for them - after a grace period, because the
+     * exit punch may simply not have come through yet.
+     */
+    protected function exitUnconfirmed(User $user, string $date, array $row, Attendance $session): void
+    {
+        $exitAt = self::utc($session, 'clock_out_time');
+
+        if ($exitAt->greaterThan(Carbon::now('UTC')->subMinutes(self::EXIT_GRACE_MINUTES))) {
+            return;
+        }
+
+        $tz = $this->company()?->timezone ?? 'UTC';
+        $in = self::utc($session, 'clock_in_time')->setTimezone($tz);
+        $out = $exitAt->copy()->setTimezone($tz);
+        $where = $session->clock_out_type === 'mobile_app' ? 'the mobile app' : 'the website';
+        $fingerprint = 'exit_not_on_device|' . $date . '|' . $user->id;
+        $details = ['attendance_id' => $session->id, 'clock_in' => $in->format('H:i'), 'clock_out' => $out->format('H:i'),
+            'clocked_out_on' => $session->clock_out_type];
+        $values = [
+            'company_id' => $this->config->companyId() ?? $user->company_id,
+            'date' => $date,
+            'category' => BiometricException::PUNCH,
+            'type' => 'exit_not_on_device',
+            'user_id' => $user->id,
+            'emp_code' => $row['codes'][0] ?? null,
+            'title' => mb_substr("{$user->name}: clocked out on {$where} at {$out->format('H:i')}, the device has no exit", 0, 255),
+            'details' => $details,
+            'last_seen_at' => now(),
+        ];
+
+        $existing = BiometricException::withoutGlobalScopes()->where('fingerprint', $fingerprint)->first();
+
+        if ($existing) {
+            // Ignored stays ignored; resolved by hand stays resolved unless the facts changed.
+            $reopen = $existing->status === BiometricException::RESOLVED
+                && ($existing->resolution === 'auto' || $existing->details != $details);
+            $existing->forceFill($values + ($reopen
+                ? ['status' => BiometricException::OPEN, 'resolution' => null, 'resolved_at' => null, 'resolved_by' => null]
+                : []))->save();
+
+            return;
+        }
+
+        BiometricException::create($values + ['fingerprint' => $fingerprint,
+            'status' => BiometricException::OPEN, 'first_seen_at' => now()]);
+
+        // Admins and HR are told once per person and day. Never stops the sync.
+        try {
+            $people = User::withoutGlobalScopes()->where('status', 'active')
+                ->whereHas('roles', fn ($q) => $q->whereIn('name', ['admin', 'hr']))->get();
+            Notification::send($people, new ExitNotOnDeviceNotice([
+                'user_id' => $user->id, 'name' => $user->name, 'date' => $date, 'where' => $where,
+                'clock_in' => $in->format('H:i'), 'clock_out' => $out->format('H:i'),
+            ]));
+        } catch (\Throwable $e) {
+            logger()->warning('Exit-not-on-device notice not sent: ' . $e->getMessage());
+        }
+    }
+
+    /** The device has the exit now: an open escalation for the day closes by itself. */
+    protected function exitConfirmed(int $userId, string $date): void
+    {
+        BiometricException::withoutGlobalScopes()
+            ->where('fingerprint', 'exit_not_on_device|' . $date . '|' . $userId)
+            ->where('status', BiometricException::OPEN)
+            ->get()
+            ->each(fn ($e) => $e->forceFill(['status' => BiometricException::RESOLVED, 'resolution' => 'auto',
+                'resolved_at' => now(), 'resolved_by' => null, 'note' => $e->note ?: 'The device has the exit punch now.'])->save());
     }
 
     /**
@@ -694,7 +918,7 @@ class AttendanceSync
      *
      * @return array<int, array{time:string, type:string}>
      */
-    protected function collapse(string $date, $punches): array
+    protected function collapse(string $date, $punches, bool $running = false): array
     {
         $timeline = new DayTimeline(DayTimeline::directionlessControllers($this->config->companyId()));
         $day = $timeline->build($date, $punches);
@@ -723,9 +947,12 @@ class AttendanceSync
 
             if ($events === []) {
                 // Only the face reader saw them: arrival and departure, if two scans apart.
+                // While the day is still running, two scans of one arrival (a
+                // second try at the reader) are not a departure.
                 $events[] = ['time' => $firstScan, 'type' => 'in'];
 
-                if ($lastScan !== $firstScan) {
+                if ($lastScan !== $firstScan
+                    && (!$running || strtotime($lastScan) - strtotime($firstScan) > DayTimeline::COLLAPSE_SECONDS)) {
                     $events[] = ['time' => $lastScan, 'type' => 'out'];
                 }
             }
@@ -751,7 +978,11 @@ class AttendanceSync
         if ($events !== [] && $rawLast > end($events)['time']
             && strtotime($rawLast) - strtotime(end($events)['time']) <= DayTimeline::COLLAPSE_SECONDS) {
             if (count($events) === 1) {
-                $events[] = ['time' => $rawLast, 'type' => 'out'];
+                // Today the burst is only the arrival, reported by more than one
+                // gate: the person is in, not gone. A finished day keeps the rule.
+                if (!$running) {
+                    $events[] = ['time' => $rawLast, 'type' => 'out'];
+                }
             }
             else {
                 $events[array_key_last($events)]['time'] = $rawLast;
