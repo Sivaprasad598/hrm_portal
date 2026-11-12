@@ -20,12 +20,14 @@
 
         <!-- EMPLOYEE FILTER START -->
         {{-- Only themselves to pick (an employee): no drop-down, the one choice stays selected --}}
-        <div class="select-box {{ $employees->count() > 1 || in_array('admin', user_roles()) ? 'd-flex' : 'd-none' }} py-2 px-lg-2 px-md-2 px-0 border-right-grey border-right-grey-sm-0">
+        <div class="select-box {{ !empty($managerView) ? 'tl-grow' : '' }} {{ $employees->count() > 1 || in_array('admin', user_roles()) || !empty($managerView) ? 'd-flex' : 'd-none' }} py-2 px-lg-2 px-md-2 px-0 border-right-grey border-right-grey-sm-0">
             <p class="mb-0 pr-2 f-14 text-dark-grey d-flex align-items-center">@lang('app.employee')</p>
             <div class="select-status">
                 <select class="form-control select-picker" name="employee_id" id="employee_id" data-live-search="true"
                     data-size="8">
-                    @if ($employees->count() > 1 || in_array('admin', user_roles()))
+                    @if (!empty($managerView))
+                        <option value="all">All team members</option>
+                    @elseif ($employees->count() > 1 || in_array('admin', user_roles()))
                         <option value="all">@lang('app.all')</option>
                     @endif
                     @foreach ($employees as $employee)
@@ -37,6 +39,7 @@
         <!-- EMPLOYEE FILTER END -->
 
         <!-- LEAVE TYPE FILTER START -->
+        @if (empty($managerView))
         <div class="select-box d-flex py-2 px-lg-2 px-md-2 px-0 border-right-grey border-right-grey-sm-0">
             <p class="mb-0 pr-2 f-14 text-dark-grey d-flex align-items-center">@lang('modules.leaves.leaveType')</p>
             <div class="select-status">
@@ -49,10 +52,11 @@
                 </select>
             </div>
         </div>
+        @endif
         <!-- LEAVE TYPE FILTER END -->
 
         <!-- LEAVE STATUS FILTER END -->
-        <div class="select-box d-flex py-2 px-lg-2 px-md-2 px-0 border-right-grey border-right-grey-sm-0">
+        <div class="select-box {{ !empty($managerView) ? 'tl-grow' : '' }} d-flex py-2 px-lg-2 px-md-2 px-0 border-right-grey border-right-grey-sm-0">
             <p class="mb-0 pr-2 f-14 text-dark-grey d-flex align-items-center">@lang('app.status')</p>
             <div class="select-status">
                 <select class="form-control select-picker" name="status" id="status" data-live-search="true" data-size="8">
@@ -69,7 +73,7 @@
         <!-- SEARCH BY LEAVE START -->
         {{-- Searches people by name: only for whoever sees other people's leave.
              Styled as the standard search (task-search) like every other list. --}}
-        @if (\App\Http\Controllers\LeaveController::access()['team'])
+        @if (\App\Http\Controllers\LeaveController::access()['team'] && empty($managerView))
         <div class="task-search leave-search d-flex py-1 px-lg-3 px-0 border-right-grey align-items-center">
             <form class="w-100 mr-1 mr-lg-0 mr-md-1 ml-md-1 ml-0 ml-lg-0">
                 <div class="input-group bg-grey rounded">
@@ -96,6 +100,15 @@
 
         <!-- MORE FILTERS END -->
     </x-filters.filter-box>
+    @if (!empty($managerView))
+        <style>
+            /* Team Leave Calendar: same filter row and switch as Team Leaves */
+            body.epic .filter-box .select-box.tl-grow { flex: 1 1 0; min-width: 200px; }
+            body.epic .filter-box .select-box.tl-grow .select-status,
+            body.epic .filter-box .select-box.tl-grow .bootstrap-select { width: 100% !important; }
+            body.epic .action-bar .btn-group > .btn { height: 38px; padding: 0 16px !important; font-size: 14px; }
+        </style>
+    @endif
 
 @endsection
 
@@ -109,7 +122,8 @@ $addLeavePermission = user()->permission('add_leave');
         <!-- Add Task Export Buttons Start -->
         <div class="d-grid d-lg-flex d-md-flex action-bar">
             <div id="table-actions" class="flex-grow-1 align-items-center">
-                @if ($addLeavePermission == 'all' || $addLeavePermission == 'added')
+                {{-- Not on a manager's team calendar: they apply from My Space → My Leaves --}}
+                @if (($addLeavePermission == 'all' || $addLeavePermission == 'added') && empty($managerView))
                     <x-forms.link-primary :link="route('leaves.create')"
                         data-redirect-url="{{ route('leaves.calendar') }}"
                         class="mr-3 openRightModal float-left" icon="plus">
@@ -214,9 +228,11 @@ $addLeavePermission = user()->permission('add_leave');
             }, {
                 url: "{{ route('leaves.calendar') }}",
                 extraParams: function() {
-                    var employeeId = $('#employee_id').val();
-                    var leaveTypeId = $('#leave_type').val();
-                    var status = $('#status').val();
+                    // A filter not on the page (the manager's calendar has no leave
+                    // type) means "all", never the text "undefined".
+                    var employeeId = $('#employee_id').val() || 'all';
+                    var leaveTypeId = $('#leave_type').val() || 'all';
+                    var status = $('#status').val() || 'all';
                     var searchText = $('#search-text-field').val() || '';
 
                     return {

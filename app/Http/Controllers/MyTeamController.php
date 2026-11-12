@@ -35,13 +35,24 @@ class MyTeamController extends AccountBaseController
         $tz = company()->timezone ?: 'Asia/Kolkata';
         $today = now($tz)->startOfDay();
 
-        // This salary period, or the one asked for (?period=2026-10 is "October")
-        $this->cycle = preg_match('/^(\d{4})-(\d{2})$/', (string) $request->period, $m)
-            ? PayPeriod::forMonth((int) $m[2], (int) $m[1])
-            : PayPeriod::containing($today);
-        $this->previousPeriod = $this->cycle->previous();
-        $this->nextPeriod = PayPeriod::forMonth(...$this->monthAfter($this->cycle));
-        $this->isCurrent = $today->betweenIncluded($this->cycle->start, $this->cycle->end);
+        // The dates asked for (?from=2026-10-21&to=2026-11-12), else this salary
+        // period. Never past today: days not yet lived have no attendance.
+        $cycle = PayPeriod::containing($today);
+        $from = $this->parseDay($request->from, $tz) ?? $cycle->start->copy()->setTimezone($tz)->startOfDay();
+        $to = $this->parseDay($request->to, $tz) ?? $cycle->end->copy()->setTimezone($tz)->startOfDay();
+
+        if ($to->gt($today)) {
+            $to = $today->copy();
+        }
+
+        if ($from->gt($to)) {
+            [$from, $to] = [$to->copy(), $from->copy()];
+        }
+
+        $this->from = $from;
+        $this->to = $to;
+        $this->defaultRange = $from->isSameDay($cycle->start) && ($to->isSameDay($cycle->end) || $to->isSameDay($today));
+        $this->isCurrent = $today->betweenIncluded($from, $to);
         $this->today = $today;
 
         $counter = new AttendanceDays($tz);
@@ -49,7 +60,7 @@ class MyTeamController extends AccountBaseController
 
         foreach (User::with('employeeDetail.designation')->whereIn('id', $team)->orderBy('name')->get() as $member) {
             try {
-                $count = $counter->forRange((int) $member->id, $this->cycle->start, $this->cycle->end);
+                $count = $counter->forRange((int) $member->id, $from->copy(), $to->copy()->endOfDay());
             } catch (\Throwable $e) {
                 report($e);
                 $count = null;
@@ -71,13 +82,24 @@ class MyTeamController extends AccountBaseController
 
         $this->rows = $rows;
 
-        // What is waiting for them, beside the table
-        $this->leavesWaiting = \App\Services\Leaves\LeaveApprovals::waitingFor()->unique(fn ($l) => $l->unique_id ?: 'id' . $l->id)->count();
-        $this->correctionsWaiting = CorrectionApprovals::waitingFor()->count();
         $this->pendingLeaveByUser = DB::table('leaves')->whereIn('user_id', $team)->where('status', 'pending')
             ->selectRaw('user_id, count(distinct ifnull(unique_id, id)) n')->groupBy('user_id')->pluck('n', 'user_id');
 
         return view('my-team.attendance', $this->data);
+    }
+
+    /** A Y-m-d date from the filter, or null when absent or not a date. */
+    private function parseDay(?string $value, string $tz): ?Carbon
+    {
+        if (!$value || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
+            return null;
+        }
+
+        try {
+            return Carbon::createFromFormat('Y-m-d', $value, $tz)->startOfDay();
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /** [month, year] of the payroll month after this period's. */

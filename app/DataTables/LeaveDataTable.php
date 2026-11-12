@@ -361,7 +361,11 @@ class LeaveDataTable extends BaseDataTable
         // Approvers (manager / department head) see the leave of the people they approve for.
         $approverTeam = \App\Services\Leaves\LeaveApprovals::teamUserIds();
 
-        if ($this->viewLeavePermission == 'owned' && $approverTeam) {
+        // A manager's Team Leaves: their team only (their own leave is in My Leaves).
+        if (\App\Http\Controllers\LeaveController::access()['managerView']) {
+            $leavesList->whereIn('leaves.user_id', \App\Http\Controllers\LeaveController::managerTeamIds() ?: [0]);
+        }
+        elseif ($this->viewLeavePermission == 'owned' && $approverTeam) {
             $leavesList->where(fn ($q) => $q->where('leaves.user_id', user()->id)->orWhereIn('leaves.user_id', $approverTeam));
         }
         elseif ($this->viewLeavePermission == 'owned') {
@@ -453,7 +457,11 @@ class LeaveDataTable extends BaseDataTable
             __('app.duration') => ['data' => 'duration', 'name' => 'duration', 'title' => __('app.duration')],
             __('app.leaveStatus') => ['data' => 'status', 'name' => 'leaves.status', 'title' => __('app.leaveStatus')],
             __('app.leaveType') => ['data' => 'leave_type', 'name' => 'leave_types.type_name', 'title' => __('app.leaveType')],
+        ] + (\App\Http\Controllers\LeaveController::access()['managerView'] ? [] : [
+            // Not on a manager's Team Leaves (the leave type already says it). Left
+            // out rather than hidden, so a saved table state cannot bring it back.
             __('app.paid') => ['data' => 'leave_paid', 'name' => 'leaves.paid', 'title' => __('app.paid')],
+        ]) + [
             Column::computed('action', __('app.action'))
                 ->exportable(false)
                 ->printable(false)

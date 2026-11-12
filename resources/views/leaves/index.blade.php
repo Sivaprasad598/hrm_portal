@@ -14,12 +14,27 @@
 @php
 $addLeavePermission = user()->permission('add_leave');
 $approveRejectPermission = user()->permission('approve_or_reject_leaves');
+// A manager's Team Leaves: only what a manager needs (LeaveController::access()).
+$managerView = \App\Http\Controllers\LeaveController::access()['managerView'];
 @endphp
 
 @section('filter-section')
     <x-filters.filter-box>
+        {{-- A manager's Team Leaves filters by status (the cards set it too). --}}
+        @if ($managerView)
+            <div class="select-box tl-grow d-flex py-2 pr-2 border-right-grey border-right-grey-sm-0">
+                <p class="mb-0 pr-2 f-14 text-dark-grey d-flex align-items-center">@lang('app.status')</p>
+                <div class="select-status">
+                    <select class="form-control select-picker" name="status" id="status" data-size="8">
+                        <option value="all">@lang('app.all')</option>
+                        <option value="pending">@lang('app.pending')</option>
+                        <option value="approved">@lang('app.approved')</option>
+                        <option value="rejected">@lang('app.rejected')</option>
+                    </select>
+                </div>
+            </div>
         {{-- Leaves waiting for this person's decision (manager, department head, HR) --}}
-        @if (\App\Services\Leaves\LeaveApprovals::isApprover() || $approveRejectPermission === 'all')
+        @elseif (\App\Services\Leaves\LeaveApprovals::isApprover() || $approveRejectPermission === 'all')
             <div class="select-box d-flex py-2 pr-2 border-right-grey border-right-grey-sm-0">
                 <p class="mb-0 pr-2 f-14 text-dark-grey d-flex align-items-center">Show</p>
                 <div class="select-status">
@@ -32,7 +47,7 @@ $approveRejectPermission = user()->permission('approve_or_reject_leaves');
         @endif
 
         <!-- DATE START -->
-        <div class="select-box d-flex pr-2 border-right-grey border-right-grey-sm-0">
+        <div class="select-box {{ $managerView ? 'tl-grow' : '' }} d-flex pr-2 border-right-grey border-right-grey-sm-0">
             <p class="mb-0 pr-2 f-14 text-dark-grey d-flex align-items-center">@lang('app.duration')</p>
             <div class="select-status d-flex">
                 <input type="text" class="position-relative text-dark form-control border-0 p-2 text-left f-14 f-w-500 border-additional-grey"
@@ -42,6 +57,21 @@ $approveRejectPermission = user()->permission('approve_or_reject_leaves');
         </div>
         <!-- DATE END -->
 
+        @if ($managerView)
+            {{-- Team Leaves: pick one person of the team (searchable) instead of a text search --}}
+            <div class="select-box tl-grow d-flex py-2 px-lg-2 px-md-2 px-0 border-right-grey border-right-grey-sm-0">
+                <p class="mb-0 pr-2 f-14 text-dark-grey d-flex align-items-center">@lang('app.employee')</p>
+                <div class="select-status">
+                    <select class="form-control select-picker" name="employee_id" id="employee_id"
+                        data-live-search="true" data-size="8" data-container="body">
+                        <option value="all">All team members</option>
+                        @foreach ($employees as $employee)
+                            <x-user-option :user="$employee" />
+                        @endforeach
+                    </select>
+                </div>
+            </div>
+        @else
         <!-- SEARCH BY TASK START -->
         <div class="task-search d-flex  py-1 px-lg-2 px-0 border-right-grey align-items-center">
             <form class="w-100 mr-1 mr-lg-0 mr-md-1 ml-md-1 ml-0 ml-lg-0">
@@ -56,10 +86,11 @@ $approveRejectPermission = user()->permission('approve_or_reject_leaves');
                 </div>
             </form>
         </div>
+        @endif
         <!-- SEARCH BY TASK END -->
 
         <!-- LEAVE MANAGEMENT START: everybody's leave, not for an employee's own table -->
-        @if (\App\Http\Controllers\LeaveController::access()['team'])
+        @if (\App\Http\Controllers\LeaveController::access()['team'] && !$managerView)
         <div class="select-box d-flex py-1 px-lg-2 px-md-2 px-0">
             <x-forms.link-secondary link="javascript:;" id="open-leave-management" icon="tasks">
                 Leave Management
@@ -77,6 +108,7 @@ $approveRejectPermission = user()->permission('approve_or_reject_leaves');
         <!-- RESET END -->
 
         <!-- MORE FILTERS START -->
+        @unless ($managerView)
         <x-filters.more-filter-box>
 
             <div class="more-filter-items">
@@ -96,6 +128,7 @@ $approveRejectPermission = user()->permission('approve_or_reject_leaves');
                 </div>
             </div>
 
+            @if (!$managerView)
             <div class="more-filter-items">
                 <label class="f-14 text-dark-grey mb-12 " for="usr">@lang('modules.leaves.leaveType')</label>
                 <div class="select-filter mb-4">
@@ -128,9 +161,11 @@ $approveRejectPermission = user()->permission('approve_or_reject_leaves');
                     </div>
                 </div>
             @endif
+            @endif {{-- !$managerView: a manager filters by employee only --}}
 
 
         </x-filters.more-filter-box>
+        @endunless
         <!-- MORE FILTERS END -->
     </x-filters.filter-box>
 @endsection
@@ -140,15 +175,66 @@ $approveRejectPermission = user()->permission('approve_or_reject_leaves');
     <!-- CONTENT WRAPPER START -->
     <div class="content-wrapper">
 
+        @if ($managerView)
+            {{-- Team Leaves: the cards filter the table (click again for all); the
+                 Table / Calendar switch sits on the same row. --}}
+            <div class="tl-head mb-3">
+                <div class="tl-cards">
+                    <button type="button" class="tl-card" data-status="pending">
+                        <span class="tl-card__icon tl-card__icon--pending"><i class="fa fa-hourglass-half"></i></span>
+                        <span class="tl-card__text"><span class="tl-card__count">{{ $teamLeaveCounts['pending'] ?? 0 }}</span>
+                            <span class="tl-card__label">Pending approval</span></span>
+                    </button>
+                    <button type="button" class="tl-card" data-status="approved">
+                        <span class="tl-card__icon tl-card__icon--approved"><i class="fa fa-check-circle"></i></span>
+                        <span class="tl-card__text"><span class="tl-card__count">{{ $teamLeaveCounts['approved'] ?? 0 }}</span>
+                            <span class="tl-card__label">Approved leaves</span></span>
+                    </button>
+                    <button type="button" class="tl-card" data-status="today">
+                        <span class="tl-card__icon tl-card__icon--today"><i class="fa fa-user-clock"></i></span>
+                        <span class="tl-card__text"><span class="tl-card__count">{{ $teamOnLeaveToday ?? 0 }}</span>
+                            <span class="tl-card__label">On leave today</span></span>
+                    </button>
+                </div>
+                @include('leaves.partials.view-switch', ['active' => 'table', 'class' => 'ml-0'])
+            </div>
+            <style>
+                .tl-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+                .tl-cards { display: flex; gap: 14px; flex-wrap: wrap; flex: 1 1 auto; }
+                .tl-cards .tl-card { flex: 1 1 0; }
+                /* the Table / Calendar switch at the size it has in its usual bar */
+                .tl-head .btn-group > .btn { height: 38px; padding: 0 16px !important; font-size: 14px; }
+                /* the three filters share the row */
+                body.epic .filter-box .select-box.tl-grow { flex: 1 1 0; min-width: 200px; }
+                body.epic .filter-box .select-box.tl-grow .select-status,
+                body.epic .filter-box .select-box.tl-grow .bootstrap-select,
+                body.epic .filter-box .select-box.tl-grow input.form-control { width: 100% !important; }
+                .tl-card { display: flex; align-items: center; gap: 12px; min-width: 200px; padding: 12px 16px; background: #fff;
+                    border: 1px solid var(--border-color, #e8eef3); border-radius: var(--card-radius, 12px);
+                    box-shadow: var(--card-shadow, 0 1px 3px rgba(16,24,40,.06)); cursor: pointer; text-align: left;
+                    transition: border-color .15s, box-shadow .15s, transform .15s; }
+                .tl-card:hover { border-color: var(--epic-blue, #c0714f); transform: translateY(-1px); }
+                .tl-card.is-active { border-color: var(--epic-blue, #c0714f); box-shadow: 0 0 0 2px color-mix(in srgb, var(--epic-blue, #c0714f) 25%, transparent); }
+                .tl-card__icon { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex: none; }
+                .tl-card__icon--pending { background: #fff4e5; color: #b26a00; }
+                .tl-card__icon--approved { background: #e8f6ee; color: #1e8a4c; }
+                .tl-card__icon--today { background: #eef4ff; color: #3559c7; }
+                .tl-card__count { display: block; font-size: 22px; font-weight: 600; line-height: 1.1; color: #101828; }
+                .tl-card__label { display: block; font-size: 12.5px; color: #667085; white-space: nowrap; }
+                @media (max-width: 575px) { .tl-card { min-width: 0; flex: 1 1 140px; } }
+            </style>
+        @endif
+
         <!-- Add Task Export Buttons Start -->
+        @unless ($managerView)
         <div class="d-grid d-lg-flex d-md-flex action-bar">
             <div id="table-actions" class="flex-grow-1 align-items-center">
-                @if ($addLeavePermission == 'all' || $addLeavePermission == 'added')
+                @if (($addLeavePermission == 'all' || $addLeavePermission == 'added') && !$managerView)
                     <x-forms.link-primary :link="route('leaves.create')" class="mr-3 openRightModal float-left" icon="plus">
                         @lang('modules.leaves.addLeave')
                     </x-forms.link-primary>
                 @endif
-                @if (canDataTableExport())
+                @if (canDataTableExport() && !$managerView)
                     <x-forms.button-secondary id="export-all" class="mr-3 mb-2 mb-lg-0" icon="file-export">
                         @lang('app.exportExcel')
                     </x-forms.button-secondary>
@@ -184,6 +270,7 @@ $approveRejectPermission = user()->permission('approve_or_reject_leaves');
 
             @include('leaves.partials.view-switch', ['active' => 'table'])
         </div>
+        @endunless
 
         <!-- leave table Box Start -->
         <div class="d-flex flex-column w-tables rounded mt-3 bg-white">
@@ -250,6 +337,47 @@ $approveRejectPermission = user()->permission('approve_or_reject_leaves');
         const showTable = () => {
             window.LaravelDataTables["leaves-table"].draw(true);
         }
+
+        // Team Leaves cards set the Status filter: one status at a time, a second
+        // click shows all again; choosing a status in the filter lights its card.
+        var markTeamCard = function (status) {
+            $('.tl-card').removeClass('is-active');
+            $('.tl-card[data-status="' + status + '"]').addClass('is-active');
+        };
+
+        $('.tl-card').on('click', function () {
+            var card = $(this).data('status');
+            var picker = $('#datatableRange').data('daterangepicker');
+            var wasOn = $(this).hasClass('is-active');
+
+            // "On leave today": approved leave dated today; any other card clears that date.
+            if (card === 'today') {
+                if (wasOn) {
+                    $('#datatableRange').val('');
+                    $('#status').val('all').selectpicker('refresh');
+                    markTeamCard('');
+                } else {
+                    picker.setStartDate(moment()); picker.setEndDate(moment());
+                    $('#datatableRange').val(moment().format('{{ company()->moment_date_format }}') + ' @lang('app.to') ' + moment().format('{{ company()->moment_date_format }}'));
+                    $('#status').val('approved').selectpicker('refresh');
+                    markTeamCard('today');
+                }
+                showTable();
+                return;
+            }
+
+            if ($('.tl-card[data-status=today]').hasClass('is-active')) { $('#datatableRange').val(''); }
+            var next = wasOn ? 'all' : card;
+            $('#status').val(next).selectpicker('refresh');
+            markTeamCard(next);
+            showTable();
+        });
+
+        @if ($managerView)
+            $('#status').on('change', function () {
+                markTeamCard($(this).val());
+            });
+        @endif
 
         @if (canDataTableExport())
             $('#export-all').click(function () {

@@ -11,6 +11,9 @@
     <a href="{{ route('leaves.calendar') }}" class="btn btn-secondary f-14 {{ $active === 'calendar' ? 'btn-active' : '' }}" data-toggle="tooltip"
         data-original-title="@lang('app.menu.calendar')"><i class="side-icon bi bi-calendar"></i></a>
 
+    {{-- A manager's Team Leaves has no "My Leaves": their own leave is under My Space. --}}
+    @unless ($leaveAccess['managerView'] && $active !== 'personal')
     <a href="{{ route('leaves.personal') }}" class="btn btn-secondary f-14 {{ $active === 'personal' ? 'btn-active' : '' }}" data-toggle="tooltip"
         data-original-title="@lang('modules.leaves.myLeaves')"><i class="side-icon bi bi-person"></i></a>
+    @endunless
 </div>

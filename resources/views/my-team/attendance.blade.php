@@ -1,45 +1,30 @@
-{{-- A reporting manager's team, this salary period (App\Http\Controllers\MyTeamController) --}}
+{{-- A reporting manager's team over chosen dates, this salary period by default (App\Http\Controllers\MyTeamController) --}}
 @extends('layouts.app')
+
+@push('styles')
+    {{-- The date picker's own styles (pages with a data table get them from datatable_css) --}}
+    @include('sections.daterange_css')
+@endpush
 
 @section('content')
     @php
         $fmt = fn ($v) => rtrim(rtrim(number_format((float) $v, 1), '0'), '.');
         $statusMeta = \App\Http\Controllers\PayrollAttendanceController::STATUSES;
-        $periodKey = fn ($p) => sprintf('%04d-%02d', $p->year, $p->month);
     @endphp
 
     <div class="content-wrapper">
-        {{-- Waiting for the manager --}}
-        <div class="row">
-            <div class="col-md-6 mb-3">
-                <a href="{{ route('leaves.index') }}?waiting=me" class="card border-0 b-shadow-4 p-3 d-block text-dark h-100">
-                    <div class="f-12 text-lightest text-uppercase font-weight-bold">Leave requests waiting for you</div>
-                    <div class="f-27 font-weight-bold {{ $leavesWaiting ? 'text-warning' : '' }}">{{ $leavesWaiting }}</div>
-                    <div class="f-13 text-dark-grey">{{ $leavesWaiting ? 'Review and approve or reject' : 'Nothing to decide' }}</div>
-                </a>
-            </div>
-            <div class="col-md-6 mb-3">
-                <a href="{{ route('attendances.by_request') }}?waiting=me" class="card border-0 b-shadow-4 p-3 d-block text-dark h-100">
-                    <div class="f-12 text-lightest text-uppercase font-weight-bold">Attendance corrections waiting for you</div>
-                    <div class="f-27 font-weight-bold {{ $correctionsWaiting ? 'text-warning' : '' }}">{{ $correctionsWaiting }}</div>
-                    <div class="f-13 text-dark-grey">{{ $correctionsWaiting ? 'Review and approve or reject' : 'Nothing to decide' }}</div>
-                </a>
-            </div>
-        </div>
-
         <div class="card bg-white border-0 b-shadow-4 mb-3">
-            <div class="card-header bg-white border-bottom d-flex align-items-center flex-wrap p-3">
-                <div class="mr-auto">
-                    <h6 class="mb-0 f-14">Team attendance · {{ \Carbon\Carbon::create($cycle->year, $cycle->month, 1)->format('F Y') }} <span class="text-lightest font-weight-normal">({{ $cycle->start->format('d M') }} – {{ $cycle->end->format('d M') }})</span></h6>
-                    <p class="mb-0 f-12 text-lightest">The people who report to you, counted as payroll counts them. Open a name for their month, day by day.</p>
-                </div>
-                <div class="btn-group btn-group-sm mt-2 mt-md-0" role="group">
-                    <a class="btn btn-secondary" href="{{ route('my-team.attendance', ['period' => $periodKey($previousPeriod)]) }}">&larr; {{ \Carbon\Carbon::create($previousPeriod->year, $previousPeriod->month, 1)->format('M') }}</a>
-                    @unless ($isCurrent)
-                        <a class="btn btn-secondary" href="{{ route('my-team.attendance') }}">This period</a>
-                    @endunless
-                    @unless ($isCurrent || $nextPeriod->start->gt($today))
-                        <a class="btn btn-secondary" href="{{ route('my-team.attendance', ['period' => $periodKey($nextPeriod)]) }}">{{ \Carbon\Carbon::create($nextPeriod->year, $nextPeriod->month, 1)->format('M') }} &rarr;</a>
+            <div class="card-header bg-white border-bottom d-flex align-items-center flex-wrap p-3" style="gap:12px;">
+                <h6 class="mb-0 f-14 mr-auto">Team attendance
+                    <span class="text-lightest font-weight-normal">· {{ $from->format('d M Y') }} – {{ $to->format('d M Y') }}</span></h6>
+                {{-- Any dates (up to today); opens on this salary period --}}
+                <div class="d-flex align-items-center flex-wrap" style="gap:8px;">
+                    <label class="mb-0 f-13 text-dark-grey" for="ta-range">Duration</label>
+                    <input type="text" id="ta-range" readonly
+                           class="form-control form-control-sm f-13" style="width:240px; cursor:pointer; background-color:#fff !important;"
+                           value="{{ $from->format(company()->date_format) }} @lang('app.to') {{ $to->format(company()->date_format) }}">
+                    @unless ($defaultRange)
+                        <a href="{{ route('my-team.attendance') }}" class="btn btn-secondary btn-sm f-13">This period</a>
                     @endunless
                 </div>
             </div>
@@ -103,3 +88,29 @@
         </div>
     </div>
 @endsection
+
+@push('scripts')
+    <script src="{{ asset('vendor/jquery/daterangepicker.min.js') }}"></script>
+    <script>
+        // One date range, applied as soon as it is picked (up to today).
+        $(function () {
+            $('#ta-range').daterangepicker({
+                autoUpdateInput: false,
+                locale: daterangeLocale,
+                linkedCalendars: false,
+                showDropdowns: true,
+                startDate: moment('{{ $from->toDateString() }}'),
+                endDate: moment('{{ $to->toDateString() }}'),
+                maxDate: moment('{{ $today->toDateString() }}'),
+                ranges: daterangeConfig,
+                opens: 'left'
+            });
+
+            $('#ta-range').on('apply.daterangepicker', function (ev, picker) {
+                window.location = "{{ route('my-team.attendance') }}"
+                    + '?from=' + picker.startDate.format('YYYY-MM-DD')
+                    + '&to=' + picker.endDate.format('YYYY-MM-DD');
+            });
+        });
+    </script>
+@endpush

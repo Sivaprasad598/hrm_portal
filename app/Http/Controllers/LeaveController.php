@@ -65,9 +65,30 @@ class LeaveController extends AccountBaseController
             // everyone has the table: an employee's ('owned') lists only their own leave
             'table' => in_array($view, ['all', 'added', 'both', 'owned'], true),
             'team' => in_array($view, ['all', 'added', 'both'], true) || $managesTeam,
+            // A manager's "Team Leaves": their team's leave, not everybody's (HR has
+            // view_leave all). Kept simple: no apply / export / leave management,
+            // only the employee filter, and Pending / Approved cards.
+            'managerView' => $managesTeam,
             'apply' => in_array(user()->permission('add_leave'), ['all', 'added'], true),
             'forOthers' => user()->permission('add_leave_for_others') === 'all',
         ];
+    }
+
+    /**
+     * The people whose leave a manager sees on Team Leaves: the team they approve
+     * for (LeaveApprovals), else their direct reports. Not themselves.
+     *
+     * @return int[]
+     */
+    public static function managerTeamIds(): array
+    {
+        $team = \App\Services\Leaves\LeaveApprovals::teamUserIds();
+
+        if (!$team && \App\Models\LeaveSetting::value('manager_permission') !== 'cannot-approve') {
+            $team = EmployeeDetails::where('reporting_to', user()->id)->pluck('user_id')->map(fn ($id) => (int) $id)->all();
+        }
+
+        return array_values(array_diff(array_unique(array_map('intval', $team)), [(int) user()->id]));
     }
 
     /**
@@ -97,6 +118,33 @@ class LeaveController extends AccountBaseController
         $this->employees = $reportingTo->merge($employee);
 
         $this->leaveTypes = LeaveType::all();
+
+        // Team Leaves cards: the requests the manager's table lists, by status -
+        // the same people as LeaveDataTable (own + the team they approve for,
+        // else their direct reports), one count per request (a multi-day
+        // request is one row there).
+        if (self::access()['managerView']) {
+            $team = self::managerTeamIds();
+
+            // The employee filter: the manager's team only.
+            $this->employees = User::with('employeeDetail')->whereIn('id', $team ?: [0])->orderBy('name')->get();
+
+            $this->teamLeaveCounts = DB::table('leaves')
+                ->whereIn('user_id', $team ?: [0])
+                ->whereIn('status', ['pending', 'approved'])
+                ->selectRaw('status, COUNT(DISTINCT IFNULL(unique_id, id)) AS n')
+                ->groupBy('status')
+                ->pluck('n', 'status')
+                ->all();
+
+            // People of the team away today on approved leave.
+            $this->teamOnLeaveToday = DB::table('leaves')
+                ->whereIn('user_id', $team ?: [0])
+                ->where('status', 'approved')
+                ->whereDate('leave_date', now(company()->timezone)->toDateString())
+                ->distinct()
+                ->count('user_id');
+        }
 
         return $dataTable->render('leaves.index', $this->data);
     }
@@ -821,8 +869,16 @@ class LeaveController extends AccountBaseController
 
         $this->pendingLeaves = Leave::where('status', 'pending')->count();
         $this->employees = User::allEmployees();
+
+        // A manager's calendar is their team's leave (Team Leaves), not their own.
+        $managerTeam = self::access()['managerView'] ? self::managerTeamIds() : null;
+
+        if ($managerTeam !== null) {
+            $this->employees = User::with('employeeDetail')->whereIn('id', $managerTeam ?: [0])->orderBy('name')->get();
+            $this->managerView = true;
+        }
         $this->leaveTypes = LeaveType::all();
-        $this->pageTitle = 'app.menu.calendar';
+        $this->pageTitle = $managerTeam !== null ? 'Team Leave Calendar' : 'app.menu.calendar';
         $this->reportingPermission = LeaveSetting::value('manager_permission');
 
         if (request('start') && request('end')) {
@@ -858,7 +914,15 @@ class LeaveController extends AccountBaseController
                 $leavesList->where('users.name', 'like', '%' . $request->searchText . '%');
             }
 
-            if ($viewPermission == 'owned') {
+            // The Employee filter (it was sent but never applied).
+            if ($request->employeeId != 'all' && $request->employeeId != '') {
+                $leavesList->where('leaves.user_id', (int) $request->employeeId);
+            }
+
+            if ($managerTeam !== null) {
+                $leavesList->whereIn('leaves.user_id', $managerTeam ?: [0]);
+            }
+            elseif ($viewPermission == 'owned') {
                 $leavesList->where(function ($q) {
                     $q->orWhere('leaves.user_id', '=', user()->id);
 
