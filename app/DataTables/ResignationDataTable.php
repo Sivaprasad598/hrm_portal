@@ -101,7 +101,10 @@ class ResignationDataTable extends BaseDataTable
                 'employee_details.department_id',
                 'employee_details.designation_id',
             ])
-            ->selectRaw("{$statusSql} as effective_status");
+            ->selectRaw("{$statusSql} as effective_status")
+            // People who have finished their notice (off-boarded) are listed under
+            // Exits > Exited Employees, not here.
+            ->whereRaw("{$statusSql} <> 'completed'");
 
         if ($request->status === 'approved') {
             // "Approved" is a rollup independent of the notice_period/completed

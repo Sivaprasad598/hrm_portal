@@ -363,15 +363,15 @@ body.epic .page-tabs {
     padding-top: 14px !important;
 }
 
-body.epic .page-tabs a {
+body.epic .page-tabs > a {
     color: var(--epic-muted) !important;
     font-size: 15px !important;
     border-bottom-width: 2px;
 }
 
-body.epic .page-tabs a:hover { color: var(--epic-text) !important; }
+body.epic .page-tabs > a:hover { color: var(--epic-text) !important; }
 
-body.epic .page-tabs a.active {
+body.epic .page-tabs > a.active {
     color: var(--epic-blue) !important;
     border-bottom-color: var(--epic-blue) !important;
     font-weight: 500;
@@ -1448,21 +1448,22 @@ body.epic .page-tabs {
     gap: 30px !important;
 }
 
-body.epic .page-tabs a {
+body.epic .page-tabs > a {
     padding: 14px 0 12px !important;
     font-size: 15px !important;
     font-weight: 400 !important;
     color: var(--epic-muted) !important;
     border: 0 !important;
-    border-top: 2px solid transparent !important;
+    border-bottom: 2px solid transparent !important;
     transition: .3s border-color, .3s color;
 }
 
-body.epic .page-tabs a:hover { color: var(--epic-text) !important; border-top-color: var(--epic-line) !important; }
+/* the open tab: its rule under the words (was above them) */
+body.epic .page-tabs > a:hover { color: var(--epic-text) !important; border-bottom-color: var(--epic-line) !important; }
 
-body.epic .page-tabs a.active {
+body.epic .page-tabs > a.active {
     color: var(--epic-blue) !important;
-    border-top-color: var(--epic-blue) !important;
+    border-bottom-color: var(--epic-blue) !important;
 }
 
 /* --------------------------------------------------------------------------
@@ -2475,3 +2476,10 @@ body.epic .emp-dashboard .emp-dash-detail .no-record, body.epic .emp-dashboard .
 body.epic .emp-dashboard .fc .fc-view-harness, body.epic .emp-dashboard .fc-list, body.epic .emp-dashboard .fc .fc-list-empty { background: #fff !important; }
 body.epic .emp-dashboard .fc .fc-list-empty { min-height: 160px; color: #98a2b3; }
 body.epic .emp-dashboard .fc .fc-button { border-radius: 8px !important; }
+
+/* Department drop-downs in tree order (departments/partials/tree-options): the
+   division in bold, a sub division with its division's name beside it */
+.dept-opt--top { font-weight: 600; color: #101828; }
+.dept-opt__of { color: #98a2b3; font-size: 11.5px; margin-left: 4px; }
+.dropdown-menu .active .dept-opt__of, .dropdown-menu .selected .dept-opt__of { color: inherit; opacity: .7; }
+.dropdown-menu .active .dept-opt--top { color: inherit; }

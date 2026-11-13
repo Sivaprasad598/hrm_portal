@@ -8,10 +8,12 @@
         the leave types marked <strong>encashed</strong> &mdash; Earned Leave, within the limits below.
     </x-alert>
 
-    <form id="encashment-settings-form">
+    {{-- A <div>, not a <form>: the settings page already wraps this tab in its own form, and a form inside a form is dropped by the browser --}}
+    <div id="encashment-settings-form" class="enc-form">
+        <h4 class="enc-head">Encashment value</h4>
         <div class="row">
             <div class="col-lg-3 col-md-6">
-                <x-forms.select fieldId="encashment_basis" fieldLabel="Value an encashed day from"
+                <x-forms.select fieldId="encashment_basis" fieldLabel="Day value from"
                     fieldName="encashment_basis"
                     popover="The monthly salary figure a day of leave is worth a fraction of.">
                     <option value="basic" @selected(($settings->encashment_basis ?? 'basic') === 'basic')>Basic salary</option>
@@ -51,7 +53,7 @@
         @php
             $leaveTypesForEl = \App\Models\LeaveType::where('paid', 1)->orderBy('type_name')->get(['id', 'type_name']);
         @endphp
-        <h4 class="f-16 text-dark-grey mt-3 mb-2">Earned Leave</h4>
+        <h4 class="enc-head enc-head--split">Earned Leave</h4>
         <div class="row">
             <div class="col-lg-3 col-md-6">
                 <x-forms.select fieldId="earned_leave_type_id" fieldLabel="Earned Leave type" fieldName="earned_leave_type_id"
@@ -63,30 +65,70 @@
                 </x-forms.select>
             </div>
             <div class="col-lg-3 col-md-6">
-                <x-forms.number fieldId="earned_leave_min_service_years" fieldLabel="Usable after (years of service)"
+                <x-forms.number fieldId="earned_leave_min_service_years" fieldLabel="Usable after (years)"
                     fieldName="earned_leave_min_service_years" :fieldValue="(float) ($settings->earned_leave_min_service_years ?? 2)"
                     popover="Counted from the joining date. Before this the balance builds up but cannot be used, and is not paid out on leaving. 0 = from joining." />
             </div>
             <div class="col-lg-3 col-md-6">
-                <x-forms.number fieldId="earned_leave_encash_max_days" fieldLabel="Paid out on leaving, up to (days)"
+                <x-forms.number fieldId="earned_leave_encash_max_days" fieldLabel="Paid on exit, up to (days)"
                     fieldName="earned_leave_encash_max_days" :fieldValue="$settings->earned_leave_encash_max_days ?? 30"
                     popover="The most Earned Leave the final settlement pays. Leave it empty for no limit." />
             </div>
-        </div>
-
-        <div class="row">
-            <div class="col-lg-12">
-                <p class="f-13 text-dark-grey mb-1">Example</p>
-                <p class="f-13 text-lightest" id="encashment-example"></p>
+            <div class="col-lg-3 col-md-6">
+                @php
+                    $elFrom = !empty($settings->earned_leave_starts_from) ? \Carbon\Carbon::parse($settings->earned_leave_starts_from) : null;
+                @endphp
+                <x-forms.label class="my-3" fieldId="el_from_month" fieldLabel="Starts from"
+                    popover="Earned Leave is earned, 1 a month, only from this month on - nothing before it. Leave both empty: from the start of the leave year (or the joining month)." />
+                <input type="hidden" name="earned_leave_starts_from" id="earned_leave_starts_from" value="{{ $elFrom?->format('Y-m') }}">
+                <div class="enc-pair">
+                    <select class="form-control select-picker" id="el_from_month" data-size="8">
+                        <option value="">Month</option>
+                        @foreach (range(1, 12) as $m)
+                            <option value="{{ sprintf('%02d', $m) }}" @selected($elFrom && $elFrom->month === $m)>{{ \Carbon\Carbon::create(2000, $m, 1)->format('F') }}</option>
+                        @endforeach
+                    </select>
+                    <select class="form-control select-picker" id="el_from_year" data-size="8">
+                        <option value="">Year</option>
+                        @foreach (range(now()->year - 3, now()->year + 1) as $y)
+                            <option value="{{ $y }}" @selected($elFrom && $elFrom->year === $y)>{{ $y }}</option>
+                        @endforeach
+                    </select>
+                </div>
             </div>
         </div>
 
+        <div class="enc-example">
+            <span class="enc-example__title"><i class="fa fa-calculator mr-1"></i>Example</span>
+            <span id="encashment-example"></span>
+        </div>
+
         <x-forms.button-primary id="save-encashment-settings" icon="check">@lang('app.save')</x-forms.button-primary>
-    </form>
+    </div>
 </div>
+
+<style>
+    body.epic .enc-form .enc-head { font-size: 15px !important; font-weight: 600 !important; color: var(--epic-text, #1d2939) !important; margin: 4px 0 0 !important; }
+    body.epic .enc-form .enc-head--split { margin-top: 26px !important; padding-top: 20px !important; border-top: 1px solid var(--epic-line, #e8e9e9) !important; }
+    /* labels share one height (a long one may wrap), so the fields in a row line up */
+    body.epic .enc-form label { white-space: normal !important; min-height: 42px; display: flex !important; align-items: flex-end; margin-bottom: 8px !important; }
+    body.epic .enc-form .enc-pair { display: flex; gap: 8px; }
+    body.epic .enc-form .enc-pair .bootstrap-select:first-child { flex: 3 1 0 !important; }
+    body.epic .enc-form .enc-pair .bootstrap-select { flex: 2 1 0; width: auto !important; min-width: 0 !important; margin: 0 !important; }
+    body.epic .enc-form .enc-example { margin: 24px 0 20px; padding: 12px 16px; border-radius: 10px; background: #f9fafb;
+        border: 1px solid var(--epic-line, #e8e9e9); font-size: 13px; color: #475467; }
+    body.epic .enc-form .enc-example__title { display: block; font-weight: 600; color: var(--epic-text, #1d2939); margin-bottom: 4px; }
+</style>
 
 <script>
     (function () {
+        // Starts from: month + year make the one value the form sends (empty unless both are chosen)
+        // (the page turns .select-picker into dropdowns itself)
+        $('body').off('change.elFrom').on('change.elFrom', '#el_from_month, #el_from_year', function () {
+            var m = $('#el_from_month').val(), y = $('#el_from_year').val();
+            $('#earned_leave_starts_from').val(m && y ? y + '-' + m : '');
+        });
+
         function refresh() {
             var basis = $('#encashment_basis').val();
             var source = $('#encashment_salary_source').val();
@@ -115,7 +157,7 @@
                 type: 'POST',
                 container: '#encashment-settings-form',
                 blockUI: true,
-                data: $('#encashment-settings-form').serialize() + '&_token={{ csrf_token() }}'
+                data: $('#encashment-settings-form').find('input, select, textarea').serialize() + '&_token={{ csrf_token() }}'
             });
         });
     })();

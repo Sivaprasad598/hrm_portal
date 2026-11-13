@@ -20,7 +20,7 @@
 
         <!-- EMPLOYEE FILTER START -->
         {{-- Only themselves to pick (an employee): no drop-down, the one choice stays selected --}}
-        <div class="select-box {{ !empty($managerView) ? 'tl-grow' : '' }} {{ $employees->count() > 1 || in_array('admin', user_roles()) || !empty($managerView) ? 'd-flex' : 'd-none' }} py-2 px-lg-2 px-md-2 px-0 border-right-grey border-right-grey-sm-0">
+        <div class="select-box {{ !empty($managerView) ? 'tl-grow' : '' }} {{ !\App\Http\Controllers\LeaveController::mine() && ($employees->count() > 1 || in_array('admin', user_roles()) || !empty($managerView)) ? 'd-flex' : 'd-none' }} py-2 px-lg-2 px-md-2 px-0 border-right-grey border-right-grey-sm-0">
             <p class="mb-0 pr-2 f-14 text-dark-grey d-flex align-items-center">@lang('app.employee')</p>
             <div class="select-status">
                 <select class="form-control select-picker" name="employee_id" id="employee_id" data-live-search="true"
@@ -123,9 +123,9 @@ $addLeavePermission = user()->permission('add_leave');
         <div class="d-grid d-lg-flex d-md-flex action-bar">
             <div id="table-actions" class="flex-grow-1 align-items-center">
                 {{-- Not on a manager's team calendar: they apply from My Space → My Leaves --}}
-                @if (($addLeavePermission == 'all' || $addLeavePermission == 'added') && empty($managerView))
+                @if (($addLeavePermission == 'all' || $addLeavePermission == 'added') && !\App\Http\Controllers\LeaveController::access()['team'])
                     <x-forms.link-primary :link="route('leaves.create')"
-                        data-redirect-url="{{ route('leaves.calendar') }}"
+                        data-redirect-url="{{ route('leaves.calendar', \App\Http\Controllers\LeaveController::mine() ? ['mine' => 1] : []) }}"
                         class="mr-3 openRightModal float-left" icon="plus">
                         @lang('modules.leaves.addLeave')
                     </x-forms.link-primary>
@@ -240,6 +240,7 @@ $addLeavePermission = user()->permission('add_leave');
                         leaveTypeId: leaveTypeId,
                         status: status,
                         searchText: searchText,
+                        mine: {{ \App\Http\Controllers\LeaveController::mine() ? 1 : 0 }},
                     };
                 }
             }],

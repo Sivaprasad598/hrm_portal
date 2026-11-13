@@ -50,20 +50,29 @@ class DepartmentDataTable extends BaseDataTable
 
                 return $action . '</div>';
             })
-            // Shown as Division and Sub Division: a department with a parent is a
-            // sub division of it, one without is a division.
+            // One name column: a division in bold with how many sub divisions it
+            // has, each sub division indented under it - the division's name is not
+            // repeated on every row. While searching, a sub division says whose it is.
             ->addColumn('division', function ($row) {
-                return $row->parent_id
-                    ? e($this->teamNames()[$row->parent_id] ?? '-')
-                    : $this->teamLink($row);
+                if (!$row->parent_id) {
+                    $subs = $this->childCounts()[$row->id] ?? 0;
+
+                    return '<a href="' . route('departments.show', [$row->id]) . '" class="openRightModal dv-division">' . e($row->team_name) . '</a>'
+                        . ($subs ? ' <span class="dv-count">· ' . $subs . ' sub division' . ($subs > 1 ? 's' : '') . '</span>' : '');
+                }
+
+                $parent = request()->searchText ? '<span class="dv-parent">in ' . e($this->teamNames()[$row->parent_id] ?? '-') . '</span>' : '';
+
+                return '<span class="dv-sub"><a href="' . route('departments.show', [$row->id]) . '" class="openRightModal">' . e($row->team_name) . '</a>' . $parent . '</span>';
             })
-            ->addColumn('sub_division', fn ($row) => $row->parent_id ? $this->teamLink($row) : '-')
+            ->addColumn('division_name', fn ($row) => $row->parent_id ? ($this->teamNames()[$row->parent_id] ?? '') : $row->team_name)
+            ->addColumn('sub_division_name', fn ($row) => $row->parent_id ? $row->team_name : '')
             // Each division, then its sub divisions.
             ->order(fn ($query) => $query->orderByRaw('COALESCE(parent_id, id), parent_id IS NOT NULL, team_name'))
             ->addIndexColumn()
             ->smart(false)
             ->setRowId(fn($row) => 'row-' . $row->id)
-            ->rawColumns(['action', 'division', 'sub_division', 'check']);
+            ->rawColumns(['action', 'division', 'check']);
     }
 
     /**
@@ -100,6 +109,13 @@ class DepartmentDataTable extends BaseDataTable
     }
 
     private ?array $names = null;
+
+    private ?array $counts = null;
+
+    private function childCounts(): array
+    {
+        return $this->counts ??= Team::whereNotNull('parent_id')->selectRaw('parent_id, COUNT(*) n')->groupBy('parent_id')->pluck('n', 'parent_id')->all();
+    }
 
     private function teamNames(): array
     {
@@ -165,8 +181,10 @@ class DepartmentDataTable extends BaseDataTable
                 'visible' => !in_array('client', user_roles())
             ],
             '#' => ['data' => 'DT_RowIndex', 'orderable' => false, 'searchable' => false, 'visible' => false, 'title' => '#'],
-            'Division' => ['data' => 'division', 'name' => 'team_name', 'searchable' => false, 'title' => 'Division'],
-            'Sub Division' => ['data' => 'sub_division', 'name' => 'parent_id', 'searchable' => false, 'orderable' => false, 'exportable' => true, 'title' => 'Sub Division'],
+            'Division' => ['data' => 'division', 'name' => 'team_name', 'searchable' => false, 'orderable' => false, 'exportable' => false, 'title' => 'Division / Sub Division'],
+            // the Excel export keeps the two plain columns
+            'Division ' => ['data' => 'division_name', 'name' => 'team_name', 'visible' => false, 'searchable' => false, 'orderable' => false, 'title' => 'Division'],
+            'Sub Division' => ['data' => 'sub_division_name', 'name' => 'parent_id', 'visible' => false, 'searchable' => false, 'orderable' => false, 'title' => 'Sub Division'],
             Column::computed('action', __('app.action'))
                 ->exportable(false)
                 ->printable(false)

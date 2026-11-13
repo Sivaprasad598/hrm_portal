@@ -30,9 +30,7 @@
                     <select class="form-control select-picker" name="department" id="department" data-live-search="true"
                             data-size="8">
                         <option value="all">@lang('app.all')</option>
-                        @foreach ($departments as $department)
-                            <option value="{{ $department->id }}">{{ $department->team_name }}</option>
-                        @endforeach
+                        @include('departments.partials.tree-options', ['departments' => $departments])
                     </select>
                 </div>
             </div>
@@ -121,60 +119,23 @@
     <!-- CONTENT WRAPPER START -->
     <div class="content-wrapper px-4">
 
-        <div class="d-grid d-lg-flex d-md-flex action-bar">
-            <div id="table-actions" class="flex-grow-1 align-items-center">
-                @if ($addAttendancePermission == 'all' || $addAttendancePermission == 'added')
-                    <x-forms.link-primary :link="route('attendances.create')" class="mr-3 openRightModal float-left"
-                                          icon="plus">
-                        @lang('modules.attendance.markAttendance')
-                    </x-forms.link-primary>
-                @endif
-                @if (canDataTableExport())
-                    <x-forms.button-secondary id="export-all" class="mr-3 mb-2 mb-lg-0" icon="file-export">
-                        @lang('app.exportExcel')
-                    </x-forms.button-secondary>
-                @endif
+        {{-- Export at the top right, on the tab row (sections/page-tabs); no Import
+             (attendance comes in from the biometric sync), no Mark Attendance, and
+             no Summary / By Member / By Hour / By Location switch: the register is the one view --}}
+        @push('page-tab-actions')
+            @if (canDataTableExport())
+                <x-forms.button-secondary id="export-all" icon="file-export">
+                    @lang('app.exportExcel')
+                </x-forms.button-secondary>
+            @endif
+            @if (user()->permission('delete_attendance') == 'all')
+                <x-forms.button-secondary id="delete-imported-attendance" icon="trash">
+                    @lang('modules.attendance.deleteImportedData')
+                </x-forms.button-secondary>
+            @endif
+        @endpush
 
-                @if ($addAttendancePermission == 'all' || $addAttendancePermission == 'added')
-                    <x-forms.link-secondary :link="route('attendances.import')" class="mr-3 openRightModal float-left d-none d-lg-block"
-                                            icon="file-upload">
-                        @lang('app.importExcel')
-                    </x-forms.link-secondary>
-                @endif
-
-                @if (user()->permission('delete_attendance') == 'all')
-                    <x-forms.button-secondary id="delete-imported-attendance" class="mr-3 mb-2 mb-lg-0" icon="trash">
-                        @lang('modules.attendance.deleteImportedData')
-                    </x-forms.button-secondary>
-                @endif
-            </div>
-
-            <div class="btn-group mt-2 mt-lg-0 mt-md-0 ml-0 ml-lg-3 ml-md-3" role="group">
-                <a href="{{ route('attendances.index') }}" class="btn btn-secondary f-14 btn-active"
-                   data-toggle="tooltip"
-                   data-original-title="@lang('app.summary')"><i class="side-icon bi bi-list-ul"></i></a>
-
-                <a href="{{ route('attendances.by_member') }}" class="btn btn-secondary f-14" data-toggle="tooltip"
-                   data-original-title="@lang('modules.attendance.attendanceByMember')"><i
-                        class="side-icon bi bi-person"></i></a>
-
-                <a href="{{ route('attendances.by_hour') }}" class="btn btn-secondary f-14" data-toggle="tooltip"
-                   data-original-title="@lang('modules.attendance.attendanceByHour')"><i class="fa fa-clock"></i></a>
-
-                @if (isset($attendanceRegularisation) && $attendanceRegularisation->adjust_attendance_logs != 'not_allowed')
-                    <a href="{{ route('attendances.by_request') }}" class="btn btn-secondary f-14" data-toggle="tooltip"
-                    data-original-title="@lang('clan.attendance.attendanceRegularisation') ({{$pendingRequestRegularisation ?? 0}})"><i
-                            class="side-icon bi bi-arrow-counterclockwise"></i></a>
-                @endif
-
-                @if (attendance_setting()->save_current_location)
-                    <a href="{{ route('attendances.by_map_location') }}" class="btn btn-secondary f-14"
-                       data-toggle="tooltip" data-original-title="@lang('modules.attendance.attendanceByLocation')"><i
-                            class="fa fa-map-marked-alt"></i></a>
-                @endif
-
-            </div>
-        </div>
+        @include('sections.filter-toggle', ['dot' => ['#department', '#designation', '#user_id']])
 
         <!-- Task Box Start -->
         <x-cards.data class="mt-3">
@@ -601,6 +562,8 @@
         }
 
         showTable(false);
+
+
         @if (canDataTableExport())
             $('#export-all').click(function () {
                 $('#attendanceExportModal').modal('show');
@@ -615,6 +578,8 @@
                 var url =
                     "{{ route('attendances.export_all_attendance', [':year', ':month', ':userId', ':department', ':designation']) }}";
                 url = url.replace(':year', year).replace(':month', month).replace(':userId', userId).replace(':department', department).replace(':designation', designation);
+                // the file downloads; close the Export choice straight away
+                $('#attendanceExportModal').modal('hide');
                 window.location.href = url;
             });
 
@@ -628,6 +593,8 @@
                 var url =
                     "{{ route('attendances.export_all_attendance_clock', [':year', ':month', ':userId', ':department', ':designation']) }}";
                 url = url.replace(':year', year).replace(':month', month).replace(':userId', userId).replace(':department', department).replace(':designation', designation);
+                // the file downloads; close the Export choice straight away
+                $('#attendanceExportModal').modal('hide');
                 window.location.href = url;
             });
         @endif

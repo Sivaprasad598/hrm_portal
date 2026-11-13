@@ -1,18 +1,13 @@
 @extends('layouts.app')
 
 @section('content')
-    <div class="row">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-body p-0">
-                    <iframe
-                        src="{{ route('legacy.page', 'probation_period_request') }}"
-                        class="w-100"
-                        style="min-height: calc(100vh - 220px); border: 0;"
-                        title="@lang('app.menu.probationPeriodRequests')">
-                    </iframe>
-                </div>
-            </div>
-        </div>
+    {{-- same grey page area as the Divisions page (no white card around the frame) --}}
+    <div class="content-wrapper">
+        <iframe
+            src="{{ route('legacy.page', 'probation_period_request') }}"
+            class="w-100 d-block"
+            style="min-height: calc(100vh - 200px); border: 0; background: transparent;"
+            title="@lang('app.menu.probationPeriodRequests')">
+        </iframe>
     </div>
 @endsection

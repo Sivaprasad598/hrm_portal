@@ -391,6 +391,23 @@ class RecalculateLeavesQuotas extends Command
 
         }
 
+        // Earned Leave cut-off (Leave Settings -> Encashment -> "starts from"):
+        // nothing is earned before that month, whatever the joining date says.
+        $elPolicy = new \App\Services\Leaves\EarnedLeavePolicy($user->company_id ?? null);
+        $elFrom = $elPolicy->isEarnedLeave((int) ($value->leave_type_id ?? $value->id ?? 0)) ? $elPolicy->startsFrom() : null;
+
+        if ($elFrom && $value->leavetype == 'monthly') {
+            $fromCutoff = $elFrom->gt(now()->startOfMonth()) ? 0 : (int) $elFrom->diffInMonths(now()->startOfMonth()) + 1;
+
+            if ($fromCutoff < $countOfMonthsAllowed) {
+                $countOfMonthsAllowed = $fromCutoff;
+                // the months cut off include the joining month: its half-month rule no longer applies
+                if ($elFrom->gt($joiningDate->copy()->startOfMonth())) {
+                    $leaveToSubtract = 0;
+                }
+            }
+        }
+
         if ($value->leavetype == 'yearly') {
             $leaves = $value->no_of_leaves - $leaveToSubtract;
         

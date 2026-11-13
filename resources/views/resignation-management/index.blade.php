@@ -15,7 +15,6 @@
                     <option value="approved">Approved</option>
                     <option value="notice_period">Notice Period</option>
                     <option value="rejected">Rejected</option>
-                    <option value="completed">Off Boarded</option>
                 </select>
             </div>
         </div>
@@ -161,23 +160,6 @@
             </div>
         </div>
 
-        <div class="col-xl col-md-4 col-sm-6 mb-3">
-            <div class="card border-0 shadow-sm h-100" style="border-left:4px solid #6c757d !important; cursor:pointer;"
-                 onclick="filterResignationStatus('completed')">
-                <div class="card-body p-3">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <p class="text-muted f-12 mb-1 text-uppercase font-weight-600">Off Boarded</p>
-                            <h3 class="font-weight-700 mb-0 text-secondary">{{ $completedCount }}</h3>
-                        </div>
-                        <div class="rounded-circle d-flex align-items-center justify-content-center"
-                             style="width:50px;height:50px;background:#e9ecef;">
-                            <i class="fa fa-door-open text-secondary f-20"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 
     {{-- DataTable --}}

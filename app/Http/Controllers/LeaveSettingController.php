@@ -90,6 +90,7 @@ class LeaveSettingController extends AccountBaseController
             'earned_leave_type_id' => 'nullable|integer|exists:leave_types,id',
             'earned_leave_min_service_years' => 'nullable|numeric|min:0|max:40',
             'earned_leave_encash_max_days' => 'nullable|numeric|min:0|max:999',
+            'earned_leave_starts_from' => 'nullable|date_format:Y-m',
         ]);
 
         $setting = LeaveSetting::first();
@@ -103,6 +104,10 @@ class LeaveSettingController extends AccountBaseController
             $setting->earned_leave_min_service_years = (float) ($request->earned_leave_min_service_years ?: 0);
             $setting->earned_leave_encash_max_days = $request->earned_leave_encash_max_days === null || $request->earned_leave_encash_max_days === ''
                 ? null : (float) $request->earned_leave_encash_max_days;
+        }
+
+        if (\Illuminate\Support\Facades\Schema::hasColumn('leave_settings', 'earned_leave_starts_from')) {
+            $setting->earned_leave_starts_from = $request->earned_leave_starts_from ? $request->earned_leave_starts_from . '-01' : null;
         }
 
         $setting->save();

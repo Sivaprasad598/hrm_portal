@@ -16,13 +16,15 @@ $addLeavePermission = user()->permission('add_leave');
 $approveRejectPermission = user()->permission('approve_or_reject_leaves');
 // A manager's Team Leaves: only what a manager needs (LeaveController::access()).
 $managerView = \App\Http\Controllers\LeaveController::access()['managerView'];
+// HR / admin / manager: everybody's (or the team's) leave - filtered by status, no apply / leave management here
+$teamView = \App\Http\Controllers\LeaveController::access()['team'];
 @endphp
 
 @section('filter-section')
     <x-filters.filter-box>
         {{-- A manager's Team Leaves filters by status (the cards set it too). --}}
-        @if ($managerView)
-            <div class="select-box tl-grow d-flex py-2 pr-2 border-right-grey border-right-grey-sm-0">
+        @if ($teamView)
+            <div class="select-box {{ $managerView ? 'tl-grow' : '' }} d-flex py-2 pr-2 border-right-grey border-right-grey-sm-0">
                 <p class="mb-0 pr-2 f-14 text-dark-grey d-flex align-items-center">@lang('app.status')</p>
                 <div class="select-status">
                     <select class="form-control select-picker" name="status" id="status" data-size="8">
@@ -34,7 +36,7 @@ $managerView = \App\Http\Controllers\LeaveController::access()['managerView'];
                 </div>
             </div>
         {{-- Leaves waiting for this person's decision (manager, department head, HR) --}}
-        @elseif (\App\Services\Leaves\LeaveApprovals::isApprover() || $approveRejectPermission === 'all')
+        @elseif (!\App\Http\Controllers\LeaveController::mine() && (\App\Services\Leaves\LeaveApprovals::isApprover() || $approveRejectPermission === 'all'))
             <div class="select-box d-flex py-2 pr-2 border-right-grey border-right-grey-sm-0">
                 <p class="mb-0 pr-2 f-14 text-dark-grey d-flex align-items-center">Show</p>
                 <div class="select-status">
@@ -90,7 +92,7 @@ $managerView = \App\Http\Controllers\LeaveController::access()['managerView'];
         <!-- SEARCH BY TASK END -->
 
         <!-- LEAVE MANAGEMENT START: everybody's leave, not for an employee's own table -->
-        @if (\App\Http\Controllers\LeaveController::access()['team'] && !$managerView)
+        @if (false)
         <div class="select-box d-flex py-1 px-lg-2 px-md-2 px-0">
             <x-forms.link-secondary link="javascript:;" id="open-leave-management" icon="tasks">
                 Leave Management
@@ -108,10 +110,12 @@ $managerView = \App\Http\Controllers\LeaveController::access()['managerView'];
         <!-- RESET END -->
 
         <!-- MORE FILTERS START -->
-        @unless ($managerView)
+        {{-- The "Filters" button: not shown any more (HR / managers filter by Status;
+             an employee's own list needs only Duration and Search). --}}
+        @unless (true)
         <x-filters.more-filter-box>
 
-            <div class="more-filter-items">
+            <div class="more-filter-items {{ \App\Http\Controllers\LeaveController::mine() ? 'd-none' : '' }}">
                 <label class="f-14 text-dark-grey mb-12 " for="usr">@lang('app.employee')</label>
                 <div class="select-filter mb-4">
                     <div class="select-others">
@@ -144,7 +148,7 @@ $managerView = \App\Http\Controllers\LeaveController::access()['managerView'];
                 </div>
             </div>
 
-            @if ($approveRejectPermission == 'all')
+            @if ($approveRejectPermission == 'all' && !$teamView)
                 <div class="more-filter-items">
                     <label class="f-14 text-dark-grey mb-12 " for="usr">@lang('app.status')</label>
                     <div class="select-filter mb-4">
@@ -229,12 +233,12 @@ $managerView = \App\Http\Controllers\LeaveController::access()['managerView'];
         @unless ($managerView)
         <div class="d-grid d-lg-flex d-md-flex action-bar">
             <div id="table-actions" class="flex-grow-1 align-items-center">
-                @if (($addLeavePermission == 'all' || $addLeavePermission == 'added') && !$managerView)
+                @if (($addLeavePermission == 'all' || $addLeavePermission == 'added') && !$teamView)
                     <x-forms.link-primary :link="route('leaves.create')" class="mr-3 openRightModal float-left" icon="plus">
                         @lang('modules.leaves.addLeave')
                     </x-forms.link-primary>
                 @endif
-                @if (canDataTableExport() && !$managerView)
+                @if (canDataTableExport() && !$teamView)
                     <x-forms.button-secondary id="export-all" class="mr-3 mb-2 mb-lg-0" icon="file-export">
                         @lang('app.exportExcel')
                     </x-forms.button-secondary>
@@ -282,6 +286,13 @@ $managerView = \App\Http\Controllers\LeaveController::access()['managerView'];
 
     </div>
     <!-- CONTENT WRAPPER END -->
+    @if ($teamView)
+        <style>
+            /* Table View / Calendar at full size, as on the other pages */
+            body.epic .action-bar .btn-group > .btn,
+            body.epic .tl-head .btn-group > .btn { height: 38px; padding: 0 16px !important; font-size: 14px; }
+        </style>
+    @endif
 
 @endsection
 
@@ -331,6 +342,7 @@ $managerView = \App\Http\Controllers\LeaveController::access()['managerView'];
             data['employeeId'] = employeeId;
             data['leaveTypeId'] = leaveTypeId;
             data['status'] = status;
+            data['mine'] = {{ \App\Http\Controllers\LeaveController::mine() ? 1 : 0 }};
             data['waiting'] = $('#waiting').length ? $('#waiting').val() : '';
         });
 

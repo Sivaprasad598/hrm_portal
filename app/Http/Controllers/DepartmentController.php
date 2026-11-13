@@ -40,6 +40,36 @@ class DepartmentController extends AccountBaseController
         // The filter offers the divisions (a division brings its sub divisions with it).
         $this->departments = Team::with('childs')->whereNull('parent_id')->orderBy('team_name')->get();
 
+        // The cards: each division with its sub divisions and how many active
+        // employees sit in each (a division's total includes its sub divisions).
+        $people = \Illuminate\Support\Facades\DB::table('employee_details as e')
+            ->join('users as u', 'u.id', '=', 'e.user_id')->where('u.status', 'active')
+            ->whereNotNull('e.department_id')->groupBy('e.department_id')
+            ->selectRaw('e.department_id, COUNT(*) n')->pluck('n', 'department_id');
+
+        $this->divisionCards = Team::with(['childs' => fn ($q) => $q->orderBy('team_name')])
+            ->whereNull('parent_id')->orderBy('team_name')->get()
+            ->map(function ($division) use ($people) {
+                // every level below the division (CYCLONE sits under REVIT), named by its path
+                $all = Team::get(['id', 'team_name', 'parent_id'])->groupBy('parent_id');
+                $subs = collect();
+                $walk = function ($parentId, $prefix) use (&$walk, $all, $people, &$subs) {
+                    foreach (($all[$parentId] ?? collect())->sortBy('team_name') as $s) {
+                        $subs->push(['id' => $s->id, 'name' => $prefix . $s->team_name, 'people' => (int) ($people[$s->id] ?? 0)]);
+                        $walk($s->id, $prefix . $s->team_name . ' › ');
+                    }
+                };
+                $walk($division->id, '');
+
+                return [
+                    'id' => $division->id,
+                    'name' => $division->team_name,
+                    'own' => (int) ($people[$division->id] ?? 0),
+                    'people' => (int) ($people[$division->id] ?? 0) + $subs->sum('people'),
+                    'subs' => $subs,
+                ];
+            });
+
         return $dataTable->render('departments.index', $this->data);
     }
 
@@ -95,6 +125,34 @@ class DepartmentController extends AccountBaseController
     {
         $this->department = Team::findOrFail($id);
         $this->parent = Team::where('id', $this->department->parent_id)->first();
+
+        // Where it sits: Division › Sub division › ... (top first)
+        $all = Team::get(['id', 'team_name', 'parent_id'])->keyBy('id');
+        $this->path = collect();
+        for ($p = $all[$this->department->parent_id] ?? null, $guard = 0; $p && $guard < 20; $p = $all[$p->parent_id] ?? null, $guard++) {
+            $this->path->prepend($p);
+        }
+
+        // Its sub divisions (every level) with their active people, and the people themselves
+        $ids = Team::withDescendants($this->department->id);
+        $tree = Team::treeOptions($all->whereIn('id', array_diff($ids, [$this->department->id]))->values()
+            ->map(fn ($t) => $t->parent_id == $this->department->id ? tap(clone $t, fn ($c) => $c->parent_id = null) : $t));
+
+        $this->members = \Illuminate\Support\Facades\DB::table('employee_details as e')
+            ->join('users as u', 'u.id', '=', 'e.user_id')->where('u.status', 'active')
+            ->leftJoin('designations as d', 'd.id', '=', 'e.designation_id')
+            ->whereIn('e.department_id', $ids)
+            ->orderBy('u.name')
+            ->get(['u.id', 'u.name', 'u.image', 'e.employee_id', 'e.department_id', 'd.name as designation']);
+
+        $counts = $this->members->countBy('department_id');
+        $this->subDivisions = $tree->map(function ($s) use ($counts) {
+            $s->people = (int) ($counts[$s->id] ?? 0);
+
+            return $s;
+        });
+        $this->ownCount = (int) ($counts[$this->department->id] ?? 0);
+        $this->deptNames = $all->pluck('team_name', 'id');
 
 
         $this->view = 'departments.ajax.show';

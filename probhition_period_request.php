@@ -738,6 +738,81 @@ textarea:disabled {
         grid-template-columns: 1fr;
     }
 }
+
+/* ---- App look (Epic theme) ---- */
+:root { --brand: #cb6b4f; }
+body { font-family: 'Plus Jakarta Sans', 'Segoe UI', Arial, sans-serif !important; }
+.summary-card { border: 1px solid #e8e9e9 !important; border-top: 1px solid #e8e9e9 !important; border-radius: 12px !important;
+    box-shadow: 0 1px 3px rgba(16,24,40,.06); height: auto !important; min-height: 96px; padding: 18px 20px !important; }
+.summary-card.active { box-shadow: 0 0 0 2px var(--brand) !important; border-color: var(--brand) !important; }
+.summary-label { font-size: 11.5px !important; letter-spacing: .04em; color: #667085 !important; }
+.summary-number { font-size: 26px !important; color: #101828 !important; }
+.summary-icon { border-radius: 10px !important; border: 0 !important; width: 38px !important; height: 38px !important;
+    display: flex !important; align-items: center; justify-content: center; font-size: 15px !important; }
+.summary-card.total .summary-icon { background: #f2f4f7 !important; color: #475467 !important; }
+.summary-card.pending .summary-icon { background: #fff4e5 !important; color: #b26a00 !important; }
+.summary-card.approved .summary-icon { background: #e8f6ee !important; color: #1e8a4c !important; }
+.summary-card.rejected .summary-icon { background: #fdeceb !important; color: #d92d20 !important; }
+select, input[type="text"], input[type="search"] { border-radius: 8px !important; border-color: #e8e9e9 !important; }
+select:focus, input:focus { border-color: var(--brand) !important; box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 15%, transparent) !important; outline: 0 !important; }
+.action-btn { border-radius: 7px !important; padding: 6px 12px !important; font-size: 12px !important; font-weight: 600 !important; }
+.view-btn { background: #fff !important; border: 1px solid #d0d5dd !important; color: #344054 !important; }
+html body .action-btn.approve-btn { background: var(--brand) !important; border: 1px solid var(--brand) !important; color: #fff !important; border-radius: 7px !important; }
+/* the whole table fits: text wraps, the action buttons stay on one line */
+.table-wrapper table th, .table-wrapper table td { white-space: normal !important; padding-left: 12px !important; padding-right: 12px !important; }
+.table-wrapper table td:last-child { white-space: nowrap !important; }
+.table-wrapper table td:last-child .action-btn { margin: 0 2px !important; }
+html body .action-btn.approve-btn:hover { background: color-mix(in srgb, var(--brand) 85%, #000) !important; }
+.reject-btn { background: #fff !important; border: 1px solid #fda29b !important; color: #d92d20 !important; }
+.undo-btn { background: #fff !important; border: 1px solid #d0d5dd !important; color: #344054 !important; }
+.delete-req-btn { background: transparent !important; border: 1px solid transparent !important; color: #98a2b3 !important; }
+.delete-req-btn:hover { color: #d92d20 !important; background: #fef3f2 !important; }
+.status { border-radius: 999px !important; }
+.modal-approve { background: var(--brand) !important; border-color: var(--brand) !important; }
+
+/* ---- Divisions-page look ---- */
+.page { padding: 0 0 24px !important; background: #f3f3f9; min-height: 100vh; }
+body { background: #f3f3f9 !important; }
+.pb-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pb-toolbar select { height: 38px; min-width: 190px; padding: 0 32px 0 12px; border: 1px solid #e8e9e9; border-radius: 8px; background-color: #fff;
+    font: inherit; font-size: 13px; color: #344054; }
+.pb-search { position: relative; width: 300px; max-width: 100%; margin-left: auto; }
+.pb-search svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #98a2b3; }
+.pb-search input { width: 100%; height: 38px; padding: 0 12px 0 34px; border: 1px solid #e8e9e9; border-radius: 8px; font: inherit; font-size: 13px; color: #101828; }
+.pb-summary { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 16px 0 14px; font-size: 13px; color: #667085; }
+.pb-stat { display: inline-flex; align-items: center; gap: 6px; border: 1px solid transparent; background: none; border-radius: 999px;
+    padding: 4px 10px; font: inherit; font-size: 13px; color: #667085; cursor: pointer; }
+.pb-stat b { color: #101828; font-size: 15px; }
+.pb-stat i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.pb-stat.pending i { background: #f79009; } .pb-stat.approved i { background: #12b76a; } .pb-stat.rejected i { background: #f04438; }
+.pb-stat:hover { background: #f9fafb; }
+.pb-stat.is-active { background: color-mix(in srgb, var(--brand) 10%, #fff); border-color: color-mix(in srgb, var(--brand) 45%, #fff); }
+.pb-showing { margin-left: auto; font-size: 12px; color: #98a2b3; }
+.pb-table-wrap { background: #fff; border: 1px solid #e8e9e9; border-radius: 12px; box-shadow: 0 1px 3px rgba(16,24,40,.06); overflow: hidden; }
+.pb-table thead th { background: #fff !important; padding: 14px 18px !important; font-size: 12px !important; font-weight: 600; letter-spacing: .04em !important;
+    color: #667085 !important; border-bottom: 1px solid #eaecf0 !important; white-space: nowrap !important; }
+.pb-table tbody td { padding: 14px 18px !important; font-size: 13.5px !important; color: #344054; border-bottom: 1px solid #f2f4f7 !important; vertical-align: middle; }
+.pb-table tbody tr:last-child td { border-bottom: 0 !important; }
+.pb-table tbody tr:hover td { background: #fcfcfd; }
+.pb-table .avatar { width: 40px !important; height: 40px !important; border-radius: 10px !important; flex: none;
+    background: color-mix(in srgb, var(--brand) 12%, #fff) !important; color: var(--brand) !important; font-size: 13px !important; font-weight: 700 !important; }
+.pb-table .employee { gap: 12px !important; }
+.pb-table .employee-name { font-size: 15px; font-weight: 600; color: #101828; }
+.pb-table .employee-id { font-size: 12.5px !important; color: #667085 !important; }
+.pb-table .status { font-size: 12px !important; padding: 4px 10px !important; }
+.pb-table .pb-act-h, .pb-table td:last-child { text-align: right; }
+.pb-table .actions { justify-content: flex-end; gap: 6px !important; }
+html body .pb-table .action-btn.pb-icon { width: 32px !important; height: 32px !important; padding: 0 !important; margin: 0 !important;
+    display: inline-flex !important; align-items: center; justify-content: center; border-radius: 8px !important;
+    background: #fff !important; border: 1px solid #eaecf0 !important; color: #667085 !important; }
+html body .pb-table .action-btn.pb-icon:hover { border-color: var(--brand) !important; color: var(--brand) !important; background: #fff !important; }
+html body .pb-table .action-btn.pb-icon.approve-btn { color: #12b76a !important; }
+html body .pb-table .action-btn.pb-icon.approve-btn:hover { border-color: #12b76a !important; background: #ecfdf3 !important; }
+html body .pb-table .action-btn.pb-icon.reject-btn { color: #f04438 !important; }
+html body .pb-table .action-btn.pb-icon.reject-btn:hover, html body .pb-table .action-btn.pb-icon.delete-req-btn:hover { border-color: #f04438 !important; color: #f04438 !important; background: #fef3f2 !important; }
+.pb-toolbar select { width: 200px !important; flex: none !important; margin: 0 !important; }
+.pb-search input { margin: 0 !important; }
+.pb-table tbody td:nth-child(n+4) { white-space: nowrap !important; }
 </style>
 </head>
 
@@ -745,12 +820,6 @@ textarea:disabled {
 
 <div class="page">
 
-    <!-- HEADER -->
-
-    <div class="page-header">
-        <h2>Employee Probation Period Requests</h2>
-        <p>Review and manage employee probation completion requests</p>
-    </div>
 
 
     <?php if ($error): ?>
@@ -760,86 +829,48 @@ textarea:disabled {
     <?php endif; ?>
 
 
-    <!-- SUMMARY CARDS -->
+    <!-- TOOLBAR: filters on the left, search on the right -->
 
-    <div class="summary-grid">
+    <div class="pb-toolbar">
+        <input type="hidden" id="statusFilter" value="">
 
-        <div class="summary-card total active" onclick="filterStatus('')">
-            <div class="summary-label">Total Requests</div>
-            <div class="summary-number" id="totalCount"><?= $totalCount ?></div>
-            <div class="summary-icon">👥</div>
+        <select id="departmentFilter" onchange="applyFilters()">
+            <option value="">All Departments</option>
+            <?php foreach ($departments as $dep): ?>
+                <option value="<?= e($dep) ?>"><?= e($dep) ?></option>
+            <?php endforeach; ?>
+        </select>
+
+        <select id="designationFilter" onchange="applyFilters()">
+            <option value="">All Designations</option>
+            <?php foreach ($designations as $des): ?>
+                <option value="<?= e($des) ?>"><?= e($des) ?></option>
+            <?php endforeach; ?>
+        </select>
+
+        <div class="pb-search">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+            <input type="text" id="searchInput" placeholder="Search employee or ID" oninput="applyFilters()">
         </div>
-
-        <div class="summary-card pending" onclick="filterStatus('Pending')">
-            <div class="summary-label">Pending</div>
-            <div class="summary-number" id="pendingCount"><?= $pendingCount ?></div>
-            <div class="summary-icon">◷</div>
-        </div>
-
-        <div class="summary-card approved" onclick="filterStatus('Approved')">
-            <div class="summary-label">Approved</div>
-            <div class="summary-number" id="approvedCount"><?= $approvedCount ?></div>
-            <div class="summary-icon">✓</div>
-        </div>
-
-        <div class="summary-card rejected" onclick="filterStatus('Rejected')">
-            <div class="summary-label">Rejected</div>
-            <div class="summary-number" id="rejectedCount"><?= $rejectedCount ?></div>
-            <div class="summary-icon">×</div>
-        </div>
-
     </div>
 
+    <!-- SUMMARY: each count filters the table by that status -->
 
-    <!-- FILTERS -->
-
-    <div class="filter-card">
-
-        <div class="filters">
-
-            <select id="statusFilter" onchange="applyFilters()">
-                <option value="">All Status</option>
-                <option value="Pending">Pending</option>
-                <option value="Approved">Approved</option>
-                <option value="Rejected">Rejected</option>
-            </select>
-
-            <select id="departmentFilter" onchange="applyFilters()">
-                <option value="">All Departments</option>
-                <?php foreach ($departments as $dep): ?>
-                    <option value="<?= e($dep) ?>"><?= e($dep) ?></option>
-                <?php endforeach; ?>
-            </select>
-
-            <select id="designationFilter" onchange="applyFilters()">
-                <option value="">All Designations</option>
-                <?php foreach ($designations as $des): ?>
-                    <option value="<?= e($des) ?>"><?= e($des) ?></option>
-                <?php endforeach; ?>
-            </select>
-
-            <div class="search-box">
-                <span class="search-icon">🔍</span>
-                <input type="text" id="searchInput" placeholder="Search employee..." onkeyup="applyFilters()">
-            </div>
-
-        </div>
-
+    <div class="pb-summary">
+        <button type="button" class="pb-stat is-active" data-status="" onclick="filterStatus('')"><b id="totalCount"><?= $totalCount ?></b> requests</button>
+        <button type="button" class="pb-stat pending" data-status="Pending" onclick="filterStatus('Pending')"><i></i><b id="pendingCount"><?= $pendingCount ?></b> pending</button>
+        <button type="button" class="pb-stat approved" data-status="Approved" onclick="filterStatus('Approved')"><i></i><b id="approvedCount"><?= $approvedCount ?></b> approved</button>
+        <button type="button" class="pb-stat rejected" data-status="Rejected" onclick="filterStatus('Rejected')"><i></i><b id="rejectedCount"><?= $rejectedCount ?></b> rejected</button>
+        <span class="pb-showing" id="resultCount">Showing <?= $totalCount ?> requests</span>
     </div>
-
 
     <!-- TABLE -->
 
-    <div class="table-card">
-
-        <div class="table-header">
-            <h3>Employee Probation Period Requests</h3>
-            <span id="resultCount">Showing <?= $totalCount ?> requests</span>
-        </div>
+    <div class="pb-table-wrap">
 
         <div class="table-wrapper">
 
-            <table>
+            <table class="pb-table">
 
                 <thead>
                     <tr>
@@ -847,10 +878,10 @@ textarea:disabled {
                         <th>Department</th>
                         <th>Designation</th>
                         <th>Joining Date</th>
-                        <th>Probation Period</th>
+                        <th>Period</th>
                         <th>Completion Date</th>
                         <th>Status</th>
-                        <th>Action</th>
+                        <th class="pb-act-h">Action</th>
                     </tr>
                 </thead>
 
@@ -871,6 +902,7 @@ textarea:disabled {
                         ?>
                         <tr
                             data-name="<?= e($row['employee_name']) ?>"
+                            data-code="<?= e($row['employee_id'] ?? '') ?>"
                             data-department="<?= e($row['department_name'] ?? '') ?>"
                             data-designation="<?= e($row['designation_name'] ?? '') ?>"
                             data-status="<?= e($statusLabel) ?>"
@@ -893,7 +925,7 @@ textarea:disabled {
                             <td>
                                 <div class="actions">
                                     <button
-                                        class="action-btn view-btn"
+                                        class="action-btn pb-icon view-btn" title="View details" aria-label="View details"
                                         onclick='openModal(<?= json_encode([
                                             'id' => (int) $row['id'],
                                             'name' => $row['employee_name'],
@@ -908,38 +940,28 @@ textarea:disabled {
                                             'reviewer' => $row['reviewer_name'],
                                             'replies' => $row['replies'],
                                         ], JSON_HEX_APOS | JSON_HEX_QUOT) ?>)'
-                                    >
-                                        View
-                                    </button>
+                                    ><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
 
                                     <?php if ($row['probation_review_status'] === 'pending'): ?>
                                         <button
-                                            class="action-btn approve-btn"
+                                            class="action-btn pb-icon approve-btn" title="Approve" aria-label="Approve"
                                             onclick='approveEmployee(<?= (int) $row['id'] ?>, <?= json_encode($row['employee_name'], JSON_HEX_APOS | JSON_HEX_QUOT) ?>)'
-                                        >
-                                            Approve
-                                        </button>
+                                        ><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></button>
 
                                         <button
-                                            class="action-btn reject-btn"
+                                            class="action-btn pb-icon reject-btn" title="Reject" aria-label="Reject"
                                             onclick='rejectEmployee(<?= (int) $row['id'] ?>, <?= json_encode($row['employee_name'], JSON_HEX_APOS | JSON_HEX_QUOT) ?>)'
-                                        >
-                                            Reject
-                                        </button>
+                                        ><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
 
                                         <button
-                                            class="action-btn delete-req-btn"
+                                            class="action-btn pb-icon delete-req-btn" title="Delete request" aria-label="Delete request"
                                             onclick='deleteRequest(<?= (int) $row['id'] ?>, <?= json_encode($row['employee_name'], JSON_HEX_APOS | JSON_HEX_QUOT) ?>)'
-                                        >
-                                            Delete
-                                        </button>
+                                        ><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg></button>
                                     <?php else: ?>
                                         <button
-                                            class="action-btn undo-btn"
+                                            class="action-btn pb-icon undo-btn" title="Undo decision" aria-label="Undo decision"
                                             onclick='undoRequest(<?= (int) $row['id'] ?>, <?= json_encode($row['employee_name'], JSON_HEX_APOS | JSON_HEX_QUOT) ?>)'
-                                        >
-                                            Undo
-                                        </button>
+                                        ><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 010 11H11"/></svg></button>
                                     <?php endif; ?>
                                 </div>
                             </td>
@@ -1055,10 +1077,46 @@ textarea:disabled {
    XSRF wiring uses)
 ========================================= */
 
+
+// The app's own pop-ups (SweetAlert from the surrounding page) instead of the
+// browser's confirm / prompt / alert boxes; the browser's only if it is missing.
+const APP_SWAL = (function () { try { return window.Swal || (window.parent && window.parent.Swal) || null; } catch (e) { return window.Swal || null; } })();
+const SWAL_STYLE = { customClass: { confirmButton: 'btn btn-primary mr-3', cancelButton: 'btn btn-secondary' }, buttonsStyling: false };
+
+function askConfirm(text, confirmText) {
+    if (!APP_SWAL) { return Promise.resolve(window.confirm(text)); }
+    return APP_SWAL.fire(Object.assign({ title: 'Are you sure?', text: text, icon: 'question', showCancelButton: true,
+        confirmButtonText: confirmText || 'Yes', cancelButtonText: 'Cancel' }, SWAL_STYLE)).then(r => !!r.isConfirmed);
+}
+
+function askText(text) {
+    if (!APP_SWAL) { return Promise.resolve(window.prompt(text)); }
+    return APP_SWAL.fire(Object.assign({ title: 'Reason', text: text, input: 'textarea', inputPlaceholder: 'Type the reason…',
+        showCancelButton: true, confirmButtonText: 'Reject', cancelButtonText: 'Cancel',
+        inputValidator: v => (v && v.trim()) ? undefined : 'Please enter a reason.' }, SWAL_STYLE)).then(r => r.isConfirmed ? r.value : null);
+}
+
+// After an action succeeds: a success message, then the list refreshes.
+function done(text) {
+    if (!APP_SWAL) { window.alert(text); window.location.reload(); return; }
+    APP_SWAL.fire(Object.assign({ title: 'Done', text: text, icon: 'success', confirmButtonText: 'OK',
+        timer: 2500, timerProgressBar: true }, SWAL_STYLE)).then(function () { window.location.reload(); });
+}
+
+function notify(text) {
+    if (!APP_SWAL) { window.notify(text); return; }
+    APP_SWAL.fire(Object.assign({ text: text, icon: 'warning', confirmButtonText: 'OK' }, SWAL_STYLE));
+}
+
 function getCookie(name) {
     const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
     return match ? decodeURIComponent(match[2]) : null;
 }
+
+// The actions' address, from the application itself: a relative "../account/..."
+// went wrong once this page was served at /account/probation-period-requests
+// (it became /account/account/settings/... - "route could not be found").
+const PROBATION_BASE = <?= json_encode(function_exists('url') ? url('account/settings/probation-requests') : '../account/settings/probation-requests') ?>;
 
 function postToLaravel(path, data) {
     return fetch(path, {
@@ -1165,22 +1223,22 @@ function closeModal() {
 
 function approveEmployee(id, name) {
 
-    if (!confirm("Are you sure you want to approve the probation completion of " + name + "?")) {
-        return;
-    }
+    askConfirm("Are you sure you want to approve the probation completion of " + name + "?").then(function (ok) {
+        if (!ok) { return; }
 
-    postToLaravel("../account/settings/probation-requests/" + id + "/approve", { remark: "" })
-        .then(function (response) {
-            if (response.status === "success") {
-                window.location.reload();
-            } else {
-                alert(response.message || "Could not approve this request.");
-            }
-        })
-        .catch(function (err) {
-            alert(err.message);
-        });
+        postToLaravel(PROBATION_BASE + "/" + id + "/approve", { remark: "" })
+            .then(function (response) {
+                if (response.status === "success") {
+                    done(response.message || 'Probation approved. The employee is now confirmed.');
+                } else {
+                    notify(response.message || "Could not approve this request.");
+                }
+            })
+            .catch(function (err) {
+                notify(err.message);
+            });
 
+    });
 }
 
 function approveFromModal() {
@@ -1191,22 +1249,22 @@ function approveFromModal() {
 
     const remark = document.getElementById("adminRemark").value;
 
-    if (!confirm("Approve probation completion for " + selectedRequest.name + "?")) {
-        return;
-    }
+    askConfirm("Approve probation completion for " + selectedRequest.name + "?").then(function (ok) {
+        if (!ok) { return; }
 
-    postToLaravel("../account/settings/probation-requests/" + selectedRequest.id + "/approve", { remark: remark })
-        .then(function (response) {
-            if (response.status === "success") {
-                window.location.reload();
-            } else {
-                alert(response.message || "Could not approve this request.");
-            }
-        })
-        .catch(function (err) {
-            alert(err.message);
-        });
+        postToLaravel(PROBATION_BASE + "/" + selectedRequest.id + "/approve", { remark: remark })
+            .then(function (response) {
+                if (response.status === "success") {
+                    done(response.message || 'Probation approved. The employee is now confirmed.');
+                } else {
+                    notify(response.message || "Could not approve this request.");
+                }
+            })
+            .catch(function (err) {
+                notify(err.message);
+            });
 
+    });
 }
 
 
@@ -1216,24 +1274,24 @@ function approveFromModal() {
 
 function rejectEmployee(id, name) {
 
-    const reason = prompt("Enter the reason for rejecting " + name + "'s probation completion:");
+    askText("Why is " + name + "'s probation completion rejected?").then(function (reason) {
 
     if (!reason || reason.trim() === "") {
         return;
     }
 
-    postToLaravel("../account/settings/probation-requests/" + id + "/reject", { remark: reason })
+    postToLaravel(PROBATION_BASE + "/" + id + "/reject", { remark: reason })
         .then(function (response) {
             if (response.status === "success") {
-                window.location.reload();
+                done(response.message || 'Probation rejected.');
             } else {
-                alert(response.message || "Could not reject this request.");
+                notify(response.message || "Could not reject this request.");
             }
         })
         .catch(function (err) {
-            alert(err.message);
+            notify(err.message);
         });
-
+    });
 }
 
 function rejectFromModal() {
@@ -1241,26 +1299,26 @@ function rejectFromModal() {
     const reason = document.getElementById("adminRemark").value.trim();
 
     if (!reason) {
-        alert("Please enter a reason before rejecting.");
+        notify("Please enter a reason before rejecting.");
         return;
     }
 
-    if (!confirm("Reject probation completion for " + selectedRequest.name + "?")) {
-        return;
-    }
+    askConfirm("Reject probation completion for " + selectedRequest.name + "?").then(function (ok) {
+        if (!ok) { return; }
 
-    postToLaravel("../account/settings/probation-requests/" + selectedRequest.id + "/reject", { remark: reason })
-        .then(function (response) {
-            if (response.status === "success") {
-                window.location.reload();
-            } else {
-                alert(response.message || "Could not reject this request.");
-            }
-        })
-        .catch(function (err) {
-            alert(err.message);
-        });
+        postToLaravel(PROBATION_BASE + "/" + selectedRequest.id + "/reject", { remark: reason })
+            .then(function (response) {
+                if (response.status === "success") {
+                    done(response.message || 'Probation rejected.');
+                } else {
+                    notify(response.message || "Could not reject this request.");
+                }
+            })
+            .catch(function (err) {
+                notify(err.message);
+            });
 
+    });
 }
 
 
@@ -1273,40 +1331,40 @@ function sendMessageFromModal() {
     const message = document.getElementById("adminRemark").value.trim();
 
     if (!message) {
-        alert("Please enter a message before sending.");
+        notify("Please enter a message before sending.");
         return;
     }
 
-    if (!confirm("Send this message to " + selectedRequest.name + "?")) {
-        return;
-    }
+    askConfirm("Send this message to " + selectedRequest.name + "?").then(function (ok) {
+        if (!ok) { return; }
 
-    const btn = document.getElementById("modalMessageBtn");
-    btn.disabled = true;
-    btn.textContent = "Sending...";
+        const btn = document.getElementById("modalMessageBtn");
+        btn.disabled = true;
+        btn.textContent = "Sending...";
 
-    postToLaravel("../account/settings/probation-requests/" + selectedRequest.id + "/message", { message: message })
-        .then(function (response) {
-            if (response.status === "success") {
-                document.getElementById("adminRemark").value = "";
+        postToLaravel(PROBATION_BASE + "/" + selectedRequest.id + "/message", { message: message })
+            .then(function (response) {
+                if (response.status === "success") {
+                    document.getElementById("adminRemark").value = "";
 
-                if (!selectedRequest.replies) {
-                    selectedRequest.replies = [];
+                    if (!selectedRequest.replies) {
+                        selectedRequest.replies = [];
+                    }
+                    selectedRequest.replies.push(response.reply);
+                    renderCommThread(selectedRequest);
+                } else {
+                    notify(response.message || "Could not send this message.");
                 }
-                selectedRequest.replies.push(response.reply);
-                renderCommThread(selectedRequest);
-            } else {
-                alert(response.message || "Could not send this message.");
-            }
-        })
-        .catch(function (err) {
-            alert(err.message);
-        })
-        .finally(function () {
-            btn.disabled = false;
-            btn.textContent = "Send Message";
-        });
+            })
+            .catch(function (err) {
+                notify(err.message);
+            })
+            .finally(function () {
+                btn.disabled = false;
+                btn.textContent = "Send Message";
+            });
 
+    });
 }
 
 
@@ -1316,22 +1374,22 @@ function sendMessageFromModal() {
 
 function undoRequest(id, name) {
 
-    if (!confirm("Undo the decision for " + name + "'s probation request? It will go back to Pending so it can be reviewed again.")) {
-        return;
-    }
+    askConfirm("Undo the decision for " + name + "'s probation request? It will go back to Pending so it can be reviewed again.").then(function (ok) {
+        if (!ok) { return; }
 
-    postToLaravel("../account/settings/probation-requests/" + id + "/undo", {})
-        .then(function (response) {
-            if (response.status === "success") {
-                window.location.reload();
-            } else {
-                alert(response.message || "Could not undo this request.");
-            }
-        })
-        .catch(function (err) {
-            alert(err.message);
-        });
+        postToLaravel(PROBATION_BASE + "/" + id + "/undo", {})
+            .then(function (response) {
+                if (response.status === "success") {
+                    done(response.message || 'Decision undone. The request is pending review again.');
+                } else {
+                    notify(response.message || "Could not undo this request.");
+                }
+            })
+            .catch(function (err) {
+                notify(err.message);
+            });
 
+    });
 }
 
 
@@ -1341,22 +1399,22 @@ function undoRequest(id, name) {
 
 function deleteRequest(id, name) {
 
-    if (!confirm("Delete " + name + "'s probation request? This removes it from the list without approving or rejecting — it may reappear if the completion check runs again.")) {
-        return;
-    }
+    askConfirm("Delete " + name + "'s probation request? This removes it from the list without approving or rejecting — it may reappear if the completion check runs again.").then(function (ok) {
+        if (!ok) { return; }
 
-    postToLaravel("../account/settings/probation-requests/" + id + "/delete", {})
-        .then(function (response) {
-            if (response.status === "success") {
-                window.location.reload();
-            } else {
-                alert(response.message || "Could not delete this request.");
-            }
-        })
-        .catch(function (err) {
-            alert(err.message);
-        });
+        postToLaravel(PROBATION_BASE + "/" + id + "/delete", {})
+            .then(function (response) {
+                if (response.status === "success") {
+                    done(response.message || 'Request deleted.');
+                } else {
+                    notify(response.message || "Could not delete this request.");
+                }
+            })
+            .catch(function (err) {
+                notify(err.message);
+            });
 
+    });
 }
 
 
@@ -1394,7 +1452,7 @@ function applyFilters() {
         const matchStatus = !status || rowStatus === status;
         const matchDepartment = !department || rowDepartment === department;
         const matchDesignation = !designation || rowDesignation === designation;
-        const matchSearch = !search || rowName.includes(search);
+        const matchSearch = !search || rowName.includes(search) || (row.dataset.code || "").toLowerCase().includes(search);
 
         if (matchStatus && matchDepartment && matchDesignation && matchSearch) {
             row.style.display = "";
@@ -1406,6 +1464,9 @@ function applyFilters() {
     });
 
     document.getElementById("resultCount").textContent = "Showing " + visible + " requests";
+    document.querySelectorAll(".pb-stat").forEach(function (b) {
+        b.classList.toggle("is-active", b.dataset.status.toLowerCase() === status);
+    });
 
 }
 

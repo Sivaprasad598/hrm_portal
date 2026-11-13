@@ -127,7 +127,7 @@ class AttendanceExport implements FromCollection, WithHeadings, WithMapping, Wit
         }
 
         if ($this->department != 'all') {
-            $employees->where('employee_details.department_id', $this->department);
+            $employees->whereIn('employee_details.department_id', \App\Models\Team::withDescendants($this->department));
         }
 
         if ($this->designation != 'all') {

@@ -1,6 +1,11 @@
 @php
     $fmt = company()->date_format;
     $isMe = $employee->id == user()->id;
+    // My Assets (their own record): only to look at - no assigning, returning or
+    // printing their own equipment, even for HR
+    if ($isMe) {
+        $manageAssets = false;
+    }
     $overdue = $heldAssets->filter(fn ($a) => $a->isOverdue())->count();
     $recovered = (float) $pastAssets->sum('recovery_amount');
     // An icon per kind of asset, guessed from its type name

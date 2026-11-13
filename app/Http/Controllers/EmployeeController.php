@@ -1463,7 +1463,8 @@ class EmployeeController extends AccountBaseController
         }
 
         if ($id != 0) {
-            $users = $users->where('employee_details.department_id', $id);
+            // a division brings the people of its sub divisions too
+            $users = $users->whereIn('employee_details.department_id', \App\Models\Team::withDescendants($id));
         }
 
         if ($viewPermission == 'owned' || $viewPermission == 'none') {

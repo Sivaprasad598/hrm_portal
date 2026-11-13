@@ -186,7 +186,7 @@ class AttendanceController extends AccountBaseController
             ->orderBy('users.name');
 
         if ($request->department && $request->department != 'all') {
-            $employees->where('employee_details.department_id', $request->department);
+            $employees->whereIn('employee_details.department_id', \App\Models\Team::withDescendants($request->department));
         }
 
         if ($request->designation && $request->designation != 'all') {
@@ -316,7 +316,7 @@ class AttendanceController extends AccountBaseController
             ->groupBy('users.id');
 
         if ($request->department != 'all') {
-            $employees = $employees->where('employee_details.department_id', $request->department);
+            $employees = $employees->whereIn('employee_details.department_id', \App\Models\Team::withDescendants($request->department));
         }
 
         if ($request->designation != 'all') {
@@ -2494,7 +2494,7 @@ class AttendanceController extends AccountBaseController
             ->groupBy('users.id');
 
         if ($request->department != 'all') {
-            $employees = $employees->where('employee_details.department_id', $request->department);
+            $employees = $employees->whereIn('employee_details.department_id', \App\Models\Team::withDescendants($request->department));
         }
 
         if ($request->designation != 'all') {
@@ -2688,7 +2688,7 @@ class AttendanceController extends AccountBaseController
             ->whereNotNull('longitude');
 
         if ($request->department != 'all') {
-            $this->attendances = $this->attendances->where('employee_details.department_id', $request->department);
+            $this->attendances = $this->attendances->whereIn('employee_details.department_id', \App\Models\Team::withDescendants($request->department));
         }
 
         if ($request->userId != 'all') {

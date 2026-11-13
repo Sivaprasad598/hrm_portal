@@ -29,7 +29,6 @@ class PageGroups
         'attendance' => ['Attendance Register', [
             'attendances-index' => 'Attendance Register',
             'shifts-index' => 'Shift Roster',
-            'holidays-index' => 'Holidays',
         ]],
         'exits' => ['Exits', [
             'resignation-management-index' => 'Resignations',

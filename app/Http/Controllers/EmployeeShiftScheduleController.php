@@ -106,7 +106,7 @@ class EmployeeShiftScheduleController extends AccountBaseController
             ->groupBy('users.id');
 
         if ($request->department != 'all') {
-            $employees = $employees->where('employee_details.department_id', $request->department);
+            $employees = $employees->whereIn('employee_details.department_id', \App\Models\Team::withDescendants($request->department));
         }
 
 
@@ -256,7 +256,7 @@ class EmployeeShiftScheduleController extends AccountBaseController
             ->onlyEmployee()->groupBy('users.id');
 
         if ($request->department != 'all') {
-            $employees = $employees->where('employee_details.department_id', $request->department);
+            $employees = $employees->whereIn('employee_details.department_id', \App\Models\Team::withDescendants($request->department));
         }
 
 

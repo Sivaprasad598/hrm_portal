@@ -50,6 +50,14 @@ if ($companyId > 0) {
 
         $departments = DB::table('teams')->where('company_id', $companyId)->orderBy('team_name')->pluck('team_name', 'id')->toArray();
 
+        // The departments as a tree (division, then its sub divisions), and a name that
+        // tells the several "GIS"s / "IT"s apart: "GIS · Field Operations Department".
+        $deptTree = \App\Models\Team::treeOptions(
+            DB::table('teams')->where('company_id', $companyId)->get(['id', 'team_name', 'parent_id'])
+        );
+        $nameCount = $deptTree->countBy('name');
+        $deptLabel = $deptTree->mapWithKeys(fn ($d) => [$d->id => ($nameCount[$d->name] > 1 && $d->depth > 0) ? $d->name . ' · ' . $d->division : $d->name])->all();
+
         $employees = User::withRole('employee')
             ->join('employee_details', 'employee_details.user_id', '=', 'users.id')
             ->where('users.company_id', $companyId)
@@ -123,7 +131,7 @@ if ($companyId > 0) {
             });
 
         foreach ($employees as $employee) {
-            $branchName = $departments[$employee->department_id] ?? '—';
+            $branchName = $deptLabel[$employee->department_id] ?? ($departments[$employee->department_id] ?? '—');
 
             for ($day = 1; $day <= $daysInMonth; $day++) {
                 $date = Carbon::createFromDate($year, $month, $day, $timezone)->startOfDay();
@@ -176,6 +184,7 @@ if ($companyId > 0) {
                     'userId' => $employee->id,
                     'name' => $employee->name,
                     'branch' => $branchName,
+                    'deptId' => (int) $employee->department_id,
                     'status' => $status,
                     'date' => sprintf('%04d-%02d-%02d', $year, $month, $day),
                 ];
@@ -192,6 +201,11 @@ $employeeOptions = isset($employees) ? $employees->sortBy('name')->values() : co
 
 $recordsJson = json_encode($records);
 $departmentsJson = json_encode(array_values($departments));
+$deptTreeJson = json_encode(isset($deptTree) ? $deptTree->map(fn ($d) => [
+    'id' => (int) $d->id, 'name' => $d->name, 'depth' => $d->depth, 'division' => $d->division, 'path' => $d->path,
+])->values() : []);
+$deptParentJson = json_encode($companyId > 0 ? DB::table('teams')->where('company_id', $companyId)->pluck('parent_id', 'id') : (object) []);
+$employeeDeptJson = json_encode(isset($employees) ? $employees->pluck('department_id', 'id') : (object) []);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -720,10 +734,54 @@ $departmentsJson = json_encode(array_values($departments));
         .filter-group .choices__list--dropdown { border: 1px solid var(--epic-line); border-radius: 6px; box-shadow: 0 8px 24px rgba(16, 24, 40, .12); z-index: 20; }
         .filter-group .choices__list--dropdown .choices__item--selectable.is-highlighted { background: color-mix(in srgb, var(--epic-blue) 12%, #fff); }
         .filter-group .choices__input { font-size: 13px; border-bottom: 1px solid var(--epic-line); }
+        .filter-group .choices__list--dropdown .choices__input { display: block; width: calc(100% - 16px) !important; margin: 8px !important;
+            padding: 8px 10px !important; border: 1px solid var(--epic-line) !important; border-radius: 6px; background: #fff; font-size: 13px; }
+        .filter-group .choices__list--dropdown .choices__input:focus { outline: 0; border-color: var(--epic-blue) !important; }
+        .filter-group .choices__list--dropdown .choices__list { max-height: 320px; }
+        .filter-group .choices__list--dropdown .choices__item { padding: 8px 12px; font-size: 13.5px; }
+        .filter-group .choices.is-open .choices__list--dropdown { min-width: 100%; width: max-content; max-width: 420px; }
+        .filter-group .choices__list--dropdown .choices__item { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 16px !important; }
+        .filter-group .choices__list--dropdown .choices__item--selectable.is-highlighted,
+        .filter-group .choices__list--dropdown .choices__item.is-selected { background: color-mix(in srgb, var(--epic-blue) 12%, #fff) !important; color: #101828 !important; }
+        .filter-group .choices__list--dropdown .choices__item::after { display: none !important; }
+        .filter-group .dd-top { font-weight: 600; color: #101828; }
+        .filter-group .dd-sub small { color: #98a2b3; font-size: 11.5px; margin-left: 4px; }
+        .filter-group .choices__list--single .dd-sub { padding-left: 0 !important; }
         .search-wrapper i { left: 12px; color: var(--epic-muted); }
         ::-webkit-scrollbar { width: 12px; height: 12px; background: #eceef1; }
         ::-webkit-scrollbar-thumb { background-color: #9aa1ab; border: 2px solid #eceef1; border-radius: 8px; }
         ::-webkit-scrollbar-thumb:hover { background-color: var(--epic-blue); }
+
+        /* ---- Same look as the Attendance Register ---- */
+        body { background: #f3f3f9 !important; }
+        .dashboard { background: transparent !important; box-shadow: none !important; border-radius: 0 !important; padding: 0 0 24px !important; max-width: none !important; }
+        .dashboard-header { display: none !important; }
+        /* tabs: plain underlined text on the page, as the app's page tabs; Filters on the right */
+        .dashboard-tabs { display: flex; align-items: flex-end; gap: 6px !important; padding: 0 !important; margin: 0 0 16px !important; border-bottom: 0 !important; overflow: visible; }
+        .dashboard-tab { padding: 8px 14px 10px !important; font-size: 15px !important; font-weight: 400 !important; color: #667085 !important; border-bottom: 2px solid transparent !important; background: none !important; }
+        .dashboard-tab:hover { color: #1d2939 !important; }
+        .dashboard-tab.active { color: var(--epic-blue) !important; border-bottom-color: var(--epic-blue) !important; font-weight: 400 !important; }
+        .dashboard-tab i { display: none; }
+        .dash-actions { margin-left: auto; padding-bottom: 6px; display: flex; gap: 10px; }
+        .dashboard.on-report .dash-actions { display: none; }
+        .dash-filter-btn { position: relative; height: 38px; padding: 0 14px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+            background: #fff; border: 1px solid #d5d8dc; border-radius: 8px; font: inherit; font-size: 13.5px; font-weight: 500; color: #344054; }
+        .dash-filter-btn i { color: #344054; }
+        .dash-filter-btn:hover { border-color: var(--epic-blue); }
+        .dashboard.filters-open .dash-filter-btn { background: color-mix(in srgb, var(--epic-blue) 10%, #fff); border-color: var(--epic-blue); color: var(--epic-blue); }
+        .dashboard.filters-open .dash-filter-btn i { color: var(--epic-blue); }
+        .dash-filter-dot { position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--epic-blue); border: 2px solid #fff; display: none; }
+        .dash-filter-btn.has-filter .dash-filter-dot { display: block; }
+        /* filters: a white card, shown when "Filters" is clicked */
+        .tab-pane, .filters, .particular-placeholder { margin-left: 0 !important; margin-right: 0 !important; }
+        .dashboard:not(.filters-open) .filters { display: none !important; }
+        .filters { background: #fff; border: 0 !important; border-radius: 12px; box-shadow: 0 1px 3px rgba(16, 24, 40, .06); padding: 18px 20px !important; margin-bottom: 16px !important; }
+        .filter-group label { text-transform: none !important; letter-spacing: 0 !important; font-size: 13.5px !important; font-weight: 500 !important; color: #667085 !important; }
+        .filter-group label i { display: none; }
+        /* cards and charts: the register's white rounded cards */
+        .stat-card, .chart-card, .details-section, .report-option { border-radius: 12px !important; box-shadow: 0 1px 3px rgba(16, 24, 40, .06) !important; }
+        .details-section { background: #fff; padding: 18px 20px; }
+        .stat-icon { border-radius: 10px !important; }
     </style>
 </head>
 <body>
@@ -753,6 +811,12 @@ $departmentsJson = json_encode(array_values($departments));
             <button type="button" class="dashboard-tab" id="tab-btn-reports" data-tab="reports">
                 <i class="fas fa-file-alt"></i> Reports
             </button>
+            <!-- the filter block is hidden until this is clicked; a dot while one is set -->
+            <div class="dash-actions">
+                <button type="button" class="dash-filter-btn" id="dashFilterBtn" aria-expanded="false">
+                    <i class="fas fa-filter"></i> Filters<span class="dash-filter-dot"></span>
+                </button>
+            </div>
         </div>
 
         <!-- ====== FILTERS (shared by both tabs) ====== -->
@@ -765,8 +829,8 @@ $departmentsJson = json_encode(array_values($departments));
                 </label>
                 <select id="branchSelect">
                     <option value="all">All Departments</option>
-                    <?php foreach ($departments as $name): ?>
-                        <option value="<?php echo adEsc($name); ?>"><?php echo adEsc($name); ?></option>
+                    <?php foreach (($deptTree ?? collect()) as $d): ?>
+                        <option value="<?php echo (int) $d->id; ?>"><?php echo adEsc($d->path); ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
@@ -1155,6 +1219,26 @@ $departmentsJson = json_encode(array_values($departments));
         //  month's real records; changing month/year reloads the page
         //  with new data instead (see reloadForMonthYear()).
         // ============================================================
+        // Department tree: picking a division covers every level below it.
+        const DEPT_TREE = <?php echo $deptTreeJson; ?>;
+        const DEPT_PARENT = <?php echo $deptParentJson; ?>;
+        const EMPLOYEE_DEPT = <?php echo $employeeDeptJson; ?>;
+        const deptScopeCache = {};
+        function deptScope(id) {
+            if (deptScopeCache[id]) return deptScopeCache[id];
+            const ids = new Set([Number(id)]);
+            let grew = true;
+            while (grew) {
+                grew = false;
+                Object.keys(DEPT_PARENT).forEach(function (child) {
+                    if (DEPT_PARENT[child] !== null && ids.has(Number(DEPT_PARENT[child])) && !ids.has(Number(child))) {
+                        ids.add(Number(child)); grew = true;
+                    }
+                });
+            }
+            return (deptScopeCache[id] = ids);
+        }
+
         function getFilteredRecords() {
             const branch = branchSelect.value;
             const employeeId = employeeSelect.value;
@@ -1163,7 +1247,7 @@ $departmentsJson = json_encode(array_values($departments));
             const query = searchQuery.trim().toLowerCase();
 
             return allRecords.filter(rec => {
-                if (branch !== 'all' && rec.branch !== branch) return false;
+                if (branch !== 'all' && !deptScope(branch).has(rec.deptId)) return false;
 
                 if (employeeId !== 'all' && String(rec.userId) !== employeeId) return false;
 
@@ -1607,16 +1691,71 @@ $departmentsJson = json_encode(array_values($departments));
         //  BOOTSTRAP
         // ============================================================
         if (window.Choices) {
-            [branchSelect, employeeSelect, monthSelect, yearSelect].forEach(el => new Choices(el, {
-                searchEnabled: true, shouldSort: false, itemSelectText: '', searchResultLimit: 30,
-                searchPlaceholderValue: 'Type to search…', position: 'bottom'
+            const base = { searchEnabled: true, shouldSort: false, itemSelectText: '', searchResultLimit: 60,
+                searchPlaceholderValue: 'Type to search…', position: 'bottom', fuseOptions: { threshold: 0.3 } };
+            const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' };
+            const esc = t => String(t).replace(/[&<>"]/g, c => ESC[c]);
+
+            // Department: divisions in bold, sub divisions indented with their division beside them
+            branchSelect.innerHTML = '';
+            const branchChoices = new Choices(branchSelect, Object.assign({}, base, {
+                searchFields: ['customProperties.path'],
+                choices: [{ value: 'all', label: 'All Departments', selected: true, customProperties: { path: 'All Departments' } }]
+                    .concat(DEPT_TREE.map(d => ({
+                        value: String(d.id),
+                        label: d.depth === 0
+                            ? '<span class="dd-top">' + esc(d.name) + '</span>'
+                            : '<span class="dd-sub" style="padding-left:' + (14 * d.depth) + 'px">' + esc(d.name) + ' <small>' + esc(d.division) + '</small></span>',
+                        customProperties: { path: d.path }
+                    })))
             }));
+
+            // Employee: only the people of the chosen department (and its sub divisions)
+            const allEmployees = Array.from(employeeSelect.options).filter(o => o.value !== 'all').map(o => ({ value: o.value, label: o.textContent }));
+            const employeeChoices = new Choices(employeeSelect, base);
+            branchSelect.addEventListener('change', function () {
+                const scope = branchSelect.value === 'all' ? null : deptScope(branchSelect.value);
+                const keep = employeeSelect.value;
+                const list = allEmployees.filter(e => !scope || scope.has(Number(EMPLOYEE_DEPT[e.value])));
+                const stillThere = keep === 'all' || list.some(e => e.value === keep);
+                employeeChoices.clearStore();
+                employeeChoices.setChoices([{ value: 'all', label: 'All Employees' }].concat(list), 'value', 'label', true);
+                employeeChoices.setChoiceByValue(stillThere ? keep : 'all');
+                if (!stillThere) { employeeSelect.dispatchEvent(new Event('change')); }
+            });
+
+            [monthSelect, yearSelect].forEach(el => new Choices(el, base));
         }
 
         searchQuery = '';
         searchInput.value = '';
         updateDashboard();
         updateParticularDashboard();
+
+        // ---- Attendance Register look: the app's colour, Filters shows / hides the filter block ----
+        (function () {
+            try {
+                var brand = getComputedStyle(window.parent.document.documentElement).getPropertyValue('--epic-blue').trim();
+                if (brand) { document.documentElement.style.setProperty('--epic-blue', brand); }
+            } catch (e) {}
+
+            var dash = document.querySelector('.dashboard');
+            var btn = document.getElementById('dashFilterBtn');
+            function setOpen(open) {
+                dash.classList.toggle('filters-open', open);
+                btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+            }
+            btn.addEventListener('click', function () { setOpen(!dash.classList.contains('filters-open')); });
+            // the Particular Employee dashboard needs the Employee picker: open it there
+            document.getElementById('tab-btn-particular').addEventListener('click', function () { setOpen(true); });
+
+            function markFilters() {
+                var set = (branchSelect.value && branchSelect.value !== 'all') || (employeeSelect.value && employeeSelect.value !== 'all') || !!datePicker.value;
+                btn.classList.toggle('has-filter', !!set);
+            }
+            [branchSelect, employeeSelect, datePicker].forEach(function (el) { el.addEventListener('change', markFilters); });
+            markFilters();
+        })();
     </script>
 </body>
 </html>

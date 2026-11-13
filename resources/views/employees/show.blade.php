@@ -37,8 +37,9 @@ if ($viewPermission == 'all'
 
 @section('filter-section')
     {{-- An employee sent to one part of their own record (My Assets, the OT bank
-         from the dashboard): just that part, not the whole record's tabs --}}
-    @unless (\App\Services\Access\AssignedModules::selfService() && request()->filled('tab') && $employee->id === user()->id)
+         from the dashboard): just that part, not the whole record's tabs. Anyone
+         (HR too) on My Space > My Assets / My Overtime gets the same. --}}
+    @unless ((\App\Services\Access\AssignedModules::selfService() && request()->filled('tab') || in_array(request('tab'), ['assets', 'ot-bank'])) && $employee->id === user()->id)
     <!-- FILTER START -->
     <!-- PROJECT HEADER START -->
 
@@ -65,7 +66,7 @@ if ($viewPermission == 'all'
 @section('content')
     {{-- With no tab strip above (an employee on one part of their own record),
          the page keeps the usual gap under the top bar, like every other page. --}}
-    @php $soloTab = \App\Services\Access\AssignedModules::selfService() && request()->filled('tab') && $employee->id === user()->id; @endphp
+    @php $soloTab = (\App\Services\Access\AssignedModules::selfService() && request()->filled('tab') || in_array(request('tab'), ['assets', 'ot-bank'])) && $employee->id === user()->id; @endphp
     <div class="content-wrapper {{ $soloTab ? '' : 'pt-0' }} border-top-0 client-detail-wrapper">
         @include($view)
     </div>

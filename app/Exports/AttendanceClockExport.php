@@ -84,7 +84,7 @@ class AttendanceClockExport implements FromCollection, WithHeadings, WithMapping
         }
 
         if ($this->department !== 'all') {
-            $employeesQuery->where('employee_details.department_id', $this->department);
+            $employeesQuery->whereIn('employee_details.department_id', \App\Models\Team::withDescendants($this->department));
         }
 
         if ($this->designation !== 'all') {

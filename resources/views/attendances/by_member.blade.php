@@ -13,6 +13,9 @@
     @php
         // Their own attendance only: no one else to pick, nothing to export or switch to.
         $ownOnly = user()->permission('view_attendance') === 'owned' && $employees->count() <= 1;
+        // My Space > My Attendance (their own page): just the calendar, no picking someone else
+        $myAttendance = (int) request('user_id') === (int) user()->id;
+        $ownOnly = $ownOnly || $myAttendance;
     @endphp
 
     <x-filters.filter-box>
@@ -70,6 +73,7 @@ $addAttendancePermission = user()->permission('add_attendance');
     <!-- CONTENT WRAPPER START -->
     <div class="content-wrapper px-4">
 
+        @unless ((int) request('user_id') === (int) user()->id)
         <div class="d-grid d-lg-flex d-md-flex action-bar">
 
             <div id="table-actions" class="flex-grow-1 align-items-center">
@@ -120,6 +124,7 @@ $addAttendancePermission = user()->permission('add_attendance');
 
             </div>
         </div>
+        @endunless
 
 
         <div class="row my-3">

@@ -224,7 +224,14 @@
                 $reportCandidates = \App\Models\User::query()->where('users.status', 'active')
                     ->join('employee_details as ed', 'ed.user_id', '=', 'users.id')
                     ->leftJoin('designations as dg', 'dg.id', '=', 'ed.designation_id')
-                    ->orderBy('users.name')->get(['users.id', 'users.name', 'ed.employee_id', 'dg.name as designation']);
+                    ->orderBy('users.name')->get(['users.id', 'users.name', 'ed.employee_id', 'dg.name as designation', 'ed.department_id']);
+                // Each person's department: the top of their division tree (TEKLA -> Steel Detailing Department)
+                $teamParents = \Illuminate\Support\Facades\DB::table('teams')->pluck('parent_id', 'id');
+                $rootDept = function ($id) use ($teamParents) {
+                    for ($guard = 0; $id && !empty($teamParents[$id]) && $guard < 10; $guard++) { $id = $teamParents[$id]; }
+                    return $id ? (int) $id : null;
+                };
+                $reportDepts = $reportCandidates->mapWithKeys(fn ($u) => [$u->id => $rootDept($u->department_id)]);
                 $rolesOf = \Illuminate\Support\Facades\DB::table('role_user as ru')->join('roles as r', 'r.id', '=', 'ru.role_id')
                     ->whereIn('r.name', ['manager', 'team_lead', 'ceo'])->get(['ru.user_id', 'r.name'])->groupBy('user_id')
                     ->map(fn ($rows) => $rows->pluck('name')->all());
@@ -259,6 +266,12 @@
                                     @if (empty($reportPeople[$level]) || $reportPeople[$level]->isEmpty())
                                         <p class="f-13 text-lightest mb-0">Nobody has the {{ ['team_lead' => 'Team Lead', 'manager' => 'Manager', 'ceo' => 'CEO'][$level] }} role yet. Give it under Employees → Edit → Role.</p>
                                     @else
+                                        @if ($level !== 'ceo')
+                                            <p class="f-12 text-dark-grey mb-2 report-dept-note d-none">
+                                                <i class="fa fa-sitemap mr-1"></i>Showing their department only.
+                                                <a href="javascript:;" class="report-dept-all">Show everyone</a>
+                                            </p>
+                                        @endif
                                         <div class="person-pick">
                                             <div class="person-pick__search">
                                                 <i class="fa fa-search"></i>
@@ -266,7 +279,7 @@
                                             </div>
                                             <div class="person-pick__list">
                                                 @foreach ($reportPeople[$level] as $u)
-                                                    <label class="person-pick__row" data-find="{{ strtolower($u->name . ' ' . $u->designation . ' ' . $u->employee_id) }}">
+                                                    <label class="person-pick__row" data-dept="{{ $reportDepts[$u->id] ?? '' }}" data-find="{{ strtolower($u->name . ' ' . $u->designation . ' ' . $u->employee_id) }}">
                                                         <input type="radio" name="report_person_{{ $level }}" value="{{ $u->id }}">
                                                         <span class="person-pick__avatar">{{ strtoupper(collect(explode(' ', trim($u->name)))->filter()->take(2)->map(fn ($w) => mb_substr($w, 0, 1))->implode('')) }}</span>
                                                         <span class="person-pick__who"><b>{{ $u->name }}</b><small>{{ trim(($u->designation ?: '') . ' · ' . $u->employee_id, ' ·') }}</small></span>
@@ -294,6 +307,8 @@
             <script>
                 // Each employee's level, for the pop-up to know whom they report to
                 window.REPORT_LEVELS = @json($reportLevels);
+                // Each person's department (top level), so the list can be limited to it
+                window.REPORT_DEPTS = @json($reportDepts);
             </script>
             <style>
                 /* The person picker: a search box over a scrolling list, all inside the pop-up */
@@ -477,6 +492,12 @@
                 $('#assign-reporting-what').html(who + ' will report to ' + (assignTarget === 'ceo' ? 'the CEO' : 'a ' + LEVEL_NAME[assignTarget]) + ':');
                 var $pick = $('.report-pick[data-level="' + assignTarget + '"]').removeClass('d-none');
                 $pick.find('input[type=radio]').prop('checked', false);
+                // Their department's team leads / managers only (the CEO is company-wide)
+                var depts = [];
+                ids.forEach(function (id) { var d = (window.REPORT_DEPTS || {})[id]; if (d && depts.indexOf(String(d)) === -1) { depts.push(String(d)); } });
+                var limit = assignTarget !== 'ceo' && depts.length > 0;
+                $pick.data('depts', limit ? depts : null);
+                $pick.find('.report-dept-note').toggleClass('d-none', !limit);
                 $pick.find('.person-pick__search input').val('').trigger('input');
                 setTimeout(function () { $pick.find('.person-pick__search input').trigger('focus'); }, 400);
             }
@@ -537,11 +558,21 @@
             }
         });
 
+        // "Show everyone": lift the department limit for this pick
+        $('body').on('click', '.report-dept-all', function () {
+            var $pick = $(this).closest('.report-pick');
+            $pick.data('depts', null);
+            $pick.find('.report-dept-note').addClass('d-none');
+            $pick.find('.person-pick__search input').trigger('input');
+        });
+
         // Typing narrows the list of people
         $('body').on('input', '.person-pick__search input', function () {
             var q = this.value.trim().toLowerCase(), shown = 0;
+            var depts = $(this).closest('.report-pick').data('depts');   // null = everyone
             $(this).closest('.person-pick').find('.person-pick__row').each(function () {
-                var hit = !q || this.getAttribute('data-find').indexOf(q) !== -1;
+                var inDept = !depts || depts.indexOf(this.getAttribute('data-dept')) !== -1;
+                var hit = inDept && (!q || this.getAttribute('data-find').indexOf(q) !== -1);
                 this.style.display = hit ? '' : 'none';
                 shown += hit ? 1 : 0;
             });

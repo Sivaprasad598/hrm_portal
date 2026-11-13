@@ -362,7 +362,11 @@ class LeaveDataTable extends BaseDataTable
         $approverTeam = \App\Services\Leaves\LeaveApprovals::teamUserIds();
 
         // A manager's Team Leaves: their team only (their own leave is in My Leaves).
-        if (\App\Http\Controllers\LeaveController::access()['managerView']) {
+        if (\App\Http\Controllers\LeaveController::mine()) {
+            // opened from My Leaves: their own leave only
+            $leavesList->where('leaves.user_id', user()->id);
+        }
+        elseif (\App\Http\Controllers\LeaveController::access()['managerView']) {
             $leavesList->whereIn('leaves.user_id', \App\Http\Controllers\LeaveController::managerTeamIds() ?: [0]);
         }
         elseif ($this->viewLeavePermission == 'owned' && $approverTeam) {
@@ -426,7 +430,8 @@ class LeaveDataTable extends BaseDataTable
     /** Whether this person gets the tick-boxes and bulk actions. */
     public function bulkActions(): bool
     {
-        return $this->viewLeavePermission == 'all';
+        // not on their own leave (opened from My Leaves)
+        return $this->viewLeavePermission == 'all' && !\App\Http\Controllers\LeaveController::mine();
     }
 
     /**

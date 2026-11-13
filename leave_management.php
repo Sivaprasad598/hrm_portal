@@ -1203,6 +1203,32 @@ $employeesJson = json_encode(array_map(function ($employee) {
         .fw-600 {
             font-weight: 600;
         }
+
+        /* ---- searchable dropdowns (department, employee) ---- */
+        .ss { position: relative; width: 220px; flex: 0 0 auto; }
+        .ss__btn { width: 100%; text-align: left; background: var(--gray-50, #f8fafc) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2364748b'/%3E%3C/svg%3E") no-repeat right 12px center;
+            border: 1px solid var(--gray-200, #e2e8f0); border-radius: 8px; padding: 8px 30px 8px 12px; font: inherit; font-size: 13px; font-weight: 500;
+            color: var(--gray-700, #334155); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 38px; }
+        .ss__btn.is-empty { color: #94a3b8; }
+        .ss__panel { display: none; position: absolute; z-index: 50; top: calc(100% + 4px); left: 0; min-width: 100%; width: max-content; max-width: 340px;
+            background: #fff; border: 1px solid var(--gray-200, #e2e8f0); border-radius: 10px; box-shadow: 0 10px 30px rgba(15,23,42,.12); padding: 6px; }
+        .ss.is-open .ss__panel { display: block; }
+        .ss__search { width: 100%; height: 34px; border: 1px solid var(--gray-200, #e2e8f0); border-radius: 7px; padding: 0 10px; font: inherit; font-size: 13px; margin-bottom: 6px; outline: 0; }
+        .ss__search:focus { border-color: #cb6b4f; }
+        .ss__list { max-height: 260px; overflow-y: auto; }
+        .ss__opt { padding: 7px 10px; border-radius: 6px; font-size: 13px; cursor: pointer; white-space: nowrap; }
+        .ss__opt:hover, .ss__opt.is-active { background: #fdf2ee; }
+        .ss__opt.is-selected { color: #cb6b4f; font-weight: 600; }
+        .ss__none { padding: 10px; font-size: 13px; color: #94a3b8; text-align: center; }
+        .user-select-wrap .ss { width: 260px; }
+
+        /* ---- opens empty until an employee is chosen ---- */
+        .lb-empty { display: none; margin: 24px 0; padding: 48px 16px; text-align: center; background: #fff; border: 1px dashed var(--gray-200, #e2e8f0); border-radius: 14px; color: #64748b; }
+        .lb-empty i { font-size: 30px; color: #cb6b4f; margin-bottom: 10px; }
+        .lb-empty h3 { margin: 0 0 6px; font-size: 17px; color: #1e293b; }
+        .lb-empty p { margin: 0; font-size: 13px; }
+        body.lb-none .lb-empty { display: block; }
+        body.lb-none .lb-data { display: none !important; }
     </style>
 </head>
 <body>
@@ -1223,17 +1249,13 @@ $employeesJson = json_encode(array_map(function ($employee) {
             <div class="header-right">
                 <div class="employee-filters">
                     <select id="departmentFilter" class="filter-select">
-                        <option value="">All Departments</option>
+                        <option value="">Select department</option>
                         <?php foreach ($departments as $department): ?>
                             <option value="<?php echo (int) $department->id; ?>"><?php echo leaveMgmtEsc($department->team_name); ?></option>
                         <?php endforeach; ?>
                     </select>
 
                     <div class="user-select-wrap">
-                        <div class="user-search-box">
-                            <i class="fas fa-search"></i>
-                            <input type="text" id="userSearch" placeholder="Search name or card ID" autocomplete="off">
-                        </div>
                         <select id="userFilter" class="filter-select">
                             <option value="">Select Employee</option>
                             <?php foreach ($employees as $employee): ?>
@@ -1259,18 +1281,24 @@ $employeesJson = json_encode(array_map(function ($employee) {
             </div>
         </header>
 
+        <div class="lb-empty" id="lbEmpty">
+            <i class="fas fa-user-check"></i>
+            <h3>Select an employee</h3>
+            <p>Pick a department (optional) and an employee above to see their leave balances.</p>
+        </div>
+
         <!-- ═══════════════ SUMMARY CARDS ═══════════════ -->
-        <section class="summary-grid" id="summaryGrid">
+        <section class="summary-grid lb-data" id="summaryGrid">
             <!-- populated by JS -->
         </section>
 
         <!-- ═══════════════ LEAVE TYPES ═══════════════ -->
-        <section class="leave-types" id="leaveTypes">
+        <section class="leave-types lb-data" id="leaveTypes">
             <!-- populated by JS -->
         </section>
 
         <!-- ═══════════════ MONTHLY DASHBOARD ═══════════════ -->
-        <section class="table-section monthly-dashboard-section">
+        <section class="table-section monthly-dashboard-section lb-data">
             <div class="table-header">
                 <h2><i class="fas fa-calendar-day"></i> Monthly Dashboard — <span id="monthlyDashboardLabel">—</span></h2>
             </div>
@@ -1282,7 +1310,7 @@ $employeesJson = json_encode(array_map(function ($employee) {
         </section>
 
         <!-- ═══════════════ TABLE ═══════════════ -->
-        <section class="table-section">
+        <section class="table-section lb-data">
             <div class="table-header">
                 <h2><i class="fas fa-table"></i> Monthly Leave Summary — Policy Applied</h2>
                 <div class="table-header-controls">
@@ -1350,7 +1378,7 @@ $employeesJson = json_encode(array_map(function ($employee) {
 
         function renderUserOptions() {
             const departmentId = departmentFilter.value;
-            const query = userSearch.value.trim().toLowerCase();
+            const query = '';
             const previousValue = userFilter.value;
 
             const filtered = employeesData.filter(function(employee) {
@@ -1374,9 +1402,12 @@ $employeesJson = json_encode(array_map(function ($employee) {
             }
         }
 
-        if (departmentFilter && userSearch && userFilter) {
-            departmentFilter.addEventListener('change', renderUserOptions);
-            userSearch.addEventListener('input', renderUserOptions);
+        if (departmentFilter && userFilter) {
+            departmentFilter.addEventListener('change', function () {
+                renderUserOptions();
+                // the employee shown is no longer in the department picked: start over
+                if (!userFilter.value) { showEmployee(0); }
+            });
             renderUserOptions();
         }
 
@@ -1428,8 +1459,8 @@ $employeesJson = json_encode(array_map(function ($employee) {
             });
         }
 
-        // Default the badge + user dropdown to whoever is currently logged in.
-        if (CURRENT_USER_ID && userFilter) {
+        // No default: the page opens empty until someone is picked.
+        if (false && CURRENT_USER_ID && userFilter) {
             const currentEmployee = employeesData.find(function(employee) {
                 return employee.id === CURRENT_USER_ID;
             });
@@ -1940,10 +1971,11 @@ $employeesJson = json_encode(array_map(function ($employee) {
 
         // The employee the figures are for: the dropdown's choice, else the
         // one shown when the page opened.
-        let shownUserId = CURRENT_USER_ID || (employeesData[0] ? employeesData[0].id : 0);
+        let shownUserId = 0;
 
         function showEmployee(userId) {
             shownUserId = userId;
+            document.body.classList.toggle('lb-none', !userId);
             updateEmployeeBadge(employeesData.find(employee => employee.id === userId) || null);
             renderForEmployee(userId);
         }
@@ -2005,6 +2037,63 @@ $employeesJson = json_encode(array_map(function ($employee) {
         if (userFilter && [...userFilter.options].some(option => Number(option.value) === shownUserId)) {
             userFilter.value = String(shownUserId);
         }
+
+
+        // Searchable dropdowns: the native <select> stays (its value and change
+        // event drive the page); a button + search list sits in its place.
+        function makeSearchable(select, placeholder) {
+            if (!select) { return; }
+            const box = document.createElement('div');
+            box.className = 'ss';
+            box.innerHTML = '<button type="button" class="ss__btn"></button>'
+                + '<div class="ss__panel"><input type="text" class="ss__search" placeholder="Search…" autocomplete="off">'
+                + '<div class="ss__list"></div></div>';
+            select.style.display = 'none';
+            select.parentNode.insertBefore(box, select);
+            const btn = box.querySelector('.ss__btn'), panel = box.querySelector('.ss__panel'),
+                  search = box.querySelector('.ss__search'), list = box.querySelector('.ss__list');
+
+            const label = () => {
+                const opt = select.options[select.selectedIndex];
+                const empty = !opt || opt.value === '';
+                btn.textContent = empty ? placeholder : opt.textContent.trim();
+                btn.classList.toggle('is-empty', empty);
+            };
+            const draw = () => {
+                const q = search.value.trim().toLowerCase();
+                const rows = [...select.options].filter(o => o.value !== '' && (!q || o.textContent.toLowerCase().includes(q)));
+                list.innerHTML = rows.length
+                    ? rows.map(o => '<div class="ss__opt' + (o.value === select.value ? ' is-selected' : '') + '" data-v="' + o.value + '">'
+                        + escapeHtml(o.textContent.trim()) + '</div>').join('')
+                    : '<div class="ss__none">No match</div>';
+            };
+            btn.addEventListener('click', () => {
+                const open = !box.classList.contains('is-open');
+                document.querySelectorAll('.ss.is-open').forEach(x => x.classList.remove('is-open'));
+                if (open) { box.classList.add('is-open'); search.value = ''; draw(); search.focus(); }
+            });
+            search.addEventListener('input', draw);
+            search.addEventListener('keydown', e => {
+                if (e.key === 'Enter') { const first = list.querySelector('.ss__opt'); if (first) { first.click(); } e.preventDefault(); }
+                if (e.key === 'Escape') { box.classList.remove('is-open'); }
+            });
+            list.addEventListener('click', e => {
+                const opt = e.target.closest('.ss__opt');
+                if (!opt) { return; }
+                select.value = opt.dataset.v;
+                box.classList.remove('is-open');
+                label();
+                select.dispatchEvent(new Event('change'));
+            });
+            document.addEventListener('click', e => { if (!box.contains(e.target)) { box.classList.remove('is-open'); } });
+            // the options are rebuilt when the department changes: keep the label true
+            new MutationObserver(label).observe(select, { childList: true });
+            select.addEventListener('change', label);
+            label();
+        }
+
+        makeSearchable(departmentFilter, 'Select department');
+        makeSearchable(userFilter, 'Select employee');
 
         showEmployee(shownUserId);
     </script>

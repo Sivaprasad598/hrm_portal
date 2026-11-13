@@ -23,7 +23,7 @@ class EmployeeExitController extends AccountBaseController
     public function __construct()
     {
         parent::__construct();
-        $this->pageTitle = 'Employee Exit';
+        $this->pageTitle = 'Exited Employees';
     }
 
     public function index(EmployeeExitDataTable $dataTable)
@@ -32,15 +32,6 @@ class EmployeeExitController extends AccountBaseController
 
         $this->departments  = Team::where('company_id', company()->id)->orderBy('team_name')->get();
         $this->designations = Designation::where('company_id', company()->id)->orderBy('name')->get();
-
-        $companyId = company()->id;
-        $statusSql = EmployeeDetails::employmentStatusSql();
-
-        $this->totalCount       = EmployeeDetails::where('company_id', $companyId)->count();
-        $this->confirmedCount   = EmployeeDetails::where('company_id', $companyId)->whereRaw("{$statusSql} = 'confirmed'")->count();
-        $this->probationCount   = EmployeeDetails::where('company_id', $companyId)->whereRaw("{$statusSql} = 'probation'")->count();
-        $this->noticeCount      = EmployeeDetails::where('company_id', $companyId)->whereRaw("{$statusSql} = 'notice_period'")->count();
-        $this->offBoardedCount  = EmployeeDetails::where('company_id', $companyId)->whereRaw("{$statusSql} = 'off_boarded'")->count();
 
         return $dataTable->render('employee-exit.index', $this->data);
     }

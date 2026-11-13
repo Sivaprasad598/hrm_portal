@@ -14,13 +14,16 @@
                     </div>
 
                     <div class="col-lg-3 col-md-6">
-                        <x-forms.select fieldId="department_id" :fieldLabel="__('app.department')" fieldName="department_id"
-                            search="true">
-                            <option value="0">--</option>
-                            @foreach ($departments as $team)
-                                <option value="{{ $team->id }}">{{ $team->team_name }}</option>
-                            @endforeach
-                        </x-forms.select>
+                        {{-- Divisions with their sub divisions under them, searchable; the list opens
+                             over the page (data-container body) so the pop-up does not clip it --}}
+                        <x-forms.label fieldId="department_id" :fieldLabel="__('app.department')" class="mt-3"></x-forms.label>
+                        <div class="form-group mb-0">
+                            <select name="department_id" id="department_id" class="form-control select-picker" data-live-search="true"
+                                data-size="8" data-container="body">
+                                <option value="0">All departments</option>
+                                @include('departments.partials.tree-options', ['departments' => $departments])
+                            </select>
+                        </div>
                     </div>
 
                     <div class="col-md-9">

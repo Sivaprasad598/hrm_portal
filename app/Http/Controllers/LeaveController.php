@@ -61,10 +61,16 @@ class LeaveController extends AccountBaseController
                 && EmployeeDetails::where('reporting_to', user()->id)->exists()
                 || \App\Services\Leaves\LeaveApprovals::isApprover());
 
+        // From My Space > My Leaves (?mine=1): the table and calendar of their own
+        // leave only, the way an employee sees them - HR and managers too.
+        if (self::mine()) {
+            $managesTeam = false;
+        }
+
         return [
             // everyone has the table: an employee's ('owned') lists only their own leave
             'table' => in_array($view, ['all', 'added', 'both', 'owned'], true),
-            'team' => in_array($view, ['all', 'added', 'both'], true) || $managesTeam,
+            'team' => !self::mine() && (in_array($view, ['all', 'added', 'both'], true) || $managesTeam),
             // A manager's "Team Leaves": their team's leave, not everybody's (HR has
             // view_leave all). Kept simple: no apply / export / leave management,
             // only the employee filter, and Pending / Approved cards.
@@ -72,6 +78,12 @@ class LeaveController extends AccountBaseController
             'apply' => in_array(user()->permission('add_leave'), ['all', 'added'], true),
             'forOthers' => user()->permission('add_leave_for_others') === 'all',
         ];
+    }
+
+    /** Their own leave only (opened from My Leaves): ?mine=1 on the page and its data requests. */
+    public static function mine(): bool
+    {
+        return request()->boolean('mine');
     }
 
     /**
@@ -116,6 +128,10 @@ class LeaveController extends AccountBaseController
 
         $employee = User::allEmployees(null, true, $viewEmployeePermission);
         $this->employees = $reportingTo->merge($employee);
+
+        if (self::mine()) {
+            $this->employees = User::where('id', user()->id)->get();
+        }
 
         $this->leaveTypes = LeaveType::all();
 
@@ -868,7 +884,7 @@ class LeaveController extends AccountBaseController
         abort_403(!in_array($viewPermission, ['all', 'added', 'owned', 'both']));
 
         $this->pendingLeaves = Leave::where('status', 'pending')->count();
-        $this->employees = User::allEmployees();
+        $this->employees = self::mine() ? User::where('id', user()->id)->get() : User::allEmployees();
 
         // A manager's calendar is their team's leave (Team Leaves), not their own.
         $managerTeam = self::access()['managerView'] ? self::managerTeamIds() : null;
@@ -919,7 +935,11 @@ class LeaveController extends AccountBaseController
                 $leavesList->where('leaves.user_id', (int) $request->employeeId);
             }
 
-            if ($managerTeam !== null) {
+            if (self::mine()) {
+                // opened from My Leaves: their own leave only
+                $leavesList->where('leaves.user_id', user()->id);
+            }
+            elseif ($managerTeam !== null) {
                 $leavesList->whereIn('leaves.user_id', $managerTeam ?: [0]);
             }
             elseif ($viewPermission == 'owned') {

@@ -39,15 +39,15 @@ class ResignationManagementController extends AccountBaseController
         $this->departments  = Team::where('company_id', $companyId)->orderBy('team_name')->get();
         $this->designations = Designation::where('company_id', $companyId)->orderBy('name')->get();
 
-        $this->totalCount     = Resignation::where('company_id', $companyId)->count();
+        // Off-boarded people (notice finished) are counted under Exits, not here.
+        $this->totalCount     = Resignation::where('company_id', $companyId)->whereRaw("{$statusSql} <> 'completed'")->count();
         $this->pendingCount   = Resignation::where('company_id', $companyId)->whereRaw("{$statusSql} = 'pending'")->count();
         // "Approved" is a rollup of every request HR has signed off on, regardless
         // of whether it's still in notice period or has since completed — those
         // two are shown as their own cards for day-to-day tracking.
-        $this->approvedCount  = Resignation::where('company_id', $companyId)->where('status', 'approved')->count();
+        $this->approvedCount  = Resignation::where('company_id', $companyId)->where('status', 'approved')->whereRaw("{$statusSql} <> 'completed'")->count();
         $this->noticeCount    = Resignation::where('company_id', $companyId)->whereRaw("{$statusSql} = 'notice_period'")->count();
         $this->rejectedCount  = Resignation::where('company_id', $companyId)->whereRaw("{$statusSql} = 'rejected'")->count();
-        $this->completedCount = Resignation::where('company_id', $companyId)->whereRaw("{$statusSql} = 'completed'")->count();
 
         return $dataTable->render('resignation-management.index', $this->data);
     }

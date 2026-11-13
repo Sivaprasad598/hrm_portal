@@ -99,7 +99,7 @@ class ShiftScheduleExport implements FromCollection, WithHeadings, WithMapping, 
             ->onlyEmployee()->groupBy('users.id');
 
         if ($this->department != 'all') {
-            $employees = $employees->where('employee_details.department_id', $this->department);
+            $employees = $employees->whereIn('employee_details.department_id', \App\Models\Team::withDescendants($this->department));
         }
 
         if ($this->userId != 'all') {

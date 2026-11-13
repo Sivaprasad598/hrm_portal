@@ -339,6 +339,12 @@ class LeaveYearEnd
             $eligibleFrom = $eligibleFrom->max($afterJoining);
         }
 
+        // Earned Leave is earned only from its cut-off month (Leave Settings -> Encashment).
+        $elPolicy = new EarnedLeavePolicy($this->companyId);
+        if ($elPolicy->isEarnedLeave((int) $type->id) && ($elFrom = $elPolicy->startsFrom())) {
+            $eligibleFrom = $eligibleFrom->max($elFrom);
+        }
+
         // "After confirmation": not while on probation.
         if (!(int) $type->allowed_probation && $employee->probation_end_date) {
             $eligibleFrom = $eligibleFrom->max(Carbon::parse($employee->probation_end_date)->addDay()->startOfDay());

@@ -502,6 +502,47 @@ if (isset($_GET['deleted'])) {
       grid-template-columns: 1fr;
     }
   }
+
+  /* ---- App look (Epic theme): brand colour and font come from the page around
+     this frame (see the script below); these are only the fall-backs. ---- */
+  :root { --brand: #cb6b4f; --line: #e8e9e9; --muted: #667085; --text: #1d2939; }
+  body { font-family: 'Plus Jakarta Sans', 'Segoe UI', Arial, sans-serif; color: var(--text); font-size: 13.5px; }
+  .page-header-row { margin-bottom: 18px; }
+  .page-title { font-size: 16px; font-weight: 600; color: var(--text); }
+  .add-button { background: var(--brand) !important; border-radius: 8px; padding: 10px 18px; box-shadow: 0 1px 2px rgba(16,24,40,.08); }
+  .add-button:hover { background: color-mix(in srgb, var(--brand) 85%, #000) !important; }
+
+  .stats-grid { gap: 16px; margin-bottom: 18px; }
+  .stat-card { position: relative; border: 1px solid var(--line); border-left: 1px solid var(--line); border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(16,24,40,.06); padding: 18px 20px 18px 74px; min-height: 92px; }
+  .stat-card::before { content: ''; position: absolute; left: 20px; top: 50%; transform: translateY(-50%); width: 40px; height: 40px;
+    border-radius: 10px; background: color-mix(in srgb, var(--accent, var(--brand)) 14%, #fff); }
+  .stat-card::after { content: ''; position: absolute; left: 34px; top: 50%; transform: translateY(-50%); width: 12px; height: 12px;
+    border-radius: 50%; background: var(--accent, var(--brand)); }
+  .stat-card { --accent: var(--brand); }
+  .stat-card.this-month { --accent: #d97706; }
+  .stat-card.immediate { --accent: #dc2626; }
+  .stat-card.with-notice { --accent: #2563eb; }
+  .stat-card, .stat-card.this-month, .stat-card.immediate, .stat-card.with-notice { border-left: 1px solid var(--line) !important; }
+  .stat-label { font-size: 12px; font-weight: 600; letter-spacing: .03em; color: var(--muted); }
+  .stat-value { font-size: 26px; font-weight: 600; color: var(--text); }
+
+  .card { border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 1px 3px rgba(16,24,40,.06); }
+  .section-title { font-size: 15px; font-weight: 600; color: var(--text); }
+  .filter-card .section-title { display: none; }
+  .filter-grid { align-items: end; }
+  .field label { font-size: 13px; font-weight: 500; color: var(--text); }
+  .field select, .field input { height: 40px; border: 1px solid var(--line) !important; border-radius: 8px !important; }
+  .field select:focus, .field input:focus { border-color: var(--brand) !important; box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 15%, transparent) !important; outline: 0; }
+  .search-button { display: none !important; }   /* filters as you type / choose */
+  .reset-button { height: 40px; display: inline-flex !important; align-items: center; padding: 0 18px !important; border-radius: 8px !important;
+    border: 1px solid var(--line) !important; background: #fff !important; color: var(--text) !important; font-weight: 500; text-decoration: none; }
+  .reset-button:hover { background: #f9fafb; }
+
+  .empty-state { padding: 36px 16px; }
+  .empty-icon { width: 52px; height: 52px; margin: 0 auto 10px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    background: color-mix(in srgb, var(--brand) 12%, #fff); color: var(--brand); font-size: 22px; }
+  table th { font-size: 12px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--muted); }
 </style>
 </head>
 
@@ -537,7 +578,7 @@ if (isset($_GET['deleted'])) {
     </div>
   </div>
 
-  <section class="card">
+  <section class="card filter-card">
     <h3 class="section-title">Filter</h3>
 
     <form method="get" action="TerminationDashboard.php">
@@ -692,6 +733,29 @@ if (isset($_GET['deleted'])) {
 
       window.location.href = <?= json_encode(function_exists('route') ? route('legacy.page', 'termination') : 'Termination.php') ?>;
     });
+  </script>
+
+  <script>
+    // Same brand colour as the app around this frame
+    (function () {
+      try {
+        var brand = getComputedStyle(window.parent.document.documentElement).getPropertyValue('--epic-blue').trim();
+        if (brand) { document.documentElement.style.setProperty('--brand', brand); }
+      } catch (e) {}
+    })();
+
+    // Filter as you type (the department list already applies on change)
+    (function () {
+      var name = document.getElementById('name');
+      if (!name || !name.form) { return; }
+      var timer = null;
+      name.addEventListener('input', function () {
+        clearTimeout(timer);
+        timer = setTimeout(function () { name.form.submit(); }, 600);
+      });
+      // keep the cursor at the end after the page reloads with the search
+      if (name.value) { name.focus(); var v = name.value; name.value = ''; name.value = v; }
+    })();
   </script>
 
 </body>

@@ -196,11 +196,15 @@
                 </div>
 
                 <div class="table-responsive">
+                    <style>
+                        .ye-split { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; margin-top: 4px; }
+                        .ye-split__item { font-size: 11.5px; font-weight: 500; padding: 1px 7px; border-radius: 999px; background: #f2f4f7; color: #475467; white-space: nowrap; }
+                    </style>
                     <table class="ms-table ye-list">
                         <thead>
                             <tr>
                                 <th>Employee</th>
-                                <th class="num" title="Days left at year end, all leave types">Unused</th>
+                                <th class="num" title="Days left at year end, by leave type">Total</th>
                                 <th class="num">Carried forward</th>
                                 <th class="num">Lapsed</th>
                                 <th class="num">Encashed</th>
@@ -214,7 +218,17 @@
                                         <b>{{ $employee['name'] }}</b>
                                         <div class="muted">{{ $employee['employee_id'] ? $employee['employee_id'] . ' · ' : '' }}joined {{ $employee['joining_date'] ? \Carbon\Carbon::parse($employee['joining_date'])->format('d M Y') : '—' }}</div>
                                     </td>
-                                    <td class="num"><b>{{ $fmt($employee['sum']['balance']) }}</b> <span class="muted">days</span></td>
+                                    <td class="num">
+                                        <b>{{ $fmt($employee['sum']['balance']) }}</b> <span class="muted">days</span>
+                                        {{-- which leave makes up the total: CL 8 · SL 8 · EL 12 --}}
+                                        <div class="ye-split">
+                                            @foreach ($employee['types'] as $t)
+                                                @if ($t['balance'] > 0)
+                                                    <span class="ye-split__item">{{ $t['code'] ?: $t['type_name'] }} {{ $fmt($t['balance']) }}</span>
+                                                @endif
+                                            @endforeach
+                                        </div>
+                                    </td>
                                     <td class="num">@if ($employee['sum']['carried'] > 0)<span class="ms-pill ok">{{ $fmt($employee['sum']['carried']) }} days</span>@else<span class="nil">—</span>@endif</td>
                                     <td class="num">@if ($employee['sum']['lapsed'] > 0)<span class="ms-pill bad">{{ $fmt($employee['sum']['lapsed']) }} days</span>@else<span class="nil">—</span>@endif</td>
                                     <td class="num">@if ($employee['amount'] > 0)<span class="ms-pill warn">{{ $money($employee['amount']) }}</span><div class="muted">{{ $fmt($employee['sum']['encashed']) }} days</div>@else<span class="nil">—</span>@endif</td>

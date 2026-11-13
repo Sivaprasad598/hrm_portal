@@ -6,19 +6,6 @@
 
 @section('filter-section')
     <x-filters.filter-box>
-        <div class="select-box py-2 d-flex pr-2 border-right-grey border-right-grey-sm-0">
-            <p class="mb-0 pr-2 f-14 text-dark-grey d-flex align-items-center">Status</p>
-            <div class="select-status">
-                <select class="form-control select-picker" name="exit_status" id="exit_status">
-                    <option value="all">All</option>
-                    <option value="confirmed">Confirmed</option>
-                    <option value="probation">Probation</option>
-                    <option value="notice_period">Notice Period</option>
-                    <option value="off_boarded">Off Boarded</option>
-                </select>
-            </div>
-        </div>
-
         <div class="select-box d-flex py-2 px-lg-2 px-md-2 px-0 border-right-grey border-right-grey-sm-0">
             <p class="mb-0 pr-2 f-14 text-dark-grey d-flex align-items-center">Department</p>
             <div class="select-status">
@@ -68,103 +55,10 @@
 @section('content')
 <div class="content-wrapper">
 
-    {{-- Summary Cards --}}
-    <div class="row mb-4">
-        <div class="col-xl col-md-4 col-sm-6 mb-3">
-            <div class="card border-0 shadow-sm h-100" style="border-left:4px solid #6c757d !important; cursor:pointer;"
-                 onclick="filterByStatus('all')">
-                <div class="card-body p-3">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <p class="text-muted f-12 mb-1 text-uppercase font-weight-600">Total Employees</p>
-                            <h3 class="font-weight-700 mb-0 text-dark">{{ $totalCount }}</h3>
-                        </div>
-                        <div class="rounded-circle d-flex align-items-center justify-content-center"
-                             style="width:50px;height:50px;background:#e9ecef;">
-                            <i class="fa fa-users text-secondary f-20"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-xl col-md-4 col-sm-6 mb-3">
-            <div class="card border-0 shadow-sm h-100" style="border-left:4px solid #28a745 !important; cursor:pointer;"
-                 onclick="filterByStatus('confirmed')">
-                <div class="card-body p-3">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <p class="text-muted f-12 mb-1 text-uppercase font-weight-600">Confirmed</p>
-                            <h3 class="font-weight-700 mb-0 text-success">{{ $confirmedCount }}</h3>
-                        </div>
-                        <div class="rounded-circle d-flex align-items-center justify-content-center"
-                             style="width:50px;height:50px;background:#d4edda;">
-                            <i class="fa fa-check-circle text-success f-20"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-xl col-md-4 col-sm-6 mb-3">
-            <div class="card border-0 shadow-sm h-100" style="border-left:4px solid #ffc107 !important; cursor:pointer;"
-                 onclick="filterByStatus('probation')">
-                <div class="card-body p-3">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <p class="text-muted f-12 mb-1 text-uppercase font-weight-600">Probation</p>
-                            <h3 class="font-weight-700 mb-0 text-warning">{{ $probationCount }}</h3>
-                        </div>
-                        <div class="rounded-circle d-flex align-items-center justify-content-center"
-                             style="width:50px;height:50px;background:#fff3cd;">
-                            <i class="fa fa-clock text-warning f-20"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-xl col-md-4 col-sm-6 mb-3">
-            <div class="card border-0 shadow-sm h-100" style="border-left:4px solid #17a2b8 !important; cursor:pointer;"
-                 onclick="filterByStatus('notice_period')">
-                <div class="card-body p-3">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <p class="text-muted f-12 mb-1 text-uppercase font-weight-600">Notice Period</p>
-                            <h3 class="font-weight-700 mb-0 text-info">{{ $noticeCount }}</h3>
-                        </div>
-                        <div class="rounded-circle d-flex align-items-center justify-content-center"
-                             style="width:50px;height:50px;background:#d1ecf1;">
-                            <i class="fa fa-sign-out-alt text-info f-20"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-xl col-md-4 col-sm-6 mb-3">
-            <div class="card border-0 shadow-sm h-100" style="border-left:4px solid #dc3545 !important; cursor:pointer;"
-                 onclick="filterByStatus('off_boarded')">
-                <div class="card-body p-3">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <p class="text-muted f-12 mb-1 text-uppercase font-weight-600">Off Boarded</p>
-                            <h3 class="font-weight-700 mb-0 text-danger">{{ $offBoardedCount }}</h3>
-                        </div>
-                        <div class="rounded-circle d-flex align-items-center justify-content-center"
-                             style="width:50px;height:50px;background:#f8d7da;">
-                            <i class="fa fa-door-open text-danger f-20"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     {{-- DataTable --}}
     <div class="d-flex justify-content-between action-bar mb-3">
         <div id="table-actions">
-            <span class="f-15 font-weight-600 text-dark">Employee Exit Management</span>
+            <span class="f-15 font-weight-600 text-dark">Exited Employees</span>
         </div>
     </div>
 
@@ -207,7 +101,7 @@
             });
 
             $('#exit_status, #exit_department, #exit_designation').on('change', function () {
-                if ($('#exit_status').val() !== 'all' || $('#exit_department').val() !== 'all' || $('#exit_designation').val() !== 'all') {
+                if ($('#exit_department').val() !== 'all' || $('#exit_designation').val() !== 'all') {
                     $('#reset-filters').removeClass('d-none');
                 } else {
                     $('#reset-filters').addClass('d-none');

@@ -73,7 +73,8 @@ $addLeavePermission = user()->permission('add_leave');
         <!-- Add Task Export Buttons Start -->
         <div class="d-flex justify-content-between action-bar">
             <div id="table-actions" class="align-items-center">
-                @if ($addLeavePermission == 'all' || ($addLeavePermission == 'added' && user()->id == $employee->id))
+                {{-- Only on one's own profile: HR does not apply leave for someone from their profile --}}
+                @if (in_array($addLeavePermission, ['all', 'added']) && user()->id == $employee->id)
                     <x-forms.link-primary :link="route('leaves.create').'?default_assign='.$employee->id"
                         class="mr-3 openRightModal float-left" data-redirect-url="{{ url()->full() }}" icon="plus">
                         @lang('modules.leaves.addLeave')

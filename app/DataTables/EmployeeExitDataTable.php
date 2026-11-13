@@ -81,37 +81,11 @@ class EmployeeExitDataTable extends BaseDataTable
                         </a>
                         <div class="dropdown-menu dropdown-menu-right">';
 
-            if ($status === 'confirmed' || $status === 'probation') {
-                $html .= '<a class="dropdown-item openRightModal" href="' . route('employee-exit.initiate', $userId) . '">
-                            <i class="fa fa-sign-out-alt mr-2"></i> Initiate Exit
-                          </a>';
-            }
-
-            if ($status === 'probation') {
-                $html .= '<a class="dropdown-item" href="#" onclick="confirmEmployee(' . $userId . '); return false;">
-                            <i class="fa fa-check-circle mr-2"></i> Mark Confirmed
-                          </a>';
-            }
-
+            // Exited Employees: they have left, so only looking back and rejoining
             if ($exitId) {
                 $html .= '<a class="dropdown-item openRightModal" href="' . route('employee-exit.show', $exitId) . '">
                             <i class="fa fa-eye mr-2"></i> View Exit Details
-                          </a>
-                          <a class="dropdown-item openRightModal" href="' . route('employee-exit.edit', $exitId) . '">
-                            <i class="fa fa-edit mr-2"></i> Edit Exit
-                          </a>
-                          <a class="dropdown-item openRightModal" href="' . route('employee-exit.checklist', $exitId) . '">
-                            <i class="fa fa-clipboard-check mr-2"></i> Offboarding Checklist
-                          </a>
-                          <a class="dropdown-item openRightModal" href="' . route('employee-exit.interview', $exitId) . '">
-                            <i class="fa fa-comments mr-2"></i> Exit Interview
                           </a>';
-
-                if ($status === 'notice_period') {
-                    $html .= '<a class="dropdown-item" href="#" onclick="offboardEmployee(' . $exitId . '); return false;">
-                                <i class="fa fa-door-open mr-2"></i> Mark Off Boarded
-                              </a>';
-                }
             }
 
             $html .= '<a class="dropdown-item openRightModal" href="' . route('employee-exit.history', $userId) . '">
@@ -172,11 +146,21 @@ class EmployeeExitDataTable extends BaseDataTable
                 'employee_exits.exit_type',
                 'employee_exits.last_working_date as exit_last_working_date',
             ])
-            ->selectRaw("{$statusSql} as effective_status");
-
-        if ($request->status && $request->status !== 'all') {
-            $query->whereRaw("{$statusSql} = ?", [$request->status]);
-        }
+            ->selectRaw("{$statusSql} as effective_status")
+            // Exited Employees: those who have left - off-boarded, or past their
+            // last working day - and nobody still working.
+            ->where(function ($q) use ($statusSql) {
+                $q->whereRaw("{$statusSql} = 'off_boarded'")
+                  ->orWhere(fn ($w) => $w->whereNotNull('employee_details.last_date')
+                      ->whereDate('employee_details.last_date', '<', now()->toDateString()))
+                  // resigned and off-boarded: the approved resignation's last working
+                  // day has passed (they no longer show under Resignations)
+                  ->orWhereExists(fn ($r) => $r->from('resignations')
+                      ->whereColumn('resignations.user_id', 'employee_details.user_id')
+                      ->where('resignations.status', 'approved')
+                      ->whereNotNull('resignations.last_working_date')
+                      ->whereDate('resignations.last_working_date', '<', now()->toDateString()));
+            });
 
         if ($request->department && $request->department !== 'all') {
             $query->where('employee_details.department_id', $request->department);
@@ -199,7 +183,7 @@ class EmployeeExitDataTable extends BaseDataTable
 
     public function html()
     {
-        $dataTable = $this->setBuilder('employee-exit-table', 2);
+        $dataTable = $this->setBuilder('employee-exit-table', 1);
 
         // This table's column layout changed several times during development —
         // a browser that saved state against an older layout (via localStorage,
@@ -219,7 +203,6 @@ class EmployeeExitDataTable extends BaseDataTable
     protected function getColumns()
     {
         return [
-            Column::make('check')->title('')->orderable(false)->exportable(false)->searchable(false)->width(30),
             Column::make('employee')->title('Employee'),
             Column::make('department')->title('Department'),
             Column::make('designation')->title('Designation'),

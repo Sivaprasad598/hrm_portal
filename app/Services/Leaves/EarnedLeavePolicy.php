@@ -32,7 +32,8 @@ class EarnedLeavePolicy
 
         $this->settings = DB::table('leave_settings')
             ->when($companyId, fn ($q) => $q->where('company_id', $companyId))
-            ->first(['earned_leave_type_id', 'earned_leave_min_service_years', 'earned_leave_encash_max_days']);
+            ->first(array_merge(['earned_leave_type_id', 'earned_leave_min_service_years', 'earned_leave_encash_max_days'],
+                Schema::hasColumn('leave_settings', 'earned_leave_starts_from') ? ['earned_leave_starts_from'] : []));
     }
 
     public function typeId(): ?int
@@ -43,6 +44,17 @@ class EarnedLeavePolicy
     public function isEarnedLeave(?int $leaveTypeId): bool
     {
         return $leaveTypeId !== null && $this->typeId() === $leaveTypeId;
+    }
+
+    /**
+     * The first month Earned Leave is earned in (Leave Settings -> Encashment),
+     * or null for no cut-off: before it nobody earns any.
+     */
+    public function startsFrom(): ?Carbon
+    {
+        $from = $this->settings->earned_leave_starts_from ?? null;
+
+        return $from ? Carbon::parse($from)->startOfMonth() : null;
     }
 
     /** Years of service before Earned Leave can be used or paid out. */

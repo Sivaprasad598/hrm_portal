@@ -4,9 +4,10 @@
 @extends('layouts.app')
 
 @section('content')
-    <div class="content-wrapper px-4">
+    {{-- On the grey page like the Attendance Register: no white card around the frame --}}
+    <div class="content-wrapper">
         <iframe data-src="{{ $dashboardUrl }}" id="attendance-dashboard-frame" title="Attendance Dashboard"
-                style="width: 100%; height: calc(100vh - 150px); min-height: 520px; border: 0; display: block; border-radius: 10px; background: #fff;"></iframe>
+                style="width: 100%; height: calc(100vh - 150px); min-height: 520px; border: 0; display: block; background: transparent;"></iframe>
     </div>
 @endsection
 

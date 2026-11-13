@@ -1,7 +1,8 @@
 @extends('layouts.app')
 
 @section('content')
-    <ul class="nav nav-tabs mb-3" id="terminationTabs" role="tablist">
+<div class="content-wrapper tm-wrap">
+    <ul class="nav nav-tabs tm-tabs mb-3" id="terminationTabs" role="tablist">
         <li class="nav-item">
             <a class="nav-link active" id="termination-dashboard-tab" data-toggle="tab" href="#terminationDashboardPane"
                role="tab" aria-controls="terminationDashboardPane" aria-selected="true">
@@ -35,6 +36,16 @@
             </iframe>
         </div>
     </div>
+</div>
+
+    <style>
+        /* Termination: page padding like every other page, and the two views as underlined tabs */
+        .tm-wrap .tm-tabs { border-bottom: 1px solid var(--epic-line, #e8e9e9); gap: 4px; }
+        .tm-wrap .tm-tabs .nav-link { border: 0; border-bottom: 2px solid transparent; color: var(--epic-muted, #667085);
+            font-size: 14px; font-weight: 500; padding: 10px 14px; background: transparent; }
+        .tm-wrap .tm-tabs .nav-link:hover { color: var(--epic-text, #1d2939); }
+        .tm-wrap .tm-tabs .nav-link.active { color: var(--epic-blue, #cb6b4f); border-bottom-color: var(--epic-blue, #cb6b4f); background: transparent; }
+    </style>
 
     <script>
         (function () {

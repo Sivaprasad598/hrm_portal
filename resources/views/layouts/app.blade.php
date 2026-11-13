@@ -134,6 +134,7 @@
     <link href="{{ asset('css/epic/fonts.css') }}?v={{ filemtime(public_path('css/epic/fonts.css')) }}" rel="stylesheet">
     <link href="{{ asset('css/epic/theme.css') }}?v={{ filemtime(public_path('css/epic/theme.css')) }}" rel="stylesheet">
     @include('sections.epic-colors')
+    @include('sections.brand-loader')
 
     <script src="{{ asset('vendor/jquery/jquery.min.js') }}"></script>
     <script src="{{ asset('vendor/jquery/modernizr.min.js') }}"></script>
@@ -192,6 +193,8 @@
 
         @yield('content')
 
+        {{-- Assets and Work: "Coming soon" over the page for now --}}
+        @include('sections.coming-soon')
 
     </section>
     <!-- MAIN CONTAINER END -->

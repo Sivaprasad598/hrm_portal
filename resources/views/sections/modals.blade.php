@@ -8,7 +8,7 @@
                         aria-hidden="true">×</span></button>
             </div>
             <div class="modal-body">
-                {{__('app.loading')}}
+                <div class="brand-loader-box"><span class="brand-a" role="status" aria-label="{{ __('app.loading') }}"></span></div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn-cancel rounded mr-3" data-dismiss="modal">Close</button>
@@ -28,7 +28,7 @@
                         aria-hidden="true">×</span></button>
             </div>
             <div class="modal-body">
-                {{__('app.loading')}}
+                <div class="brand-loader-box"><span class="brand-a" role="status" aria-label="{{ __('app.loading') }}"></span></div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn-cancel rounded mr-3" data-dismiss="modal">Close</button>
@@ -48,7 +48,7 @@
                         aria-hidden="true">×</span></button>
             </div>
             <div class="modal-body bg-grey">
-                {{__('app.loading')}}
+                <div class="brand-loader-box"><span class="brand-a" role="status" aria-label="{{ __('app.loading') }}"></span></div>
             </div>
 
         </div>
