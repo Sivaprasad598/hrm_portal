@@ -11,7 +11,7 @@ use AppModules\Leads\Models\LeadSource;
 use AppModules\Leads\Models\PipelineStage;
 use App\Models\User;
 use Illuminate\Http\Request;
-use AppModules\Leads\Models\LeadSetting;
+use App\Models\LeadSetting;
 
 class LeadSettingController extends AccountBaseController
 {
