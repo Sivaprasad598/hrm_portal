@@ -68,20 +68,28 @@
         const token = '{{ csrf_token() }}';
         const updateUrl = "{{ route('asset-types.update', ':id') }}";
 
+        // say why a name was refused (empty, too long, already there), not "The given data was invalid"
+        function nameError(xhr) {
+            var r = xhr && xhr.responseJSON, msg = r && r.errors && r.errors.name ? r.errors.name[0] : (r && r.message);
+            if (msg) { Swal.fire({ icon: 'warning', text: msg, confirmButtonText: 'OK', customClass: { confirmButton: 'btn btn-primary' }, buttonsStyling: false }); }
+        }
+        $('#add-type-form input[name="name"]').on('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); $('#add-type').click(); } });
+
         $('#add-type').on('click', function () {
-            $.easyAjax({
-                url: "{{ route('asset-types.store') }}",
-                container: '#add-type-form',
-                type: 'POST',
-                blockUI: true,
-                disableButton: true,
-                buttonSelector: '#add-type',
+            if (!$.trim($('#add-type-form input[name="name"]').val())) {
+                Swal.fire({ icon: 'warning', text: 'Type a name for the asset type.', confirmButtonText: 'OK', customClass: { confirmButton: 'btn btn-primary' }, buttonsStyling: false });
+                return;
+            }
+            var btn = $('#add-type').prop('disabled', true);
+            $.ajax({
+                url: "{{ route('asset-types.store') }}", type: 'POST', dataType: 'json',
                 data: $('#add-type-form').serialize(),
                 success: function (response) {
-                    if (response.status === 'success') {
-                        window.location.reload();
-                    }
-                }
+                    if (response.status === 'success') { window.location.reload(); return; }
+                    btn.prop('disabled', false);
+                    Swal.fire({ icon: 'warning', text: response.message || 'Could not add the type.', confirmButtonText: 'OK', customClass: { confirmButton: 'btn btn-primary' }, buttonsStyling: false });
+                },
+                error: function (xhr) { btn.prop('disabled', false); nameError(xhr); }
             });
         });
 

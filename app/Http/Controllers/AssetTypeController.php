@@ -32,7 +32,8 @@ class AssetTypeController extends AccountBaseController
 
     public function store(Request $request)
     {
-        $request->validate(['name' => $this->nameRule()]);
+        $request->merge(['name' => trim((string) $request->name)]);
+        $request->validate(['name' => $this->nameRule()], $this->nameMessages());
 
         AssetType::create(['company_id' => company()->id, 'name' => trim($request->name)]);
 
@@ -42,7 +43,8 @@ class AssetTypeController extends AccountBaseController
     public function update(Request $request, $id)
     {
         $type = AssetType::findOrFail($id);
-        $request->validate(['name' => $this->nameRule($type->id)]);
+        $request->merge(['name' => trim((string) $request->name)]);
+        $request->validate(['name' => $this->nameRule($type->id)], $this->nameMessages());
         $type->update(['name' => trim($request->name)]);
 
         return Reply::success('Asset type renamed.');
@@ -59,6 +61,16 @@ class AssetTypeController extends AccountBaseController
         $type->delete();
 
         return Reply::success('Asset type deleted.');
+    }
+
+    /** Plain messages instead of "The given data was invalid". */
+    private function nameMessages(): array
+    {
+        return [
+            'name.required' => 'Type a name for the asset type.',
+            'name.max' => 'Keep the name under 100 characters.',
+            'name.unique' => '":input" is already an asset type.',
+        ];
     }
 
     private function nameRule(?int $ignore = null): array

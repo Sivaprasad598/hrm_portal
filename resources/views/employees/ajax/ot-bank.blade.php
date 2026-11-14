@@ -41,16 +41,18 @@
     .otb-slip { color: var(--epic-blue, #cb6b4f); font-weight: 500; white-space: nowrap; }
     .otb-slip:hover { text-decoration: underline; }
     .otb-slip .fa-external-link-alt { font-size: 10px; opacity: .7; }
+    /* the app's standard: cards on the grey page, sections as white rounded cards */
+    .otb-std .ms-stats { margin-bottom: 16px; }
+    .otb-std .ms-stats > * { background: #fff; border-radius: 12px !important; box-shadow: 0 1px 3px rgba(16, 24, 40, .06); }
+    .otb-std .otb-sum { background: #fff; border: 0; border-radius: 12px; box-shadow: 0 1px 3px rgba(16, 24, 40, .06); margin: 0 0 16px; padding: 12px 18px; }
+    .otb-std .otb-panel.active { display: block; background: #fff; border-radius: 12px; box-shadow: 0 1px 3px rgba(16, 24, 40, .06); padding: 18px 20px; }
+    .otb-std .ms-sec { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+    body.epic .otb-std .ms-sec .btn-sm { height: 38px; border-radius: 8px !important; padding: 0 14px !important; display: inline-flex; align-items: center; font-size: 14px; }
 </style>
 
-<div class="card bg-white border-0 b-shadow-4">
-    <div class="card-header bg-white border-0 d-flex justify-content-between align-items-start flex-wrap pt-4">
-        <div>
-            <h4 class="f-18 f-w-500 mb-0">{{ $employee->id == user()->id ? 'My Overtime' : 'Overtime Balance' }}</h4>
-            <p class="ms-intro">Overtime is saved here with no expiry. Week-off and holiday hours count extra. Saved hours can cover LOP days, or be paid out (encashed) when payroll runs.</p>
-        </div>
-    </div>
-    <div class="card-body pt-2">
+{{-- (no heading or intro text: the top bar names the page) --}}
+<div class="otb-std">
+    <div>
 
     {{-- ---------------- The counts: each opens its details below ---------------- --}}
     <div class="ms-stats">
