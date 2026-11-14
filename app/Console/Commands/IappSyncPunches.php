@@ -57,7 +57,12 @@ class IappSyncPunches extends Command
             $interval = max(5, (int) ($config->setting()?->sync_interval_minutes ?: 15));
             $last = (new \App\Services\Iapp\Pipeline\PipelineStatus($config))->lastPull();
 
-            if ($last && $last->started_at && $last->started_at->gt(now()->subMinutes($interval - 1))) {
+            // A few minutes' slack: a pull that started late (the scheduler ran the
+            // nightly routine first) must not make the next tick skip, which left
+            // 30 minutes between pulls. 15 -> pulls when the last began 10+ minutes ago.
+            $slack = min(5, intdiv($interval, 3));
+
+            if ($last && $last->started_at && $last->started_at->gt(now()->subMinutes($interval - $slack))) {
                 return self::SUCCESS;
             }
         }

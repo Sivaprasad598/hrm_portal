@@ -28,6 +28,12 @@
                     height = Math.max(height, Math.ceil(top + card.scrollHeight + 40));
                 });
 
+                // An open searchable dropdown (js/searchable-select.js) hangs below the
+                // page's content; on a short page its list was cut off at the frame's foot.
+                doc.querySelectorAll('.ss.is-open .ss__panel').forEach(function (panel) {
+                    height = Math.max(height, Math.ceil(panel.getBoundingClientRect().bottom + doc.defaultView.scrollY + 16));
+                });
+
                 if (height > 0 && Math.abs(height - frame.offsetHeight) > 1) {
                     frame.style.height = height + 'px';
                 }

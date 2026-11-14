@@ -3,7 +3,16 @@
 @push('datatable-styles')
     @include('sections.datatable_css')
     <style>
-        .dv-search { position: relative; width: 300px; max-width: 100%; margin-left: auto; }
+        .dv-search { position: relative; width: 100%; }
+        /* the page's buttons on the tab row (top right): Add Division, Export, Filters */
+        .dv-tab-actions { display: flex; align-items: center; gap: 10px; }
+        .dv-tab-actions .dt-buttons { display: flex; margin: 0 !important; }
+        body.epic .dv-tab-actions > a, body.epic .dv-tab-actions .dt-buttons > .btn {
+            height: 38px; border-radius: 8px !important; display: inline-flex; align-items: center; padding: 0 14px !important;
+            margin: 0 !important; float: none !important; white-space: nowrap; font-size: 14px; }
+        /* the search card, shown with "Filters": full width, white, rounded */
+        #dv-filter-card { background: #fff; border-radius: 12px; padding: 14px 18px; margin-bottom: 16px; }
+        #dv-filter-card label { display: block; margin-bottom: 6px; }
         .dv-search i, .dv-search svg { position: absolute; z-index: 1; left: 12px; top: 50%; transform: translateY(-50%); color: #98a2b3; font-size: 13px; }
         .dv-search input { width: 100%; height: 38px; padding: 0 12px 0 34px; border: 1px solid var(--epic-line, #e8e9e9); border-radius: 8px;
             font-size: 14px; background: #fff; outline: 0; }
@@ -65,29 +74,30 @@
     $addDepartmentPermission = user()->permission('add_department');
 @endphp
 
+{{-- Standard page: the buttons sit top right on the tab row (the data table adds
+     its Export into #table-actions), and "Filters" shows the search card --}}
+@push('page-tab-actions')
+    <div id="table-actions" class="dv-tab-actions">
+        @if ($addDepartmentPermission == 'all')
+            <x-forms.link-primary :link="route('departments.create')" class="openRightModal" icon="plus">
+                Add Division
+            </x-forms.link-primary>
+        @endif
+    </div>
+@endpush
+@include('sections.card-filter-toggle', ['card' => '#dv-filter-card', 'active' => false])
+
 @section('content')
     <!-- CONTENT WRAPPER START -->
     <div class="content-wrapper">
 
-        <!-- Add Task Export Buttons Start -->
-        <div class="d-grid d-lg-flex d-md-flex action-bar">
-            <div id="table-actions" class="flex-grow-1 align-items-center">
-                @if ($addDepartmentPermission == 'all')
-                    <x-forms.link-primary :link="route('departments.create')" class="mr-3 openRightModal float-left"
-                                          icon="plus">
-                        Add Division
-                    </x-forms.link-primary>
-                @endif
-            </div>
-
-            {{-- Search, at the top right of the table (no filter bar) --}}
+        {{-- The filter card (hidden until "Filters"): the search, the whole width --}}
+        <div id="dv-filter-card">
+            <label class="f-14 text-dark-grey" for="search-text-field">Search in the table</label>
             <div class="dv-search">
                 <i class="fa fa-search"></i>
                 <input type="text" id="search-text-field" placeholder="Search division or sub division" autocomplete="off">
             </div>
-
-
-            {{-- Table View / Division Hierarchy switch removed: the table is the one view --}}
         </div>
 
 

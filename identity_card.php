@@ -15,507 +15,283 @@ if ($id <= 0) {
     exit;
 }
 
-// --- Check if blood_group column exists ---
-$bg_check = mysqli_query($conn, "SHOW COLUMNS FROM users LIKE 'blood_group'");
-$blood_col = mysqli_num_rows($bg_check) > 0 ? ", COALESCE(u.blood_group,'') AS blood_group" : ", '' AS blood_group";
+$one = function (string $sql, string $types = '', array $args = []) use ($conn) {
+    $stmt = $conn->prepare($sql);
+    if ($types !== '') {
+        $stmt->bind_param($types, ...$args);
+    }
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    return $row ?: null;
+};
 
-// --- Fetch user data (only columns that exist) ---
-$stmt = $conn->prepare(
-    "SELECT u.id, u.name, u.email, u.mobile AS phone, u.image
-            $blood_col
-     FROM users u
-     WHERE u.id = ? LIMIT 1"
-);
-$stmt->bind_param("i", $id);
-$stmt->execute();
-$user = $stmt->get_result()->fetch_assoc();
-$stmt->close();
+// --- The employee: account, record, branch ---
+$user = $one('SELECT id, name, email, mobile AS phone, image, company_id FROM users WHERE id = ? LIMIT 1', 'i', [$id]);
 
 if (!$user) {
-    die('<p style="font-family:Arial;text-align:center;margin-top:100px;color:red;">User not found.</p>');
+    die('<p style="font-family:Arial;text-align:center;margin-top:100px;color:#d92d20;">Employee not found.</p>');
 }
 
-// --- Designation: the employee's own; an id passed in is only a fallback ---
-$designationName = null;
-$ownStmt = $conn->prepare("SELECT d.name, ed.employee_id FROM employee_details ed LEFT JOIN designations d ON d.id = ed.designation_id WHERE ed.user_id = ? LIMIT 1");
-$ownStmt->bind_param("i", $id);
-$ownStmt->execute();
-$ownRow = $ownStmt->get_result()->fetch_assoc();
-$ownStmt->close();
-if ($ownRow) {
-    $designationName = $ownRow['name'] ?: null;
-}
+$detail = $one(
+    'SELECT ed.employee_id, ed.blood_group, ed.joining_date, ed.branch_id, ed.company_address_id, d.name AS designation, t.team_name AS department
+     FROM employee_details ed
+     LEFT JOIN designations d ON d.id = ed.designation_id
+     LEFT JOIN teams t ON t.id = ed.department_id
+     WHERE ed.user_id = ? LIMIT 1', 'i', [$id]
+) ?? [];
+
+// designation: the employee's own; an id passed in is only a fallback
+$designationName = $detail['designation'] ?? null;
 if (!$designationName && $designation_id > 0) {
-    $designQuery = "SELECT name FROM designations WHERE id = ?";
-    $stmtDes = $conn->prepare($designQuery);
-    $stmtDes->bind_param("i", $designation_id);
-    $stmtDes->execute();
-    $desResult = $stmtDes->get_result();
-    $desRow = $desResult->fetch_assoc();
-    if ($desRow) {
-        $designationName = $desRow['name'];
-    }
-    $stmtDes->close();
+    $designationName = $one('SELECT name FROM designations WHERE id = ?', 'i', [$designation_id])['name'] ?? null;
 }
-$conn->close();
 
-// --- Determine role ---
-$role = $designationName ? ucfirst(htmlspecialchars($designationName)) : 'Employee';
+$branchName = null;
+if (!empty($detail['branch_id'])) {
+    $branchName = $one('SELECT branch_name FROM branches WHERE id = ?', 'i', [(int) $detail['branch_id']])['branch_name'] ?? null;
+}
+if (!$branchName && !empty($detail['company_address_id'])) {
+    $branchName = $one('SELECT location FROM company_addresses WHERE id = ?', 'i', [(int) $detail['company_address_id']])['location'] ?? null;
+}
 
-// --- Generate employee ID from user ID ---
-$empId = !empty($ownRow['employee_id']) ? htmlspecialchars($ownRow['employee_id']) : 'EMP' . str_pad($user['id'], 4, '0', STR_PAD_LEFT);
+// --- The company (Settings -> Company), for "if found, please return to" ---
+$company = $one('SELECT company_name, company_email, company_phone, website, address FROM companies WHERE id = ? LIMIT 1', 'i', [(int) ($user['company_id'] ?: 1)])
+    ?? $one('SELECT company_name, company_email, company_phone, website, address FROM companies ORDER BY id LIMIT 1') ?? [];
 
-// --- Prepare display variables ---
-$name   = htmlspecialchars(ucwords(strtolower($user['name'] ?? '')));
-$phone  = !empty($user['phone']) ? htmlspecialchars($user['phone']) : 'N/A';
-$email  = htmlspecialchars($user['email'] ?? '');
-$branch = 'N/A';
-$blood  = htmlspecialchars($user['blood_group'] ?? '');
+// --- The first emergency contact on the employee's record ---
+$emergency = $one('SELECT name, mobile, relation FROM emergency_contacts WHERE user_id = ? ORDER BY id LIMIT 1', 'i', [$id]);
 
-// --- Always use avatar fallback, but prefer stored user image ---
+// --- Display values (escaped once, here) ---
+$h = fn ($v) => htmlspecialchars(trim((string) $v), ENT_QUOTES, 'UTF-8');
+$name = $h($user['name']);
+$role = $designationName ? $h($designationName) : 'Employee';
+$department = $h($detail['department'] ?? '');
+$empId = !empty($detail['employee_id']) ? $h($detail['employee_id']) : 'EMP' . str_pad($user['id'], 4, '0', STR_PAD_LEFT);
+$phone = $h($user['phone'] ?? '');
+$email = $h($user['email'] ?? '');
+$blood = $h($detail['blood_group'] ?? '');
+$branch = $h($branchName ?? '');
+$joined = !empty($detail['joining_date']) ? date('d M Y', strtotime($detail['joining_date'])) : '';
+$companyName = $h($company['company_name'] ?? '');
+$companyPhone = $h($company['company_phone'] ?? '');
+$companyEmail = $h($company['company_email'] ?? '');
+$companyWebsite = $h(preg_replace('#^https?://|/$#', '', (string) ($company['website'] ?? '')));
+$companyAddress = $h(preg_replace('/\s+/', ' ', strip_tags((string) ($company['address'] ?? ''))));
+// the address Company Settings starts with is a placeholder, not an address
+if (strcasecmp($companyAddress, 'Your Company address here') === 0) {
+    $companyAddress = '';
+}
+$emergencyLine = $emergency ? trim($h($emergency['name']) . ($emergency['relation'] ? ' (' . $h($emergency['relation']) . ')' : '')) : '';
+$emergencyPhone = $emergency ? $h($emergency['mobile']) : '';
+
+// Initials for a person without a photo: first and last word, brackets left out
+// ("A S V N Murthy (avm)" -> "AM")
+$words = preg_split('/\s+/', trim(preg_replace('/\(.*?\)|[^\p{L}\s]/u', ' ', (string) $user['name']))) ?: [];
+$words = array_values(array_filter($words));
+$initials = mb_strtoupper(mb_substr($words[0] ?? '?', 0, 1) . (count($words) > 1 ? mb_substr(end($words), 0, 1) : ''));
+
+$photoSrc = null;
 if (!empty($user['image'])) {
     $photoSrc = function_exists('asset_url_local_s3')
         ? asset_url_local_s3('avatar/' . $user['image'])
         : (function_exists('asset') ? asset('user-uploads/avatar/' . rawurlencode($user['image'])) : 'user-uploads/avatar/' . rawurlencode($user['image']));
-} else {
-    $photoSrc = 'https://ui-avatars.com/api/?name=' . urlencode($user['name']) . '&size=150&background=b84cff&color=fff&bold=true';
 }
 
-$pdfName  = strtoupper(str_replace(' ', '_', $user['name']));
-
-// --- Logo path – absolute from document root ---
+$pdfName = strtoupper(preg_replace('/[^A-Za-z0-9]+/', '_', $user['name']));
 $logoPath = function_exists('asset') ? asset('img/arowana_logo_new.png') : 'img/arowana_logo_new.png';
+$backUrl = function_exists('route') ? route('identity.index') : 'identity.php';
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AROWANA ID Card – <?php echo $name; ?></title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<title>ID Card – <?= $name ?></title>
 <style>
+/* The app's theme: brand colour (Theme Settings, --epic-blue) and the dark of the top bar */
+:root { --brand: var(--epic-blue, #cb6b4f); --ink: #231f20; --text: #101828; --muted: #667085; --line: #eaecf0; }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #f3f3f9; font-family: 'Plus Jakarta Sans', 'Segoe UI', Arial, sans-serif; color: var(--text); padding: 0 0 24px; }
 
-body {
-    min-height: 100vh;
-    background: #12111f;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 50px 20px;
-    font-family: 'Inter', sans-serif;
-}
+/* the page bar: back on the left, download on the right */
+.idc-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #fff; border: 1px solid #e8e9e9;
+    border-radius: 12px; box-shadow: 0 1px 3px rgba(16,24,40,.06); padding: 12px 18px; margin-bottom: 16px; }
+.idc-back { color: var(--muted); text-decoration: none; font-size: 14px; font-weight: 500; }
+.idc-back:hover { color: var(--brand); }
+.idc-who { font-size: 14px; color: var(--muted); }
+.idc-who b { color: var(--text); }
+.btn-dl { height: 38px; padding: 0 16px; border: 1px solid var(--brand); border-radius: 8px; background: var(--brand); color: #fff;
+    font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.btn-dl:hover { filter: brightness(.93); }
+.btn-dl:disabled { opacity: .65; cursor: not-allowed; }
 
-.page-title {
-    font-family: 'Cinzel', serif;
-    font-size: 1.1rem;
-    letter-spacing: 4px;
-    text-transform: uppercase;
-    color: #c8922a;
-    margin-bottom: 44px;
-    text-align: center;
-}
+/* the two sides, at ID-card proportions (CR80: 54 x 86 mm) */
+.idc-sheet { display: flex; gap: 32px; justify-content: center; flex-wrap: wrap; padding: 28px 16px; background: #fff; border: 1px solid #e8e9e9;
+    border-radius: 12px; box-shadow: 0 1px 3px rgba(16,24,40,.06); }
+.idc-card { width: 324px; height: 514px; background: #fff; border-radius: 16px; overflow: hidden; position: relative; display: flex; flex-direction: column;
+    border: 1px solid var(--line); box-shadow: 0 10px 30px rgba(16,24,40,.12); }
+.idc-side { text-align: center; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: #98a2b3; margin-top: 10px; }
 
-.cards-container {
-    display: flex;
-    gap: 50px;
-    flex-wrap: wrap;
-    justify-content: center;
-    align-items: flex-start;
-}
+/* front */
+.f-head { height: 64px; display: flex; align-items: center; justify-content: center; background: #fff; }
+.f-head img { height: 36px; width: auto; }
+.f-band { height: 92px; background: var(--brand); position: relative; flex: none; }
+.f-band::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 6px; background: var(--ink); opacity: .9; }
+.f-photo { position: absolute; left: calc(50% - 62px); bottom: -58px; width: 124px; height: 124px; border-radius: 50%;
+    border: 5px solid #fff; box-shadow: 0 6px 18px rgba(16,24,40,.18); overflow: hidden; background: #f2f4f7; z-index: 1; }
+.f-photo img { width: 100%; height: 100%; object-fit: cover; object-position: center top; display: block; }
+.f-initials { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 42px; line-height: 1; font-weight: 700;
+    color: var(--brand); background: #fbeee9; letter-spacing: .02em; }
+.f-body { flex: 1; padding: 70px 22px 0; text-align: center; display: flex; flex-direction: column; }
+.f-name { font-size: 19px; font-weight: 700; line-height: 1.25; color: var(--text); }
+.f-role { margin-top: 4px; font-size: 13px; font-weight: 600; color: var(--brand); }
+.f-dept { margin-top: 2px; font-size: 12px; color: var(--muted); }
+.f-facts { margin-top: 18px; display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.f-facts > div { padding: 10px 6px; }
+.f-facts > div + div { border-left: 1px solid var(--line); }
+.f-facts.one { grid-template-columns: 1fr; }
+.k { font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: #98a2b3; font-weight: 600; }
+.v { margin-top: 3px; font-size: 13.5px; font-weight: 700; color: var(--text); word-break: break-word; }
+.f-foot { margin-top: auto; height: 40px; background: var(--ink); color: #fff; display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 600; letter-spacing: .3em; text-transform: uppercase; }
+.f-foot i { width: 6px; height: 6px; border-radius: 50%; background: var(--brand); display: inline-block; margin: 0 10px; }
 
-.id-wrapper { display: flex; flex-direction: column; align-items: center; }
+/* back */
+.b-head { height: 56px; background: var(--ink); display: flex; align-items: center; justify-content: space-between; padding: 0 18px; flex: none;
+    border-bottom: 4px solid var(--brand); }
+.b-head .t { color: #fff; font-size: 11px; font-weight: 600; letter-spacing: .22em; text-transform: uppercase; }
+.b-head .id { color: #fff; font-size: 12.5px; font-weight: 700; letter-spacing: .06em; }
+.b-body { flex: 1; padding: 16px 20px 0; display: flex; flex-direction: column; }
+.b-title { font-size: 9.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--brand); font-weight: 700; margin-bottom: 6px; }
+.b-row { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px dashed var(--line); font-size: 12px; }
+.b-row .k { margin: 0; flex: none; padding-top: 1px; }
+.b-row .x { color: var(--text); font-weight: 600; text-align: right; word-break: break-word; }
+.b-block { margin-top: 14px; }
+.b-return { margin: auto 0 16px; /* at the foot of the card */ padding: 10px 12px; border-radius: 10px; background: #f9fafb; border: 1px solid var(--line); font-size: 11.5px;
+    color: var(--muted); line-height: 1.5; }
+.b-return b { color: var(--text); display: block; font-size: 12px; margin-bottom: 2px; }
+.b-foot { height: 8px; background: var(--brand); flex: none; }
 
-.lanyard-strap {
-    width: 10px;
-    height: 58px;
-    background: linear-gradient(to bottom, #3b1fa3, #0b1c63);
-    border-radius: 0 0 3px 3px;
-    position: relative;
-}
-.lanyard-strap::before {
-    content: '';
-    width: 78px;
-    height: 78px;
-    border: 7px solid #0b1c63;
-    border-bottom: none;
-    border-radius: 60px 60px 0 0;
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    top: -73px;
-}
-.lanyard-clip {
-    width: 18px;
-    height: 22px;
-    background: linear-gradient(135deg, #a855f7, #7c3aed);
-    border-radius: 3px;
-    box-shadow: 0 2px 6px rgba(124,58,237,.45);
-}
+body.pdf-capture .idc-card { border-radius: 0; box-shadow: none; border: 0; }
 
-.card {
-    width: 360px;
-    border-radius: 20px;
-    overflow: hidden;
-    box-shadow: 0 20px 60px rgba(0,0,0,.65);
-    margin-top: 8px;
-    display: flex;
-    flex-direction: column;
-    position: relative;
+@media print {
+    body { background: #fff; padding: 0; }
+    .idc-bar, .idc-side { display: none; }
+    .idc-sheet { border: 0; box-shadow: none; padding: 0; }
+    .idc-card { box-shadow: none; }
 }
-
-/* ── FRONT CARD ── */
-.front-card { background: #0d0d0d; }
-
-.photo-zone {
-    height: 290px;
-    background: #ffffff;
-    position: relative;
-    flex-shrink: 0;
-}
-.photo-zone img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: center top;
-    display: block;
-}
-
-.curve-svg {
-    position: absolute;
-    bottom: -1px;
-    left: 0;
-    width: 100%;
-    height: 68px;
-    display: block;
-}
-
-.info-zone {
-    background: #0d0d0d;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 6px 26px 22px;
-    text-align: center;
-    min-height: 240px;
-}
-
-.emp-name {
-    font-family: 'Cinzel', serif;
-    font-size: 21px;
-    font-weight: 700;
-    background: linear-gradient(180deg,#fff8dc 0%,#ffd700 35%,#d4af37 65%,#b8860b 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    line-height: 1.3;
-    margin-bottom: 7px;
-    padding-top: 2px;
-}
-
-.gold-hr {
-    width: 50%;
-    border: none;
-    border-top: 1px solid rgba(200,146,42,.55);
-    margin: 4px auto 10px;
-}
-
-.emp-role {
-    font-size: 14.5px;
-    color: rgba(255,255,255,.85);
-    font-weight: 500;
-    letter-spacing: .4px;
-    margin-bottom: 9px;
-}
-
-.emp-id {
-    font-family: 'Cinzel', serif;
-    font-size: 17px;
-    font-weight: 700;
-    color: #c8922a;
-    letter-spacing: 2px;
-    margin-bottom: 5px;
-}
-
-.emp-blood {
-    font-size: 13.5px;
-    color: rgba(255,255,255,.7);
-    letter-spacing: .8px;
-}
-
-.bottom-logo {
-    margin-top: auto;
-    padding-top: 14px;
-    border-top: 1px solid rgba(200,146,42,.18);
-    width: 100%;
-    text-align: center;
-}
-.bottom-logo img {
-    max-width: 175px;
-    height: auto;
-    /* no filter – show original colors */
-}
-
-/* ── BACK CARD ── */
-.back-card {
-    background: linear-gradient(155deg, #0e0c2e 0%, #0a081e 55%, #050310 100%);
-    min-height: 560px;
-}
-
-.back-card::before {
-    content: '';
-    position: absolute;
-    top: -70px; right: -70px;
-    width: 200px; height: 200px;
-    background: rgba(200,146,42,.07);
-    border-radius: 50%;
-    pointer-events: none;
-}
-.back-card::after {
-    content: '';
-    position: absolute;
-    bottom: -50px; left: -50px;
-    width: 160px; height: 160px;
-    background: rgba(109,40,217,.09);
-    border-radius: 50%;
-    pointer-events: none;
-}
-
-.back-header {
-    padding: 22px 20px 18px;
-    text-align: center;
-    border-bottom: 2px solid rgba(200,146,42,.35);
-    background: rgba(255,255,255,.03);
-}
-.back-header img {
-    max-width: 155px;
-    height: auto;
-    /* no filter – show original colors */
-}
-
-.back-body {
-    padding: 20px 22px 60px;
-    position: relative;
-    z-index: 1;
-}
-
-.b-section {
-    font-size: 9.5px;
-    color: #d4af37;
-    letter-spacing: 2.5px;
-    text-transform: uppercase;
-    font-weight: 700;
-    margin-bottom: 10px;
-    padding-bottom: 5px;
-    border-bottom: 1px solid rgba(200,146,42,.22);
-}
-
-.b-row {
-    display: flex;
-    align-items: flex-start;
-    gap: 9px;
-    margin-bottom: 8px;
-    font-size: 11.5px;
-    color: #d4af37;
-    line-height: 1.5;
-}
-.b-icon {
-    font-size: 12px;
-    flex-shrink: 0;
-    margin-top: 1px;
-    color: #c8922a;
-}
-.b-val  { word-break: break-word; }
-.b-val strong { color: #ffd700; }
-
-.b-divider {
-    border: none;
-    border-top: 1px solid rgba(200,146,42,.18);
-    margin: 14px 0;
-}
-
-.sig-wrap {
-    margin-top: 18px;
-    text-align: center;
-}
-.sig-line {
-    width: 130px;
-    border: none;
-    border-top: 1.5px solid rgba(200,146,42,.55);
-    margin: 0 auto 6px;
-}
-.sig-label {
-    font-size: 9px;
-    color: #d4af37;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-}
-
-.back-tagline {
-    position: absolute;
-    bottom: 16px;
-    left: 0; right: 0;
-    text-align: center;
-    font-size: 8.5px;
-    color: rgba(200,146,42,.45);
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    z-index: 1;
-}
-
-.action-bar {
-    margin-top: 38px;
-    display: flex;
-    gap: 14px;
-    justify-content: center;
-}
-.btn-dl {
-    padding: 13px 32px;
-    border: none;
-    border-radius: 9px;
-    font-size: 15px;
-    font-weight: 700;
-    cursor: pointer;
-    background: linear-gradient(135deg, #c8922a 0%, #f0c040 50%, #c8922a 100%);
-    color: #0d0d0d;
-    box-shadow: 0 4px 20px rgba(200,146,42,.35);
-    transition: all .3s ease;
-    letter-spacing: .4px;
-    font-family: 'Inter', sans-serif;
-}
-.btn-dl:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(200,146,42,.5); }
-.btn-dl:disabled { opacity: .65; cursor: not-allowed; transform: none; }
 </style>
 </head>
 <body>
 
-<div class="page-title">Arowana &mdash; Employee Identity Card</div>
-
-<div class="cards-container">
-
-    <!-- ══ FRONT ══ -->
-    <div class="id-wrapper">
-        <div class="lanyard-strap"></div>
-        <div class="lanyard-clip"></div>
-
-        <div class="card front-card">
-
-            <div class="photo-zone">
-                <img src="<?php echo $photoSrc; ?>" alt="<?php echo $name; ?>">
-                <svg class="curve-svg" viewBox="0 0 360 68" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M0,68 L0,50 C90,4 270,4 360,50 L360,68 Z" fill="#0d0d0d"/>
-                    <path d="M0,50 C90,4 270,4 360,50" fill="none" stroke="#c8922a" stroke-width="2.5"/>
-                </svg>
-            </div>
-
-            <div class="info-zone">
-                <div class="emp-name"><?php echo $name; ?></div>
-                <hr class="gold-hr">
-                <div class="emp-role"><?php echo $role; ?></div>
-                <div class="emp-id"><?php echo $empId; ?></div>
-                <?php if(!empty($blood)): ?>
-                <div class="emp-blood"><?php echo $blood; ?></div>
-                <?php endif; ?>
-                <div class="bottom-logo">
-                    <img src="<?php echo $logoPath; ?>" alt="Arowana">
-                </div>
-            </div>
-
-        </div>
-    </div>
-
-    <!-- ══ BACK ══ -->
-    <div class="id-wrapper">
-        <div class="lanyard-strap"></div>
-        <div class="lanyard-clip"></div>
-
-        <div class="card back-card">
-
-            <div class="back-header">
-                <img src="<?php echo $logoPath; ?>" alt="Arowana">
-            </div>
-
-            <div class="back-body">
-
-                <div class="b-section">Employee Details</div>
-                <div class="b-row"><span class="b-icon">👤</span><span class="b-val"><strong><?php echo $name; ?></strong></span></div>
-                <div class="b-row"><span class="b-icon">🪪</span><span class="b-val">ID &nbsp;<strong><?php echo $empId; ?></strong></span></div>
-                <div class="b-row"><span class="b-icon">💼</span><span class="b-val"><?php echo $role; ?></span></div>
-                <div class="b-row"><span class="b-icon">📧</span><span class="b-val"><?php echo $email; ?></span></div>
-                <div class="b-row"><span class="b-icon">📱</span><span class="b-val"><?php echo $phone; ?></span></div>
-                <div class="b-row"><span class="b-icon">🏢</span><span class="b-val"><?php echo $branch; ?></span></div>
-                <?php if(!empty($blood)): ?>
-                <div class="b-row"><span class="b-icon">🩸</span><span class="b-val">Blood Group &nbsp;<strong><?php echo $blood; ?></strong></span></div>
-                <?php endif; ?>
-
-                <hr class="b-divider">
-
-                <div class="b-section">Company Information</div>
-                <div class="b-row"><span class="b-icon">📍</span><span class="b-val">Hyderabad, Telangana, India</span></div>
-                <div class="b-row"><span class="b-icon">📞</span><span class="b-val">+91 9876543210</span></div>
-                <div class="b-row"><span class="b-icon">✉️</span><span class="b-val">info@arowana.com</span></div>
-                <div class="b-row"><span class="b-icon">🌐</span><span class="b-val">www.arowana.com</span></div>
-
-                <hr class="b-divider">
-
-                <div class="b-section">Emergency Contact</div>
-                <div class="b-row"><span class="b-icon">🚨</span><span class="b-val">+91 9999999999</span></div>
-
-                <div class="sig-wrap">
-                    <div class="sig-line"></div>
-                    <div class="sig-label">Authorized Signature</div>
-                </div>
-
-            </div>
-
-            <div class="back-tagline">Precision &bull; Innovation &bull; Success</div>
-
-        </div>
-    </div>
-
+<div class="idc-bar">
+    <a class="idc-back" href="<?= $h($backUrl) ?>" target="_top">&larr; Another employee</a>
+    <span class="idc-who"><b><?= $name ?></b> &middot; <?= $empId ?></span>
+    <button class="btn-dl" type="button" onclick="downloadPDF()">Download PDF</button>
 </div>
 
-<div class="action-bar">
-    <button class="btn-dl" onclick="downloadPDF()">📥 Download ID Card (PDF)</button>
+<div class="idc-sheet" id="idcSheet">
+
+    <!-- FRONT -->
+    <div>
+        <div class="idc-card" id="idcFront">
+            <div class="f-head"><img src="<?= $h($logoPath) ?>" alt="<?= $companyName ?>"></div>
+            <div class="f-band">
+                <div class="f-photo">
+                    <?php if ($photoSrc): ?>
+                        <img src="<?= $h($photoSrc) ?>" alt="<?= $name ?>"
+                             onerror="this.parentNode.innerHTML='<div class=&quot;f-initials&quot;><?= $initials ?></div>'">
+                    <?php else: ?>
+                        <div class="f-initials"><?= $initials ?></div>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <div class="f-body">
+                <div class="f-name"><?= $name ?></div>
+                <div class="f-role"><?= $role ?></div>
+                <?php if ($department): ?><div class="f-dept"><?= $department ?></div><?php endif; ?>
+
+                <div class="f-facts<?= $blood ? '' : ' one' ?>">
+                    <div><div class="k">Employee ID</div><div class="v"><?= $empId ?></div></div>
+                    <?php if ($blood): ?><div><div class="k">Blood group</div><div class="v"><?= $blood ?></div></div><?php endif; ?>
+                </div>
+            </div>
+            <div class="f-foot">Employee<i></i>Identity</div>
+        </div>
+        <div class="idc-side">Front</div>
+    </div>
+
+    <!-- BACK -->
+    <div>
+        <div class="idc-card" id="idcBack">
+            <div class="b-head"><span class="t">Identity card</span><span class="id"><?= $empId ?></span></div>
+            <div class="b-body">
+                <div class="b-title">Employee</div>
+                <?php if ($phone): ?><div class="b-row"><span class="k">Mobile</span><span class="x"><?= $phone ?></span></div><?php endif; ?>
+                <?php if ($email): ?><div class="b-row"><span class="k">Email</span><span class="x"><?= $email ?></span></div><?php endif; ?>
+                <?php if ($branch): ?><div class="b-row"><span class="k">Branch</span><span class="x"><?= $branch ?></span></div><?php endif; ?>
+                <?php if ($joined): ?><div class="b-row"><span class="k">Joined</span><span class="x"><?= $joined ?></span></div><?php endif; ?>
+
+                <?php if ($emergencyPhone): ?>
+                    <div class="b-block">
+                        <div class="b-title">In an emergency</div>
+                        <div class="b-row"><span class="k"><?= $emergencyLine ?: 'Contact' ?></span><span class="x"><?= $emergencyPhone ?></span></div>
+                    </div>
+                <?php endif; ?>
+
+                <div class="b-return">
+                    <b>If found, please return to</b>
+                    <?= $companyName ?><?= $companyAddress ? '<br>' . $companyAddress : '' ?>
+                    <?php $reach = array_filter([$companyPhone, $companyEmail, $companyWebsite]); ?>
+                    <?= $reach ? '<br>' . implode(' &middot; ', $reach) : '' ?>
+                </div>
+
+            </div>
+            <div class="b-foot"></div>
+        </div>
+        <div class="idc-side">Back</div>
+    </div>
+
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
+// The two sides as images, each exactly one card (CR80: 54 x 85.6 mm)
+async function renderCards() {
+    document.body.classList.add('pdf-capture');
+    try {
+        await document.fonts.ready;
+        const opts = { scale: 4, backgroundColor: '#ffffff', logging: false, useCORS: true };
+        return [await html2canvas(document.getElementById('idcFront'), opts), await html2canvas(document.getElementById('idcBack'), opts)];
+    } finally {
+        document.body.classList.remove('pdf-capture');
+    }
+}
+
+// One PDF, card size: page 1 the front, page 2 the back - ready for a card printer
 async function downloadPDF() {
     const btn = document.querySelector('.btn-dl');
     btn.disabled = true;
-    btn.textContent = '⏳ Generating PDF…';
+    btn.textContent = 'Preparing…';
 
     try {
-        const container = document.querySelector('.cards-container');
-        const canvas = await html2canvas(container, {
-            scale: 2.5,
-            backgroundColor: '#12111f',
-            logging: false,
-            useCORS: true
-        });
-
+        const [front, back] = await renderCards();
         const { jsPDF } = window.jspdf;
-        const imgData   = canvas.toDataURL('image/png');
-        const pdf       = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-        const pw        = pdf.internal.pageSize.getWidth();
-        const ph        = pdf.internal.pageSize.getHeight();
-        const ratio     = Math.min((pw - 20) / canvas.width, (ph - 20) / canvas.height);
-        const w         = canvas.width  * ratio;
-        const h         = canvas.height * ratio;
+        const size = [54, 85.6];
+        const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: size });
 
-        pdf.addImage(imgData, 'PNG', (pw - w) / 2, (ph - h) / 2, w, h);
-        pdf.save('Arowana_ID_<?php echo $pdfName; ?>.pdf');
+        pdf.addImage(front.toDataURL('image/png'), 'PNG', 0, 0, size[0], size[1]);
+        pdf.addPage(size, 'portrait');
+        pdf.addImage(back.toDataURL('image/png'), 'PNG', 0, 0, size[0], size[1]);
+        pdf.save('ID_Card_<?= $pdfName ?>.pdf');
     } catch (e) {
         console.error(e);
-        alert('Error generating PDF. Please try again.');
+        alert('The PDF could not be made. Please try again.');
     }
 
-    btn.textContent = '📥 Download ID Card (PDF)';
+    btn.textContent = 'Download PDF';
     btn.disabled = false;
 }
 </script>

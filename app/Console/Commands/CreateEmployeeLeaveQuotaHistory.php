@@ -30,8 +30,17 @@ class CreateEmployeeLeaveQuotaHistory extends Command
         $employees = User::withoutGlobalScopes()->onlyEmployee()->with(['leaveTypes', 'leaveTypes.leaveType'])->get();
         $employeeLeaveQuotaHistories = [];
 
+        // A month already saved is not saved again (a second run, or two runs at once)
+        $forMonth = now()->subMonth()->format('Y-m-01');
+        $saved = EmployeeLeaveQuotaHistory::whereDate('for_month', $forMonth)->get(['user_id', 'leave_type_id'])
+            ->map(fn ($row) => $row->user_id . '-' . $row->leave_type_id)->flip();
+
         foreach ($employees as $employee) {
             foreach ($employee->leaveTypes as $leaveQuota) {
+                if ($saved->has($employee->id . '-' . $leaveQuota->leave_type_id)) {
+                    continue;
+                }
+
                 if ($leaveQuota->leaveType && ($leaveQuota->leaveType->leaveTypeCondition($leaveQuota->leaveType, $employee)))
                 {
                     $employeeLeaveQuotaHistories[] = [
@@ -43,7 +52,7 @@ class CreateEmployeeLeaveQuotaHistory extends Command
                         'overutilised_leaves' => $leaveQuota->overutilised_leaves,
                         'carry_forward_leaves' => $leaveQuota->carry_forward_leaves,
                         'unused_leaves' => $leaveQuota->unused_leaves,
-                        'for_month' => now()->subMonth()->format('Y-m-01'),
+                        'for_month' => $forMonth,
                     ];
                 }
 

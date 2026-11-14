@@ -182,11 +182,24 @@ $cardUrl = function_exists('route') ? route('legacy.page', 'identity_card') : 'i
         .test-link a:hover {
             text-decoration: underline;
         }
+        /* ---- standard page (as the other HR pages): grey page, a white rounded card
+           across the width, the fields on one row, a normal-size button ---- */
+        body { background: #f3f3f9 !important; padding: 0 0 24px !important; align-items: stretch !important; }
+        .container { max-width: none !important; border-radius: 12px !important; padding: 16px 20px !important;
+            box-shadow: 0 1px 3px rgba(16, 24, 40, .06) !important; border: 1px solid #e8e9e9; }
+        .id-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 14px; align-items: end; }
+        .id-row .form-group { margin: 0 !important; min-width: 0; }
+        label { font-size: 13.5px !important; font-weight: 500 !important; color: #667085 !important; }
+        select { height: 38px; padding: 0 12px !important; border: 1px solid #e8e9e9 !important; font-size: 14px !important; background: #fff !important; }
+        .btn-generate { width: auto !important; height: 38px; padding: 0 18px !important; margin: 0 !important; font-size: 14px !important;
+            font-weight: 600 !important; border-radius: 8px !important; white-space: nowrap; }
+        .btn-generate:hover { transform: none !important; }
+        .error-msg { margin-bottom: 14px !important; }
+        @media (max-width: 767px) { .id-row { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>Generate Employee ID Card</h1>
 
     <?php if (isset($_GET['error']) && $_GET['error'] === 'missing_id'): ?>
         <div class="error-msg">⚠️ Please select a user from the dropdown.</div>
@@ -200,10 +213,11 @@ $cardUrl = function_exists('route') ? route('legacy.page', 'identity_card') : 'i
     <?php endif; ?>
 
     <!-- Form now uses GET so parameters appear in URL -->
-    <form action="<?php echo htmlspecialchars($cardUrl); ?>" method="GET">
-        <!-- DESIGNATION DROPDOWN ON TOP -->
+    <form action="<?php echo htmlspecialchars($cardUrl); ?>" method="GET" id="idCardForm">
+        <div class="id-row">
+        <!-- DESIGNATION -->
         <div class="form-group">
-            <label for="designationSelect">Select Designation</label>
+            <label for="designationSelect">Designation</label>
             <select id="designationSelect">
                 <option value="all">All designations (<?php echo count($users); ?>)</option>
                 <?php foreach ($designations as $d): ?>
@@ -216,8 +230,8 @@ $cardUrl = function_exists('route') ? route('legacy.page', 'identity_card') : 'i
 
         <!-- USER DROPDOWN BELOW (FILTERED BY DESIGNATION) -->
         <div class="form-group">
-            <label for="userSelect">Select User</label>
-            <select id="userSelect" name="id" required>
+            <label for="userSelect">Employee</label>
+            <select id="userSelect" name="id">
                 <option value="">— Choose an employee —</option>
             </select>
         </div>
@@ -225,7 +239,9 @@ $cardUrl = function_exists('route') ? route('legacy.page', 'identity_card') : 'i
         <button type="submit" class="btn-generate" <?php echo (empty($users) || empty($designations)) ? 'disabled' : ''; ?>>
             Generate ID Card
         </button>
+        </div>
     </form>
+    <div class="error-msg" id="pickError" style="display:none;margin:14px 0 0 !important">Choose an employee first.</div>
 
 </div>
 
@@ -251,4 +267,17 @@ $cardUrl = function_exists('route') ? route('legacy.page', 'identity_card') : 'i
 
     designationSelect.addEventListener('change', fillEmployees);
     fillEmployees();
+
+    // the picked employee is required (the hidden <select> cannot show the browser's own message)
+    document.getElementById('idCardForm').addEventListener('submit', function (e) {
+        if (!userSelect.value) { e.preventDefault(); document.getElementById('pickError').style.display = 'block'; }
+    });
+    userSelect.addEventListener('change', function () { if (userSelect.value) { document.getElementById('pickError').style.display = 'none'; } });
+</script>
+<script src="<?= function_exists('asset') ? asset('js/searchable-select.js') . '?v=' . @filemtime(__DIR__ . '/public/js/searchable-select.js') : 'public/js/searchable-select.js' ?>"></script>
+<script>
+    makeSearchable(designationSelect, 'All designations');
+    makeSearchable(userSelect, 'Choose an employee');
+    // after the list is rebuilt for a designation, the dropdown shows its first line again
+    designationSelect.addEventListener('change', function () { userSelect.dispatchEvent(new Event('change')); });
 </script>

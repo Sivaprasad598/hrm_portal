@@ -75,6 +75,12 @@ class RecalculateLeavesQuotas extends Command
 
                 foreach ($users as $user) {
 
+                    // Nothing to count from without a joining date - and asking for
+                    // one here used to stop the whole monthly run for everybody after
+                    if (!$user->employeeDetail?->joining_date) {
+                        continue;
+                    }
+
                     if ($settings && $settings->leaves_start_from == 'joining_date') {
                         $currentYearJoiningDate = Carbon::parse($user->employeeDetail->joining_date->format((now($settings->timezone)->year) . '-m-d'));
                         $startingDate = $currentYearJoiningDate->startOfMonth();
@@ -101,11 +107,11 @@ class RecalculateLeavesQuotas extends Command
                             $carryForwardApplied = $leaveQuota->carry_forward_applied;
                         }
 
-                        $joiningDate = $user->employeeDetail->joining_date->copy();
-
                         if (is_null($user->employeeDetail->joining_date)) {
                             continue;
                         }
+
+                        $joiningDate = $user->employeeDetail->joining_date->copy();
 
                         if ($value->isUnlimited()) {
                             $noOfLeavesTaken = $this->calculateNoOfLeavesTaken($settings, $joiningDate, $user, $value);

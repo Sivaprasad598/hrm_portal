@@ -9,35 +9,23 @@
 
         <x-setting-card>
 
+            {{-- standard settings header: the tabs sit in the card header (no separate title - the top bar names the page) --}}
             <x-slot name="header">
                 <div class="s-b-n-header" id="tabs">
-                    <h2 class="mb-0 p-20 f-21 font-weight-normal border-bottom-grey">
-                        @lang($pageTitle)</h2>
+                    <nav class="tabs px-4 border-bottom-grey">
+                        <div class="nav" id="periodSettingsTabs" role="tablist">
+                            <a class="nav-item nav-link f-15 active" id="notice-period-tab" data-toggle="tab" href="#noticePeriodTabPane"
+                               role="tab" aria-controls="noticePeriodTabPane" aria-selected="true">@lang('app.menu.noticePeriodSettings')</a>
+                            <a class="nav-item nav-link f-15" id="probation-period-tab" data-toggle="tab" href="#probationPeriodTabPane"
+                               role="tab" aria-controls="probationPeriodTabPane" aria-selected="false">@lang('app.menu.probationPeriodSettings')</a>
+                            <a class="nav-item nav-link f-15" id="probation-period-requests-tab" data-toggle="tab" href="#probationPeriodRequestsTabPane"
+                               role="tab" aria-controls="probationPeriodRequestsTabPane" aria-selected="false">@lang('app.menu.probationPeriodRequests')</a>
+                        </div>
+                    </nav>
                 </div>
             </x-slot>
 
-            <div class="col-lg-12 col-md-12 w-100 p-4">
-
-                <ul class="nav nav-tabs mb-3" id="periodSettingsTabs" role="tablist">
-                    <li class="nav-item">
-                        <a class="nav-link active" id="notice-period-tab" data-toggle="tab" href="#noticePeriodTabPane"
-                           role="tab" aria-controls="noticePeriodTabPane" aria-selected="true">
-                            @lang('app.menu.noticePeriodSettings')
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" id="probation-period-tab" data-toggle="tab" href="#probationPeriodTabPane"
-                           role="tab" aria-controls="probationPeriodTabPane" aria-selected="false">
-                            @lang('app.menu.probationPeriodSettings')
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" id="probation-period-requests-tab" data-toggle="tab" href="#probationPeriodRequestsTabPane"
-                           role="tab" aria-controls="probationPeriodRequestsTabPane" aria-selected="false">
-                            @lang('app.menu.probationPeriodRequests')
-                        </a>
-                    </li>
-                </ul>
+            <div class="col-lg-12 col-md-12 w-100 p-0">
 
                 <div class="tab-content" id="periodSettingsTabContent">
 
@@ -70,7 +58,9 @@
                             src="{{ route('legacy.page', 'probation_period_request') }}"
                             class="w-100"
                             style="min-height: calc(100vh - 280px); border: 0;"
-                            title="@lang('app.menu.probationPeriodRequests')">
+                            title="@lang('app.menu.probationPeriodRequests')"
+                            {{-- no "Filters" button on this page: its filter card stays open --}}
+                            onload="try { this.contentDocument.body.classList.add('filters-open'); } catch (e) {}">
                         </iframe>
                     </div>
 

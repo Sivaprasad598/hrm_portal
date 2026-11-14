@@ -102,7 +102,10 @@ class Kernel extends ConsoleKernel
     // Cache for schedule commands to be array. Such that it do not conflict with application cache
     protected function scheduleCache()
     {
-        return 'array';
+        // Where withoutOverlapping() keeps its "still running" marks. It has to
+        // outlive one `schedule:run` (each is its own process): with 'array' the
+        // mark vanished at the end of every run, so no overlap guard worked.
+        return 'file';
     }
 
     /**
@@ -177,13 +180,15 @@ class Kernel extends ConsoleKernel
         // retried and a server that was off overnight catches up on waking.
         // "Nightly automatic run" in Settings switches it off.
         $schedule->command('attendance:daily --scheduled')->everyFifteenMinutes();
-        // Every 15 minutes through the day as well: punches of yesterday and
-        // today from the selected devices, rebuilt into device days and written
-        // into ERP attendance, so a punch shows on the dashboard as clocked in
-        // within about 15 minutes. A day clocked in on the website keeps its
-        // session, but the device's exit closes it; a website clock-out the
-        // device never saw goes to HR (AttendanceSync). Off with "Sync enabled".
-        $schedule->command('iapp:sync-punches --scheduled --days=1 --push')->everyFifteenMinutes()->withoutOverlapping(60)->runInBackground();
+        // Every 15 minutes through the day as well: punches from the selected
+        // devices, rebuilt into device days and written into ERP attendance, so
+        // a punch shows on the dashboard as clocked in within about 15 minutes.
+        // A day clocked in on the website keeps its session, but the device's
+        // exit closes it; a website clock-out the device never saw goes to HR
+        // (AttendanceSync). Biometric Settings decide it: "Sync enabled" (on/off),
+        // "Sync every" (minutes), the look-back days, and "Push to ERP attendance
+        // automatically" (whether the days are written into attendance).
+        $schedule->command('iapp:sync-punches --scheduled')->everyFifteenMinutes()->withoutOverlapping(60)->runInBackground();
         // Leave approval steps left undecided past the days in Leave Settings move on.
         $schedule->command('leaves:escalate-approvals')->hourly()->withoutOverlapping(30);
         // Employees' own shifts, written into the roster 60 days ahead (ShiftAssignments).
@@ -206,7 +211,9 @@ class Kernel extends ConsoleKernel
         $schedule->command('queue:flush')->weekly();
 
         // Schedule the queue:work command to run without overlapping and with 3 tries
-        $schedule->command('queue:work database --tries=3 --stop-when-empty')->withoutOverlapping();
+        // The lock expires after an hour, so a worker killed mid-run (a reboot)
+        // holds up the queue for an hour at most, not the default 24.
+        $schedule->command('queue:work database --tries=3 --stop-when-empty')->withoutOverlapping(60);
     }
 
     /**

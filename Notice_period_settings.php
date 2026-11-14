@@ -734,17 +734,6 @@ button {
          PAGE HEADER
     ====================================== -->
 
-    <div class="page-header">
-
-        <h2>
-            Notice Period
-        </h2>
-
-        <p>
-            Configure the notice period for employees
-        </p>
-
-    </div>
 
 
     <?php if ($successMessage): ?>
@@ -966,10 +955,6 @@ button {
                     <h3>
                         Added Notice Periods
                     </h3>
-
-                    <p>
-                        Existing notice period configurations
-                    </p>
 
                 </div>
 

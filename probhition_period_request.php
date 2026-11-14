@@ -137,6 +137,39 @@ $departments = array_values(array_unique(array_filter(array_column($requests, 'd
 $designations = array_values(array_unique(array_filter(array_column($requests, 'designation_name'))));
 sort($departments);
 sort($designations);
+
+// Department filter as the division tree: a division also covers its sub divisions
+$deptTree = [];
+if ($pdo) {
+    $teamRows = $pdo->prepare('SELECT id, team_name, parent_id FROM teams WHERE company_id = :companyId');
+    $teamRows->execute([':companyId' => $companyId]);
+    $teamRows = $teamRows->fetchAll();
+    $byParent = [];
+    $teamIds = array_map(fn ($r) => (int) $r['id'], $teamRows);
+    foreach ($teamRows as $r) {
+        $parent = (int) ($r['parent_id'] ?? 0);
+        $byParent[in_array($parent, $teamIds, true) ? $parent : 0][] = $r;
+    }
+    $names = function ($id) use (&$names, $byParent) {
+        $out = [];
+        foreach ($byParent[$id] ?? [] as $kid) {
+            $out[] = mb_strtolower($kid['team_name']);
+            $out = array_merge($out, $names((int) $kid['id']));
+        }
+        return $out;
+    };
+    $walk = function ($parent, $depth, $division) use (&$walk, &$deptTree, $byParent, $names) {
+        $kids = $byParent[$parent] ?? [];
+        usort($kids, fn ($a, $b) => strnatcasecmp($a['team_name'], $b['team_name']));
+        foreach ($kids as $kid) {
+            $top = $division ?? $kid['team_name'];
+            $deptTree[] = ['name' => $kid['team_name'], 'depth' => $depth, 'division' => $top,
+                'scope' => array_values(array_unique(array_merge([mb_strtolower($kid['team_name'])], $names((int) $kid['id']))))];
+            $walk((int) $kid['id'], $depth + 1, $top);
+        }
+    };
+    $walk(0, 0, null);
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -813,6 +846,16 @@ html body .pb-table .action-btn.pb-icon.reject-btn:hover, html body .pb-table .a
 .pb-toolbar select { width: 200px !important; flex: none !important; margin: 0 !important; }
 .pb-search input { margin: 0 !important; }
 .pb-table tbody td:nth-child(n+4) { white-space: nowrap !important; }
+/* ---- standard filter card: hidden until "Filters" (top right of the page) ---- */
+body:not(.filters-open) #pb-filter-card { display: none !important; }
+.pb-filter-card { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; background: #fff; border: 1px solid #e8e9e9;
+    border-radius: 12px; box-shadow: 0 1px 3px rgba(16,24,40,.06); padding: 14px 18px; margin-bottom: 16px; }
+.pb-field { min-width: 0; }
+.pb-field label { display: block; margin-bottom: 6px; font-size: 13.5px; font-weight: 500; color: #667085; }
+.pb-filter-card .pb-search { width: 100%; margin: 0; }
+.pb-filter-card select { width: 100% !important; }
+.pb-summary { margin-top: 0 !important; }
+@media (max-width: 767px) { .pb-filter-card { grid-template-columns: 1fr; } }
 </style>
 </head>
 
@@ -829,28 +872,37 @@ html body .pb-table .action-btn.pb-icon.reject-btn:hover, html body .pb-table .a
     <?php endif; ?>
 
 
-    <!-- TOOLBAR: filters on the left, search on the right -->
+    <!-- FILTERS: a card across the width, shown with "Filters" (top right of the page) -->
 
-    <div class="pb-toolbar">
-        <input type="hidden" id="statusFilter" value="">
+    <input type="hidden" id="statusFilter" value="">
+    <div class="pb-filter-card" id="pb-filter-card">
+        <div class="pb-field">
+            <label for="departmentFilter">Department</label>
+            <select id="departmentFilter" onchange="applyFilters()">
+                <option value="">All Departments</option>
+                <?php foreach ($deptTree as $dep): ?>
+                    <option value="<?= e(mb_strtolower($dep['name'])) ?>" data-depth="<?= (int) $dep['depth'] ?>" data-name="<?= e($dep['name']) ?>"
+                        data-division="<?= e($dep['division']) ?>" data-scope="<?= e(json_encode($dep['scope'])) ?>"><?= e($dep['name']) ?><?= $dep['depth'] ? ' (' . e($dep['division']) . ')' : '' ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
 
-        <select id="departmentFilter" onchange="applyFilters()">
-            <option value="">All Departments</option>
-            <?php foreach ($departments as $dep): ?>
-                <option value="<?= e($dep) ?>"><?= e($dep) ?></option>
-            <?php endforeach; ?>
-        </select>
+        <div class="pb-field">
+            <label for="designationFilter">Designation</label>
+            <select id="designationFilter" onchange="applyFilters()">
+                <option value="">All Designations</option>
+                <?php foreach ($designations as $des): ?>
+                    <option value="<?= e($des) ?>"><?= e($des) ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
 
-        <select id="designationFilter" onchange="applyFilters()">
-            <option value="">All Designations</option>
-            <?php foreach ($designations as $des): ?>
-                <option value="<?= e($des) ?>"><?= e($des) ?></option>
-            <?php endforeach; ?>
-        </select>
-
-        <div class="pb-search">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-            <input type="text" id="searchInput" placeholder="Search employee or ID" oninput="applyFilters()">
+        <div class="pb-field">
+            <label for="searchInput">Search in the table</label>
+            <div class="pb-search">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+                <input type="text" id="searchInput" placeholder="Search employee or ID" oninput="applyFilters()">
+            </div>
         </div>
     </div>
 
@@ -1439,6 +1491,9 @@ function applyFilters() {
     const designation = document.getElementById("designationFilter").value.toLowerCase();
     const search = document.getElementById("searchInput").value.toLowerCase();
 
+    const deptOption = document.getElementById("departmentFilter").selectedOptions[0];
+    const departmentScope = deptOption && deptOption.dataset.scope ? JSON.parse(deptOption.dataset.scope) : [department];
+
     const rows = document.querySelectorAll("#requestTable tr[data-status]");
     let visible = 0;
 
@@ -1450,7 +1505,7 @@ function applyFilters() {
         const rowName = row.dataset.name.toLowerCase();
 
         const matchStatus = !status || rowStatus === status;
-        const matchDepartment = !department || rowDepartment === department;
+        const matchDepartment = !department || departmentScope.indexOf(rowDepartment) !== -1;
         const matchDesignation = !designation || rowDesignation === designation;
         const matchSearch = !search || rowName.includes(search) || (row.dataset.code || "").toLowerCase().includes(search);
 
@@ -1483,5 +1538,10 @@ document.getElementById("modal").addEventListener("click", function (event) {
 
 </script>
 
+<script src="<?= function_exists('asset') ? asset('js/searchable-select.js') . '?v=' . @filemtime(__DIR__ . '/public/js/searchable-select.js') : 'public/js/searchable-select.js' ?>"></script>
+<script>
+    makeSearchable(document.getElementById('departmentFilter'), 'All Departments');
+    makeSearchable(document.getElementById('designationFilter'), 'All Designations');
+</script>
 </body>
 </html>

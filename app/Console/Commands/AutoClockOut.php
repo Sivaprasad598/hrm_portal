@@ -39,8 +39,14 @@ class AutoClockOut extends Command
         $companies = Company::active()->select(['companies.id as id', 'timezone'])
             ->join('attendances', 'attendances.company_id', '=', 'companies.id')
             ->whereNull('attendances.clock_out_time')
-            ->where(DB::raw('DATE(clock_in_time)'), now()->subDay()->format('Y-m-d'))
-            ->orWhere(DB::raw('DATE(clock_in_time)'), now()->format('Y-m-d'))
+            // grouped: an ungrouped orWhere let today's rows through whether or not
+            // they were clocked out, and from any company
+            ->where(function ($q) {
+                $q->where(DB::raw('DATE(clock_in_time)'), now()->subDay()->format('Y-m-d'))
+                    ->orWhere(DB::raw('DATE(clock_in_time)'), now()->format('Y-m-d'));
+            })
+            // one row per company, not one per open attendance (each repeated the whole run)
+            ->distinct()
             ->get();
 
         if ($companies->isEmpty()) {

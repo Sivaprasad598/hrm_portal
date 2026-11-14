@@ -708,17 +708,6 @@ button {
          PAGE HEADER
     ====================================== -->
 
-    <div class="page-header">
-
-        <h2>
-            Probation Period
-        </h2>
-
-        <p>
-            Configure the probation period for employees
-        </p>
-
-    </div>
 
 
     <?php if ($successMessage): ?>
@@ -898,10 +887,6 @@ button {
                     <h3>
                         Added Probation Periods
                     </h3>
-
-                    <p>
-                        Existing probation period configurations
-                    </p>
 
                 </div>
 
