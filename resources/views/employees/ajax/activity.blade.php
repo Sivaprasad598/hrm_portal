@@ -47,12 +47,12 @@
                                     @if($history->employee_activity == "proposal-created" )
                                     {{ __('modules.employees.activities.'.$history->employee_activity) }} @lang('app.by') <span
                                         class="text-darkest-grey">{{ $history->user->name }}</span><a
-                                        href="{{route('proposals.show', $history->proposal_id)}}"> {{__('modules.client.viewDetails')}}</a>
+                                        href="{{\App\Support\ModulePresence::url('proposals.show', $history->proposal_id)}}"> {{__('modules.client.viewDetails')}}</a>
                                     @endif
                                     @if($history->employee_activity == "proposal-updated" )
                                     {{ __('modules.employees.activities.'.$history->employee_activity) }} @lang('app.by') <span
                                         class="text-darkest-grey">{{ $history->user->name }}</span><a
-                                        href="{{route('proposals.show', $history->proposal_id)}}"> {{__('modules.client.viewDetails')}}</a>
+                                        href="{{\App\Support\ModulePresence::url('proposals.show', $history->proposal_id)}}"> {{__('modules.client.viewDetails')}}</a>
                                     @endif
                                     @if($history->employee_activity == "proposal-deleted" )
                                     {{ __('modules.employees.activities.'.$history->employee_activity) }} @lang('app.by') <span
@@ -76,12 +76,12 @@
                                     @if($history->employee_activity == "invoice-created" )
                                     {{ __('modules.employees.activities.'.$history->employee_activity) }} @lang('app.by') <span
                                         class="text-darkest-grey">{{ $history->user->name }}</span><a
-                                        href="{{route('invoices.show', $history->invoice_id)}}"> {{__('modules.client.viewDetails')}}</a>
+                                        href="{{\App\Support\ModulePresence::url('invoices.show', $history->invoice_id)}}"> {{__('modules.client.viewDetails')}}</a>
                                     @endif
                                     @if($history->employee_activity == "invoice-updated" )
                                     {{ __('modules.employees.activities.'.$history->employee_activity) }} @lang('app.by') <span
                                         class="text-darkest-grey">{{ $history->user->name }}</span><a
-                                        href="{{route('invoices.show', $history->invoice_id)}}"> {{__('modules.client.viewDetails')}}</a>
+                                        href="{{\App\Support\ModulePresence::url('invoices.show', $history->invoice_id)}}"> {{__('modules.client.viewDetails')}}</a>
                                     @endif
                                     @if($history->employee_activity == "invoice-deleted" )
                                     {{ __('modules.employees.activities.'.$history->employee_activity) }} @lang('app.by') <span
@@ -90,12 +90,12 @@
                                     @if($history->employee_activity == "ticket-created" )
                                     {{ __('modules.employees.activities.'.$history->employee_activity) }} @lang('app.by') <span
                                         class="text-darkest-grey">{{ $history->user->name }}</span><a
-                                        href="{{route('tickets.show', $history->ticket_id)}}"> {{__('modules.client.viewDetails')}}</a>
+                                        href="{{\App\Support\ModulePresence::url('tickets.show', $history->ticket_id)}}"> {{__('modules.client.viewDetails')}}</a>
                                     @endif
                                     @if($history->employee_activity == "ticket-updated" )
                                     {{ __('modules.employees.activities.'.$history->employee_activity) }} @lang('app.by') <span
                                         class="text-darkest-grey">{{ $history->user->name }}</span><a
-                                        href="{{route('tickets.show', $history->ticket_id)}}"> {{__('modules.client.viewDetails')}}</a>
+                                        href="{{\App\Support\ModulePresence::url('tickets.show', $history->ticket_id)}}"> {{__('modules.client.viewDetails')}}</a>
                                     @endif
                                     @if($history->employee_activity == "ticket-deleted" )
                                     {{ __('modules.employees.activities.'.$history->employee_activity) }} @lang('app.by') <span
@@ -104,12 +104,12 @@
                                     @if($history->employee_activity == "estimate-created" )
                                     {{ __('modules.employees.activities.'.$history->employee_activity) }} @lang('app.by') <span
                                         class="text-darkest-grey">{{ $history->user->name }}</span><a
-                                        href="{{route('estimates.show', $history->estimate_id)}}"> {{__('modules.client.viewDetails')}}</a>
+                                        href="{{\App\Support\ModulePresence::url('estimates.show', $history->estimate_id)}}"> {{__('modules.client.viewDetails')}}</a>
                                     @endif
                                     @if($history->employee_activity == "estimate-updated" )
                                     {{ __('modules.employees.activities.'.$history->employee_activity) }} @lang('app.by') <span
                                         class="text-darkest-grey">{{ $history->user->name }}</span><a
-                                        href="{{route('estimates.show', $history->estimate_id)}}"> {{__('modules.client.viewDetails')}}</a>
+                                        href="{{\App\Support\ModulePresence::url('estimates.show', $history->estimate_id)}}"> {{__('modules.client.viewDetails')}}</a>
                                     @endif
                                     @if($history->employee_activity == "estimate-deleted" )
                                     {{ __('modules.employees.activities.'.$history->employee_activity) }} @lang('app.by') <span
@@ -118,12 +118,12 @@
                                     @if($history->employee_activity == "deal-created" )
                                     {{ __('modules.employees.activities.'.$history->employee_activity) }} @lang('app.by') <span
                                         class="text-darkest-grey">{{ $history->user->name }}</span><a
-                                        href="{{route('deals.show', $history->deal_id)}}"> {{__('modules.client.viewDetails')}}</a>
+                                        href="{{\App\Support\ModulePresence::url('deals.show', $history->deal_id)}}"> {{__('modules.client.viewDetails')}}</a>
                                     @endif
                                     @if($history->employee_activity == "deal-updated" )
                                     {{ __('modules.employees.activities.'.$history->employee_activity) }} @lang('app.by') <span
                                         class="text-darkest-grey">{{ $history->user->name }}</span><a
-                                        href="{{route('deals.show', $history->deal_id)}}"> {{__('modules.client.viewDetails')}}</a>
+                                        href="{{\App\Support\ModulePresence::url('deals.show', $history->deal_id)}}"> {{__('modules.client.viewDetails')}}</a>
                                     @endif
                                     @if($history->employee_activity == "deal-deleted" )
                                     {{ __('modules.employees.activities.'.$history->employee_activity) }} @lang('app.by') <span
@@ -132,12 +132,12 @@
                                     @if($history->employee_activity == "client-created" )
                                     {{ __('modules.employees.activities.'.$history->employee_activity) }} @lang('app.by') <span
                                         class="text-darkest-grey">{{ $history->user->name }}</span><a
-                                        href="{{route('clients.show', $history->client_id)}}"> {{__('modules.client.viewDetails')}}</a>
+                                        href="{{\App\Support\ModulePresence::url('clients.show', $history->client_id)}}"> {{__('modules.client.viewDetails')}}</a>
                                     @endif
                                     @if($history->employee_activity == "client-updated" )
                                     {{ __('modules.employees.activities.'.$history->employee_activity) }} @lang('app.by') <span
                                         class="text-darkest-grey">{{ $history->user->name }}</span><a
-                                        href="{{route('clients.show', $history->client_id)}}"> {{__('modules.client.viewDetails')}}</a>
+                                        href="{{\App\Support\ModulePresence::url('clients.show', $history->client_id)}}"> {{__('modules.client.viewDetails')}}</a>
                                     @endif
                                     @if($history->employee_activity == "client-deleted" )
                                     {{ __('modules.employees.activities.'.$history->employee_activity) }} @lang('app.by') <span
@@ -146,12 +146,12 @@
                                     @if($history->employee_activity == "expenses-created" )
                                     {{ __('modules.employees.activities.'.$history->employee_activity) }} @lang('app.by') <span
                                         class="text-darkest-grey">{{ $history->user->name }}</span><a
-                                        href="{{route('expenses.show', $history->expenses_id)}}"> {{__('modules.client.viewDetails')}}</a>
+                                        href="{{\App\Support\ModulePresence::url('expenses.show', $history->expenses_id)}}"> {{__('modules.client.viewDetails')}}</a>
                                     @endif
                                     @if($history->employee_activity == "expenses-updated" )
                                     {{ __('modules.employees.activities.'.$history->employee_activity) }} @lang('app.by') <span
                                         class="text-darkest-grey">{{ $history->user->name }}</span><a
-                                        href="{{route('expenses.show', $history->expenses_id)}}"> {{__('modules.client.viewDetails')}}</a>
+                                        href="{{\App\Support\ModulePresence::url('expenses.show', $history->expenses_id)}}"> {{__('modules.client.viewDetails')}}</a>
                                     @endif
                                     @if($history->employee_activity == "expenses-deleted" )
                                     {{ __('modules.employees.activities.'.$history->employee_activity) }} @lang('app.by') <span
@@ -174,12 +174,12 @@
                                     @if($history->employee_activity == "event-created" )
                                     {{ __('modules.employees.activities.'.$history->employee_activity) }} @lang('app.by') <span
                                         class="text-darkest-grey">{{ $history->user->name }}</span><a
-                                        href="{{route('events.show', $history->event_id)}}"> {{__('modules.client.viewDetails')}}</a>
+                                        href="{{\App\Support\ModulePresence::url('events.show', $history->event_id)}}"> {{__('modules.client.viewDetails')}}</a>
                                     @endif
                                     @if($history->employee_activity == "event-updated" )
                                     {{ __('modules.employees.activities.'.$history->employee_activity) }} @lang('app.by') <span
                                         class="text-darkest-grey">{{ $history->user->name }}</span><a
-                                        href="{{route('events.show', $history->event_id)}}"> {{__('modules.client.viewDetails')}}</a>
+                                        href="{{\App\Support\ModulePresence::url('events.show', $history->event_id)}}"> {{__('modules.client.viewDetails')}}</a>
                                     @endif
                                     @if($history->employee_activity == "event-deleted" )
                                     {{ __('modules.employees.activities.'.$history->employee_activity) }} @lang('app.by') <span
@@ -188,12 +188,12 @@
                                     @if($history->employee_activity == "product-created" )
                                     {{ __('modules.employees.activities.'.$history->employee_activity) }} @lang('app.by') <span
                                         class="text-darkest-grey">{{ $history->user->name }}</span><a
-                                        href="{{route('products.show', $history->product_id)}}"> {{__('modules.client.viewDetails')}}</a>
+                                        href="{{\App\Support\ModulePresence::url('products.show', $history->product_id)}}"> {{__('modules.client.viewDetails')}}</a>
                                     @endif
                                     @if($history->employee_activity == "product-updated" )
                                     {{ __('modules.employees.activities.'.$history->employee_activity) }} @lang('app.by') <span
                                         class="text-darkest-grey">{{ $history->user->name }}</span><a
-                                        href="{{route('products.show', $history->product_id)}}"> {{__('modules.client.viewDetails')}}</a>
+                                        href="{{\App\Support\ModulePresence::url('products.show', $history->product_id)}}"> {{__('modules.client.viewDetails')}}</a>
                                     @endif
                                     @if($history->employee_activity == "product-deleted" )
                                     {{ __('modules.employees.activities.'.$history->employee_activity) }} @lang('app.by') <span
@@ -202,12 +202,12 @@
                                     @if($history->employee_activity == "creditNote-created" )
                                     {{ __('modules.employees.activities.'.$history->employee_activity) }} @lang('app.by') <span
                                         class="text-darkest-grey">{{ $history->user->name }}</span><a
-                                        href="{{route('creditnotes.show', $history->credit_note_id)}}"> {{__('modules.client.viewDetails')}}</a>
+                                        href="{{\App\Support\ModulePresence::url('creditnotes.show', $history->credit_note_id)}}"> {{__('modules.client.viewDetails')}}</a>
                                     @endif
                                     @if($history->employee_activity == "creditNote-updated" )
                                     {{ __('modules.employees.activities.'.$history->employee_activity) }} @lang('app.by') <span
                                         class="text-darkest-grey">{{ $history->user->name }}</span><a
-                                        href="{{route('creditnotes.show', $history->credit_note_id)}}"> {{__('modules.client.viewDetails')}}</a>
+                                        href="{{\App\Support\ModulePresence::url('creditnotes.show', $history->credit_note_id)}}"> {{__('modules.client.viewDetails')}}</a>
                                     @endif
                                     @if($history->employee_activity == "creditNote-deleted" )
                                     {{ __('modules.employees.activities.'.$history->employee_activity) }} @lang('app.by') <span
@@ -216,12 +216,12 @@
                                     @if($history->employee_activity == "payment-created" )
                                     {{ __('modules.employees.activities.'.$history->employee_activity) }} @lang('app.by') <span
                                         class="text-darkest-grey">{{ $history->user->name }}</span><a
-                                        href="{{route('payments.show', $history->payment_id)}}"> {{__('modules.client.viewDetails')}}</a>
+                                        href="{{\App\Support\ModulePresence::url('payments.show', $history->payment_id)}}"> {{__('modules.client.viewDetails')}}</a>
                                     @endif
                                     @if($history->employee_activity == "payment-updated" )
                                     {{ __('modules.employees.activities.'.$history->employee_activity) }} @lang('app.by') <span
                                         class="text-darkest-grey">{{ $history->user->name }}</span><a
-                                        href="{{route('payments.show', $history->payment_id)}}"> {{__('modules.client.viewDetails')}}</a>
+                                        href="{{\App\Support\ModulePresence::url('payments.show', $history->payment_id)}}"> {{__('modules.client.viewDetails')}}</a>
                                     @endif
                                     @if($history->employee_activity == "payment-deleted" )
                                     {{ __('modules.employees.activities.'.$history->employee_activity) }} @lang('app.by') <span
@@ -230,12 +230,12 @@
                                     @if($history->employee_activity == "order-created" )
                                     {{ __('modules.employees.activities.'.$history->employee_activity) }} @lang('app.by') <span
                                         class="text-darkest-grey">{{ $history->user->name }}</span><a
-                                        href="{{route('orders.show', $history->order_id)}}"> {{__('modules.client.viewDetails')}}</a>
+                                        href="{{\App\Support\ModulePresence::url('orders.show', $history->order_id)}}"> {{__('modules.client.viewDetails')}}</a>
                                     @endif
                                     @if($history->employee_activity == "order-updated" )
                                     {{ __('modules.employees.activities.'.$history->employee_activity) }} @lang('app.by') <span
                                         class="text-darkest-grey">{{ $history->user->name }}</span><a
-                                        href="{{route('orders.show', $history->order_id)}}"> {{__('modules.client.viewDetails')}}</a>
+                                        href="{{\App\Support\ModulePresence::url('orders.show', $history->order_id)}}"> {{__('modules.client.viewDetails')}}</a>
                                     @endif
                                     @if($history->employee_activity == "order-deleted" )
                                     {{ __('modules.employees.activities.'.$history->employee_activity) }} @lang('app.by') <span
@@ -258,12 +258,12 @@
                                     @if($history->employee_activity == "followUp-created" )
                                     {{ __('modules.employees.activities.'.$history->employee_activity) }} @lang('app.by') <span
                                         class="text-darkest-grey">{{ $history->user->name }}</span><a
-                                        href="{{route('deals.show', $history->deal_followup_id).'?tab=follow-up'}}"> {{__('modules.client.viewDetails')}}</a>
+                                        href="{{\App\Support\ModulePresence::url('deals.show', $history->deal_followup_id).'?tab=follow-up'}}"> {{__('modules.client.viewDetails')}}</a>
                                     @endif
                                     @if($history->employee_activity == "followUp-updated" )
                                     {{ __('modules.employees.activities.'.$history->employee_activity) }} @lang('app.by') <span
                                         class="text-darkest-grey">{{ $history->user->name }}</span><a
-                                        href="{{route('deals.show', $history->deal_followup_id).'?tab=follow-up'}}"> {{__('modules.client.viewDetails')}}</a>
+                                        href="{{\App\Support\ModulePresence::url('deals.show', $history->deal_followup_id).'?tab=follow-up'}}"> {{__('modules.client.viewDetails')}}</a>
                                     @endif
                                     @if($history->employee_activity == "followUp-deleted" )
                                     {{ __('modules.employees.activities.'.$history->employee_activity) }} @lang('app.by') <span

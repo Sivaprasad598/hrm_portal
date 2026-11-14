@@ -120,7 +120,7 @@ class UnitType extends BaseModel
 
     public function proposalitems()
     {
-        return $this->hasMany(ProposalItem::class);
+        return $this->hasMany(\AppModules\Leads\Models\ProposalItem::class);
     }
 
     public function estimateitems()
@@ -135,7 +135,7 @@ class UnitType extends BaseModel
 
     public function proposaltemplate()
     {
-        return $this->hasMany(ProposalTemplate::class);
+        return $this->hasMany(\AppModules\Leads\Models\ProposalTemplate::class);
     }
 
     public function estimatetemplate()

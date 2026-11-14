@@ -14,13 +14,13 @@
                         @forelse ($tickets as $ticket)
                             <tr>
                                 <td class="pl-20">
-                                    <a href="{{ route('tickets.show', [$ticket->ticket_number]) }}" class="text-darkest-grey">#{{ $ticket->id }}</a>
+                                    <a href="{{ \App\Support\ModulePresence::url('tickets.show', [$ticket->ticket_number]) }}" class="text-darkest-grey">#{{ $ticket->id }}</a>
                                 </td>
                                 <td>
                                     <div class="media align-items-center">
                                         <div class="media-body">
                                             <h5 class="f-12 mb-1 text-darkest-grey">
-                                                <a href="{{ route('tickets.show', [$ticket->ticket_number]) }}">{{ $ticket->subject }}</a>
+                                                <a href="{{ \App\Support\ModulePresence::url('tickets.show', [$ticket->ticket_number]) }}">{{ $ticket->subject }}</a>
                                             </h5>
                                         </div>
                                     </div>

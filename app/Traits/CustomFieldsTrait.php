@@ -27,6 +27,12 @@ trait CustomFieldsTrait
         $model = new ReflectionClass($this);
         $this->model = $model;
 
+        // the name custom fields are stored under: a module's model keeps its old
+        // class name (morph map), every other model is its class name as before
+        if (method_exists($this, 'getMorphClass')) {
+            return $this->getMorphClass();
+        }
+
         return $this->model->getName();
     }
 

@@ -16,7 +16,7 @@
         @endforeach
     </select>
 
-    @if ($addClientPermission == 'all' || $addClientPermission == 'added')
+    @if (Route::has('clients.create') && ($addClientPermission == 'all' || $addClientPermission == 'added'))
         <x-slot name="append">
             <a href="javascript:;" id="quick-create-client"
                data-toggle="tooltip" data-original-title="{{ __('modules.client.addNewClient') }}"
@@ -28,7 +28,7 @@
 
 <script>
     $('#quick-create-client').click(function () {
-        const url = "{{ route('clients.create') . '?quick-form=1' }}";
+        const url = "{{ \App\Support\ModulePresence::url('clients.create') . '?quick-form=1' }}";
         $(MODAL_DEFAULT + ' ' + MODAL_HEADING).html('...');
         $.ajaxModal(MODAL_DEFAULT, url);
     });

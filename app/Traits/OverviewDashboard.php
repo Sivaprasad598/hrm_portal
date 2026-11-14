@@ -3,14 +3,14 @@
 namespace App\Traits;
 
 use App\Models\DashboardWidget;
-use App\Models\Deal;
+use AppModules\Leads\Models\Deal;
 use App\Models\Leave;
 use App\Models\Payment;
 use App\Models\ProjectActivity;
 use App\Models\ProjectTimeLog;
 use App\Models\Task;
 use App\Models\TaskboardColumn;
-use App\Models\Ticket;
+use AppModules\Tickets\Models\Ticket;
 use App\Models\UserActivity;
 use App\Models\Currency;
 use Carbon\Carbon;
@@ -87,9 +87,9 @@ trait OverviewDashboard
             ->whereBetween('leave_date', [$startDate, $endDate])
             ->get();
 
-        $this->newTickets = Ticket::with('requester')->where('status', 'open')
+        $this->newTickets = class_exists(\AppModules\Tickets\Models\Ticket::class) ? Ticket::with('requester')->where('status', 'open')
             ->whereBetween('updated_at', [$startDate, $endDate])
-            ->orderByDesc('updated_at')->get();
+            ->orderByDesc('updated_at')->get() : collect();
 
         $this->pendingTasks = Task::with('project', 'users', 'boardColumn')
             ->where('tasks.board_column_id', '<>', $completedTaskColumn->id)
@@ -102,7 +102,7 @@ trait OverviewDashboard
 
         $currentDate = now()->timezone($this->company->timezone)->toDateTimeString();
 
-        $this->pendingLeadFollowUps = Deal::with('followup', 'leadAgent', 'leadAgent.user', 'leadAgent.user.employeeDetail', 'leadAgent.user.employeeDetail.designation')
+        $this->pendingLeadFollowUps = !class_exists(\AppModules\Leads\Models\Lead::class) ? collect() : Deal::with('followup', 'leadAgent', 'leadAgent.user', 'leadAgent.user.employeeDetail', 'leadAgent.user.employeeDetail.designation')
             ->selectRaw('deals.id,leads.company_name, leads.client_name as client_name, deals.agent_id, ( select lead_follow_up.next_follow_up_date from lead_follow_up where lead_follow_up.deal_id = deals.id and DATE(lead_follow_up.next_follow_up_date) < "' . $currentDate . '" ORDER BY lead_follow_up.created_at DESC Limit 1) as follow_up_date_past,
             ( select lead_follow.next_follow_up_date from lead_follow_up as lead_follow where lead_follow.deal_id = deals.id and status = "incomplete" ORDER BY lead_follow.created_at DESC Limit 1) as follow_up_date_next'
             )

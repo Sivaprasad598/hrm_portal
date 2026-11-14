@@ -75,7 +75,7 @@ class NewExpenseAdmin extends BaseNotification
     public function toMail($notifiable): MailMessage
     {
         $build = parent::build($notifiable);
-        $url = route('expenses.show', $this->expense->id);
+        $url = \App\Support\ModulePresence::url('expenses.show', $this->expense->id);
         $url = getDomainSpecificUrl($url, $this->company);
 
         if ($this->expense->status == 'approved') {

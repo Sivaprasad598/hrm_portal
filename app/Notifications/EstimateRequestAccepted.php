@@ -54,7 +54,7 @@ class EstimateRequestAccepted extends BaseNotification
     public function toMail($notifiable)
     {
         $build = parent::build();
-        $url = route('estimate-request.show', $this->estimateRequest->id);
+        $url = \App\Support\ModulePresence::url('estimate-request.show', $this->estimateRequest->id);
         $url = getDomainSpecificUrl($url, $this->company);
 
         $content = __('email.estimateRequestAccepted.text') . '<br>' . __('modules.estimateRequest.estimateRequest') . ' ' . __('app.number') . ': ' .$this->estimateRequest->estimate_request_number;

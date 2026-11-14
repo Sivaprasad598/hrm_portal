@@ -15,7 +15,7 @@ if (!is_null($user) && $user->session) {
     @if (!is_null($user))
         @if(in_array('employee', user_roles()) && !in_array('admin', user_roles()))
             @if(user()->permission('view_clients') == 'all')
-                <a href="{{ route('clients.show', [$user->id]) }}" class="position-relative">
+                <a href="{{ \App\Support\ModulePresence::url('clients.show', [$user->id]) }}" class="position-relative">
                     @if ($active)
                         <span class="text-light-green position-absolute f-8 user-online"
                             title="@lang('modules.client.online')"><i class="fa fa-circle"></i></span>
@@ -32,7 +32,7 @@ if (!is_null($user) && $user->session) {
                     alt="{{ $user->name }}" title="{{ $user->name }}">
             @endif
         @else
-            <a href="{{ route('clients.show', [$user->id]) }}" class="position-relative">
+            <a href="{{ \App\Support\ModulePresence::url('clients.show', [$user->id]) }}" class="position-relative">
                 @if ($active)
                     <span class="text-light-green position-absolute f-8 user-online"
                         title="@lang('modules.client.online')"><i class="fa fa-circle"></i></span>
@@ -45,7 +45,7 @@ if (!is_null($user) && $user->session) {
             <h5 class="mb-0 f-12">
                 @if(in_array('employee', user_roles()) && !in_array('admin', user_roles()))
                     @if(user()->permission('view_clients') == 'all')
-                        <a href="{{ route('clients.show', [$user->id]) }}"
+                        <a href="{{ \App\Support\ModulePresence::url('clients.show', [$user->id]) }}"
                             class="text-darkest-grey">{{ $user->name_salutation }} @if($user->status != 'active')
                                 <i data-toggle="tooltip" data-original-title="@lang('app.inactive')" class='fa fa-circle mr-1 text-red f-10'></i> @endif
                         </a>
@@ -54,7 +54,7 @@ if (!is_null($user) && $user->session) {
                             <i data-toggle="tooltip" data-original-title="@lang('app.inactive')" class='fa fa-circle mr-1 text-red f-10'></i> @endif
                     @endif
                 @else
-                    <a href="{{ route('clients.show', [$user->id]) }}"
+                    <a href="{{ \App\Support\ModulePresence::url('clients.show', [$user->id]) }}"
                         class="text-darkest-grey">{{ $user->name_salutation }} @if($user->status != 'active')
                             <i data-toggle="tooltip" data-original-title="@lang('app.inactive')" class='fa fa-circle mr-1 text-red f-10'></i> @endif
                     </a>

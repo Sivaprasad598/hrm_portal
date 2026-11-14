@@ -46,7 +46,7 @@
         <li><x-tab :href="$tabUrl('documents')" :text="__('app.menu.documents')" class="documents" /></li>
     @endif
 
-    @if ($tabTickets == 'all' && in_array('tickets', user_modules()))
+    @if ($tabTickets == 'all' && in_array('tickets', user_modules()) && Route::has('tickets.index'))
         <li><x-tab :href="$tabUrl('tickets')" :text="__('modules.tickets.ticket')" ajax="false" class="tickets" /></li>
     @endif
 

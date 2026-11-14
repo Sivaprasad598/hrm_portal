@@ -3,19 +3,19 @@
 namespace App\Traits;
 
 use Carbon\Carbon;
-use App\Models\Deal;
+use AppModules\Leads\Models\Deal;
 use App\Models\Task;
 use App\Models\User;
 use App\Helper\Reply;
 use App\Models\Event;
 use App\Models\Leave;
-use App\Models\Notice;
-use App\Models\Ticket;
+use AppModules\NoticeBoard\Models\Notice;
+use AppModules\Tickets\Models\Ticket;
 use App\Models\Holiday;
 use App\Models\Project;
 use Carbon\CarbonPeriod;
 use Carbon\CarbonInterval;
-use App\Models\LeadAgent;
+use AppModules\Leads\Models\LeadAgent;
 use App\Models\Attendance;
 use App\Models\Appreciation;
 use Illuminate\Contracts\View\View;
@@ -26,7 +26,7 @@ use App\Models\DashboardWidget;
 use App\Models\EmployeeDetails;
 use App\Models\TaskboardColumn;
 use App\Models\AttendanceSetting;
-use App\Models\TicketAgentGroups;
+use AppModules\Tickets\Models\TicketAgentGroups;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Nwidart\Modules\Facades\Module;
@@ -34,7 +34,7 @@ use App\Models\ProjectTimeLogBreak;
 use App\Models\EmployeeShiftSchedule;
 use App\Http\Requests\ClockIn\ClockInRequest;
 use App\Models\Company;
-use App\Models\DealFollowUp;
+use AppModules\Leads\Models\DealFollowUp;
 use App\Models\EmployeeShift;
 
 /**
@@ -181,7 +181,7 @@ trait EmployeeDashboard
         ])
             ->findOrFail($this->user->id);
 
-        if (!is_null($this->viewNoticePermission) && $this->viewNoticePermission != 'none') {
+        if (class_exists(Notice::class) && !is_null($this->viewNoticePermission) && $this->viewNoticePermission != 'none') {
             if ($this->viewNoticePermission == 'added') {
                 $this->notices = Notice::latest()->where('added_by', $this->user->id)
                     ->select('id', 'heading', 'created_at')
@@ -221,6 +221,11 @@ trait EmployeeDashboard
             }
         }
 
+        // tickets only when the Tickets module is in this branch
+        $this->tickets = collect();
+        $checkTicketAgent = null;
+
+        if (class_exists(\AppModules\Tickets\Models\Ticket::class)) {
         $this->tickets = Ticket::whereIn('status', ['open', 'pending'])
             ->where(function ($query) {
                 $query->where('user_id', user()->id)
@@ -231,6 +236,7 @@ trait EmployeeDashboard
             ->get();
 
         $checkTicketAgent = TicketAgentGroups::select('id')->where('agent_id', user()->id)->first();
+        }
 
         if (!is_null($checkTicketAgent)) {
             $this->totalOpenTickets = Ticket::with('agent')->whereHas('agent', function ($q) {
@@ -382,7 +388,7 @@ trait EmployeeDashboard
             ->groupBy('user_id')
             ->get();
 
-        $this->leadAgent = LeadAgent::where('user_id', $this->user->id)->where('status', 'enabled')->first();
+        $this->leadAgent = class_exists(\AppModules\Leads\Models\Lead::class) ? LeadAgent::where('user_id', $this->user->id)->where('status', 'enabled')->first() : null;
 
         // Deal Data
         if (!is_null($this->leadAgent)) {

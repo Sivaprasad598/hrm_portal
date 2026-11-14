@@ -53,9 +53,9 @@ use Shanmuga\LaravelEntrust\Traits\LaravelEntrustUserTrait;
  * @property int|null $country_id
  * @property int $dark_theme
  * @property int $rtl
- * @property-read Collection|\App\Models\TicketAgentGroups[] $agent
+ * @property-read Collection|\AppModules\Tickets\Models\TicketAgentGroups[] $agent
  * @property-read int|null $agent_count
- * @property-read Collection|\App\Models\Ticket[] $agents
+ * @property-read Collection|\AppModules\Tickets\Models\Ticket[] $agents
  * @property-read int|null $agents_count
  * @property-read Collection|\App\Models\Attendance[] $attendance
  * @property-read Collection|\App\Models\Leave[] $leaves
@@ -79,8 +79,8 @@ use Shanmuga\LaravelEntrust\Traits\LaravelEntrustUserTrait;
  * @property-read mixed $user_other_role
  * @property-read Collection|\App\Models\EmployeeTeam[] $group
  * @property-read int|null $group_count
- * @property-read \App\Models\Lead|null $lead
- * @property-read Collection|\App\Models\LeadAgent[] $leadAgent
+ * @property-read \AppModules\Leads\Models\Lead|null $lead
+ * @property-read Collection|\AppModules\Leads\Models\LeadAgent[] $leadAgent
  * @property-read int|null $lead_agent_count
  * @property-read Collection|\App\Models\EmployeeLeaveQuota[] $leaveTypes
  * @property-read int|null $leave_types_count
@@ -105,9 +105,9 @@ use Shanmuga\LaravelEntrust\Traits\LaravelEntrustUserTrait;
  * @property-read int|null $sticky_count
  * @property-read Collection|\App\Models\Task[] $tasks
  * @property-read int|null $tasks_count
- * @property-read Collection|\App\Models\Ticket[] $tickets
+ * @property-read Collection|\AppModules\Tickets\Models\Ticket[] $tickets
  * @property-read int|null $tickets_count
- * @property-read Collection|\App\Models\UserChat[] $userChat
+ * @property-read Collection|\AppModules\Messages\Models\UserChat[] $userChat
  * @property-read int|null $user_chat_count
  * @method static \Database\Factories\UserFactory factory(...$parameters)
  * @method static Builder|User newModelQuery()
@@ -203,16 +203,16 @@ use Shanmuga\LaravelEntrust\Traits\LaravelEntrustUserTrait;
  * @property-read Collection<int, \App\Models\ProjectTimeLog> $timeLogs
  * @property-read Collection<int, \App\Models\VisaDetail> $visa
  * @property int|null $country_phonecode
- * @property-read Collection<int, \App\Models\TicketGroup> $agentGroup
+ * @property-read Collection<int, \AppModules\Tickets\Models\TicketGroup> $agentGroup
  * @property-read int|null $agent_group_count
  * @property-read mixed $mobile_with_phone_code
  * @property-read Collection<int, \App\Models\ProjectTimeLog> $timeLogs
  * @property-read Collection<int, \App\Models\VisaDetail> $visa
  * @method static Builder|User whereCountryPhonecode($value)
- * @property-read Collection<int, \App\Models\TicketGroup> $agentGroup
+ * @property-read Collection<int, \AppModules\Tickets\Models\TicketGroup> $agentGroup
  * @property-read Collection<int, \App\Models\ProjectTimeLog> $timeLogs
  * @property-read Collection<int, \App\Models\VisaDetail> $visa
- * @property-read Collection<int, \App\Models\TicketGroup> $agentGroup
+ * @property-read Collection<int, \AppModules\Tickets\Models\TicketGroup> $agentGroup
  * @property-read Collection<int, \App\Models\ProjectTimeLog> $timeLogs
  * @property-read Collection<int, \App\Models\VisaDetail> $visa
  * @mixin \Eloquent
@@ -405,7 +405,7 @@ class User extends BaseModel implements AuthenticatableContract, AuthorizableCon
 
     public function lead(): HasOne
     {
-        return $this->hasOne(Deal::class, 'user_id');
+        return $this->hasOne(\AppModules\Leads\Models\Deal::class, 'user_id');
     }
 
     public function attendance(): HasMany
@@ -490,27 +490,27 @@ class User extends BaseModel implements AuthenticatableContract, AuthorizableCon
 
     public function agent(): HasMany
     {
-        return $this->hasMany(TicketAgentGroups::class, 'agent_id');
+        return $this->hasMany(\AppModules\Tickets\Models\TicketAgentGroups::class, 'agent_id');
     }
 
     public function agentGroup(): BelongsToMany
     {
-        return $this->belongsToMany(TicketGroup::class, 'ticket_agent_groups', 'agent_id', 'group_id');
+        return $this->belongsToMany(\AppModules\Tickets\Models\TicketGroup::class, 'ticket_agent_groups', 'agent_id', 'group_id');
     }
 
     public function agents(): HasMany
     {
-        return $this->hasMany(Ticket::class, 'agent_id');
+        return $this->hasMany(\AppModules\Tickets\Models\Ticket::class, 'agent_id');
     }
 
     public function leadAgent(): HasMany
     {
-        return $this->hasMany(LeadAgent::class, 'user_id');
+        return $this->hasMany(\AppModules\Leads\Models\LeadAgent::class, 'user_id');
     }
 
     public function leadAgentCategory(): BelongsToMany
     {
-        return $this->belongsToMany(LeadCategory::class, 'lead_agent_categories', 'lead_category_id', 'user_id');
+        return $this->belongsToMany(\AppModules\Leads\Models\LeadCategory::class, 'lead_agent_categories', 'lead_category_id', 'user_id');
     }
 
     public function group(): HasMany
@@ -569,7 +569,7 @@ class User extends BaseModel implements AuthenticatableContract, AuthorizableCon
 
     public function tickets(): HasMany
     {
-        return $this->hasMany(Ticket::class, 'user_id')->orderByDesc('id');
+        return $this->hasMany(\AppModules\Tickets\Models\Ticket::class, 'user_id')->orderByDesc('id');
     }
 
     public function leaves(): HasMany
@@ -878,7 +878,7 @@ class User extends BaseModel implements AuthenticatableContract, AuthorizableCon
 
     public function userChat(): HasMany
     {
-        return $this->hasMany(UserChat::class, 'to')->where('message_seen', 'no');
+        return $this->hasMany(\AppModules\Messages\Models\UserChat::class, 'to')->where('message_seen', 'no');
     }
 
     public function employeeDetails(): HasOne
@@ -1126,7 +1126,7 @@ class User extends BaseModel implements AuthenticatableContract, AuthorizableCon
 
     public function unreadMessages(): HasMany
     {
-        return $this->hasMany(UserChat::class, 'from')->where('to', user()->id)->where('message_seen', 'no');
+        return $this->hasMany(\AppModules\Messages\Models\UserChat::class, 'from')->where('to', user()->id)->where('message_seen', 'no');
     }
 
     public function shifts(): HasMany
@@ -1267,7 +1267,7 @@ class User extends BaseModel implements AuthenticatableContract, AuthorizableCon
 
     public function ticketReply(): BelongsToMany
     {
-        return $this->belongsToMany(TicketReply::class, 'ticket_reply_users', 'user_id', 'ticket_reply_id');
+        return $this->belongsToMany(\AppModules\Tickets\Models\TicketReply::class, 'ticket_reply_users', 'user_id', 'ticket_reply_id');
     }
 
     /* ---------------------------------------------------------------------
@@ -1413,6 +1413,12 @@ class User extends BaseModel implements AuthenticatableContract, AuthorizableCon
             // children at all: no link of its own and nothing under it, so no entry
             // (employees saw empty HR / Leave Management / Payroll headings)
             if (!trim((string) $menu->route) && \App\Models\SidebarMenu::where('parent_id', $menu->id)->exists()) {
+                return null;
+            }
+
+            // Module split: the menu rows of every module stay in the one database, but a
+            // branch may not carry a module's code - an entry whose page is not here is left out
+            if (!\App\Support\ModulePresence::menuAvailable($menu->route ?? null)) {
                 return null;
             }
 

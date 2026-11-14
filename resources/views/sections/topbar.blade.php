@@ -141,9 +141,9 @@
                                 </a>
                             @endif
 
-                            @if (in_array('clients', user_modules()) && (add_clients_permission() == 'all' || add_clients_permission() == 'added'))
+                            @if (Route::has('clients.create') && in_array('clients', user_modules()) && (add_clients_permission() == 'all' || add_clients_permission() == 'added'))
                                 <a class="dropdown-item f-14 text-dark openRightModal"
-                                   href="{{ route('clients.create') }}">
+                                   href="{{ \App\Support\ModulePresence::url('clients.create') }}">
                                     <i class="fa fa-plus f-w-500 mr-2 f-11"></i>
                                     @lang('app.addClient')
                                 </a>
@@ -157,17 +157,17 @@
                                 </a>
                             @endif
 
-                            @if (in_array('payments', user_modules()) && (add_payments_permission() == 'all' || add_payments_permission() == 'added'))
+                            @if (Route::has('payments.create') && in_array('payments', user_modules()) && (add_payments_permission() == 'all' || add_payments_permission() == 'added'))
                                 <a class="dropdown-item f-14 text-dark openRightModal"
-                                   href="{{ route('payments.create') }}">
+                                   href="{{ \App\Support\ModulePresence::url('payments.create') }}">
                                     <i class="fa fa-plus f-w-500 mr-2 f-11"></i>
                                     @lang('modules.payments.addPayment')
                                 </a>
                             @endif
 
-                            @if (in_array('tickets', user_modules()) && (add_tickets_permission() == 'all' || add_tickets_permission() == 'added'))
+                            @if (Route::has('tickets.create') && in_array('tickets', user_modules()) && (add_tickets_permission() == 'all' || add_tickets_permission() == 'added'))
                                 <a class="dropdown-item f-14 text-dark openRightModal"
-                                   href="{{ route('tickets.create') }}">
+                                   href="{{ \App\Support\ModulePresence::url('tickets.create') }}">
                                     <i class="fa fa-plus f-w-500 mr-2 f-11"></i>
                                     @lang('modules.tickets.addTicket')
                                 </a>

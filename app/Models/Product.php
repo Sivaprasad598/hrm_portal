@@ -67,13 +67,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
  * @property-read \App\Models\Company|null $company
  * @property-read mixed $tax_list
  * @method static \Illuminate\Database\Eloquent\Builder|Product whereCompanyId($value)
- * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Lead> $leads
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \AppModules\Leads\Models\Lead> $leads
  * @property-read int|null $leads_count
  * @property-read \App\Models\UnitType|null $unit
  * @method static \Illuminate\Database\Eloquent\Builder|Product whereUnitId($value)
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\OrderItems> $orderItem
  * @property-read int|null $order_item_count
- * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Lead> $leads
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \AppModules\Leads\Models\Lead> $leads
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\OrderItems> $orderItem
  * @property string|null $purchase_price
  * @property string $purchase_information
@@ -85,7 +85,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
  * @property string|null $sku
  * @property string|null $type
  * @property string $status
- * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Lead> $leads
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \AppModules\Leads\Models\Lead> $leads
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\OrderItems> $orderItem
  * @method static \Illuminate\Database\Eloquent\Builder|Product whereOpeningStock($value)
  * @method static \Illuminate\Database\Eloquent\Builder|Product wherePurchaseDescription($value)
@@ -148,7 +148,7 @@ class Product extends BaseModel
 
     public function leads(): BelongsToMany
     {
-        return $this->belongsToMany(Deal::class, 'lead_products');
+        return $this->belongsToMany(\AppModules\Leads\Models\Deal::class, 'lead_products');
     }
 
     public static function taxbyid($id)

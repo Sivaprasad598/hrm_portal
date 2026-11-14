@@ -67,7 +67,7 @@ class NewProductPurchaseRequest extends BaseNotification
     public function toMail($notifiable)
     {
         $build = parent::build($notifiable);
-        $url = route('invoices.show', $this->invoice->id);
+        $url = \App\Support\ModulePresence::url('invoices.show', $this->invoice->id);
         $url = getDomainSpecificUrl($url, $this->company);
 
         $content = __('email.productPurchase.subject') . '<br>' . __('email.productPurchase.text') . ' ' . $this->invoice->client->name . '.';

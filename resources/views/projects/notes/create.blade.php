@@ -75,7 +75,7 @@
                 <x-form-actions>
                     <x-forms.button-primary id="save-project-note-form" class="mr-3" icon="check">@lang('app.save')
                     </x-forms.button-primary>
-                    <x-forms.button-cancel :link="route('clients.index')" class="border-0">@lang('app.cancel')
+                    <x-forms.button-cancel :link="\App\Support\ModulePresence::url('clients.index')" class="border-0">@lang('app.cancel')
                     </x-forms.button-cancel>
                 </x-form-actions>
 

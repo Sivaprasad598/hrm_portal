@@ -60,7 +60,7 @@ class OrderUpdated extends BaseNotification
         $build = parent::build($notifiable);
 
         if ($this->order) {
-            $url = route('orders.show', $this->order->id);
+            $url = \App\Support\ModulePresence::url('orders.show', $this->order->id);
             $url = getDomainSpecificUrl($url, $this->company);
 
             $content = __('email.order.updateText');

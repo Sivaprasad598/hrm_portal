@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\DealFollowUp;
+use AppModules\Leads\Models\DealFollowUp;
 use App\Models\EmployeeDetails;
 use App\Models\Event;
 use App\Models\Holiday;
@@ -10,7 +10,7 @@ use App\Models\Leave;
 use App\Models\MyCalendar;
 use App\Models\Task;
 use App\Models\TaskboardColumn;
-use App\Models\Ticket;
+use AppModules\Tickets\Models\Ticket;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -125,7 +125,7 @@ class MyCalendarController extends AccountBaseController
 
             if (!is_null($viewTicketPerm) && $viewTicketPerm != 'none') {
 
-                if (in_array('tickets', $calendar_type_array)) {
+                if (in_array('tickets', $calendar_type_array) && class_exists(\AppModules\Tickets\Models\Ticket::class)) {
                     // tickets
                     $userid = user()->id;
 
@@ -196,7 +196,7 @@ class MyCalendarController extends AccountBaseController
 
             if (!is_null($viewDealPerm) && $viewDealPerm != 'none') {
 
-                if (in_array('follow_ups', $calendar_type_array)) {
+                if (in_array('follow_ups', $calendar_type_array) && class_exists(\AppModules\Leads\Models\Lead::class)) {
                     // follow ups
                     $followUps = DealFollowUp::with('lead')->whereHas('lead.leadAgent', function ($query) {
                             $query->where('user_id', user()->id);

@@ -4,7 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Company;
 use Illuminate\Database\Seeder;
-use App\Models\TicketSettingForAgents;
+use AppModules\Tickets\Models\TicketSettingForAgents;
 
 class TicketSettingSeeder extends Seeder
 {

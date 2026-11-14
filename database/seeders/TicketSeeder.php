@@ -2,14 +2,14 @@
 
 namespace Database\Seeders;
 
-use App\Models\Ticket;
-use App\Models\TicketChannel;
-use App\Models\TicketType;
+use AppModules\Tickets\Models\Ticket;
+use AppModules\Tickets\Models\TicketChannel;
+use AppModules\Tickets\Models\TicketType;
 use App\Models\User;
 use Illuminate\Database\Seeder;
-use App\Models\TicketReply;
-use App\Models\TicketAgentGroups;
-use App\Models\TicketGroup;
+use AppModules\Tickets\Models\TicketReply;
+use AppModules\Tickets\Models\TicketAgentGroups;
+use AppModules\Tickets\Models\TicketGroup;
 
 class TicketSeeder extends Seeder
 {

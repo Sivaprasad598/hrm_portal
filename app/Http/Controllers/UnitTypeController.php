@@ -11,7 +11,7 @@ use Illuminate\Http\Request;
 use App\Http\Requests\UnitTypeRequest;
 use App\Models\EstimateItem;
 use App\Models\InvoiceItems;
-use App\Models\ProposalItem;
+use AppModules\Leads\Models\ProposalItem;
 
 class UnitTypeController extends AccountBaseController
 {
@@ -91,7 +91,7 @@ class UnitTypeController extends AccountBaseController
 
         $unitExists2 = InvoiceItems::where('unit_id', $id)->first();
 
-        $unitExists3 = ProposalItem::where('unit_id', $id)->first();
+        $unitExists3 = class_exists(\AppModules\Leads\Models\Lead::class) ? ProposalItem::where('unit_id', $id)->first() : null;
 
         $unitExists4 = EstimateItem::where('unit_id', $id)->first();
 

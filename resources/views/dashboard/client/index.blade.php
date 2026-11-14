@@ -20,7 +20,7 @@
 
             @if (in_array('tickets', user_modules()))
                 <div class="col-xl-4 col-lg-6 col-md-6 mb-4">
-                    <a href="{{ route('tickets.index') }}">
+                    <a href="{{ \App\Support\ModulePresence::url('tickets.index') }}">
                         <x-cards.widget :title="__('modules.dashboard.totalUnresolvedTickets')"
                                         :value="floor($counts->totalUnResolvedTickets)" icon="ticket-alt"/>
                     </a>
@@ -44,14 +44,14 @@
                         <div class="d-block ">
                             <h5 class="f-13 f-w-500 mb-20 text-darkest-grey">@lang('app.menu.invoices')</h5>
                             <div class="d-flex">
-                                <a href="{{ route('invoices.index') . '?status=paid' }}">
+                                <a href="{{ \App\Support\ModulePresence::url('invoices.index') . '?status=paid' }}">
                                     <p class="mb-0 f-15 font-weight-bold text-blue d-grid mr-5">
                                         {{ $totalPaidInvoice }}<span class="f-12 font-weight-normal text-lightest">
                                             @lang('modules.dashboard.totalPaidInvoices') </span>
                                     </p>
                                 </a>
 
-                                <a href="{{ route('invoices.index') . '?status=pending' }}">
+                                <a href="{{ \App\Support\ModulePresence::url('invoices.index') . '?status=pending' }}">
                                     <p class="mb-0 f-15 font-weight-bold text-red d-grid">
                                         {{ $totalUnPaidInvoice }}<span
                                             class="f-12 font-weight-normal text-lightest">@lang('modules.dashboard.totalUnpaidInvoices')</span>

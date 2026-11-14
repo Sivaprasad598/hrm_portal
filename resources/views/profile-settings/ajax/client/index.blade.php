@@ -64,7 +64,7 @@ $deleteDocumentPermission = user()->permission('delete_client_document');
                                             target="_blank" href="{{ $file->doc_url }}">@lang('app.view')</a>
 
                                         <a class="cursor-pointer d-block text-dark-grey f-13 py-3 px-3 "
-                                            href="{{ route('client-docs.download', md5($file->id)) }}">@lang('app.download')</a>
+                                            href="{{ \App\Support\ModulePresence::url('client-docs.download', md5($file->id)) }}">@lang('app.download')</a>
                                     @endif
 
                                     @if ($editDocumentPermission == 'all'
@@ -118,7 +118,7 @@ $deleteDocumentPermission = user()->permission('delete_client_document');
 
 <script>
     $('#add-client-file').click(function() {
-        var url = "{{ route('client-docs.create') }}";
+        var url = "{{ \App\Support\ModulePresence::url('client-docs.create') }}";
 
         $(MODAL_DEFAULT + ' ' + MODAL_HEADING).html('...');
         $.ajaxModal(MODAL_DEFAULT, url);
@@ -126,7 +126,7 @@ $deleteDocumentPermission = user()->permission('delete_client_document');
 
     $('body').on('click', '.edit-file', function() {
         var fileId = $(this).data('file-id');
-        var url = "{{ route('client-docs.edit', ':id') }}";
+        var url = "{{ \App\Support\ModulePresence::url('client-docs.edit', ':id') }}";
         url = url.replace(':id', fileId);
 
         $(MODAL_DEFAULT + ' ' + MODAL_HEADING).html('...');
@@ -159,7 +159,7 @@ $deleteDocumentPermission = user()->permission('delete_client_document');
             buttonsStyling: false
         }).then((result) => {
             if (result.isConfirmed) {
-                var url = "{{ route('client-docs.destroy', ':id') }}";
+                var url = "{{ \App\Support\ModulePresence::url('client-docs.destroy', ':id') }}";
                 url = url.replace(':id', id);
 
                 var token = "{{ csrf_token() }}";

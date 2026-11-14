@@ -38,12 +38,12 @@ class CustomFieldGroup extends BaseModel
         ['name' => 'Estimate', 'model' => Estimate::CUSTOM_FIELD_MODEL],
         ['name' => 'Task', 'model' => Task::CUSTOM_FIELD_MODEL],
         ['name' => 'Expense', 'model' => Expense::CUSTOM_FIELD_MODEL],
-        ['name' => 'Lead', 'model' => Lead::CUSTOM_FIELD_MODEL],
-        ['name' => 'Deal', 'model' => Deal::CUSTOM_FIELD_MODEL],
+        ['name' => 'Lead', 'model' => 'App\Models\Lead'],
+        ['name' => 'Deal', 'model' => 'App\Models\Deal'],
         ['name' => 'Product', 'model' => Product::CUSTOM_FIELD_MODEL],
         ['name' => 'Order', 'model' => Order::CUSTOM_FIELD_MODEL],
         ['name' => 'Event', 'model' => Event::CUSTOM_FIELD_MODEL],
-        ['name' => 'Ticket', 'model' => Ticket::CUSTOM_FIELD_MODEL],
+        ['name' => 'Ticket', 'model' => 'App\Models\Ticket'],
         ['name' => 'Time Log', 'model' => ProjectTimeLog::CUSTOM_FIELD_MODEL],
         ['name' => 'Contract', 'model' => Contract::CUSTOM_FIELD_MODEL]
     ];

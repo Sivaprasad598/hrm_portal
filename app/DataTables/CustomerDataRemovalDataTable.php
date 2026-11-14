@@ -2,7 +2,7 @@
 
 namespace App\DataTables;
 
-use App\Models\LeadStatus;
+use AppModules\Leads\Models\LeadStatus;
 use App\Models\RemovalRequest;
 use Carbon\Carbon;
 use Yajra\DataTables\Html\Button;
@@ -19,7 +19,7 @@ class CustomerDataRemovalDataTable extends BaseDataTable
      */
     public function dataTable($query)
     {
-        $status = LeadStatus::get();
+        $status = class_exists(\AppModules\Leads\Models\Lead::class) ? LeadStatus::get() : collect();
 
         return datatables()
             ->eloquent($query)

@@ -15,7 +15,7 @@ $addEstimatePermission = user()->permission('add_estimates');
             <div class="d-flex" id="table-actions">
                 @if (($addEstimatePermission == 'all' || $addEstimatePermission == 'added') && !$project->trashed())
                     <x-forms.link-primary
-                        :link="route('estimates.create').'?project_id='.$project->id.'&default_client='.$project->client_id"
+                        :link="\App\Support\ModulePresence::url('estimates.create').'?project_id='.$project->id.'&default_client='.$project->client_id"
                         class="mr-3 openRightModal" icon="plus" data-redirect-url="{{ url()->full() }}">
                         @lang('modules.estimates.createEstimate')
                     </x-forms.link-primary>
@@ -161,7 +161,7 @@ $addEstimatePermission = user()->permission('add_estimates');
             buttonsStyling: false
         }).then((result) => {
             if (result.isConfirmed) {
-                var url = "{{ route('estimates.destroy', ':id') }}";
+                var url = "{{ \App\Support\ModulePresence::url('estimates.destroy', ':id') }}";
                 url = url.replace(':id', id);
 
                 var token = "{{ csrf_token() }}";
@@ -186,7 +186,7 @@ $addEstimatePermission = user()->permission('add_estimates');
 
     $('body').on('click', '.sendButton', function() {
         var id = $(this).data('estimate-id');
-        var url = "{{ route('estimates.send_estimate', ':id') }}";
+        var url = "{{ \App\Support\ModulePresence::url('estimates.send_estimate', ':id') }}";
         url = url.replace(':id', id);
 
         var token = "{{ csrf_token() }}";

@@ -71,14 +71,14 @@ class InvoicePaymentReceived extends BaseNotification
         if ($invoice->order_id != null) {
             $number = __('app.order') . '#' . $invoice->order_id;
             $message = __('email.invoices.paymentReceivedForOrder');
-            $url = route('orders.show', $invoice->order_id);
+            $url = \App\Support\ModulePresence::url('orders.show', $invoice->order_id);
             $actionBtn = __('email.orders.action');
 
         }
         else {
             $number = $invoice->invoice_number;
             $message = __('email.invoices.paymentReceivedForInvoice');
-            $url = route('invoices.show', $invoice->id);
+            $url = \App\Support\ModulePresence::url('invoices.show', $invoice->id);
             $actionBtn = __('email.invoices.action');
         }
 

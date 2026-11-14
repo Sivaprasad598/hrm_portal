@@ -68,7 +68,7 @@ class NewExpenseRecurringMember extends BaseNotification
     public function toMail($notifiable)
     {
         $build = parent::build($notifiable);
-        $url = route('recurring-expenses.show', $this->expense->id);
+        $url = \App\Support\ModulePresence::url('recurring-expenses.show', $this->expense->id);
         $url = getDomainSpecificUrl($url, $this->company);
 
         $content = __('email.newExpenseRecurring.subject') . '.' . '<br>' . __('app.employee') . ': ' . $this->expense->user->name . '<br>' . __('modules.expenses.itemName') . ': ' . $this->expense->item_name . '<br>' . __('app.price') . ': ' . $this->expense->currency->currency_symbol . $this->expense->price;

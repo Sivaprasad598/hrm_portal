@@ -9,7 +9,7 @@
             <div id="table-actions" class="flex-grow-1 align-items-center">
 
                 @if ($addTicketPermission == 'all' || $addTicketPermission == 'added')
-                    <x-forms.link-primary :link="route('tickets.create').'?default_assign='.$employee->id"
+                    <x-forms.link-primary :link="\App\Support\ModulePresence::url('tickets.create').'?default_assign='.$employee->id"
                                           class="mr-3 openRightModal float-left" data-redirect-url="{{ url()->full() }}"
                                           icon="plus">
                         @lang('modules.tickets.addTicket')
@@ -148,7 +148,7 @@
             buttonsStyling: false
         }).then((result) => {
             if (result.isConfirmed) {
-                var url = "{{ route('tickets.destroy', ':id') }}";
+                var url = "{{ \App\Support\ModulePresence::url('tickets.destroy', ':id') }}";
                 url = url.replace(':id', id);
 
                 var token = "{{ csrf_token() }}";
@@ -175,7 +175,7 @@
             return $(this).val();
         }).get();
 
-        var url = "{{ route('tickets.apply_quick_action') }}?row_ids=" + rowdIds;
+        var url = "{{ \App\Support\ModulePresence::url('tickets.apply_quick_action') }}?row_ids=" + rowdIds;
 
         $.easyAjax({
             url: url,
@@ -195,7 +195,7 @@
     };
 
     $('body').on('click', '#add-ticket', function () {
-        window.location.href = "{{ route('ticket-form.index') }}";
+        window.location.href = "{{ \App\Support\ModulePresence::url('ticket-form.index') }}";
     });
 
     function refreshCount() {
@@ -226,7 +226,7 @@
             typeId = 0;
         }
 
-        var url = "{{ route('tickets.refresh_count') }}";
+        var url = "{{ \App\Support\ModulePresence::url('tickets.refresh_count') }}";
         $.easyAjax({
             type: 'POST',
             url: url,
@@ -251,6 +251,6 @@
     refreshCount();
 
     $('body').on('click', '#add-ticket', function () {
-        window.location.href = "{{ route('ticket-form.index') }}";
+        window.location.href = "{{ \App\Support\ModulePresence::url('ticket-form.index') }}";
     });
 </script>

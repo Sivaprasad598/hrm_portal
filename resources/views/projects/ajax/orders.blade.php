@@ -15,7 +15,7 @@ $addOrderPermission = user()->permission('add_order');
 
             <div class="d-flex" id="table-actions">
                 @if (!in_array('client', user_roles()) && in_array('clients', user_modules()) && ($addOrderPermission == 'all' || $addOrderPermission == 'added') && !$project->trashed())
-                    <x-forms.link-primary :link="route('orders.create').'?project_id='.$project->id.'&client_id='.$project->client_id"
+                    <x-forms.link-primary :link="\App\Support\ModulePresence::url('orders.create').'?project_id='.$project->id.'&client_id='.$project->client_id"
                         class="mr-3 openRightModal" icon="plus" data-redirect-url="{{ url()->full() }}">
                         @lang('app.addNewOrder')
                     </x-forms.link-primary>
@@ -105,7 +105,7 @@ $addOrderPermission = user()->permission('add_order');
     }
 
     function changeOrderStatus(orderID, status) {
-        var url = "{{ route('orders.change_status') }}";
+        var url = "{{ \App\Support\ModulePresence::url('orders.change_status') }}";
         var token = "{{ csrf_token() }}";
         var id = orderID;
         var statusMessage = '';
@@ -251,7 +251,7 @@ $addOrderPermission = user()->permission('add_order');
                 buttonsStyling: false
             }).then((result) => {
                 if (result.isConfirmed) {
-                    var url = "{{ route('orders.destroy', ':id') }}";
+                    var url = "{{ \App\Support\ModulePresence::url('orders.destroy', ':id') }}";
                     url = url.replace(':id', id);
 
                     var token = "{{ csrf_token() }}";

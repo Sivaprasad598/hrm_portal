@@ -30,7 +30,7 @@ class PayfastSubscriptionSuspended extends BaseNotification
         $build = parent::build($notifiable);
 
         $url = getDomainSpecificUrl(
-            route('recurring-invoices.show', $this->recurring->id),
+            \App\Support\ModulePresence::url('recurring-invoices.show', $this->recurring->id),
             $this->company
         );
 

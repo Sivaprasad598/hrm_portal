@@ -2,7 +2,7 @@
 
 namespace Database\Seeders;
 
-use App\Models\Notice;
+use AppModules\NoticeBoard\Models\Notice;
 use Illuminate\Database\Seeder;
 
 class NoticesTableSeeder extends Seeder

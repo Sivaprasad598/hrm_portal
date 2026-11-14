@@ -17,7 +17,6 @@ use App\Models\AttendanceSetting;
 use App\Models\Company;
 use App\Models\Currency;
 use App\Models\CustomLinkSetting;
-use App\Models\GdprSetting;
 use App\Models\InvoiceSetting;
 use App\Models\LanguageSetting;
 use App\Models\LogTimeFor;
@@ -206,7 +205,9 @@ if (!function_exists('message_setting')) {
     function message_setting()
     {
         if (!session()->has('message_setting')) {
-            session(['message_setting' => \App\Models\MessageSetting::first()]);
+            // the Messages module's model when it is in this branch, else the row itself
+            $model = 'AppModules\Messages\Models\MessageSetting';
+            session(['message_setting' => class_exists($model) ? $model::first() : \Illuminate\Support\Facades\DB::table('message_settings')->first()]);
         }
 
         return session('message_setting');
@@ -432,7 +433,9 @@ if (!function_exists('gdpr_setting')) {
     function gdpr_setting()
     {
         if (!session()->has('gdpr_setting')) {
-            session(['gdpr_setting' => GdprSetting::first()]);
+            // the GDPR module's model when it is in this branch, else the row itself (the table is always there)
+            $model = 'AppModules\Gdpr\Models\GdprSetting';
+            session(['gdpr_setting' => class_exists($model) ? $model::first() : \Illuminate\Support\Facades\DB::table('gdpr_settings')->first()]);
         }
 
         return session('gdpr_setting');

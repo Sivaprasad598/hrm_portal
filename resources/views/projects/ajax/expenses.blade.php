@@ -9,7 +9,7 @@ $addExpensesPermission = user()->permission('add_expenses');
         <div class="d-flex justify-content-between">
             <div id="table-actions" class="align-items-center">
                 @if (($addExpensesPermission == 'all' || $addExpensesPermission == 'added') && !$project->trashed())
-                    <x-forms.link-primary :link="route('expenses.create').'?project_id='.$project->id" class="mr-3 float-left openRightModal"
+                    <x-forms.link-primary :link="\App\Support\ModulePresence::url('expenses.create').'?project_id='.$project->id" class="mr-3 float-left openRightModal"
                         icon="plus" data-redirect-url="{{ url()->full() }}">
                         @lang('modules.expenses.addExpense')
                     </x-forms.link-primary>
@@ -182,14 +182,14 @@ $addExpensesPermission = user()->permission('add_expenses');
 
     $('body').on('change', '.change-expense-status', function() {
         var id = $(this).data('expense-id');
-        var url = "{{ route('expenses.change_status') }}";
+        var url = "{{ \App\Support\ModulePresence::url('expenses.change_status') }}";
 
         var token = "{{ csrf_token() }}";
         var status = $(this).val();
 
         if (typeof id !== 'undefined') {
             $.easyAjax({
-                url: "{{ route('expenses.change_status') }}",
+                url: "{{ \App\Support\ModulePresence::url('expenses.change_status') }}",
                 type: "POST",
                 data: {
                     '_token': token,
@@ -227,7 +227,7 @@ $addExpensesPermission = user()->permission('add_expenses');
             buttonsStyling: false
         }).then((result) => {
             if (result.isConfirmed) {
-                var url = "{{ route('expenses.destroy', ':id') }}";
+                var url = "{{ \App\Support\ModulePresence::url('expenses.destroy', ':id') }}";
                 url = url.replace(':id', id);
 
                 var token = "{{ csrf_token() }}";
@@ -254,7 +254,7 @@ $addExpensesPermission = user()->permission('add_expenses');
             return $(this).val();
         }).get();
 
-        var url = "{{ route('expenses.apply_quick_action') }}?row_ids=" + rowdIds;
+        var url = "{{ \App\Support\ModulePresence::url('expenses.apply_quick_action') }}?row_ids=" + rowdIds;
 
         $.easyAjax({
             url: url,

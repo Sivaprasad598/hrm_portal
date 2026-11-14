@@ -134,7 +134,7 @@
         var getEventDetail = function(id,type) {
             if(type == 'ticket')
             {
-                var url = "{{ route('tickets.show', ':id') }}";
+                var url = "{{ \App\Support\ModulePresence::url('tickets.show', ':id') }}";
                     url = url.replace(':id', id);
                     window.location = url;
                     return true;
@@ -147,7 +147,7 @@
                     var url = "{{ route('tasks.show', ':id') }}";
                     break;
                 case 'event':
-                    var url = "{{ route('events.show', ':id') }}";
+                    var url = "{{ \App\Support\ModulePresence::url('events.show', ':id') }}";
                     break;
                 case 'holiday':
                     var url = "{{ route('holidays.show', ':id') }}";
@@ -156,7 +156,7 @@
                     var url = "{{ route('leaves.show', ':id') }}";
                     break;
                 case 'follow_up':
-                    var url = "{{ route('deals.show', ':id') }}";
+                    var url = "{{ \App\Support\ModulePresence::url('deals.show', ':id') }}";
                     break;
                 default:
                     return 0;

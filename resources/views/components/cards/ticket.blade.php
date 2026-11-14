@@ -2,12 +2,12 @@
     <div class="card-horizontal">
         <div class="card-img">
             <a
-                href="{{ !is_null($user->employeeDetail) ? route('employees.show', $user->id) : route('clients.show', $user->id) }}"><img
+                href="{{ !is_null($user->employeeDetail) ? route('employees.show', $user->id) : \App\Support\ModulePresence::url('clients.show', $user->id) }}"><img
                     class="" src="{{ $user->image_url }}" alt="{{ $user->name }}"></a>
         </div>
         <div class="card-body border-0 pl-0">
             <div class="d-flex">
-                <a href="{{ !is_null($user->employeeDetail) ? route('employees.show', $user->id) : route('clients.show', $user->id) }}">
+                <a href="{{ !is_null($user->employeeDetail) ? route('employees.show', $user->id) : \App\Support\ModulePresence::url('clients.show', $user->id) }}">
                     <h4 class="card-title f-13 f-w-500 text-dark mr-3">{{ $user->name }}</h4>
                 </a>
                 <p class="card-date f-11 text-lightest mb-0">
@@ -108,7 +108,7 @@
                                         href="{{ $file->file_url }}">@lang('app.view')</a>
 
                                     <a class="dropdown-item"
-                                        href="{{ route('ticket-files.download', md5($file->id)) }}">@lang('app.download')</a>
+                                        href="{{ \App\Support\ModulePresence::url('ticket-files.download', md5($file->id)) }}">@lang('app.download')</a>
 
                                     @if (user()->id == $user->id || in_array('admin', user_roles()))
                                         <a class="dropdown-item delete-file"

@@ -60,7 +60,7 @@ class EventHostInvite extends BaseNotification
         $vCalendar->addComponent($vEvent);
         $vFile = $vCalendar->render();
 
-        $url = route('events.show', $this->event->id);
+        $url = \App\Support\ModulePresence::url('events.show', $this->event->id);
         $url = getDomainSpecificUrl($url, $this->company);
 
         $content = __('email.newEvent.hostText', ['eventName' => $this->event->event_name, 'companyName' => $this->company->company_name]) . '<br><br>' . __('modules.events.eventName') . ': <strong>' . $this->event->event_name . '<strong><br>' . __('modules.events.startOn') . ': ' . $this->event->start_date_time->translatedFormat($this->company->date_format . ' - ' . $this->company->time_format) . '<br>' . __('modules.events.endOn') . ': ' . $this->event->end_date_time->translatedFormat($this->company->date_format . ' - ' . $this->company->time_format)   . '<br>' . __('app.location') . ': <strong>' . $this->event->where . '<strong>';

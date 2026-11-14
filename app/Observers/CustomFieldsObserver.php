@@ -4,8 +4,8 @@ namespace App\Observers;
 
 use App\Models\CustomField;
 use App\Models\CustomFieldGroup;
-use App\Models\LeadCustomForm;
-use App\Models\TicketCustomForm;
+use AppModules\Leads\Models\LeadCustomForm;
+use AppModules\Tickets\Models\TicketCustomForm;
 use Illuminate\Support\Facades\DB;
 
 class CustomFieldsObserver
@@ -28,7 +28,7 @@ class CustomFieldsObserver
     {
         $lead = CustomFieldGroup::where('name', 'Lead')->first();
 
-        if ($customField->custom_field_group_id != $lead->id) {
+        if (!$lead || $customField->custom_field_group_id != $lead->id || !class_exists(\AppModules\Leads\Models\Lead::class)) {
             return false;
         }
 
@@ -45,7 +45,7 @@ class CustomFieldsObserver
     {
         $ticket = CustomFieldGroup::where('name', 'Ticket')->first();
 
-        if ($customField->custom_field_group_id != $ticket->id) {
+        if (!$ticket || $customField->custom_field_group_id != $ticket->id || !class_exists(\AppModules\Tickets\Models\Ticket::class)) {
             return false;
         }
 
@@ -64,7 +64,7 @@ class CustomFieldsObserver
         $lead = CustomFieldGroup::where('name', 'Lead')->first();
 
 
-        if ($customField->custom_field_group_id == $lead->id) {
+        if ($lead && $customField->custom_field_group_id == $lead->id && class_exists(\AppModules\Leads\Models\Lead::class)) {
             $id = $customField->id;
             $leadField = LeadCustomForm::firstWhere('custom_fields_id', $id);
             $leadField->required = ($customField->required == 'yes') ? 1 : 0;
@@ -75,7 +75,7 @@ class CustomFieldsObserver
 
         $ticket = CustomFieldGroup::where('name', 'Ticket')->first();
 
-        if ($customField->custom_field_group_id === $ticket->id) {
+        if ($ticket && $customField->custom_field_group_id === $ticket->id && class_exists(\AppModules\Tickets\Models\Ticket::class)) {
             $id = $customField->id;
             $ticketField = TicketCustomForm::firstWhere('custom_fields_id', $id);
 

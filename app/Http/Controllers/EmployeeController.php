@@ -6,7 +6,7 @@ use App\DataTables\EmployeesDataTable;
 use App\DataTables\LeaveDataTable;
 use App\DataTables\ProjectsDataTable;
 use App\DataTables\TasksDataTable;
-use App\DataTables\TicketDataTable;
+use AppModules\Tickets\DataTables\TicketDataTable;
 use App\DataTables\TimeLogsDataTable;
 use App\Enums\Salutation;
 use App\Helper\Files;
@@ -45,7 +45,7 @@ use App\Models\Task;
 use App\Models\TaskboardColumn;
 use App\Models\Team;
 use App\Models\Branch;
-use App\Models\Ticket;
+use AppModules\Tickets\Models\Ticket;
 use App\Models\UniversalSearch;
 use App\Models\User;
 use App\Models\UserInvitation;
@@ -1045,7 +1045,7 @@ class EmployeeController extends AccountBaseController
         $this->employee = User::with(['documentExpiries', 'leaveTypes.leaveType', 'employeeDetail', 'roles'])
             ->withoutGlobalScope(ActiveScope::class)
             ->withOut('clientDetails')
-            ->withCount(['member', 'agents', 'openTasks'])
+            ->withCount(array_values(array_filter(['member', class_exists(\AppModules\Tickets\Models\Ticket::class) ? 'agents' : null, 'openTasks'])))
             ->findOrFail($id);
 // dd($this->employee);
         if ($this->employee->employeeDetail->company_address_id) {
@@ -1445,7 +1445,7 @@ class EmployeeController extends AccountBaseController
         $data['values'] = [];
 
         foreach ($labels as $label) {
-            $data['values'][] = Ticket::where('agent_id', $id)->where('status', $label)->count();
+            $data['values'][] = class_exists(\AppModules\Tickets\Models\Ticket::class) ? Ticket::where('agent_id', $id)->where('status', $label)->count() : 0;
         }
 
         return $data;
@@ -1547,6 +1547,7 @@ class EmployeeController extends AccountBaseController
         abort_403(!(in_array($viewPermission, ['all']) && in_array('tickets', user_modules())));
         $tab = request('tab');
         $this->activeTab = $tab ?: 'profile';
+        abort_if(!class_exists(\AppModules\Tickets\Models\Ticket::class), 404);
         $this->tickets = Ticket::all();
         $this->view = 'employees.ajax.tickets';
         $dataTable = new TicketDataTable();

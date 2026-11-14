@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\GlobalSetting;
 use App\Models\MobileAppDownloadSetting;
 use Carbon\Carbon;
-use App\Models\UserChat;
+use AppModules\Messages\Models\UserChat;
 use App\Models\TaskHistory;
 use App\Models\UserActivity;
 use App\Models\ProjectTimeLog;
@@ -57,7 +57,7 @@ class AccountBaseController extends Controller
 
         $this->modules = user_modules();
 
-        if ((in_array('messages', user_modules()))) {
+        if (in_array('messages', user_modules()) && class_exists(UserChat::class)) {
             $this->unreadMessagesCount = UserChat::where('to', user()->id)
                 ->where('message_seen', 'no')
                 ->count();

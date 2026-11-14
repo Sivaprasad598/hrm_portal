@@ -54,7 +54,7 @@ class EstimateDeclined extends BaseNotification
     public function toMail($notifiable)
     {
         $build = parent::build($notifiable);
-        $url = route('estimates.show', $this->estimate->id);
+        $url = \App\Support\ModulePresence::url('estimates.show', $this->estimate->id);
         $url = getDomainSpecificUrl($url, $this->company);
 
         $content = __('email.estimateDeclined.text');

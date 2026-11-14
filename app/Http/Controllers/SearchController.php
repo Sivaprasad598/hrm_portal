@@ -23,25 +23,25 @@ class SearchController extends AccountBaseController
 
         switch ($module) {
         case 'project':
-            return Reply::redirect(route('projects.index') . '?search_keyword=' . $request->search_keyword);
+            return Reply::redirect(\App\Support\ModulePresence::url('projects.index') . '?search_keyword=' . $request->search_keyword);
         case 'ticket':
-            return Reply::redirect(route('tickets.index') . '?search_keyword=' . $request->search_keyword);
+            return Reply::redirect(\App\Support\ModulePresence::url('tickets.index') . '?search_keyword=' . $request->search_keyword);
         case 'invoice':
-            return Reply::redirect(route('invoices.index') . '?search_keyword=' . $request->search_keyword);
+            return Reply::redirect(\App\Support\ModulePresence::url('invoices.index') . '?search_keyword=' . $request->search_keyword);
         case 'notice':
-            return Reply::redirect(route('notices.index') . '?search_keyword=' . $request->search_keyword);
+            return Reply::redirect(\App\Support\ModulePresence::url('notices.index') . '?search_keyword=' . $request->search_keyword);
         case 'task':
-            return Reply::redirect(route('tasks.index') . '?search_keyword=' . $request->search_keyword);
+            return Reply::redirect(\App\Support\ModulePresence::url('tasks.index') . '?search_keyword=' . $request->search_keyword);
         case 'creditNote':
-            return Reply::redirect(route('creditnotes.index') . '?search_keyword=' . $request->search_keyword);
+            return Reply::redirect(\App\Support\ModulePresence::url('creditnotes.index') . '?search_keyword=' . $request->search_keyword);
         case 'employee':
-            return Reply::redirect(route('employees.index') . '?search_keyword=' . $request->search_keyword);
+            return Reply::redirect(\App\Support\ModulePresence::url('employees.index') . '?search_keyword=' . $request->search_keyword);
         case 'client':
-            return Reply::redirect(route('clients.index') . '?search_keyword=' . $request->search_keyword);
+            return Reply::redirect(\App\Support\ModulePresence::url('clients.index') . '?search_keyword=' . $request->search_keyword);
         case 'estimate':
-            return Reply::redirect(route('estimates.index') . '?search_keyword=' . $request->search_keyword);
+            return Reply::redirect(\App\Support\ModulePresence::url('estimates.index') . '?search_keyword=' . $request->search_keyword);
         case 'lead':
-            return Reply::redirect(route('deals.index') . '?search_keyword=' . $request->search_keyword);
+            return Reply::redirect(\App\Support\ModulePresence::url('deals.index') . '?search_keyword=' . $request->search_keyword);
         default:
             // Code...
             break;

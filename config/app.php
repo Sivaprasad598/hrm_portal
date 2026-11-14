@@ -260,6 +260,7 @@ return [
         App\Providers\BroadcastServiceProvider::class,
         App\Providers\EventServiceProvider::class,
         App\Providers\RouteServiceProvider::class,
+        App\Providers\AppModulesServiceProvider::class,
         Froiden\RestAPI\Providers\ApiServiceProvider::class,
         App\Providers\FortifyServiceProvider::class,
         Barryvdh\TranslationManager\ManagerServiceProvider::class,

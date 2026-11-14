@@ -46,7 +46,7 @@ class EstimateRequestInvite extends BaseNotification
     public function toMail($notifiable): MailMessage
     {
         $build = parent::build();
-        $url = route('estimate-request.create');
+        $url = \App\Support\ModulePresence::url('estimate-request.create');
         $url = getDomainSpecificUrl($url, $this->company);
 
         $content = __('email.estimate_request_invite.content');

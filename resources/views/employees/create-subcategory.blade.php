@@ -68,7 +68,7 @@
     $('.delete-category').click(function() {
 
         var id = $(this).data('cat-id');
-        var url = "{{ route('clientSubCategory.destroy', ':id') }}";
+        var url = "{{ \App\Support\ModulePresence::url('clientSubCategory.destroy', ':id') }}";
         url = url.replace(':id', id);
 
         var token = "{{ csrf_token() }}";
@@ -125,7 +125,7 @@
     });
 
     $('#save-category').click(function() {
-        var url = "{{ route('clientSubCategory.store') }}";
+        var url = "{{ \App\Support\ModulePresence::url('clientSubCategory.store') }}";
         $.easyAjax({
             url: url,
             container: '#createProjectCategory',

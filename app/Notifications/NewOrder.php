@@ -66,7 +66,7 @@ class NewOrder extends BaseNotification
 
         if ($this->order) {
 
-            $url = route('orders.show', $this->order->id);
+            $url = \App\Support\ModulePresence::url('orders.show', $this->order->id);
             $url = getDomainSpecificUrl($url, $this->company);
             $subject = (!in_array('client', user_roles()) ? __('email.orders.subject') : __('email.order.subject'));
             $content = __('email.order.text') . '<br>' . __('app.orderNumber') . ': ' . $this->order->order_number .'<br>';

@@ -1285,7 +1285,7 @@ class LeaveController extends AccountBaseController
 
         $this->employee = User::with(['employeeDetail', 'employeeDetail.designation', 'employeeDetail.department', 'leaveTypes', 'leaveTypes.leaveType', 'country', 'employee', 'roles'])
             ->withoutGlobalScope(ActiveScope::class)
-            ->withCount('member', 'agents', 'tasks')
+            ->withCount(array_values(array_filter(['member', class_exists(\AppModules\Tickets\Models\Ticket::class) ? 'agents' : null, 'tasks'])))
             ->findOrFail(user()->id);
 
         $settings = company();

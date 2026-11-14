@@ -7,7 +7,7 @@ use App\Models\Estimate;
 use App\Models\Expense;
 use App\Models\Invoice;
 use App\Models\Payment;
-use App\Models\Proposal;
+use AppModules\Leads\Models\Proposal;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -254,7 +254,7 @@ trait FinanceDashboard
         $data['values'] = [];
         $data['colors'] = [];
 
-        $allProposal = Proposal::whereBetween(DB::raw('DATE(`created_at`)'), [$startDate, $endDate])->get();
+        $allProposal = class_exists(\AppModules\Leads\Models\Lead::class) ? Proposal::whereBetween(DB::raw('DATE(`created_at`)'), [$startDate, $endDate])->get() : collect();
 
         $data['values'][] = $allProposal->filter(function ($value, $key) {
             return $value->status == 'waiting';

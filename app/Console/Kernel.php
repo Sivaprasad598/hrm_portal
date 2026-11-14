@@ -3,8 +3,6 @@
 namespace App\Console;
 
 use App\Console\Commands\AddMissingRolePermission;
-use App\Console\Commands\AutoCreateRecurringExpenses;
-use App\Console\Commands\AutoCreateRecurringInvoices;
 use App\Console\Commands\CarryForwardLeaves;
 use App\Console\Commands\AutoCreateRecurringTasks;
 use App\Console\Commands\AutoStopTimer;
@@ -13,7 +11,6 @@ use App\Console\Commands\ClearLogs;
 use App\Console\Commands\ClearNullSessions;
 use App\Console\Commands\CreateEmployeeLeaveQuotaHistory;
 use App\Console\Commands\CreateTranslations;
-use App\Console\Commands\FetchTicketEmails;
 use App\Console\Commands\HideCronJobMessage;
 use App\Console\Commands\LeavesQuotaRenew;
 use App\Console\Commands\RemoveSeenNotification;
@@ -21,11 +18,9 @@ use App\Console\Commands\SendAttendanceReminder;
 use App\Console\Commands\SendAutoTaskReminder;
 use App\Console\Commands\SendTaskBlockerReminders;
 use App\Console\Commands\SendEventReminder;
-use App\Console\Commands\SendAutoFollowUpReminder;
 use App\Console\Commands\SendDailyTimelogReport;
 use App\Console\Commands\SendProjectReminder;
 use App\Console\Commands\UpdateExchangeRates;
-use App\Console\Commands\SendInvoiceReminder;
 use App\Console\Commands\SendMonthlyAttendanceReport;
 use App\Console\Commands\SyncUserPermissions;
 use App\Console\Commands\SendTimeTracker;
@@ -70,17 +65,12 @@ class Kernel extends ConsoleKernel
         SendAutoTaskReminder::class,
         SendTaskBlockerReminders::class,
         CreateTranslations::class,
-        AutoCreateRecurringInvoices::class,
         CarryForwardLeaves::class,
-        AutoCreateRecurringExpenses::class,
         ClearNullSessions::class,
-        SendInvoiceReminder::class,
         RemoveSeenNotification::class,
         SendAttendanceReminder::class,
         AutoCreateRecurringTasks::class,
         SyncUserPermissions::class,
-        SendAutoFollowUpReminder::class,
-        FetchTicketEmails::class,
         AddMissingRolePermission::class,
         BirthdayReminderCommand::class,
         SendTimeTracker::class,
@@ -143,7 +133,7 @@ class Kernel extends ConsoleKernel
         $schedule->command('recruit:fetch-mail')->everyFifteenMinutes()->withoutOverlapping(30);
         // Recruitment rounds: scorecard reminders, overdue alerts to HR, offer expiry, next steps (server cron only)
         $schedule->command('recruit:automate')->everyFifteenMinutes()->withoutOverlapping(30);
-        $schedule->command('send-auto-followup-reminder')->everyMinute();
+        // send-auto-followup-reminder is scheduled by the Leads module (app-modules/Leads)
         $schedule->command('send-time-tracker')->everyMinute();
 
         // Daily added different time to reduce server load
@@ -151,9 +141,9 @@ class Kernel extends ConsoleKernel
         $schedule->command('send-project-reminder')->dailyAt('01:10');
         $schedule->command('send-auto-task-reminder')->dailyAt('01:20');
         $schedule->command('send-task-blocker-reminders')->dailyAt('10:00');
-        $schedule->command('recurring-invoice-create')->dailyAt('01:30');
-        $schedule->command('recurring-expenses-create')->dailyAt('01:40');
-        $schedule->command('send-invoice-reminder')->hourly();
+        // recurring-invoice-create is scheduled by the Finance module (app-modules/Finance)
+        // recurring-expenses-create is scheduled by the Finance module (app-modules/Finance)
+        // send-invoice-reminder is scheduled by the Finance module (app-modules/Finance)
         $schedule->command('delete-seen-notification')->dailyAt('02:10');
         $schedule->command('update-exchange-rate')->dailyAt('02:20');
         $schedule->command('send-daily-timelog-report')->dailyAt('02:30');

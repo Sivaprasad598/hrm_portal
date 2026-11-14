@@ -2,7 +2,7 @@
 
 namespace App\Notifications;
 
-use App\Http\Controllers\CreditNoteController;
+use AppModules\Finance\Http\Controllers\CreditNoteController;
 use App\Models\CreditNotes;
 use App\Models\EmailNotificationSetting;
 use NotificationChannels\OneSignal\OneSignalChannel;
@@ -72,7 +72,7 @@ class NewCreditNote extends BaseNotification
 
                 App::setLocale($notifiable->locale ?? $this->company->locale ?? 'en');
 
-                $url = route('creditnotes.show', $this->creditNotes->id);
+                $url = \App\Support\ModulePresence::url('creditnotes.show', $this->creditNotes->id);
                 $url = getDomainSpecificUrl($url, $this->company);
 
                 $content = __('email.creditNote.text') . '<br>' . __('app.creditnoteNumber') . ': ' . $this->creditNotes->cn_number .'<br>';

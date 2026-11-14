@@ -8,7 +8,7 @@
         <!-- Add Task Export Buttons Start -->
         <div class="d-flex" id="table-actions">
             @if (($addProjectTicketPermission == 'all' || $addProjectTicketPermission == 'added' || $project->project_admin == user()->id) && !$project->trashed())
-                <x-forms.link-primary :link="route('tickets.create').'?project='.$project->id"
+                <x-forms.link-primary :link="\App\Support\ModulePresence::url('tickets.create').'?project='.$project->id"
                     class="mr-3 openRightModal" icon="plus" data-redirect-url="{{ url()->full() }}">
                     @lang('modules.tickets.addTicket')
                 </x-forms.link-primary>
@@ -206,7 +206,7 @@
                 buttonsStyling: false
             }).then((result) => {
                 if (result.isConfirmed) {
-                    var url = "{{ route('tickets.destroy', ':id') }}";
+                    var url = "{{ \App\Support\ModulePresence::url('tickets.destroy', ':id') }}";
                     url = url.replace(':id', id);
 
                     var token = "{{ csrf_token() }}";
@@ -229,7 +229,7 @@
         });
 
         $('#ticket-table').on('change', '.change-status', function() {
-            var url = "{{ route('tickets.change-status') }}";
+            var url = "{{ \App\Support\ModulePresence::url('tickets.change-status') }}";
             var token = "{{ csrf_token() }}";
             var id = $(this).data('ticket-id');
             var status = $(this).val();
@@ -258,7 +258,7 @@
                 return $(this).val();
             }).get();
 
-            var url = "{{ route('tickets.apply_quick_action') }}?row_ids=" + rowdIds;
+            var url = "{{ \App\Support\ModulePresence::url('tickets.apply_quick_action') }}?row_ids=" + rowdIds;
 
             $.easyAjax({
                 url: url,

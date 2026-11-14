@@ -166,17 +166,17 @@ use Illuminate\Support\Facades\Schema;
  * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\CompanyAddress[] $companyAddress
  * @property-read int|null $company_address_count
  * @property-read \App\Models\InvoiceSetting|null $invoiceSetting
- * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\LeadAgent[] $leadAgents
+ * @property-read \Illuminate\Database\Eloquent\Collection|\AppModules\Leads\Models\LeadAgent[] $leadAgents
  * @property-read int|null $lead_agents_count
- * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\LeadCategory[] $leadCategories
+ * @property-read \Illuminate\Database\Eloquent\Collection|\AppModules\Leads\Models\LeadCategory[] $leadCategories
  * @property-read int|null $lead_categories_count
- * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\LeadSource[] $leadSources
+ * @property-read \Illuminate\Database\Eloquent\Collection|\AppModules\Leads\Models\LeadSource[] $leadSources
  * @property-read int|null $lead_sources_count
- * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\LeadStatus[] $leadStats
+ * @property-read \Illuminate\Database\Eloquent\Collection|\AppModules\Leads\Models\LeadStatus[] $leadStats
  * @property-read int|null $lead_stats_count
  * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\LeaveType[] $leaveTypes
  * @property-read int|null $leave_types_count
- * @property-read \App\Models\MessageSetting|null $messageSetting
+ * @property-read \AppModules\Messages\Models\MessageSetting|null $messageSetting
  * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\OfflinePaymentMethod[] $offlinePaymentMethod
  * @property-read int|null $offline_payment_method_count
  * @property-read \App\Models\PaymentGatewayCredentials|null $paymentGatewayCredentials
@@ -186,9 +186,9 @@ use Illuminate\Support\Facades\Schema;
  * @property-read \App\Models\TaskSetting|null $taskSetting
  * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\Tax[] $taxes
  * @property-read int|null $taxes_count
- * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\TicketChannel[] $ticketChannels
+ * @property-read \Illuminate\Database\Eloquent\Collection|\AppModules\Tickets\Models\TicketChannel[] $ticketChannels
  * @property-read int|null $ticket_channels_count
- * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\TicketType[] $ticketTypes
+ * @property-read \Illuminate\Database\Eloquent\Collection|\AppModules\Tickets\Models\TicketType[] $ticketTypes
  * @property-read int|null $ticket_types_count
  * @property-read \App\Models\ProjectTimeLog|null $timeLogSetting
  * @property string|null $hash
@@ -209,7 +209,7 @@ use Illuminate\Support\Facades\Schema;
  * @property-read int|null $file_storage_count
  * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\Invoice[] $invoices
  * @property-read int|null $invoices_count
- * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\Lead[] $leads
+ * @property-read \Illuminate\Database\Eloquent\Collection|\AppModules\Leads\Models\Lead[] $leads
  * @property-read int|null $leads_count
  * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\Order[] $orders
  * @property-read int|null $orders_count
@@ -218,7 +218,7 @@ use Illuminate\Support\Facades\Schema;
  * @property-read \App\Models\SlackSetting|null $slackSetting
  * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\Task[] $tasks
  * @property-read int|null $tasks_count
- * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\Ticket[] $tickets
+ * @property-read \Illuminate\Database\Eloquent\Collection|\AppModules\Tickets\Models\Ticket[] $tickets
  * @property-read int|null $tickets_count
  * @method static \Illuminate\Database\Eloquent\Builder|Company whereYearStartsFrom($value)
  * @property string $header_color
@@ -478,12 +478,12 @@ class Company extends BaseModel
 
     public function ticketTypes(): HasMany
     {
-        return $this->hasMany(TicketType::class);
+        return $this->hasMany(\AppModules\Tickets\Models\TicketType::class);
     }
 
     public function ticketChannels(): HasMany
     {
-        return $this->hasMany(TicketChannel::class);
+        return $this->hasMany(\AppModules\Tickets\Models\TicketChannel::class);
     }
 
     public function projectSetting(): HasOne
@@ -503,27 +503,27 @@ class Company extends BaseModel
 
     public function messageSetting(): HasOne
     {
-        return $this->HasOne(MessageSetting::class);
+        return $this->HasOne(\AppModules\Messages\Models\MessageSetting::class);
     }
 
     public function leadSources(): HasMany
     {
-        return $this->HasMany(LeadSource::class);
+        return $this->HasMany(\AppModules\Leads\Models\LeadSource::class);
     }
 
     public function leadStats(): HasMany
     {
-        return $this->HasMany(LeadStatus::class);
+        return $this->HasMany(\AppModules\Leads\Models\LeadStatus::class);
     }
 
     public function leadAgents(): HasMany
     {
-        return $this->HasMany(LeadAgent::class);
+        return $this->HasMany(\AppModules\Leads\Models\LeadAgent::class);
     }
 
     public function leadCategories(): HasMany
     {
-        return $this->HasMany(LeadCategory::class);
+        return $this->HasMany(\AppModules\Leads\Models\LeadCategory::class);
     }
 
     public function moduleSetting(): HasMany
@@ -595,7 +595,7 @@ class Company extends BaseModel
 
     public function leads(): HasMany
     {
-        return $this->hasMany(Deal::class);
+        return $this->hasMany(\AppModules\Leads\Models\Deal::class);
     }
 
     public function orders(): HasMany
@@ -605,7 +605,7 @@ class Company extends BaseModel
 
     public function tickets(): HasMany
     {
-        return $this->hasMany(Ticket::class);
+        return $this->hasMany(\AppModules\Tickets\Models\Ticket::class);
     }
 
     public function contracts(): HasMany

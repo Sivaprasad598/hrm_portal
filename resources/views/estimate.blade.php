@@ -606,7 +606,7 @@
 
                     <div class="d-flex">
 
-                        <x-forms.button-cancel :link="route('estimates.index')" class="mr-3 border-0">
+                        <x-forms.button-cancel :link="\App\Support\ModulePresence::url('estimates.index')" class="mr-3 border-0">
                             @lang('app.cancel')
                         </x-forms.button-cancel>
 
@@ -685,7 +685,7 @@
     });
 
     $(body).on('click', '#download-invoice', function () {
-        window.location.href = "{{ route('invoices.download', [$estimate->id]) }}";
+        window.location.href = "{{ \App\Support\ModulePresence::url('invoices.download', [$estimate->id]) }}";
     })
 </script>
 

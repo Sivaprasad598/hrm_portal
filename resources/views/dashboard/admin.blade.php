@@ -55,7 +55,7 @@ $viewFinanceDashboard = user()->permission('view_finance_dashboard');
                        ajax="false"/>
             @endif
 
-            @if (in_array('clients', dashboard_modules()) && $viewClientDashboard == 'all')
+            @if (Route::has('clients.index') && in_array('clients', dashboard_modules()) && $viewClientDashboard == 'all')
                 <x-tab :href="route('dashboard.advanced').'?tab=client'" :text="__('app.client')" class="client"
                        ajax="false"/>
             @endif
@@ -64,12 +64,12 @@ $viewFinanceDashboard = user()->permission('view_finance_dashboard');
                 <x-tab :href="route('dashboard.advanced').'?tab=hr'" :text="__('app.menu.hr')" class="hr" ajax="false"/>
             @endif
 
-            @if (in_array('tickets', dashboard_modules()) && $viewTicketDashboard == 'all')
+            @if (Route::has('tickets.index') && in_array('tickets', dashboard_modules()) && $viewTicketDashboard == 'all')
                 <x-tab :href="route('dashboard.advanced').'?tab=ticket'" :text="__('app.menu.ticket')" class="ticket"
                        ajax="false"/>
             @endif
 
-            @if ($viewFinanceDashboard == 'all' && (in_array('invoices', dashboard_modules()) || in_array('estimates', dashboard_modules()) || in_array('leads', dashboard_modules())))
+            @if (Route::has('invoices.index') && $viewFinanceDashboard == 'all' && (in_array('invoices', dashboard_modules()) || in_array('estimates', dashboard_modules()) || in_array('leads', dashboard_modules())))
                 <x-tab :href="route('dashboard.advanced').'?tab=finance'" :text="__('app.menu.finance')" class="finance"
                        ajax="false"/>
             @endif

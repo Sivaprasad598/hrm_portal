@@ -11,7 +11,7 @@ $moveClass = '';
     id="drag-task-{{ $lead->id }}">
     <div class="card-body p-2">
         <div class="d-flex justify-content-between mb-2">
-            <a href="{{ route('deals.show', [$lead->id]) }}"
+            <a href="{{ \App\Support\ModulePresence::url('deals.show', [$lead->id]) }}"
                 class="f-12 f-w-500 text-dark mb-0 text-wrap openRightModal">{{ $lead->name }}
                 @if (!is_null($lead->contact->client_id))
                 <i class="fa fa-check-circle text-success" data-toggle="tooltip" data-original-title="@lang('modules.lead.convertedClient')"></i>

@@ -2,10 +2,13 @@
 
 namespace App\Traits;
 
+// stays in core so DashboardController loads in every branch; the ticket
+// dashboard tab itself only works when the Tickets module is present
+
 use App\Models\DashboardWidget;
-use App\Models\Ticket;
-use App\Models\TicketChannel;
-use App\Models\TicketType;
+use AppModules\Tickets\Models\Ticket;
+use AppModules\Tickets\Models\TicketChannel;
+use AppModules\Tickets\Models\TicketType;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -21,6 +24,7 @@ trait TicketDashboard
      */
     public function ticketDashboard()
     {
+        abort_if(!class_exists(Ticket::class), 404);
         $this->viewTicketDashboard = user()->permission('view_ticket_dashboard');
         abort_403($this->viewTicketDashboard !== 'all');
 

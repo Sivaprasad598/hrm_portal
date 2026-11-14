@@ -163,10 +163,10 @@ class ContractsDataTable extends BaseDataTable
             })
             ->editColumn('client.name', function ($row) {
                 return '<div class="media align-items-center">
-                    <a href="' . route('clients.show', [$row->client_id]) . '">
+                    <a href="' . \App\Support\ModulePresence::url('clients.show', [$row->client_id]) . '">
                     <img src="' . $row->client->image_url . '" class="mr-2 taskEmployeeImg rounded-circle" alt="' . $row->client->name . '" title="' . $row->client->name . '"></a>
                     <div class="media-body">
-                    <h5 class="mb-0 f-13 text-darkest-grey"><a href="' . route('clients.show', [$row->client_id]) . '">' . $row->client->name_salutation . '</a></h5>
+                    <h5 class="mb-0 f-13 text-darkest-grey"><a href="' . \App\Support\ModulePresence::url('clients.show', [$row->client_id]) . '">' . $row->client->name_salutation . '</a></h5>
                     <p class="mb-0 f-13 text-dark-grey">' . $row->client->clientDetails->company_name . '</p>
                     </div>
                   </div>';

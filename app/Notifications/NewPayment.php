@@ -2,7 +2,7 @@
 
 namespace App\Notifications;
 
-use App\Http\Controllers\PaymentController;
+use AppModules\Finance\Http\Controllers\PaymentController;
 use App\Models\EmailNotificationSetting;
 use App\Models\Payment;
 
@@ -61,7 +61,7 @@ class NewPayment extends BaseNotification
         $build = parent::build($notifiable);
 
         if (($this->payment->project_id && $this->payment->project->client_id != null) || ($this->payment->invoice_id && $this->payment->invoice->client_id != null)) {
-            $url = route('payments.show', $this->payment->id);
+            $url = \App\Support\ModulePresence::url('payments.show', $this->payment->id);
             $url = getDomainSpecificUrl($url, $this->company);
             $payment_gateway = !is_null($this->payment->gateway) ? $this->payment->gateway . (($this->payment->offlineMethods) ? ' (' . $this->payment->offlineMethods->name . ')' : '') : '--';
             $payment_invoice = $this->payment->invoice->custom_invoice_number ?? '--';
@@ -87,13 +87,15 @@ class NewPayment extends BaseNotification
                     '<br>' . __('email.payment.invoiceNumber') . '   :   ' . $payment_invoice;
             }
 
-            $paymentController = new PaymentController();
+            if (class_exists(PaymentController::class)) {
+                $paymentController = new PaymentController();
 
-            $pdfOption = $paymentController->domPdfObjectForDownload($this->payment->id);
+                $pdfOption = $paymentController->domPdfObjectForDownload($this->payment->id);
 
-            $pdf = $pdfOption['pdf'];
-            $filename = $pdfOption['fileName'];
-            $build->attachData($pdf->output(), $filename . '.pdf');
+                $pdf = $pdfOption['pdf'];
+                $filename = $pdfOption['fileName'];
+                $build->attachData($pdf->output(), $filename . '.pdf');
+            }
 
             $build
                 ->subject($subject)

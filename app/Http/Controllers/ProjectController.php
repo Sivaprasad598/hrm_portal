@@ -5,15 +5,15 @@ namespace App\Http\Controllers;
 use App\DataTables\ArchiveProjectsDataTable;
 use App\DataTables\ArchiveTasksDataTable;
 use App\DataTables\DiscussionDataTable;
-use App\DataTables\ExpensesDataTable;
-use App\DataTables\EstimatesDataTable;
-use App\DataTables\InvoicesDataTable;
-use App\DataTables\OrdersDataTable;
-use App\DataTables\PaymentsDataTable;
+use AppModules\Finance\DataTables\ExpensesDataTable;
+use AppModules\Finance\DataTables\EstimatesDataTable;
+use AppModules\Finance\DataTables\InvoicesDataTable;
+use AppModules\Finance\DataTables\OrdersDataTable;
+use AppModules\Finance\DataTables\PaymentsDataTable;
 use App\DataTables\ProjectNotesDataTable;
 use App\DataTables\ProjectsDataTable;
 use App\DataTables\TasksDataTable;
-use App\DataTables\TicketDataTable;
+use AppModules\Tickets\DataTables\TicketDataTable;
 use App\DataTables\TimeLogsDataTable;
 use App\Helper\Files;
 use App\Helper\Reply;
@@ -29,7 +29,7 @@ use App\Models\DiscussionCategory;
 use App\Models\Expense;
 use App\Models\GanttLink;
 use App\Models\Invoice;
-use App\Models\MessageSetting;
+use AppModules\Messages\Models\MessageSetting;
 use App\Models\Payment;
 use App\Models\Pinned;
 use App\Models\Project;
@@ -930,7 +930,7 @@ class ProjectController extends AccountBaseController
             $this->fields = $getCustomFieldGroupsWithFields->fields;
         }
 
-        $this->messageSetting = MessageSetting::first();
+        $this->messageSetting = class_exists(MessageSetting::class) ? MessageSetting::first() : null;
         $this->projectStatus = ProjectStatusSetting::where('status', 'active')->get();
 
         $tab = request('tab');
@@ -1411,6 +1411,7 @@ class ProjectController extends AccountBaseController
 
     public function estimates($projectId, $clientId)
     {
+        abort_if(!class_exists(\AppModules\Finance\DataTables\InvoicesDataTable::class), 404);
         $dataTable = new EstimatesDataTable(
             $projectId,
             $clientId
@@ -1429,6 +1430,7 @@ class ProjectController extends AccountBaseController
 
     public function invoices()
     {
+        abort_if(!class_exists(\AppModules\Finance\DataTables\InvoicesDataTable::class), 404);
         $dataTable = new InvoicesDataTable($this->onlyTrashedRecords);
         $viewPermission = user()->permission('view_project_invoices');
         abort_403(!in_array($viewPermission, ['all', 'added', 'owned']));
@@ -1577,6 +1579,7 @@ class ProjectController extends AccountBaseController
 
     public function expenses()
     {
+        abort_if(!class_exists(\AppModules\Finance\DataTables\InvoicesDataTable::class), 404);
         $dataTable = new ExpensesDataTable($this->onlyTrashedRecords);
         $viewPermission = user()->permission('view_project_expenses');
         abort_403(!in_array($viewPermission, ['all', 'added', 'owned']));
@@ -1592,6 +1595,7 @@ class ProjectController extends AccountBaseController
 
     public function payments()
     {
+        abort_if(!class_exists(\AppModules\Finance\DataTables\InvoicesDataTable::class), 404);
         $dataTable = new PaymentsDataTable($this->onlyTrashedRecords);
         $viewPermission = user()->permission('view_project_payments');
         abort_403(!in_array($viewPermission, ['all', 'added', 'owned']));
@@ -1726,6 +1730,7 @@ class ProjectController extends AccountBaseController
 
     public function tickets($projectAdmin = false)
     {
+        abort_if(!class_exists(\AppModules\Tickets\Models\Ticket::class), 404);
         $dataTable = new TicketDataTable($this->onlyTrashedRecords);
 
         if (!$projectAdmin) {
@@ -2210,6 +2215,7 @@ class ProjectController extends AccountBaseController
 
     public function orders()
     {
+        abort_if(!class_exists(\AppModules\Finance\DataTables\InvoicesDataTable::class), 404);
         $dataTable = new OrdersDataTable($this->onlyTrashedRecords);
         $viewPermission = user()->permission('view_project_orders');
         abort_403(!in_array($viewPermission, ['all', 'added', 'owned']));

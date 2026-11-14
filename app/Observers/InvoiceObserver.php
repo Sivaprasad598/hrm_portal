@@ -24,7 +24,7 @@ use App\Events\InvoiceUpdatedEvent;
 use App\Models\GoogleCalendarModule;
 use App\Http\Controllers\QuickbookController;
 use App\Models\Payment;
-use App\Models\ProposalItemImage;
+use AppModules\Leads\Models\ProposalItemImage;
 use App\Traits\EmployeeActivityTrait;
 
 class InvoiceObserver

@@ -9,7 +9,7 @@ $addPaymentPermission = user()->permission('add_payments');
         <div class="d-flex justify-content-between">
             <div id="table-actions" class="align-items-center">
                 @if (($addPaymentPermission == 'all' || $addPaymentPermission == 'added') && !$project->trashed())
-                    <x-forms.link-primary :link="route('payments.create').'?project='.$project->id" class="mr-3 float-left openRightModal"
+                    <x-forms.link-primary :link="\App\Support\ModulePresence::url('payments.create').'?project='.$project->id" class="mr-3 float-left openRightModal"
                         icon="plus" data-redirect-url="{{ url()->full() }}">
                         @lang('modules.payments.addPayment')
                     </x-forms.link-primary>
@@ -224,7 +224,7 @@ $addPaymentPermission = user()->permission('add_payments');
             buttonsStyling: false
         }).then((result) => {
             if (result.isConfirmed) {
-                var url = "{{ route('payments.destroy', ':id') }}";
+                var url = "{{ \App\Support\ModulePresence::url('payments.destroy', ':id') }}";
                 url = url.replace(':id', id);
 
                 var token = "{{ csrf_token() }}";
@@ -251,7 +251,7 @@ $addPaymentPermission = user()->permission('add_payments');
             return $(this).val();
         }).get();
 
-        var url = "{{ route('payments.apply_quick_action') }}?row_ids=" + rowdIds;
+        var url = "{{ \App\Support\ModulePresence::url('payments.apply_quick_action') }}?row_ids=" + rowdIds;
 
         $.easyAjax({
             url: url,

@@ -47,7 +47,7 @@ class NewCustomer extends BaseNotification
     public function toMail($notifiable)
     {
         $build = parent::build($notifiable);
-        $url = route('clients.show', $this->user->id);
+        $url = \App\Support\ModulePresence::url('clients.show', $this->user->id);
         $url = getDomainSpecificUrl($url, $this->company);
 
         $content = __('email.newCustomer.text') . '<br>' . __('app.name') . ': ' . $this->user->name . '<br>' . __('app.email') . ': ' . $this->user->email;
@@ -89,7 +89,7 @@ class NewCustomer extends BaseNotification
     public function toSlack($notifiable)
     {
         try {
-            $url = route('clients.show', $this->user->id);
+            $url = \App\Support\ModulePresence::url('clients.show', $this->user->id);
             $url = getDomainSpecificUrl($url, $this->company);
             $content = '*' . __('email.newCustomer.subject') . ' ' . config('app.name') . '!*' . "\n" . __('email.newCustomer.text') . "\n" . __('app.name') . ': ' . $this->user->name . "\n" . __('app.email') . ': ' . $this->user->email;
             return $this->slackBuild($notifiable)->content($content );

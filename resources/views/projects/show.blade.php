@@ -81,19 +81,19 @@ $projectArchived = $project->trashed();
                         @endif
                     @endif
 
-                    @if (in_array('invoices', user_modules()) && !is_null($project->client_id) && ($viewInvoicePermission == 'all' || ($viewInvoicePermission == 'added' && user()->id == $project->added_by) || ($viewInvoicePermission == 'owned' && user()->id == $project->client_id)))
+                    @if (Route::has('invoices.index') && in_array('invoices', user_modules()) && !is_null($project->client_id) && ($viewInvoicePermission == 'all' || ($viewInvoicePermission == 'added' && user()->id == $project->added_by) || ($viewInvoicePermission == 'owned' && user()->id == $project->client_id)))
                         <li>
                             <x-tab :href="route('projects.show', $project->id).'?tab=invoices'" :text="__('app.menu.invoices')" class="invoices" ajax="false" />
                         </li>
                     @endif
 
-                    @if (in_array('estimates', user_modules()) && ($viewEstimatePermission == 'all' || ($viewEstimatePermission == 'added' && user()->id == $project->added_by) || ($viewEstimatePermission == 'owned' && user()->id == $project->client_id)))
+                    @if (Route::has('estimates.index') && in_array('estimates', user_modules()) && ($viewEstimatePermission == 'all' || ($viewEstimatePermission == 'added' && user()->id == $project->added_by) || ($viewEstimatePermission == 'owned' && user()->id == $project->client_id)))
                         <li>
                             <x-tab :href="route('projects.show', $project->id).'?tab=estimates'" :text="__('app.menu.estimates')" class="estimates" ajax="false" />
                         </li>
                     @endif
 
-                    @if (in_array('orders', user_modules()) && !is_null($project->client_id) && ($viewOrderPermission == 'all' || ($viewOrderPermission == 'added' && user()->id == $project->added_by) || ($viewOrderPermission == 'owned' && user()->id == $project->client_id)))
+                    @if (Route::has('orders.index') && in_array('orders', user_modules()) && !is_null($project->client_id) && ($viewOrderPermission == 'all' || ($viewOrderPermission == 'added' && user()->id == $project->added_by) || ($viewOrderPermission == 'owned' && user()->id == $project->client_id)))
                         <li>
                             <x-tab :href="route('projects.show', $project->id).'?tab=orders'" :text="__('app.menu.orders')" class="orders" ajax="false" />
                         </li>
@@ -105,7 +105,7 @@ $projectArchived = $project->trashed();
                         </li>
                     @endif
 
-                    @if (in_array('expenses', user_modules()) && ($viewExpensePermission == 'all' || ($viewExpensePermission == 'added' && user()->id == $project->added_by) || ($viewExpensePermission == 'owned' && user()->id == $project->client_id)))
+                    @if (Route::has('expenses.index') && in_array('expenses', user_modules()) && ($viewExpensePermission == 'all' || ($viewExpensePermission == 'added' && user()->id == $project->added_by) || ($viewExpensePermission == 'owned' && user()->id == $project->client_id)))
                         <li>
                             <x-tab :href="route('projects.show', $project->id).'?tab=expenses'" :text="__('app.menu.expenses')" class="expenses" ajax="false" />
                         </li>
@@ -120,7 +120,7 @@ $projectArchived = $project->trashed();
                         </li>
                     @endif
 
-                    @if (in_array('payments', user_modules()) && !is_null($project->client_id) && ($viewPaymentPermission == 'all' || ($viewPaymentPermission == 'added' && user()->id == $project->added_by) || ($viewPaymentPermission == 'owned' && user()->id == $project->client_id)))
+                    @if (Route::has('payments.index') && in_array('payments', user_modules()) && !is_null($project->client_id) && ($viewPaymentPermission == 'all' || ($viewPaymentPermission == 'added' && user()->id == $project->added_by) || ($viewPaymentPermission == 'owned' && user()->id == $project->client_id)))
                         <li>
                             <x-tab :href="route('projects.show', $project->id).'?tab=payments'" :text="__('app.menu.payments')" class="payments" ajax="false" />
                         </li>
@@ -158,7 +158,7 @@ $projectArchived = $project->trashed();
                         </li>
                     @endif
 
-                    @if ($viewNotePermission != 'none' )
+                    @if ($viewNotePermission != 'none' && Route::has('tickets.index'))
                         <li>
                             <x-tab :href="route('projects.show', $project->id).'?tab=tickets'" :text="__('app.menu.tickets')" class="tickets" ajax="false" />
                         </li>

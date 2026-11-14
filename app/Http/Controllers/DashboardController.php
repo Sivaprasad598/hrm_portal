@@ -4,18 +4,18 @@ namespace App\Http\Controllers;
 
 use App\Helper\Reply;
 use App\Models\DashboardWidget;
-use App\Models\DealFollowUp;
+use AppModules\Leads\Models\DealFollowUp;
 use App\Models\EmployeeDetails;
 use App\Models\Event;
 use App\Models\Holiday;
-use App\Models\LeadPipeline;
+use AppModules\Leads\Models\LeadPipeline;
 use App\Models\Leave;
 use App\Models\ProjectTimeLog;
 use App\Models\ProjectTimeLogBreak;
 use App\Models\PushNotificationSetting;
 use App\Models\Task;
 use App\Models\TaskboardColumn;
-use App\Models\Ticket;
+use AppModules\Tickets\Models\Ticket;
 use App\Traits\ClientDashboard;
 use App\Traits\ClientPanelDashboard;
 use App\Traits\CurrencyExchange;
@@ -145,6 +145,7 @@ class DashboardController extends AccountBaseController
                 $this->projectDashboard();
                 break;
             case 'client':
+                abort_if(!\Illuminate\Support\Facades\Route::has('clients.index'), 404);
                 $this->clientDashboard();
                 break;
             case 'hr':
@@ -154,6 +155,7 @@ class DashboardController extends AccountBaseController
                 $this->ticketDashboard();
                 break;
             case 'finance':
+                abort_if(!\Illuminate\Support\Facades\Route::has('invoices.index'), 404);
                 $this->financeDashboard();
                 break;
             default:
@@ -368,7 +370,7 @@ class DashboardController extends AccountBaseController
 
         if (!is_null($viewTicketPerm) && $viewTicketPerm != 'none') {
 
-            if (in_array('tickets', $calendar_filter_array)) {
+            if (in_array('tickets', $calendar_filter_array) && class_exists(\AppModules\Tickets\Models\Ticket::class)) {
                 $userid = user()->id;
 
                 // tickets
@@ -426,7 +428,7 @@ class DashboardController extends AccountBaseController
 
         if (!is_null($viewDealPerm) && $viewDealPerm != 'none') {
 
-            if (in_array('follow_ups', $calendar_filter_array)) {
+            if (in_array('follow_ups', $calendar_filter_array) && class_exists(\AppModules\Leads\Models\Lead::class)) {
                 // follow ups
                 $followUps = DealFollowUp::with('lead')->whereHas('lead.leadAgent', function ($query) {
                         $query->where('user_id', user()->id);
@@ -458,6 +460,7 @@ class DashboardController extends AccountBaseController
         $startDate = $this->startDate->toDateString();
         $endDate = $this->endDate->toDateString();
 
+        abort_if(!class_exists(\AppModules\Leads\Models\Lead::class), 404);
         $this->leadPipelines = LeadPipeline::all();
 
         $this->leadStatusChart = $this->leadStatusChart($startDate, $endDate, $pipelineId);

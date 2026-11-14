@@ -4,13 +4,11 @@ namespace App\Providers;
 
 use App\Events\AppreciationEvent;
 use App\Events\AttendanceReminderEvent;
-use App\Events\AutoFollowUpReminderEvent;
 use App\Events\AutoTaskReminderEvent;
 use App\Events\BirthdayReminderEvent;
 use App\Events\BulkShiftEvent;
 use App\Events\ContractSignedEvent;
 use App\Events\DailyTimeLogReportEvent;
-use App\Events\DealEvent;
 use App\Events\DiscussionEvent;
 use App\Events\DiscussionReplyEvent;
 use App\Events\EmployeeShiftChangeEvent;
@@ -26,9 +24,7 @@ use App\Events\InvoicePaymentReceivedEvent;
 use App\Events\InvoiceReminderAfterEvent;
 use App\Events\InvoiceReminderEvent;
 use App\Events\InvoiceUpdatedEvent;
-use App\Events\LeadEvent;
 use App\Events\LeaveEvent;
-use App\Events\NewChatEvent;
 use App\Events\NewContractEvent;
 use App\Events\NewCreditNoteEvent;
 use App\Events\NewEstimateEvent;
@@ -37,13 +33,11 @@ use App\Events\NewExpenseRecurringEvent;
 use App\Events\NewInvoiceEvent;
 use App\Events\NewInvoiceRecurringEvent;
 use App\Events\NewIssueEvent;
-use App\Events\NewNoticeEvent;
 use App\Events\NewOrderEvent;
 use App\Events\NewPaymentEvent;
 use App\Events\NewProductPurchaseEvent;
 use App\Events\NewProjectEvent;
 use App\Events\NewProjectMemberEvent;
-use App\Events\NewProposalEvent;
 use App\Events\NewEmployeeAddedEvent;
 use App\Events\NewUserEvent;
 use App\Events\NewUserSlackEvent;
@@ -54,8 +48,6 @@ use App\Events\ProjectReminderEvent;
 use App\Events\RemovalRequestAdminEvent;
 use App\Events\RequestRegularisationEvent;
 use App\Events\RequestRegulariseEvent;
-use App\Events\RemovalRequestAdminLeadEvent;
-use App\Events\RemovalRequestApprovedRejectLeadEvent;
 use App\Events\RemovalRequestApprovedRejectUserEvent;
 use App\Events\RemovalRequestApproveRejectEvent;
 use App\Events\ResignationEvent;
@@ -65,16 +57,11 @@ use App\Events\TaskCommentMentionEvent;
 use App\Events\TaskEvent;
 use App\Events\TaskNoteEvent;
 use App\Events\TaskReminderEvent;
-use App\Events\TicketEvent;
-use App\Events\TicketReplyEvent;
-use App\Events\TicketRequesterEvent;
 use App\Events\TimeTrackerReminderEvent;
 use App\Events\DiscussionMentionEvent;
 use App\Events\EventInviteMentionEvent;
 use App\Events\EventStatusNoteEvent;
-use App\Events\MailTicketReplyEvent;
 use App\Events\MonthlyAttendanceEvent;
-use App\Events\NewMentionChatEvent;
 use App\Events\ProjectNoteEvent;
 use App\Events\ProjectNoteMentionEvent;
 use App\Events\ProjectNoteUpdateEvent;
@@ -88,14 +75,12 @@ use App\Events\WeeklyTimesheetApprovedEvent;
 use App\Events\WeeklyTimesheetDraftEvent;
 use App\Listeners\AppreciationListener;
 use App\Listeners\AttendanceReminderListener;
-use App\Listeners\AutoFollowUpReminderListener;
 use App\Listeners\AutoTaskReminderListener;
 use App\Listeners\BirthdayReminderListener;
 use App\Listeners\BulkShiftListener;
 use App\Listeners\ContractSignedListener;
 use App\Listeners\DailyTimeLogReportListener;
 use App\Listeners\EventCompletedListener;
-use App\Listeners\DealListener;
 use App\Listeners\DiscussionListener;
 use App\Listeners\DiscussionReplyListener;
 use App\Listeners\EmployeeShiftChangeListener;
@@ -110,10 +95,8 @@ use App\Listeners\InvoicePaymentReceivedListener;
 use App\Listeners\InvoiceReminderAfterListener;
 use App\Listeners\InvoiceReminderListener;
 use App\Listeners\InvoiceUpdatedListener;
-use App\Listeners\LeadListener;
 use App\Listeners\LeaveListener;
 use App\Listeners\LogSuccessfulLogin;
-use App\Listeners\NewChatListener;
 use App\Listeners\NewContractListener;
 use App\Listeners\NewCreditNoteListener;
 use App\Listeners\NewEstimateListener;
@@ -122,13 +105,11 @@ use App\Listeners\NewExpenseRecurringListener;
 use App\Listeners\NewInvoiceListener;
 use App\Listeners\NewInvoiceRecurringListener;
 use App\Listeners\NewIssueListener;
-use App\Listeners\NewNoticeListener;
 use App\Listeners\NewOrderListener;
 use App\Listeners\NewPaymentListener;
 use App\Listeners\NewProductPurchaseListener;
 use App\Listeners\NewProjectListener;
 use App\Listeners\NewProjectMemberListener;
-use App\Listeners\NewProposalListener;
 use App\Listeners\NewEmployeeAddedListener;
 use App\Listeners\NewUserListener;
 use App\Listeners\NewUserSlackListener;
@@ -136,9 +117,7 @@ use App\Listeners\NewUserRegistrationViaInviteListener;
 use App\Listeners\OrderUpdatedListener;
 use App\Listeners\PaymentReminderListener;
 use App\Listeners\ProjectReminderListener;
-use App\Listeners\RemovalRequestAdminLeadListener;
 use App\Listeners\RemovalRequestAdminListener;
-use App\Listeners\RemovalRequestApprovedRejectLeadListener;
 use App\Listeners\RemovalRequestApprovedRejectListener;
 use App\Listeners\RemovalRequestApprovedRejectUserListener;
 use App\Listeners\ResignationListener;
@@ -148,16 +127,11 @@ use App\Listeners\TaskCommentMentionListener;
 use App\Listeners\TaskListener;
 use App\Listeners\TaskNoteListener;
 use App\Listeners\TaskReminderListener;
-use App\Listeners\TicketListener;
-use App\Listeners\TicketReplyListener;
-use App\Listeners\TicketRequesterListener;
 use App\Listeners\TimeTrackerReminderListener;
 use App\Listeners\DiscussionMentionListener;
 use App\Listeners\EventInviteMentionListener;
 use App\Listeners\EventStatusNoteListener;
-use App\Listeners\MailTicketReplyListener;
 use App\Listeners\MonthlyAttendanceListener;
-use App\Listeners\NewMentionChatListener;
 use App\Listeners\ProjectNoteListener;
 use App\Listeners\ProjectNoteMentionListener;
 use App\Listeners\ProjectNoteUpdateListener;
@@ -182,9 +156,7 @@ use App\Models\ClientCategory;
 use App\Models\ClientContact;
 use App\Models\ClientDetails;
 use App\Models\ClientDocument;
-use App\Models\ClientNote;
 use App\Models\ClientSubCategory;
-use App\Models\ClientUserNote;
 use App\Models\Company;
 use App\Models\CompanyAddress;
 use App\Models\Contract;
@@ -231,32 +203,14 @@ use App\Models\Invoice;
 use App\Models\InvoiceFiles;
 use App\Models\InvoiceSetting;
 use App\Models\Issue;
-use App\Models\KnowledgeBase;
-use App\Models\KnowledgeBaseCategory;
 use App\Models\LanguageSetting;
-use App\Models\Deal;
-use App\Models\LeadAgent;
-use App\Models\LeadCategory;
-use App\Models\LeadCustomForm;
-use App\Models\DealFile;
-use App\Models\DealFollowUp;
-use App\Models\DealNote;
 use App\Models\EstimateRequest;
-use App\Models\Lead;
-use App\Models\LeadNote;
-use App\Models\LeadPipeline;
-use App\Models\LeadSource;
-use App\Models\PipelineStage;
-use App\Models\LeadStatus;
 use App\Models\Leave;
 use App\Models\LeaveFile;
 use App\Models\LeaveSetting;
 use App\Models\LeaveType;
 use App\Models\LogTimeFor;
-use App\Models\MessageSetting;
 use App\Models\ModuleSetting;
-use App\Models\Notice;
-use App\Models\NoticeView;
 use App\Models\OfflinePaymentMethod;
 use App\Models\Order;
 use App\Models\Payment;
@@ -279,8 +233,6 @@ use App\Models\ProjectStatusSetting;
 use App\Models\ProjectTemplate;
 use App\Models\ProjectTimeLog;
 use App\Models\ProjectTimeLogBreak;
-use App\Models\Proposal;
-use App\Models\ProposalTemplate;
 use App\Models\RecurringInvoice;
 use App\Models\RemovalRequest;
 use App\Models\Resignation;
@@ -300,26 +252,11 @@ use App\Models\TaskUser;
 use App\Models\Tax;
 use App\Models\Team;
 use App\Models\ThemeSetting;
-use App\Models\Ticket;
-use App\Models\TicketAgentGroups;
-use App\Models\TicketFile;
-use App\Models\TicketChannel;
-use App\Models\TicketCustomForm;
-use App\Models\TicketEmailSetting;
-use App\Models\TicketGroup;
-use App\Models\TicketReply;
-use App\Models\TicketReplyTemplate;
-use App\Models\TicketTag;
-use App\Models\TicketTagList;
-use App\Models\TicketType;
 use App\Models\UnitType;
 use App\Models\UniversalSearch;
 use App\Models\User;
 use App\Models\UserActivity;
-use App\Models\UserChat;
-use App\Models\UserchatFile;
 use App\Models\UserInvitation;
-use App\Models\UserLeadboardSetting;
 use App\Models\UserPermission;
 use App\Models\UserTaskboardSetting;
 use App\Models\WeeklyTimesheet;
@@ -336,9 +273,7 @@ use App\Observers\ClientCategoryObserver;
 use App\Observers\ClientContactObserver;
 use App\Observers\ClientDetailsObserver;
 use App\Observers\ClientDocumentObserver;
-use App\Observers\ClientNoteObserver;
 use App\Observers\ClientSubCategoryObserver;
-use App\Observers\ClientUserNotesObserver;
 use App\Observers\CompanyAddressObserver;
 use App\Observers\CompanyObserver;
 use App\Observers\ContractDiscussionObserver;
@@ -355,8 +290,6 @@ use App\Observers\CustomFieldGroupObserver;
 use App\Observers\CustomFieldsObserver;
 use App\Observers\CustomLinkSettingObserver;
 use App\Observers\DashboardWidgetObserver;
-use App\Observers\DealNoteObserver;
-use App\Observers\DealObserver;
 use App\Observers\DesignationObserver;
 use App\Observers\DiscussionCategoryObserver;
 use App\Observers\DiscussionFileObserver;
@@ -394,35 +327,19 @@ use App\Listeners\HolidayListener;
 use App\Listeners\NewEstimateRequestListener;
 use App\Listeners\PromotionAddedListener;
 use App\Listeners\ShiftRotationListener;
-use App\Models\NoticeFile;
 use App\Models\ProjectTemplateMilestone;
 use App\Models\Promotion;
 use App\Observers\InvoiceObserver;
 use App\Observers\InvoiceRecurringObserver;
 use App\Observers\InvoiceSettingObserver;
 use App\Observers\IssueObserver;
-use App\Observers\KnowledgeBaseCategoriesObserver;
-use App\Observers\KnowledgeBaseObserver;
 use App\Observers\LanguageSettingObserver;
-use App\Observers\LeadAgentObserver;
-use App\Observers\LeadCategoryObserver;
-use App\Observers\LeadCustomFormObserver;
-use App\Observers\LeadFileObserver;
-use App\Observers\LeadFollowUpObserver;
-use App\Observers\LeadNoteObserver;
-use App\Observers\LeadObserver;
-use App\Observers\LeadSourceObserver;
-use App\Observers\LeadStatusObserver;
 use App\Observers\LeaveFileObserver;
 use App\Observers\LeaveObserver;
 use App\Observers\LeaveSettingObserver;
 use App\Observers\LeaveTypeObserver;
 use App\Observers\LogTimeForObserver;
-use App\Observers\MessageSettingObserver;
 use App\Observers\ModuleSettingObserver;
-use App\Observers\NewChatObserver;
-use App\Observers\NoticeObserver;
-use App\Observers\NoticeViewObserver;
 use App\Observers\OfflinePaymentMethodObserver;
 use App\Observers\OrderObserver;
 use App\Observers\PaymentGatewayCredentialsObserver;
@@ -444,8 +361,6 @@ use App\Observers\ProjectStatusSettingObserver;
 use App\Observers\ProjectTemplateObserver;
 use App\Observers\ProjectTimelogBreakObserver;
 use App\Observers\ProjectTimelogObserver;
-use App\Observers\ProposalObserver;
-use App\Observers\ProposalTemplateObserver;
 use App\Observers\RemovalRequestObserver;
 use App\Observers\ResignationObserver;
 use App\Observers\RoleObserver;
@@ -457,9 +372,6 @@ use App\Observers\TaskCategoryObserver;
 use App\Observers\TaskCommentObserver;
 use App\Observers\TaskFileObserver;
 use App\Observers\InvoiceFileObserver;
-use App\Observers\LeadPipelineObserver;
-use App\Observers\LeadStageObserver;
-use App\Observers\NoticeFileObserver;
 use App\Observers\ProjectTemplateMilestoneObserver;
 use App\Observers\PromotionObserver;
 use App\Observers\TaskLabelListObserver;
@@ -470,24 +382,10 @@ use App\Observers\TaskUserObserver;
 use App\Observers\TaxObserver;
 use App\Observers\TeamObserver;
 use App\Observers\ThemeSettingObserver;
-use App\Observers\TicketAgentGroupsObserver;
-use App\Observers\TicketChannelObserver;
-use App\Observers\TicketCustomFormObserver;
-use App\Observers\TicketEmailSettingObserver;
-use App\Observers\TicketGroupObserver;
-use App\Observers\TicketObserver;
-use App\Observers\TicketReplyObserver;
-use App\Observers\TicketFileObserver;
-use App\Observers\TicketReplyTemplateObserver;
-use App\Observers\TicketTagListObserver;
-use App\Observers\TicketTagObserver;
-use App\Observers\TicketTypeObserver;
 use App\Observers\UnitTypeObserver;
 use App\Observers\UniversalSearchObserver;
 use App\Observers\UserActivityObserver;
-use App\Observers\UserchatFileObserver;
 use App\Observers\UserInvitationObserver;
-use App\Observers\UserLeadboardSettingObserver;
 use App\Observers\UserObserver;
 use App\Observers\UserPermissionObserver;
 use App\Observers\UserTaskboardSettingObserver;
@@ -519,25 +417,18 @@ class EventServiceProvider extends ServiceProvider
         InvoicePaymentReceivedEvent::class => [InvoicePaymentReceivedListener::class],
         NewIssueEvent::class => [NewIssueListener::class],
         LeaveEvent::class => [LeaveListener::class],
-        NewChatEvent::class => [NewChatListener::class],
-        NewMentionChatEvent::class => [NewMentionChatListener::class],
-        NewNoticeEvent::class => [NewNoticeListener::class],
         NewPaymentEvent::class => [NewPaymentListener::class],
         NewProjectMemberEvent::class => [NewProjectMemberListener::class],
         ProjectNoteMentionEvent::class => [ProjectNoteMentionListener::class],
         ProjectNoteEvent::class => [ProjectNoteListener::class],
         ProjectNoteUpdateEvent::class => [ProjectNoteUpdateListener::class],
-        RemovalRequestAdminLeadEvent::class => [RemovalRequestAdminLeadListener::class],
         RemovalRequestAdminEvent::class => [RemovalRequestAdminListener::class],
-        RemovalRequestApprovedRejectLeadEvent::class => [RemovalRequestApprovedRejectLeadListener::class],
         RemovalRequestApprovedRejectUserEvent::class => [RemovalRequestApprovedRejectUserListener::class],
         TaskCommentEvent::class => [TaskCommentListener::class],
         TaskCommentMentionEvent::class => [TaskCommentMentionListener::class],
         TaskNoteEvent::class => [TaskNoteListener::class],
         TaskNoteMentionEvent::class => [TaskNoteMentionListener::class],
         TaskEvent::class => [TaskListener::class],
-        TicketEvent::class => [TicketListener::class],
-        TicketReplyEvent::class => [TicketReplyListener::class],
         EventInviteEvent::class => [EventInviteListener::class],
         EventCompletedEvent::class => [EventCompletedListener::class],
         ProjectReminderEvent::class => [ProjectReminderListener::class],
@@ -545,13 +436,10 @@ class EventServiceProvider extends ServiceProvider
         AutoTaskReminderEvent::class => [AutoTaskReminderListener::class],
         TaskReminderEvent::class => [TaskReminderListener::class],
         EventReminderEvent::class => [EventReminderListener::class],
-        LeadEvent::class => [LeadListener::class],
         DiscussionReplyEvent::class => [DiscussionReplyListener::class],
         DiscussionEvent::class => [DiscussionListener::class],
         DiscussionMentionEvent::class => [DiscussionMentionListener::class],
         EstimateDeclinedEvent::class => [EstimateDeclinedListener::class],
-        NewProposalEvent::class => [NewProposalListener::class],
-        TicketRequesterEvent::class => [TicketRequesterListener::class],
         RemovalRequestApproveRejectEvent::class => [RemovalRequestApprovedRejectListener::class],
         NewExpenseRecurringEvent::class => [NewExpenseRecurringListener::class],
         NewInvoiceRecurringEvent::class => [NewInvoiceRecurringListener::class],
@@ -565,7 +453,6 @@ class EventServiceProvider extends ServiceProvider
         NewOrderEvent::class => [NewOrderListener::class],
         OrderUpdatedEvent::class => [OrderUpdatedListener::class],
         NewUserRegistrationViaInviteEvent::class => [NewUserRegistrationViaInviteListener::class],
-        AutoFollowUpReminderEvent::class => [AutoFollowUpReminderListener::class],
         ContractSignedEvent::class => [ContractSignedListener::class],
         EmployeeShiftScheduleEvent::class => [EmployeeShiftScheduleListener::class],
         EmployeeShiftChangeEvent::class => [EmployeeShiftChangeListener::class],
@@ -576,12 +463,10 @@ class EventServiceProvider extends ServiceProvider
         HolidayEvent::class => [HolidayListener::class],
         EstimateAcceptedEvent::class => [EstimateAcceptedListener::class],
         EventInviteMentionEvent::class => [EventInviteMentionListener::class],
-        DealEvent::class => [DealListener::class],
         EventStatusNoteEvent::class => [EventStatusNoteListener::class],
         BulkShiftEvent::class => [BulkShiftListener::class],
         MonthlyAttendanceEvent::class => [MonthlyAttendanceListener::class],
         DailyTimeLogReportEvent::class => [DailyTimeLogReportListener::class],
-        MailTicketReplyEvent::class => [MailTicketReplyListener::class],
         DailyScheduleEvent::class => [DailyScheduleListener::class],
         EstimateRequestRejectedEvent::class => [EstimateRequestRejectedListener::class],
         EstimateRequestAcceptedEvent::class => [EstimateRequestAcceptedListener::class],
@@ -601,8 +486,6 @@ class EventServiceProvider extends ServiceProvider
         ClientContact::class => [ClientContactObserver::class],
         ClientDetails::class => [ClientDetailsObserver::class],
         ClientDocument::class => [ClientDocumentObserver::class],
-        ClientNote::class => [ClientNoteObserver::class],
-        ClientUserNote::class => [ClientUserNotesObserver::class],
         Contract::class => [ContractObserver::class],
         ContractDiscussion::class => [ContractDiscussionObserver::class],
         ContractFile::class => [ContractFileObserver::class],
@@ -626,21 +509,9 @@ class EventServiceProvider extends ServiceProvider
         Invoice::class => [InvoiceObserver::class],
         InvoiceSetting::class => [InvoiceSettingObserver::class],
         Issue::class => [IssueObserver::class],
-        Deal::class => [DealObserver::class],
-        LeadAgent::class => [LeadAgentObserver::class],
-        LeadCategory::class => [LeadCategoryObserver::class],
-        LeadCustomForm::class => [LeadCustomFormObserver::class],
-        DealFile::class => [LeadFileObserver::class],
-        DealFollowUp::class => [LeadFollowUpObserver::class],
-        LeadNote::class => [LeadNoteObserver::class],
-        DealNote::class => [DealNoteObserver::class],
-        LeadSource::class => [LeadSourceObserver::class],
-        LeadStatus::class => [LeadStatusObserver::class],
         Leave::class => [LeaveObserver::class, \App\Observers\AttendanceReviewRefresher::class],
         LeaveSetting::class => [LeaveSettingObserver::class],
         LeaveType::class => [LeaveTypeObserver::class],
-        Notice::class => [NoticeObserver::class],
-        NoticeFile::class => [NoticeFileObserver::class],
         Order::class => [OrderObserver::class],
         Payment::class => [PaymentObserver::class],
         PermissionRole::class => [PermissionRoleObserver::class],
@@ -657,7 +528,6 @@ class EventServiceProvider extends ServiceProvider
         ProjectRating::class => [ProjectRatingObserver::class],
         ProjectTimeLog::class => [ProjectTimelogObserver::class],
         ProjectTimeLogBreak::class => [ProjectTimelogBreakObserver::class],
-        Proposal::class => [ProposalObserver::class],
         RecurringInvoice::class => [InvoiceRecurringObserver::class],
         RemovalRequest::class => [RemovalRequestObserver::class],
         Resignation::class => [ResignationObserver::class],
@@ -672,13 +542,7 @@ class EventServiceProvider extends ServiceProvider
         TaskLabelList::class => [TaskLabelListObserver::class],
         TaskNote::class => [TaskNoteObserver::class],
         TaskUser::class => [TaskUserObserver::class],
-        Ticket::class => [TicketObserver::class],
-        TicketEmailSetting::class => [TicketEmailSettingObserver::class],
-        TicketReply::class => [TicketReplyObserver::class],
-        TicketFile::class => [TicketFileObserver::class],
-        TicketReplyTemplate::class => [TicketReplyTemplateObserver::class],
         User::class => [UserObserver::class],
-        UserChat::class => [NewChatObserver::class],
         UserInvitation::class => [UserInvitationObserver::class],
         CompanyAddress::class => [CompanyAddressObserver::class],
         ContractType::class => [ContractTypeObserver::class],
@@ -693,23 +557,14 @@ class EventServiceProvider extends ServiceProvider
         Tax::class => [TaxObserver::class],
         Team::class => [TeamObserver::class],
         ThemeSetting::class => [ThemeSettingObserver::class],
-        TicketGroup::class => [TicketGroupObserver::class],
-        TicketAgentGroups::class => [TicketAgentGroupsObserver::class],
-        TicketChannel::class => [TicketChannelObserver::class],
-        TicketCustomForm::class => [TicketCustomFormObserver::class],
-        TicketType::class => [TicketTypeObserver::class],
         UniversalSearch::class => [UniversalSearchObserver::class],
         AttendanceSetting::class => [AttendanceSettingObserver::class],
-        MessageSetting::class => [MessageSettingObserver::class],
         Currency::class => [CurrencyObserver::class],
-        KnowledgeBaseCategory::class => [KnowledgeBaseCategoriesObserver::class],
-        KnowledgeBase::class => [KnowledgeBaseObserver::class],
         Company::class => [CompanyObserver::class],
         StickyNote::class => [StickyNoteObserver::class],
         Skill::class => [SkillObserver::class],
         ProjectStatusSetting::class => [ProjectStatusSettingObserver::class],
         UserPermission::class => [UserPermissionObserver::class],
-        ProposalTemplate::class => [ProposalTemplateObserver::class],
         BankAccount::class => [BankAccountObserver::class],
         BankTransaction::class => [BankTransactionObserver::class],
         Award::class => [AwardObserver::class],
@@ -724,15 +579,10 @@ class EventServiceProvider extends ServiceProvider
         CustomFieldGroup::class => [CustomFieldGroupObserver::class],
         EmployeeSkill::class => [EmployeeSkillObserver::class],
         EmployeeTeam::class => [EmployeeTeamObserver::class],
-        NoticeView::class => [NoticeViewObserver::class],
         PaymentGatewayCredentials::class => [PaymentGatewayCredentialsObserver::class],
-        TicketTag::class => [TicketTagObserver::class],
-        TicketTagList::class => [TicketTagListObserver::class],
-        UserchatFile::class => [UserchatFileObserver::class],
         UserActivity::class => [UserActivityObserver::class],
         FileStorage::class => [FileStorageObserver::class],
         UserTaskboardSetting::class => [UserTaskboardSettingObserver::class],
-        UserLeadboardSetting::class => [UserLeadboardSettingObserver::class],
         ClientCategory::class => [ClientCategoryObserver::class],
         ClientSubCategory::class => [ClientSubCategoryObserver::class],
         ProductCategory::class => [ProductCategoryObserver::class],
@@ -747,9 +597,6 @@ class EventServiceProvider extends ServiceProvider
         LanguageSetting::class => [LanguageSettingObserver::class],
         GlobalSetting::class => [GlobalSettingObserver::class],
         CustomLinkSetting::class => [CustomLinkSettingObserver::class],
-        PipelineStage::class => [LeadStageObserver::class],
-        LeadPipeline::class => [LeadPipelineObserver::class],
-        Lead::class => [LeadObserver::class],
         EstimateRequest::class => [EstimateRequestObserver::class],
         Promotion::class => [PromotionObserver::class],
         WeeklyTimesheet::class => [WeeklyTimeSheetObserver::class],

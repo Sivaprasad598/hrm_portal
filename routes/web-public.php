@@ -18,7 +18,6 @@ use App\Http\Controllers\Payment\RazorPayController;
 use App\Http\Controllers\Payment\AuthorizeController;
 use App\Http\Controllers\Payment\FlutterwaveController;
 use App\Http\Controllers\Payment\StripeWebhookController;
-use App\Http\Controllers\PublicLeadGdprController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -43,10 +42,6 @@ Route::post('invoice-stripe/save-stripe-detail/', [HomeController::class, 'saveS
 Route::get('/invoice/download/{id}', [HomeController::class, 'downloadInvoice'])->name('front.invoice_download');
 Route::post('/invoice-payment-failed/{invoiceId}', [HomeController::class, 'invoicePaymentfailed'])->name('front.invoice_payment_failed');
 
-Route::get('/lead-form/{id}', [HomeController::class, 'leadForm'])->name('front.lead_form');
-Route::post('/lead-form/leadStore', [HomeController::class, 'leadStore'])->name('front.lead_store');
-Route::get('/ticket-form/{id}', [HomeController::class, 'ticketForm'])->name('front.ticket_form');
-Route::post('/lead-form/ticket-store', [HomeController::class, 'ticketStore'])->name('front.ticket_store');
 
 Route::post('/contract/sign/{id}', [PublicUrlController::class, 'contractSign'])->name('front.contract.sign');
 Route::get('/contract/download/{id}', [PublicUrlController::class, 'contractDownload'])->name('front.contract.download');
@@ -66,14 +61,9 @@ Route::get('/task-board/load-more/{hash}', [HomeController::class, 'taskboardLoa
 
 
 
-Route::post('/proposal-action/{id}', [HomeController::class, 'proposalActionStore'])->name('front.proposal_action');
-Route::get('/proposal/download/{id}', [HomeController::class, 'downloadProposal'])->name('front.download_proposal');
 
 
 
-Route::get('/consent/l/{hash}', [PublicLeadGdprController::class, 'consent'])->name('front.gdpr.consent');
-Route::post('/consent/remove-lead-request', [PublicLeadGdprController::class, 'learemoveLeadRequestd'])->name('front.gdpr.remove_lead_request');
-Route::post('/consent/l/update/{lead}', [PublicLeadGdprController::class, 'updateConsent'])->name('front.gdpr.consent.update');
 
 // Socialite routes
 Route::get('/redirect/{provider}', [LoginController::class, 'redirect'])->name('social_login');
@@ -143,7 +133,6 @@ Route::get('sync-user-permissions', [HomeController::class, 'syncPermissions'])-
 Route::get('file/{type}/{path}', [FileController::class, 'getFile'])->name('file.getFile');
 
 // SIGNED URLS ->middleware('signed')
-Route::get('/proposal/{hash}', [HomeController::class, 'proposal'])->name('front.proposal')->middleware('signed');
 Route::get('/contract/{hash}', [PublicUrlController::class, 'contractView'])->name('front.contract.show')->middleware('signed');
 Route::get('/estimate/{hash}', [PublicUrlController::class, 'estimateView'])->name('front.estimate.show')->middleware('signed');
 Route::get('/invoice/{hash}', [HomeController::class, 'invoice'])->name('front.invoice')->middleware('signed');

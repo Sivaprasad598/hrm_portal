@@ -21,19 +21,19 @@
     <ul class="settings-menu" id="settingsMenu">
 
         @if (user()->permission('manage_app_setting') == 'all')
-            <x-setting-menu-item :active="$activeMenu" menu="app_settings" :href="route('app-settings.index')"
+            <x-setting-menu-item :active="$activeMenu" menu="app_settings" :href="\App\Support\ModulePresence::href('app-settings.index')"
                                  :text="__('app.menu.appSettings')"/>
         @endif
 
         @if (user()->permission('manage_app_setting') == 'all')
             <x-setting-menu-item :active="$activeMenu" menu="app_launcher_settings"
-                                 :href="route('app-launcher-settings.index')"
+                                 :href="\App\Support\ModulePresence::href('app-launcher-settings.index')"
                                  text="App Launcher Settings"/>
         @endif
 
         @if (user()->permission('manage_attendance_setting') == 'all' && in_array('attendance', user_modules()))
             <x-setting-menu-item :active="$activeMenu" menu="attendance_settings"
-                                 :href="route('attendance-settings.index')" :text="__('app.menu.attendanceSettings')"/>
+                                 :href="\App\Support\ModulePresence::href('attendance-settings.index')" :text="__('app.menu.attendanceSettings')"/>
 
             {{-- The shifts decide what counts as a full day, a half day and a
                  late mark, so they belong beside the attendance settings they
@@ -46,128 +46,128 @@
         {{-- The device connection and the nightly run: technical (Roles & Permissions -> Attendance -> Biometric: Technical). --}}
         @if (user()->permission('manage_biometric_system') == 'all' && in_array('attendance', user_modules()))
             <x-setting-menu-item :active="$activeMenu" menu="biometric_settings"
-                                 :href="route('biometric-settings.index')" :text="__('app.menu.biometricSettings')"/>
+                                 :href="\App\Support\ModulePresence::href('biometric-settings.index')" :text="__('app.menu.biometricSettings')"/>
         @endif
 
         @if (in_array('admin', user_roles()))
             <x-setting-menu-item :active="$activeMenu" menu="data_clean"
-                                 :href="route('data-clean.index')" text="Data Clean"/>
+                                 :href="\App\Support\ModulePresence::href('data-clean.index')" text="Data Clean"/>
         @endif
 
         @if (user()->permission('manage_company_setting') == 'all')
-            <x-setting-menu-item :active="$activeMenu" menu="business_address" :href="route('business-address.index')"
+            <x-setting-menu-item :active="$activeMenu" menu="business_address" :href="\App\Support\ModulePresence::href('business-address.index')"
                                  :text="__('app.menu.businessAddresses')"/>
         @endif
 
         @if (user()->permission('manage_company_setting') == 'all' || user()->permission('edit_employees') == 'all')
-            <x-setting-menu-item :active="$activeMenu" menu="ai_settings" :href="route('ai-settings.index')"
+            <x-setting-menu-item :active="$activeMenu" menu="ai_settings" :href="\App\Support\ModulePresence::href('ai-settings.index')"
                                  text="AI Settings"/>
         @endif
 
         @if (\App\Services\Recruit\RecruitAccess::can('settings'))
-            <x-setting-menu-item :active="$activeMenu" menu="recruitment_settings" :href="route('recruitment-settings.index')"
+            <x-setting-menu-item :active="$activeMenu" menu="recruitment_settings" :href="\App\Support\ModulePresence::href('recruitment-settings.index')"
                                  text="Recruitment Settings"/>
         @endif
 
         @if (user()->permission('manage_company_setting') == 'all')
-            <x-setting-menu-item :active="$activeMenu" menu="company_settings" :href="route('company-settings.index')"
+            <x-setting-menu-item :active="$activeMenu" menu="company_settings" :href="\App\Support\ModulePresence::href('company-settings.index')"
                                  :text="__('app.menu.accountSettings')"/>
         @endif
 
         @if (user()->permission('manage_contract_setting') == 'all' && in_array('contracts', user_modules()))
-            <x-setting-menu-item :active="$activeMenu" menu="contract_settings" :href="route('contract-settings.index')"
+            <x-setting-menu-item :active="$activeMenu" menu="contract_settings" :href="\App\Support\ModulePresence::href('contract-settings.index')"
                                  :text="__('app.menu.contractSettings')"/>
         @endif
 
         @if (user()->permission('manage_currency_setting') == 'all')
-            <x-setting-menu-item :active="$activeMenu" menu="currency_settings" :href="route('currency-settings.index')"
+            <x-setting-menu-item :active="$activeMenu" menu="currency_settings" :href="\App\Support\ModulePresence::href('currency-settings.index')"
                                  :text="__('app.menu.currencySettings')"/>
         @endif
 
         @if (user()->permission('manage_custom_field_setting') == 'all')
-            <x-setting-menu-item :active="$activeMenu" menu="custom_fields" :href="route('custom-fields.index')"
+            <x-setting-menu-item :active="$activeMenu" menu="custom_fields" :href="\App\Support\ModulePresence::href('custom-fields.index')"
                                  :text="__('app.menu.customFields')"/>
         @endif
 
         @if (isArowana() && user()->permission('manage_custom_link_setting') == 'all')
             <x-setting-menu-item :active="$activeMenu" menu="custom_link_settings"
-                                :href="route('custom-link-settings.index')"
+                                :href="\App\Support\ModulePresence::href('custom-link-settings.index')"
                                 :text="__('app.menu.customLinkSetting')"/>
         @endif
 
         @if (isArowana() && in_array('admin', user_roles()))
             <x-setting-menu-item :active="$activeMenu" menu="database_backup_settings"
-                                 :href="route('database-backup-settings.index')"
+                                 :href="\App\Support\ModulePresence::href('database-backup-settings.index')"
                                  :text="__('app.menu.databaseBackupSetting')"/>
         @endif
 
         @if (user()->permission('manage_company_setting') == 'all' || user()->permission('manage_app_setting') == 'all')
-            <x-setting-menu-item :active="$activeMenu" menu="app_downloads" :href="route('downloads.index')"
+            <x-setting-menu-item :active="$activeMenu" menu="app_downloads" :href="\App\Support\ModulePresence::href('downloads.index')"
                                  :text="__('app.menu.downloads')"/>
         @endif
 
         @if (user()->permission('manage_finance_setting') == 'all' && (in_array('invoices', user_modules()) ||
         in_array('estimates', user_modules()) || in_array('orders', user_modules()) || in_array('leads', user_modules()) || in_array('payments', user_modules())))
-            <x-setting-menu-item :active="$activeMenu" menu="invoice_settings" :href="route('invoice-settings.index')"
+            <x-setting-menu-item :active="$activeMenu" menu="invoice_settings" :href="\App\Support\ModulePresence::href('invoice-settings.index')"
                                  :text="__('app.menu.financeSettings')"/>
         @endif
 
         @if (isArowana() && (user()->permission('manage_gdpr_setting') == 'all' || in_array('client', user_modules())))
-            <x-setting-menu-item :active="$activeMenu" menu="gdpr_settings" :href="route('gdpr-settings.index')"
+            <x-setting-menu-item :active="$activeMenu" menu="gdpr_settings" :href="\App\Support\ModulePresence::href('gdpr-settings.index')"
                                  :text="__('app.menu.gdprSettings')"/>
         @endif
 
         @if (isArowana() && user()->permission('manage_google_calendar_setting') == 'all')
             <x-setting-menu-item :active="$activeMenu" menu="google_calendar_settings"
-                                 :href="route('google-calendar-settings.index')"
+                                 :href="\App\Support\ModulePresence::href('google-calendar-settings.index')"
                                  :text="__('app.menu.googleCalendarSetting')"/>
         @endif
 
         @if (isArowana() && user()->permission('manage_language_setting') == 'all')
             <x-setting-menu-item :active="$activeMenu" menu="language_settings"
-                                 :href="route('language-settings.index')"
+                                 :href="\App\Support\ModulePresence::href('language-settings.index')"
                                  :text="__('app.menu.languageSettings')"/>
         @endif
 
         @if (user()->permission('manage_lead_setting') == 'all' && in_array('leads', user_modules()))
-            <x-setting-menu-item :active="$activeMenu" menu="lead_settings" :href="route('lead-settings.index')"
+            <x-setting-menu-item :active="$activeMenu" menu="lead_settings" :href="\App\Support\ModulePresence::href('lead-settings.index')"
                                  :text="__('app.menu.leadSettings')"/>
         @endif
 
         @if (user()->permission('manage_leave_setting') == 'all' && in_array('leaves', user_modules()))
-            <x-setting-menu-item :active="$activeMenu" menu="leave_settings" :href="route('leaves-settings.index')"
+            <x-setting-menu-item :active="$activeMenu" menu="leave_settings" :href="\App\Support\ModulePresence::href('leaves-settings.index')"
                                  :text="__('app.menu.leaveSettings')"/>
         @endif
 
         @if (user()->permission('manage_message_setting') == 'all' && in_array('messages', user_modules()))
-            <x-setting-menu-item :active="$activeMenu" menu="message_settings" :href="route('message-settings.index')"
+            <x-setting-menu-item :active="$activeMenu" menu="message_settings" :href="\App\Support\ModulePresence::href('message-settings.index')"
                                  :text="__('app.menu.messageSettings')"/>
         @endif
 
         @if (user()->permission('manage_module_setting') == 'all')
-            <x-setting-menu-item :active="$activeMenu" menu="module_settings" :href="route('module-settings.index')"
+            <x-setting-menu-item :active="$activeMenu" menu="module_settings" :href="\App\Support\ModulePresence::href('module-settings.index')"
                                  :text="__('app.menu.moduleSettings')"/>
         @endif
 
         @if (user()->permission('manage_company_setting') == 'all' || user()->permission('edit_employees') == 'all')
             <x-setting-menu-item :active="$activeMenu" menu="notice_period_settings"
-                                 :href="route('notice-period-settings.index')"
+                                 :href="\App\Support\ModulePresence::href('notice-period-settings.index')"
                                  :text="__('app.menu.noticePeriodSettings')"/>
         @endif
 
         @if (user()->permission('manage_notification_setting') == 'all')
-            <x-setting-menu-item :active="$activeMenu" menu="notification_settings" :href="route('notifications.index')"
+            <x-setting-menu-item :active="$activeMenu" menu="notification_settings" :href="\App\Support\ModulePresence::href('notifications.index')"
                                  :text="__('app.menu.notificationSettings')"/>
         @endif
 
         @if (user()->permission('manage_payment_setting') == 'all')
             <x-setting-menu-item :active="$activeMenu" menu="payment_gateway_settings"
-                                 :href="route('payment-gateway-settings.index')"
+                                 :href="\App\Support\ModulePresence::href('payment-gateway-settings.index')"
                                  :text="__('app.menu.paymentGatewayCredential')"/>
         @endif
 
         @if (user()->permission('manage_company_setting') == 'all' || \App\Services\Access\PayrollAccess::can('settings'))
-            <x-setting-menu-item :active="$activeMenu" menu="payslip_settings" :href="route('payslip-settings.index')"
+            <x-setting-menu-item :active="$activeMenu" menu="payslip_settings" :href="\App\Support\ModulePresence::href('payslip-settings.index')"
                                  :text="__('app.menu.payslipSettings')"/>
         @endif
 
@@ -176,7 +176,7 @@
              2026_11_13_100002_hide_profile_settings_menu --}}
 
         @if (user()->permission('manage_project_setting') == 'all' && in_array('projects', user_modules()))
-            <x-setting-menu-item :active="$activeMenu" menu="project_settings" :href="route('project-settings.index')"
+            <x-setting-menu-item :active="$activeMenu" menu="project_settings" :href="\App\Support\ModulePresence::href('project-settings.index')"
                                  :text="__('app.menu.projectSettings')"/>
         @endif
 
@@ -184,60 +184,60 @@
             {{-- Access: pages and actions per role. Roles & Permissions and
                  Assign Menus are linked from it under "Advanced". --}}
             <x-setting-menu-item :active="in_array($activeMenu, ['role_permissions', 'role_management']) ? 'access_settings' : $activeMenu"
-                                 menu="access_settings" :href="route('access-settings.index')" text="Access"/>
+                                 menu="access_settings" :href="\App\Support\ModulePresence::href('access-settings.index')" text="Access"/>
 
             <x-setting-menu-item :active="$activeMenu" menu="menu_management"
-                                 :href="route('menu-management.index')"
+                                 :href="\App\Support\ModulePresence::href('menu-management.index')"
                                  text="Add Menu"/>
         @endif
 
-        <x-setting-menu-item :active="$activeMenu" menu="security_settings" :href="route('security-settings.index')"
+        <x-setting-menu-item :active="$activeMenu" menu="security_settings" :href="\App\Support\ModulePresence::href('security-settings.index')"
                              :text="__('app.menu.securitySettings')"/>
 
         @if (isArowana() && user()->permission('manage_company_setting') == 'all')
-            <x-setting-menu-item :active="$activeMenu" menu="sign_up_setting" :href="route('sign-up-settings.index')"
+            <x-setting-menu-item :active="$activeMenu" menu="sign_up_setting" :href="\App\Support\ModulePresence::href('sign-up-settings.index')"
                                 :text="__('app.menu.signUpSetting')"/>
         @endif
 
         @if (isArowana() && user()->permission('manage_social_login_setting') == 'all')
             <x-setting-menu-item :active="$activeMenu" menu="social_auth_settings"
-                                 :href="route('social-auth-settings.index')" :text="__('app.menu.socialLogin')"/>
+                                 :href="\App\Support\ModulePresence::href('social-auth-settings.index')" :text="__('app.menu.socialLogin')"/>
         @endif
 
         @if (isArowana() && user()->permission('manage_storage_setting') == 'all')
             <x-setting-menu-item :active="$activeMenu" menu="storage_settings"
-                                 :href="route('storage-settings.index')"
+                                 :href="\App\Support\ModulePresence::href('storage-settings.index')"
                                  :text="__('app.menu.storageSettings')"/>
         @endif
 
         @if (user()->permission('manage_task_setting') == 'all' && in_array('tasks', user_modules()))
-            <x-setting-menu-item :active="$activeMenu" menu="task_settings" :href="route('task-settings.index')"
+            <x-setting-menu-item :active="$activeMenu" menu="task_settings" :href="\App\Support\ModulePresence::href('task-settings.index')"
                                  :text="__('app.menu.taskSettings')"/>
         @endif
 
         @if (user()->permission('manage_tax') == 'all')
-            <x-setting-menu-item :active="$activeMenu" menu="tax_settings" :href="route('taxes.index')"
+            <x-setting-menu-item :active="$activeMenu" menu="tax_settings" :href="\App\Support\ModulePresence::href('taxes.index')"
                                  :text="__('app.menu.taxSettings')"/>
         @endif
 
         @if (user()->permission('manage_theme_setting') == 'all')
-            <x-setting-menu-item :active="$activeMenu" menu="theme_settings" :href="route('theme-settings.index')"
+            <x-setting-menu-item :active="$activeMenu" menu="theme_settings" :href="\App\Support\ModulePresence::href('theme-settings.index')"
                                  :text="__('app.menu.themeSettings')"/>
         @endif
 
         @if (user()->permission('manage_ticket_setting') == 'all' && in_array('tickets', user_modules()))
-            <x-setting-menu-item :active="$activeMenu" menu="ticket_settings" :href="route('ticket-settings.index')"
+            <x-setting-menu-item :active="$activeMenu" menu="ticket_settings" :href="\App\Support\ModulePresence::href('ticket-settings.index')"
                                  :text="__('app.menu.ticketSettings')"/>
         @endif
 
         @if (user()->permission('manage_time_log_setting') == 'all' && in_array('timelogs', user_modules()))
-            <x-setting-menu-item :active="$activeMenu" menu="timelog_settings" :href="route('timelog-settings.index')"
+            <x-setting-menu-item :active="$activeMenu" menu="timelog_settings" :href="\App\Support\ModulePresence::href('timelog-settings.index')"
                                  :text="__('app.menu.timeLogSettings')"/>
         @endif
 
         {{--
         @if (isArowana() && in_array('admin', user_roles()) && global_setting()->system_update)
-            <x-setting-menu-item :active="$activeMenu" menu="update_settings" :href="route('update-settings.index')"
+            <x-setting-menu-item :active="$activeMenu" menu="update_settings" :href="\App\Support\ModulePresence::href('update-settings.index')"
                                  :text="__('app.menu.updates')"/>
         @endif
         --}}

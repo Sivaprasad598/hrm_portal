@@ -31,8 +31,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @method static \Illuminate\Database\Eloquent\Builder|CustomField whereValues($value)
  * @property int|null $company_id
  * @property-read \App\Models\Company|null $company
- * @property-read \App\Models\LeadCustomForm|null $leadCustomForm
- * @property-read \App\Models\TicketCustomForm|null $ticketCustomForm
+ * @property-read \AppModules\Leads\Models\LeadCustomForm|null $leadCustomForm
+ * @property-read \AppModules\Tickets\Models\TicketCustomForm|null $ticketCustomForm
  * @method static \Illuminate\Database\Eloquent\Builder|CustomField whereCompanyId($value)
  * @method static \Illuminate\Database\Eloquent\Builder|CustomField whereExport($value)
  * @property-read \App\Models\CustomFieldGroup|null $customFieldGroup
@@ -51,12 +51,12 @@ class CustomField extends BaseModel
 
     public function leadCustomForm(): HasOne
     {
-        return $this->hasOne(LeadCustomForm::class, 'custom_fields_id');
+        return $this->hasOne(\AppModules\Leads\Models\LeadCustomForm::class, 'custom_fields_id');
     }
 
     public function ticketCustomForm(): HasOne
     {
-        return $this->hasOne(TicketCustomForm::class, 'custom_fields_id');
+        return $this->hasOne(\AppModules\Tickets\Models\TicketCustomForm::class, 'custom_fields_id');
     }
 
     public function customFieldGroup(): HasOne
@@ -71,6 +71,12 @@ class CustomField extends BaseModel
 
     public static function exportCustomFields($model)
     {
+        // a module model is passed by its stored (old) name, e.g. 'App\Models\Ticket';
+        // the morph map gives its class now
+        if (is_string($model) && ($mapped = \Illuminate\Database\Eloquent\Relations\Relation::getMorphedModel($model))) {
+            $model = $mapped;
+        }
+
         $customFieldsGroupsId = CustomFieldGroup::where('model', $model::CUSTOM_FIELD_MODEL)->select('id')->first();
         $customFields = collect();
 

@@ -95,7 +95,7 @@
                                         title="{{ $item->requester->name }}">
                                 </div>
                             </td>
-                            <td width="50%"><a href="{{ route('tickets.show', $item->ticket_number) }}"
+                            <td width="50%"><a href="{{ \App\Support\ModulePresence::url('tickets.show', $item->ticket_number) }}"
                                     class="text-darkest-grey">{{ $item->subject }}</a>
                                 <br />
                                 <span class="f-10 text-lightest mt-1">{{ $item->requester->name }}</span>
@@ -153,7 +153,7 @@
         var startDate = dateRange.startDate.format('{{ company()->moment_date_format }}');
         var endDate = dateRange.endDate.format('{{ company()->moment_date_format }}');
 
-        var url = `{{ route('tickets.index') }}`;
+        var url = `{{ \App\Support\ModulePresence::url('tickets.index') }}`;
 
         string = `?dashboard-ticket-status=unassigned&startDate=${startDate}&endDate=${endDate}`;
         url += string;
@@ -167,7 +167,7 @@
         var startDate = dateRange.startDate.format('{{ company()->moment_date_format }}');
         var endDate = dateRange.endDate.format('{{ company()->moment_date_format }}');
 
-        var url = `{{ route('tickets.index') }}`;
+        var url = `{{ \App\Support\ModulePresence::url('tickets.index') }}`;
 
         string = `?dashboard-ticket-status=${status}&startDate=${startDate}&endDate=${endDate}`;
         url += string;

@@ -24,7 +24,7 @@
 <script>
     $('#save-shipping-address').click(function() {
 
-        var url = "{{ route('invoices.add_shipping_address', $clientId) }}";
+        var url = "{{ \App\Support\ModulePresence::url('invoices.add_shipping_address', $clientId) }}";
 
         $.easyAjax({
             url: url,

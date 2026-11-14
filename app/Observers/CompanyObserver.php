@@ -21,22 +21,22 @@ use App\Models\ProjectSetting;
 use App\Models\Role;
 use App\Models\SlackSetting;
 use App\Models\ThemeSetting;
-use App\Models\TicketEmailSetting;
-use App\Models\TicketType;
-use App\Models\TicketSettingForAgents;
+use AppModules\Tickets\Models\TicketEmailSetting;
+use AppModules\Tickets\Models\TicketType;
+use AppModules\Tickets\Models\TicketSettingForAgents;
 use App\Models\User;
 use App\Models\CustomFieldGroup;
 use App\Models\DashboardWidget;
 use App\Models\DiscussionCategory;
 use App\Models\EmployeeShift;
-use App\Models\LeadCustomForm;
-use App\Models\LeadPipeline;
-use App\Models\LeadSource;
-use App\Models\PipelineStage;
-use App\Models\MessageSetting;
-use App\Models\TicketChannel;
-use App\Models\TicketCustomForm;
-use App\Models\LeadStatus;
+use AppModules\Leads\Models\LeadCustomForm;
+use AppModules\Leads\Models\LeadPipeline;
+use AppModules\Leads\Models\LeadSource;
+use AppModules\Leads\Models\PipelineStage;
+use AppModules\Messages\Models\MessageSetting;
+use AppModules\Tickets\Models\TicketChannel;
+use AppModules\Tickets\Models\TicketCustomForm;
+use AppModules\Leads\Models\LeadStatus;
 use App\Models\LeaveType;
 use App\Models\PermissionRole;
 use App\Models\ProjectStatusSetting;
@@ -146,16 +146,26 @@ class CompanyObserver
         $this->discussionCategory($company);
         $this->emailNotificationSettings($company);
         $this->invoiceSetting($company);
-        $this->leadCustomForms($company);
-        $this->leadSources($company);
+        if (class_exists(\AppModules\Leads\Models\Lead::class)) {
+            $this->leadCustomForms($company);
+        }
+        if (class_exists(\AppModules\Leads\Models\Lead::class)) {
+            $this->leadSources($company);
+        }
         $this->leaveType($company);
         $this->logTimeFor($company);
         $this->messageSetting($company);
         $this->projectSetting($company);
         $this->slackSetting($company);
-        $this->ticketChannel($company);
-        $this->ticketType($company);
-        $this->ticketSettingForAgents($company);
+        if (class_exists(\AppModules\Tickets\Models\Ticket::class)) {
+            $this->ticketChannel($company);
+        }
+        if (class_exists(\AppModules\Tickets\Models\Ticket::class)) {
+            $this->ticketType($company);
+        }
+        if (class_exists(\AppModules\Tickets\Models\Ticket::class)) {
+            $this->ticketSettingForAgents($company);
+        }
         $this->customForms($company);
         $this->taskBoard($company);
         $this->projectStatusSettings($company);
@@ -166,10 +176,14 @@ class CompanyObserver
         $this->dateFormats($company);
         $this->moduleSettings($company);
         $this->themeSetting($company);
-        $this->ticketEmailSetting($company);
+        if (class_exists(\AppModules\Tickets\Models\Ticket::class)) {
+            $this->ticketEmailSetting($company);
+        }
         $this->googleCalendar($company);
         $this->unitType($company);
-        $this->leadStages($company);
+        if (class_exists(\AppModules\Leads\Models\Lead::class)) {
+            $this->leadStages($company);
+        }
 
         // Will be used in various module
         event(new NewCompanyCreatedEvent($company));
@@ -501,6 +515,14 @@ class CompanyObserver
 
     public function messageSetting($company)
     {
+        // the row is needed in every branch (the table is); the model only with the Messages module
+        if (!class_exists(MessageSetting::class)) {
+            \Illuminate\Support\Facades\DB::table('message_settings')->insert(['company_id' => $company->id,
+                'allow_client_admin' => 'no', 'allow_client_employee' => 'no', 'created_at' => now(), 'updated_at' => now()]);
+
+            return;
+        }
+
         $setting = new MessageSetting();
         $setting->company_id = $company->id;
         $setting->allow_client_admin = 'no';

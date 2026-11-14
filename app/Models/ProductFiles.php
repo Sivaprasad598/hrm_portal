@@ -24,7 +24,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int|null $last_updated_by
  * @property-read mixed $file_url
  * @property-read mixed $icon
- * @property-read \App\Models\Lead $lead
+ * @property-read \AppModules\Leads\Models\Lead $lead
  * @method static \Illuminate\Database\Eloquent\Builder|ProductFiles newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder|ProductFiles newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder|ProductFiles query()

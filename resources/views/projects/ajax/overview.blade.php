@@ -148,7 +148,7 @@ $viewTasksPermission = user()->permission('view_tasks');
                                     <div class="card-body border-0 p-0 ml-4 ml-xl-4 ml-lg-3 ml-md-3">
                                         <h4 class="card-title f-15 font-weight-normal mb-0">
                                             @if (!in_array('client', user_roles()))
-                                               <a href="{{ route('clients.show', $project->client_id) }}" class="text-dark">
+                                               <a href="{{ \App\Support\ModulePresence::url('clients.show', $project->client_id) }}" class="text-dark">
                                                     {{ $project->client->name_salutation }}
                                                 </a>
                                             @else
@@ -172,8 +172,8 @@ $viewTasksPermission = user()->permission('view_tasks');
                             </div>
                         </div>
 
-                        @if( (in_array('admin', user_roles()) && $messageSetting->allow_client_admin == 'yes') ||
-                        (in_array('employee', user_roles()) && $messageSetting->allow_client_employee == 'yes') )
+                        @if( $messageSetting && Route::has('messages.create') && ((in_array('admin', user_roles()) && $messageSetting->allow_client_admin == 'yes') ||
+                        (in_array('employee', user_roles()) && $messageSetting->allow_client_employee == 'yes')) )
                             <div class="p-client-msg mt-4 mt-xl-0 mt-lg-4 mt-md-0">
                                 <button type="button" class="btn-secondary rounded f-15" id="new-chat"
                                     data-client-id="{{ $project->client->id }}"> <i class="fab fa-whatsapp mr-1"></i>
@@ -467,7 +467,7 @@ $viewTasksPermission = user()->permission('view_tasks');
 
         $('body').on('click', '#new-chat', function() {
             let clientId = $(this).data('client-id');
-            const url = "{{ route('messages.create') }}?clientId=" + clientId;
+            const url = "{{ \App\Support\ModulePresence::href('messages.create') }}?clientId=" + clientId;
             $(MODAL_LG + ' ' + MODAL_HEADING).html('...');
             $.ajaxModal(MODAL_LG, url);
         });

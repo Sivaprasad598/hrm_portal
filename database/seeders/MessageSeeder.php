@@ -2,7 +2,7 @@
 
 namespace Database\Seeders;
 
-use App\Models\UserChat;
+use AppModules\Messages\Models\UserChat;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 

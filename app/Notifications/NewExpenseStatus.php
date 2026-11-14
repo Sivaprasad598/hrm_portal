@@ -77,7 +77,7 @@ class NewExpenseStatus extends BaseNotification
     public function toMail($notifiable)
     {
         $build = parent::build($notifiable);
-        $url = route('expenses.show', $this->expense->id);
+        $url = \App\Support\ModulePresence::url('expenses.show', $this->expense->id);
         $url = getDomainSpecificUrl($url, $this->company);
 
         $content = $this->expense->item_name . ' - ' . __('email.expenseStatus.text') . ' ' . $this->expense->status . '.';

@@ -2,7 +2,7 @@
 
 namespace App\Notifications;
 
-use App\Http\Controllers\InvoiceController;
+use AppModules\Finance\Http\Controllers\InvoiceController;
 use App\Models\GlobalSetting;
 use App\Services\InvoiceReminderService;
 use Illuminate\Support\Facades\App;

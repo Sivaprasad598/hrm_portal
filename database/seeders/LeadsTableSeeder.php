@@ -2,12 +2,12 @@
 
 namespace Database\Seeders;
 
-use App\Models\Deal;
-use App\Models\LeadAgent;
-use App\Models\Lead;
-use App\Models\LeadPipeline;
-use App\Models\PipelineStage;
-use App\Models\LeadStatus;
+use AppModules\Leads\Models\Deal;
+use AppModules\Leads\Models\LeadAgent;
+use AppModules\Leads\Models\Lead;
+use AppModules\Leads\Models\LeadPipeline;
+use AppModules\Leads\Models\PipelineStage;
+use AppModules\Leads\Models\LeadStatus;
 use Illuminate\Database\Seeder;
 use App\Traits\UniversalSearchTrait;
 

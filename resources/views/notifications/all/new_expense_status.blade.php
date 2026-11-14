@@ -3,7 +3,7 @@
 @endphp
 
 @if ($notificationUser)
-    <x-cards.notification :notification="$notification" :link="route('expenses.show', $notification->data['id'])"
+    <x-cards.notification :notification="$notification" :link="\App\Support\ModulePresence::url('expenses.show', $notification->data['id'])"
                           :image="$notificationUser->image_url"
                           :title="__('email.expenseStatus.subject')" :text="$notification->data['item_name']"
                           :time="$notification->created_at"/>

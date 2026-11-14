@@ -110,11 +110,11 @@ class RazorPayController extends Controller
 
             /** @phpstan-ignore-next-line */
             if (isset(request()->type) && request()->type == 'order' && isset($order)) {
-                return Reply::redirect(route('orders.show', $order->id), __('messages.paymentSuccessful'));
+                return Reply::redirect(\App\Support\ModulePresence::url('orders.show', $order->id), __('messages.paymentSuccessful'));
             }
 
             if (isset($invoice)) {
-                return Reply::redirect(route('invoices.show', $invoice->id), __('messages.paymentSuccessful'));
+                return Reply::redirect(\App\Support\ModulePresence::url('invoices.show', $invoice->id), __('messages.paymentSuccessful'));
             }
         }
         elseif ($payment->status == 'captured') {
@@ -125,12 +125,12 @@ class RazorPayController extends Controller
             }
 
             if (isset($invoice)) {
-                return Reply::redirect(route('invoices.show', $invoice->id), __('messages.paymentSuccessful'));
+                return Reply::redirect(\App\Support\ModulePresence::url('invoices.show', $invoice->id), __('messages.paymentSuccessful'));
             }
 
             /** @phpstan-ignore-next-line */
             if (isset(request()->type) && request()->type == 'order' && isset($order)) {
-                return Reply::redirect(route('orders.show', $order->id), __('messages.paymentSuccessful'));
+                return Reply::redirect(\App\Support\ModulePresence::url('orders.show', $order->id), __('messages.paymentSuccessful'));
             }
 
         }

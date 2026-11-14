@@ -7,7 +7,7 @@
     }
 @endphp
 
-<x-cards.notification :notification="$notification" :link="route('estimates.show', $notification->data['id'])"
+<x-cards.notification :notification="$notification" :link="\App\Support\ModulePresence::url('estimates.show', $notification->data['id'])"
                       :image="company()->logo_url"
                       :title="__('email.estimateDeclined.subject')" :text="$estimateNumber"
                       :time="$notification->created_at"/>

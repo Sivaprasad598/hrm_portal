@@ -74,6 +74,11 @@ class SettingMenuItem extends Component
      */
     public function shouldRender(): bool
     {
+        // a settings page whose module is not in this branch (ModulePresence::href gave '')
+        if (trim((string) $this->href) === '') {
+            return false;
+        }
+
         if ($this->menu !== null && in_array($this->menu, static::$alwaysShown, true)) {
             return true;
         }
@@ -121,6 +126,11 @@ class SettingMenuItem extends Component
         $hardCoded = static::hardCodedRoutes();
 
         return static::settingsMenus()->reject(function ($item) use ($hardCoded) {
+            // a page whose module is not in this branch
+            if (!\App\Support\ModulePresence::menuAvailable($item->route)) {
+                return true;
+            }
+
             // Matched by route name first: an item the hand-written sidebar
             // owns but hides for this person must not reappear here.
             if ($item->route && in_array($item->route, $hardCoded, true)) {
@@ -223,7 +233,8 @@ class SettingMenuItem extends Component
         static::$hardCodedRoutes = [];
 
         if (is_file($path)) {
-            preg_match_all("/route\('([^']+)'/", file_get_contents($path), $matches);
+            // route('x') and ModulePresence::href('x') both name a hand-written entry
+            preg_match_all("/(?:route|ModulePresence::href)\('([^']+)'/", file_get_contents($path), $matches);
             static::$hardCodedRoutes = $matches[1];
         }
 

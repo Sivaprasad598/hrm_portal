@@ -15,13 +15,13 @@ $addInvoicePermission = user()->permission('add_invoices');
             <div class="d-flex" id="table-actions">
                 @if (($addInvoicePermission == 'all' || $addInvoicePermission == 'added') && !$project->trashed())
                     <x-forms.link-primary
-                        :link="route('invoices.create').'?project_id='.$project->id.'&client_id='.$project->client_id"
+                        :link="\App\Support\ModulePresence::url('invoices.create').'?project_id='.$project->id.'&client_id='.$project->client_id"
                         class="mr-3 openRightModal" icon="plus" data-redirect-url="{{ url()->full() }}">
                         @lang('modules.invoices.addInvoice')
                     </x-forms.link-primary>
 
                     @if (in_array('timelogs', user_modules()))
-                        <x-forms.link-secondary class="mr-3 float-left mb-2 mb-lg-0 mb-md-0 openRightModal" icon="plus" :link="route('invoices.create', ['type' => 'timelog', 'project_id' => $project->id])">
+                        <x-forms.link-secondary class="mr-3 float-left mb-2 mb-lg-0 mb-md-0 openRightModal" icon="plus" :link="\App\Support\ModulePresence::url('invoices.create', ['type' => 'timelog', 'project_id' => $project->id])">
                             @lang('app.createTimeLogInvoice')
                         </x-forms.link-secondary>
                     @endif
@@ -161,7 +161,7 @@ $addInvoicePermission = user()->permission('add_invoices');
             buttonsStyling: false
         }).then((result) => {
             if (result.isConfirmed) {
-                var url = "{{ route('invoices.destroy', ':id') }}";
+                var url = "{{ \App\Support\ModulePresence::url('invoices.destroy', ':id') }}";
                 url = url.replace(':id', id);
 
                 var token = "{{ csrf_token() }}";
@@ -206,7 +206,7 @@ $addInvoicePermission = user()->permission('add_invoices');
             buttonsStyling: false
         }).then((result) => {
             if (result.isConfirmed) {
-                var url = "{{ route('creditnotes.create') }}?invoice=:id";
+                var url = "{{ \App\Support\ModulePresence::url('creditnotes.create') }}?invoice=:id";
                 url = url.replace(':id', id);
 
                 location.href = url;
@@ -216,7 +216,7 @@ $addInvoicePermission = user()->permission('add_invoices');
 
     $('body').on('click', '.sendButton', function() {
         var id = $(this).data('invoice-id');
-        var url = "{{ route('invoices.send_invoice', ':id') }}";
+        var url = "{{ \App\Support\ModulePresence::url('invoices.send_invoice', ':id') }}";
         url = url.replace(':id', id);
 
         var token = "{{ csrf_token() }}";
@@ -239,7 +239,7 @@ $addInvoicePermission = user()->permission('add_invoices');
 
     $('body').on('click', '.reminderButton', function() {
         var id = $(this).data('invoice-id');
-        var url = "{{ route('invoices.payment_reminder', ':id') }}";
+        var url = "{{ \App\Support\ModulePresence::url('invoices.payment_reminder', ':id') }}";
         url = url.replace(':id', id);
 
         var token = "{{ csrf_token() }}";
@@ -260,17 +260,17 @@ $addInvoicePermission = user()->permission('add_invoices');
 
     $('body').on('click', '.invoice-upload', function() {
         var invoiceId = $(this).data('invoice-id');
-        const url = "{{ route('invoices.file_upload') }}?invoice_id=" + invoiceId;
+        const url = "{{ \App\Support\ModulePresence::url('invoices.file_upload') }}?invoice_id=" + invoiceId;
         $(MODAL_LG + ' ' + MODAL_HEADING).html('...');
         $.ajaxModal(MODAL_LG, url);
     });
 
     $('body').on('click', '#recurring-invoice', function() {
-        window.location.href = "{{ route('recurring-invoices.index') }} ";
+        window.location.href = "{{ \App\Support\ModulePresence::url('recurring-invoices.index') }} ";
     });
 
     $('body').on('click', '#timelog-invoice', function() {
-        window.location.href = "{{ route('invoices.create', ['type' => 'timelog']) }} ";
+        window.location.href = "{{ \App\Support\ModulePresence::url('invoices.create', ['type' => 'timelog']) }} ";
     });
 
     $('body').on('click', '.cancel-invoice', function() {
@@ -295,7 +295,7 @@ $addInvoicePermission = user()->permission('add_invoices');
         }).then((result) => {
             if (result.isConfirmed) {
 
-                var url = "{{ route('invoices.update_status', ':id') }}";
+                var url = "{{ \App\Support\ModulePresence::url('invoices.update_status', ':id') }}";
                 url = url.replace(':id', id);
 
                 var token = "{{ csrf_token() }}";

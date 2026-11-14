@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\DatabaseBackupSetting;
-use App\Models\GdprSetting;
 use App\Models\LanguageSetting;
 use App\Models\PusherSetting;
 use App\Models\PushNotificationSetting;
@@ -52,8 +51,10 @@ class CoreDatabaseSeeder extends Seeder
 
     private function gdprSetting()
     {
-        $gdpr = new GdprSetting();
-        $gdpr->create();
+        // the GDPR settings row (the table is in every branch; the module may not be)
+        if (!\Illuminate\Support\Facades\DB::table('gdpr_settings')->exists()) {
+            \Illuminate\Support\Facades\DB::table('gdpr_settings')->insert(['created_at' => now(), 'updated_at' => now()]);
+        }
     }
 
     private function languageSettings()

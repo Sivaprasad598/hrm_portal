@@ -66,7 +66,7 @@ class ExpenseRecurringStatus extends BaseNotification
     public function toMail($notifiable)
     {
         $build = parent::build($notifiable);
-        $url = route('recurring-expenses.show', $this->expense->id);
+        $url = \App\Support\ModulePresence::url('recurring-expenses.show', $this->expense->id);
         $url = getDomainSpecificUrl($url, $this->company);
 
         $content = $this->expense->item_name . ' - ' . __('email.expenseRecurringStatus.text') . ' ' . $this->expense->status . '.';

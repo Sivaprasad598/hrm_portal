@@ -5,11 +5,11 @@ namespace App\Traits;
 use App\Models\Contract;
 use App\Models\ContractSign;
 use App\Models\DashboardWidget;
-use App\Models\Deal;
-use App\Models\Lead;
-use App\Models\LeadPipeline;
-use App\Models\LeadSource;
-use App\Models\PipelineStage;
+use AppModules\Leads\Models\Deal;
+use AppModules\Leads\Models\Lead;
+use AppModules\Leads\Models\LeadPipeline;
+use AppModules\Leads\Models\LeadSource;
+use AppModules\Leads\Models\PipelineStage;
 use App\Models\Payment;
 use App\Models\ProjectTimeLog;
 use App\Models\Role;
@@ -49,13 +49,15 @@ trait ClientDashboard
             ->select('users.id')
             ->count();
 
-        $this->totalLead = Lead::whereBetween(DB::raw('DATE(`created_at`)'), [$startDate, $endDate])
+        $hasLeads = class_exists(\AppModules\Leads\Models\Lead::class);
+
+        $this->totalLead = !$hasLeads ? 0 : Lead::whereBetween(DB::raw('DATE(`created_at`)'), [$startDate, $endDate])
             ->count();
 
-        $this->totalDeals = Deal::whereBetween(DB::raw('DATE(`created_at`)'), [$startDate, $endDate])
+        $this->totalDeals = !$hasLeads ? 0 : Deal::whereBetween(DB::raw('DATE(`created_at`)'), [$startDate, $endDate])
             ->count();
 
-        $this->totalLeadConversions = Deal::select('deals.id', 'pipeline_stages.slug')->whereBetween(DB::raw('DATE(deals.updated_at)'), [$startDate, $endDate])
+        $this->totalLeadConversions = !$hasLeads ? collect() : Deal::select('deals.id', 'pipeline_stages.slug')->whereBetween(DB::raw('DATE(deals.updated_at)'), [$startDate, $endDate])
             ->leftJoin('pipeline_stages', 'pipeline_stages.id', 'deals.pipeline_stage_id')
             ->get();
 
@@ -93,16 +95,22 @@ trait ClientDashboard
         $this->clientEarningChart = $this->clientEarningChart($startDate, $endDate);
         $this->clientTimelogChart = $this->clientTimelogChart($startDate, $endDate);
 
+        $this->leadPipelines = collect();
+        $this->leadStatusChart = ['labels' => [], 'colors' => [], 'values' => []];
+        $this->leadSourceChart = ['labels' => [], 'colors' => [], 'values' => []];
+
+        if ($hasLeads) {
         $this->leadPipelines = LeadPipeline::all();
 
         $defaultPipeline = $this->leadPipelines->filter(function ($value, $key) {
             return $value->default == '1';
         })->first();
 
-        $defaultPipelineId = ($pipelineId) ?: $defaultPipeline->id;
+        $defaultPipelineId = ($pipelineId) ?: $defaultPipeline?->id;
 
         $this->leadStatusChart = $this->leadStatusChart($startDate, $endDate, $defaultPipelineId);
         $this->leadSourceChart = $this->leadSourceChart($startDate, $endDate);
+        }
 
         $this->widgets = DashboardWidget::where('dashboard_type', 'admin-client-dashboard')->get();
         $this->activeWidgets = $this->widgets->filter(function ($value, $key) {

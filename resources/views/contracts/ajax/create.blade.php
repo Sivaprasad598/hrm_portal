@@ -269,7 +269,7 @@
         $('#add-client').click(function () {
             $(MODAL_XL).modal('show');
 
-            const url = "{{ route('clients.create') }}";
+            const url = "{{ \App\Support\ModulePresence::url('clients.create') }}";
 
             $.easyAjax({
                 url: url,

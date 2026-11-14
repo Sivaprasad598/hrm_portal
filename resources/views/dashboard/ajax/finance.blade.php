@@ -172,7 +172,7 @@
         startDate = encodeURIComponent(startDate);
         endDate = encodeURIComponent(endDate);
 
-        var url = "{{ route('invoices.index') }}";
+        var url = "{{ \App\Support\ModulePresence::url('invoices.index') }}";
         string = `?status=pending&start=${startDate}&end=${endDate}`;
         url += string;
         window.location.href = url;
@@ -180,7 +180,7 @@
 
     $('#totalEarnings').click(function() {
         var dateRange = getDateRange();
-        var url = `{{ route('income-expense-report.index') }}`;
+        var url = `{{ \App\Support\ModulePresence::url('income-expense-report.index') }}`;
 
         string = `?start=${dateRange.startDate}&end=${dateRange.endDate}`;
         url += string;
@@ -190,7 +190,7 @@
 
     $('#totalPaidInvoices').click(function() {
         var dateRange = getDateRange();
-        var url = `{{ route('invoices.index') . '?status=paid' }}`;
+        var url = `{{ \App\Support\ModulePresence::url('invoices.index') . '?status=paid' }}`;
 
         string = `&start=${dateRange.startDate}&end=${dateRange.endDate}`;
         url += string;
@@ -200,7 +200,7 @@
 
     $('#totalPendingInvoices').click(function() {
         var dateRange = getDateRange();
-        var url = `{{ route('invoices.index') . '?status=pending' }}`;
+        var url = `{{ \App\Support\ModulePresence::url('invoices.index') . '?status=pending' }}`;
 
         string = `&start=${dateRange.startDate}&end=${dateRange.endDate}`;
         url += string;

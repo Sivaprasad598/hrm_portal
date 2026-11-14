@@ -30,7 +30,7 @@ $viewDocumentPermission = user()->permission('view_client_document');
 
 <script>
     $('#submit-document').click(function() {
-        var url = "{{ route('client-docs.store') }}";
+        var url = "{{ \App\Support\ModulePresence::url('client-docs.store') }}";
 
         $.easyAjax({
             url: url,

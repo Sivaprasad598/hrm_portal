@@ -3,7 +3,7 @@
 <div class="row">
     @if (in_array('clients', dashboard_modules()) && in_array('total_clients', $activeWidgets))
         <div class="col-xl-3 col-lg-6 col-md-6 mb-3">
-            <a href="{{ route('clients.index') }}">
+            <a href="{{ \App\Support\ModulePresence::url('clients.index') }}">
                 <x-cards.widget :title="__('modules.dashboard.totalClients')" :value="$counts->totalClients"
                                 icon="users">
                 </x-cards.widget>
@@ -33,7 +33,7 @@
 
     @if (in_array('invoices', dashboard_modules()) && in_array('total_unpaid_invoices', $activeWidgets))
         <div class="col-xl-3 col-lg-6 col-md-6 mb-3">
-            <a href="{{ route('invoices.index') . '?status=pending' }}">
+            <a href="{{ \App\Support\ModulePresence::url('invoices.index') . '?status=pending' }}">
                 <x-cards.widget :title="__('modules.dashboard.totalUnpaidInvoices')"
                                 :value="$counts->totalUnpaidInvoices" icon="file-invoice">
                 </x-cards.widget>
@@ -74,7 +74,7 @@
 
     @if (in_array('tickets', dashboard_modules()) && in_array('total_unresolved_tickets', $activeWidgets))
         <div class="col-xl-3 col-lg-6 col-md-6">
-            <a href="{{ route('tickets.index') . '?status=open' }}">
+            <a href="{{ \App\Support\ModulePresence::url('tickets.index') . '?status=open' }}">
                 <x-cards.widget :title="__('modules.tickets.totalUnresolvedTickets')"
                                 :value="floor($counts->totalOpenTickets)" icon="ticket-alt">
                 </x-cards.widget>
@@ -177,7 +177,7 @@
                                          alt="{{ $item->requester->name }}" title="{{ $item->requester->name }}">
                                 </div>
                             </td>
-                            <td><a href="{{ route('tickets.show', $item->ticket_number) }}"
+                            <td><a href="{{ \App\Support\ModulePresence::url('tickets.show', $item->ticket_number) }}"
                                    class="text-darkest-grey">{{ $item->subject }}</a>
                                 <br/>
                                 <span class="f-10 text-lightest mt-1">{{ $item->requester->name }}</span>
@@ -266,7 +266,7 @@
                         <tr>
                             <td class="pl-20">
                                 <h5 class="f-13 text-darkest-grey"><a
-                                        href="{{ route('deals.show', [$item->id]) }}">{{ $item->client_name }}</a>
+                                        href="{{ \App\Support\ModulePresence::url('deals.show', [$item->id]) }}">{{ $item->client_name }}</a>
                                 </h5>
                                 <div class="text-muted">{{ $item->company_name }}</div>
                             </td>

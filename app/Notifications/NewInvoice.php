@@ -4,7 +4,7 @@ namespace App\Notifications;
 
 use App\Models\Invoice;
 use App\Models\EmailNotificationSetting;
-use App\Http\Controllers\InvoiceController;
+use AppModules\Finance\Http\Controllers\InvoiceController;
 use App\Models\GlobalSetting;
 use NotificationChannels\OneSignal\OneSignalChannel;
 use Illuminate\Support\Facades\App;

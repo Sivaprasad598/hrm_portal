@@ -46,7 +46,7 @@ class NewRecurringInvoice extends BaseNotification
     public function toMail($notifiable)
     {
         $build = parent::build($notifiable);
-        $url = route('recurring-invoices.show', $this->invoice->id);
+        $url = \App\Support\ModulePresence::url('recurring-invoices.show', $this->invoice->id);
         $url = getDomainSpecificUrl($url, $this->company);
 
         $content = __('email.newInvoiceRecurring.subject') . '.' . '<br>' . __('email.newInvoiceRecurring.text') . '<br>' . __('app.total') . ': ' . $this->invoice->currency->currency_symbol . $this->invoice->total;

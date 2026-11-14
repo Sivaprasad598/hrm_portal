@@ -23,7 +23,7 @@
 
     @if (in_array('timelogs', dashboard_modules()) && in_array('total_hours_logged', $activeWidgets))
         <div class="col-xl-3 col-lg-6 col-md-6 mb-3">
-            <a href="{{ route('time-log-report.index') . '?project=required' }}">
+            <a href="{{ \App\Support\ModulePresence::url('time-log-report.index') . '?project=required' }}">
                 <x-cards.widget :title="__('modules.dashboard.totalHoursLogged')" :value="$totalHoursLogged"
                     icon="clock" />
             </a>
