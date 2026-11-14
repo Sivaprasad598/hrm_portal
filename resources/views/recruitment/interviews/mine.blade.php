@@ -5,19 +5,28 @@
 @php
     $me = (int) user()->id;
     $sections = [
-        ['title' => 'To do', 'sub' => 'Waiting for your scorecard / marks', 'list' => $toDo, 'kind' => 'todo'],
-        ['title' => 'Upcoming', 'sub' => 'Scheduled with you on the panel', 'list' => $upcoming, 'kind' => 'upcoming'],
-        ['title' => 'Done', 'sub' => 'Your recent rounds', 'list' => $done, 'kind' => 'done'],
+        ['title' => 'To do', 'list' => $toDo, 'kind' => 'todo'],
+        ['title' => 'Upcoming', 'list' => $upcoming, 'kind' => 'upcoming'],
+        ['title' => 'Done', 'list' => $done, 'kind' => 'done'],
     ];
 @endphp
-<div class="content-wrapper">
-    <div class="card bg-white border-0 b-shadow-4">
-        <div class="card-header bg-white border-0 pt-4">
-            <h4 class="f-18 f-w-500 mb-0">My Interviews</h4>
-            <p class="ms-intro">The recruitment rounds you are on. Give your scorecard (or the marks, for a test) once the round has taken place —
-                the candidate moves to the next round as soon as every score is in.</p>
-        </div>
-        <div class="card-body pt-2">
+<style>
+    /* the app's standard: counts and sections as white rounded cards on the grey page */
+    .mi-std .ms-stats { margin-bottom: 16px; }
+    .mi-std .ms-stats > * { background: #fff; border-radius: 12px !important; box-shadow: 0 1px 3px rgba(16, 24, 40, .06); }
+    .mi-std .mi-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 3px rgba(16, 24, 40, .06); padding: 16px 20px; margin-bottom: 16px; }
+    .mi-std .mi-card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .mi-std .mi-card-head h5 { font-size: 15px; font-weight: 600; margin: 0; color: #1f2937; }
+    .mi-std .mi-count { background: #f3f4f6; color: #4b5563; border-radius: 10px; font-size: 12px; padding: 1px 8px; }
+    .mi-std .ms-item { border: 1px solid #eef0f3; border-radius: 10px; padding: 12px 16px; margin-bottom: 8px; background: #fff; }
+    .mi-std .ms-item:last-child { margin-bottom: 0; }
+    .mi-std .ms-empty { border: 1px dashed #e5e7eb; border-radius: 10px; text-align: center; color: #9ca3af; }
+    body.epic .mi-std .ms-item .btn-sm { height: 38px; border-radius: 8px !important; padding: 0 14px !important; display: inline-flex; align-items: center; font-size: 14px; }
+</style>
+{{-- (no heading or intro text: the top bar names the page) --}}
+<div class="content-wrapper mi-std">
+    <div>
+        <div>
             <div class="ms-stats">
                 <div class="ms-stat {{ $toDo->isNotEmpty() ? 'is-warn' : '' }}">
                     <div class="lbl"><span class="ic" style="--ic-bg:#fff4e5;--ic-fg:#b45309"><i class="fa fa-clipboard-check"></i></span>To do</div>
@@ -41,7 +50,8 @@
                     $list = $section['list'];
                     $kind = $section['kind'];
                 @endphp
-                <div class="ms-sec {{ $loop->first ? '' : 'mt-4' }}"><h5>{{ $section['title'] }} <span>{{ $section['sub'] }}</span></h5></div>
+                <div class="mi-card">
+                <div class="mi-card-head"><h5>{{ $section['title'] }}</h5><span class="mi-count">{{ $list->count() }}</span></div>
                 @forelse ($list as $i)
                     @php
                         $application = $i->application;
@@ -80,6 +90,7 @@
                 @empty
                     <div class="ms-empty py-3">Nothing here.</div>
                 @endforelse
+                </div>
             @endforeach
         </div>
     </div>
