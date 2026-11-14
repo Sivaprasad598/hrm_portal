@@ -5,15 +5,13 @@
 @php $fmt = company()->date_format; @endphp
 <div class="content-wrapper">
 
-    <form method="GET" action="{{ route('job-positions.index') }}" class="bg-white rounded b-shadow-4 p-3 mb-3">
+    <form method="GET" action="{{ route('job-positions.index') }}" id="rc-filter-form" class="bg-white rounded b-shadow-4 p-3 mb-3">
         <div class="row align-items-end">
             <div class="col-md-3 col-6 mb-2">
-                <label class="f-13 text-dark-grey mb-1">Status</label>
-                <select name="status" class="form-control select-picker">
-                    <option value="">Not closed</option>
-                    @foreach (\App\Models\JobPosition::STATUSES as $key => [$label])
-                        <option value="{{ $key }}" @selected(request('status') === $key)>{{ $label }} ({{ $statusCounts[$key] ?? 0 }})</option>
-                    @endforeach
+                <label class="f-13 text-dark-grey mb-1">Division</label>
+                <select name="department_id" class="form-control select-picker" data-live-search="true" data-size="8">
+                    <option value="">All</option>
+                    @include('departments.partials.tree-options', ['departments' => $departments, 'selected' => request('department_id')])
                 </select>
             </div>
             <div class="col-md-2 col-6 mb-2">
@@ -26,16 +24,16 @@
                 </select>
             </div>
             <div class="col-md-2 col-6 mb-2">
-                <label class="f-13 text-dark-grey mb-1">Division</label>
-                <select name="department_id" class="form-control select-picker" data-live-search="true">
-                    <option value="">All</option>
-                    @foreach ($departments as $department)
-                        <option value="{{ $department->id }}" @selected(request('department_id') == $department->id)>{{ $department->team_name }}</option>
+                <label class="f-13 text-dark-grey mb-1">Status</label>
+                <select name="status" class="form-control select-picker">
+                    <option value="">Not closed</option>
+                    @foreach (\App\Models\JobPosition::STATUSES as $key => [$label])
+                        <option value="{{ $key }}" @selected(request('status') === $key)>{{ $label }} ({{ $statusCounts[$key] ?? 0 }})</option>
                     @endforeach
                 </select>
             </div>
-            <div class="col-md-3 col-6 mb-2">
-                <label class="f-13 text-dark-grey mb-1">Search</label>
+            <div class="col-md-5 col-12 mb-2">
+                <label class="f-13 text-dark-grey mb-1">Search job positions</label>
                 <input type="text" name="search" value="{{ request('search') }}" class="form-control f-14" placeholder="Title, code, location, skill">
             </div>
             <div class="col-md-2 mb-2 text-right">
@@ -112,4 +110,5 @@
 
     <div class="mt-2">{{ $positions->links() }}</div>
 </div>
+@include('recruitment.partials.standard-bar', ['form' => '#rc-filter-form', 'active' => request()->hasAny(['status', 'type', 'department_id', 'search']) && request()->anyFilled(['status', 'type', 'department_id', 'search'])])
 @endsection

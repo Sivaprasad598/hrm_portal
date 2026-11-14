@@ -81,10 +81,6 @@
                                           icon="plus">
                         @lang('modules.holiday.addNewHoliday')
                     </x-forms.link-primary>
-                    <x-forms.button-secondary icon="check" class="mr-3 float-left mb-2 mb-lg-0 mb-md-0"
-                                              id="mark-holiday">
-                        @lang('modules.holiday.markSunday')
-                    </x-forms.button-secondary>
                 @endif
             </div>
 

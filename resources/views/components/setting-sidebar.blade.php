@@ -171,8 +171,9 @@
                                  :text="__('app.menu.payslipSettings')"/>
         @endif
 
-        <x-setting-menu-item :active="$activeMenu" menu="profile_settings" :href="route('profile-settings.index')"
-                             :text="__('app.menu.profileSettings')"/>
+        {{-- Profile Settings: not on the Settings menu any more (each person's details are
+             on their own employee record); the menu row is switched off by migration
+             2026_11_13_100002_hide_profile_settings_menu --}}
 
         @if (user()->permission('manage_project_setting') == 'all' && in_array('projects', user_modules()))
             <x-setting-menu-item :active="$activeMenu" menu="project_settings" :href="route('project-settings.index')"

@@ -6,10 +6,10 @@
     $fmt = company()->date_format;
     $tz = company()->timezone;
 @endphp
-<div class="content-wrapper">
+<div class="content-wrapper rd">
 
-    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
-        <h4 class="f-21 font-weight-normal mb-2">Job Dashboard</h4>
+    {{-- (no in-page title: the top bar has it) --}}
+    <div class="d-flex flex-wrap justify-content-end align-items-center mb-3">
         @if ($canManage)
             <div class="mb-2">
                 <a href="{{ route('job-positions.create') }}" class="btn btn-primary rounded f-14 openRightModal"><i class="fa fa-plus mr-1"></i>Add Position</a>
@@ -34,7 +34,7 @@
                             <h3 class="font-weight-700 mb-0">{{ $count }}</h3>
                             <span class="f-12 text-dark-grey">{{ $sub }}</span>
                         </div>
-                        <i class="fa {{ $icon }} f-21" style="color: {{ $colour }}; opacity: .8"></i>
+                        <span class="rd-chip"><i class="fa {{ $icon }}"></i></span>
                     </div>
                 </a>
             </div>
@@ -280,6 +280,34 @@
         </div>
     </div>
 </div>
+
+<style>
+    /* Job Dashboard: the app's card look - white, 12px corners, one soft shadow,
+       the colour on an icon chip; notices as slim strips; quiet section titles */
+    .rd .card { border: 0 !important; border-radius: 12px !important; box-shadow: 0 1px 3px rgba(16, 24, 40, .06) !important; }
+    .rd .rc-tile { border-left: 0 !important; transition: box-shadow .15s, transform .15s; }
+    .rd .rc-tile:hover { box-shadow: 0 8px 22px rgba(16, 24, 40, .10) !important; transform: translateY(-1px); }
+    .rd .rc-tile .card-body { padding: 18px 20px !important; align-items: flex-start !important; }
+    .rd .rc-tile p { white-space: nowrap; font-size: 11.5px !important; letter-spacing: .05em; color: #667085 !important; margin-bottom: 6px !important; }
+    .rd .rc-tile h3 { color: #101828 !important; font-size: 26px; line-height: 1.15; }
+    .rd .rc-tile span.f-12 { color: #98a2b3 !important; }
+    .rd .rc-tile .card-body > div { min-width: 0; }
+    .rd .rd-chip { width: 38px; height: 38px; flex: none; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center;
+        background: color-mix(in srgb, var(--rc) 12%, #fff); color: var(--rc); font-size: 17px; }
+    .rd .alert { border: 0; border-left: 3px solid; border-radius: 10px; padding: 10px 16px; font-size: 13.5px; background: #fff;
+        box-shadow: 0 1px 3px rgba(16, 24, 40, .06); }
+    .rd .alert-warning { border-left-color: #f79009; color: #93370d; }
+    .rd .alert-info { border-left-color: #2e90fa; color: #175cd3; }
+    .rd .alert a { color: inherit; text-decoration: underline; }
+    .rd h5.f-15 { font-size: 13px !important; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: #475467 !important; }
+    .rd h5.f-15 .fa, .rd h5.f-15 svg { color: var(--epic-blue, #cb6b4f) !important; }
+    .rd .card-body { padding: 18px 20px; }
+    .rd .border.rounded { border-color: #eaecf0 !important; border-radius: 10px !important; background: #fcfcfd; }
+    .rd a.border.rounded:hover { border-color: var(--epic-blue, #cb6b4f) !important; background: #fff; }
+    .rd .border-top, .rd .border-bottom { border-color: #f2f4f7 !important; }
+    .rd .btn-sm { border-radius: 8px !important; height: 32px; display: inline-flex; align-items: center; padding: 0 12px !important; }
+    .rd .badge-info { background: color-mix(in srgb, var(--epic-blue, #cb6b4f) 12%, #fff); color: var(--epic-blue, #cb6b4f); }
+</style>
 @endsection
 
 @push('scripts')

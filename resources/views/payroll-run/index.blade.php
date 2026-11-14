@@ -30,8 +30,9 @@
 
     <div class="content-wrapper arw-dash">
 
-        {{-- What is being costed --}}
-        <div class="card bg-white border-0 b-shadow-4 mb-3">
+        {{-- What is being costed (hidden until "Filters" at the top right) --}}
+        @include('sections.card-filter-toggle', ['card' => '#pr-filter-card', 'active' => !empty($selectedEmployees) || !empty($departmentId) || $includeUnpaid])
+        <div class="card bg-white border-0 b-shadow-4 mb-3" id="pr-filter-card">
             <div class="card-body p-3">
                 <form method="GET" action="{{ route('payroll-run.index') }}" id="payroll-filters">
                     <div class="row align-items-end">
@@ -193,23 +194,13 @@
                     </p>
                 </div>
 
-                {{-- Where the money has gone, over any stretch of dates. --}}
-                <a class="btn btn-sm btn-outline-secondary mr-2"
-                   href="{{ route('payroll-dashboard.index') }}">
-                    <i class="fa fa-chart-pie mr-1"></i> Dashboard
-                </a>
-
-                {{-- What this month actually paid, once payslips exist. --}}
-                <a class="btn btn-sm btn-outline-secondary mr-2"
-                   href="{{ route('payroll-register.index', ['month' => $month, 'year' => $year]) }}">
-                    <i class="fa fa-book mr-1"></i> Salary Statement
-                </a>
-
-                {{-- Overtime, bonuses, advances for this month. --}}
-                <a class="btn btn-sm btn-outline-secondary mr-2"
-                   href="{{ route('pay-elements.index', ['month' => $month, 'year' => $year]) }}">
-                    <i class="fa fa-sliders-h mr-1"></i> Pay Elements
-                </a>
+                {{-- Dashboard, Pay Elements and Export: at the top right, on the tab row
+                     (Salary Statement is a tab of its own) --}}
+                @push('page-tab-actions')
+                    <a class="btn-secondary rounded f-14" href="{{ route('payroll-dashboard.index') }}"><i class="fa fa-chart-pie mr-1"></i> Dashboard</a>
+                    <a class="btn-secondary rounded f-14" href="{{ route('pay-elements.index', ['month' => $month, 'year' => $year]) }}"><i class="fa fa-sliders-h mr-1"></i> Pay Elements</a>
+                    <a class="btn-secondary rounded f-14" href="{{ route('payroll-run.export', request()->query()) }}"><i class="fa fa-file-excel mr-1"></i> Export to Excel</a>
+                @endpush
 
                 {{-- Which design these payslips will be issued in. Said here
                      because this is where they are issued, and because it is
@@ -233,10 +224,6 @@
                     </button>
                 @endif
 
-                <a class="btn btn-sm btn-outline-secondary mr-2"
-                   href="{{ route('payroll-run.export', request()->query()) }}">
-                    <i class="fa fa-file-excel mr-1"></i> Export to Excel
-                </a>
 
                 <button type="button" class="btn btn-sm btn-primary" id="generate-all"
                         @if ($isCurrentMonth) title="Available from {{ $cycle->end->copy()->addDay()->format('d M') }}" @endif

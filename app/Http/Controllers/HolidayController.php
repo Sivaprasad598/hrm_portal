@@ -83,6 +83,11 @@ class HolidayController extends AccountBaseController
             return $holidayArray;
         }
 
+        // Month / Year filters, as on the table view: they move the calendar
+        $this->currentYear = (int) now()->format('Y');
+        $this->currentMonth = now()->month;
+        $this->years = range((int) now()->subYears(5)->format('Y'), (int) now()->addYear()->format('Y'));
+
         return view('holiday.calendar.index', $this->data);
     }
 

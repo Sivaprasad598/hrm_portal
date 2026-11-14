@@ -8,7 +8,7 @@
 @endphp
 <div class="content-wrapper">
 
-    <form method="GET" action="{{ route('job-applications.index') }}" class="bg-white rounded b-shadow-4 p-3 mb-3">
+    <form method="GET" action="{{ route('job-applications.index') }}" id="rc-filter-form" class="bg-white rounded b-shadow-4 p-3 mb-3">
         <input type="hidden" name="view" value="{{ $board ? 'board' : 'list' }}">
         <div class="row align-items-end">
             <div class="col-md-3 mb-2">
@@ -66,7 +66,7 @@
     </div>
 
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
-        <div class="btn-group mb-2">
+        <div class="btn-group mb-2" data-rc-bar>
             <a href="{{ route('job-applications.index', $query + ['view' => 'board']) }}" class="btn btn-sm {{ $board ? 'btn-primary' : 'btn-outline-secondary' }}"><i class="fa fa-columns mr-1"></i>Board</a>
             <a href="{{ route('job-applications.index', $query + ['view' => 'list']) }}" class="btn btn-sm {{ $board ? 'btn-outline-secondary' : 'btn-primary' }}"><i class="fa fa-list mr-1"></i>List</a>
         </div>
@@ -79,11 +79,13 @@
         <div class="rc-board">
             @foreach ($columns as $column)
                 @php $cards = $applications->get($column, collect()); @endphp
-                <div class="rc-col {{ $cards->isEmpty() ? 'rc-col--empty' : '' }}">
+                <div class="rc-col {{ $cards->isEmpty() ? 'rc-col--empty' : '' }}" data-stage="{{ $column }}">
                     <div class="rc-col-head"><span>{!! \App\Models\JobApplication::badge($column) !!}</span><span class="text-dark-grey">{{ $cards->count() }}</span></div>
                     @forelse ($cards as $application)
                         {{-- Click a card for the applicant's details and actions in a side panel --}}
-                        <div class="rc-card rc-card--quick" title="Click for details">
+                        <div class="rc-card rc-card--quick" title="Click for details, or drag to another stage"
+                             @if ($canManage) draggable="true" @endif data-id="{{ $application->id }}" data-stage="{{ $application->stage }}"
+                             data-choices='@json(\App\Services\Recruit\Pipeline::choices($application))'>
                             <a href="{{ route('job-applications.quick', $application->id) }}" class="openRightModal rc-quick-link d-none" aria-hidden="true"></a>
                             <div class="d-flex justify-content-between">
                                 <a href="{{ route('candidates.show', $application->candidate_id) }}" class="rc-name">{{ $application->candidate->name }}</a>
@@ -182,6 +184,96 @@
         <div class="mt-3">{{ $applications->links() }}</div>
     @endif
 </div>
+
+@push('scripts')
+<script>
+    // Drag a card to another stage. Stages needing details (a reason, an offer) open their form
+    // first and move once it is saved; the others move straight away.
+    $(function () {
+        var board = document.querySelector('.rc-board');
+        if (!board) { return; }
+        board.scrollLeft = 0;
+        var names = @json(collect(\App\Models\JobApplication::STAGES)->map(fn ($s) => $s[0]));
+        var moveForm = "{{ route('job-applications.move-form', [':id', 'to' => ':to']) }}";
+        var moveUrl = "{{ route('job-applications.move', ':id') }}";
+        var offerUrl = "{{ route('job-offers.create', ['application' => ':id']) }}";
+        var needsForm = ['rejected', 'on_hold', 'withdrawn'];
+        var dragged = null;
+
+        function openPanel(url) {
+            var a = document.createElement('a');
+            a.href = url; a.className = 'openRightModal d-none';
+            document.body.appendChild(a); $(a).trigger('click'); a.remove();
+        }
+        function refuse(text) {
+            Swal.fire({ icon: 'info', text: text, confirmButtonText: 'OK', customClass: { confirmButton: 'btn btn-primary' }, buttonsStyling: false });
+        }
+
+        board.addEventListener('dragstart', function (e) {
+            var card = e.target.closest('.rc-card[draggable]');
+            if (!card) { return; }
+            dragged = card;
+            card.classList.add('rc-dragging');
+            e.dataTransfer.effectAllowed = 'move';
+        });
+        board.addEventListener('dragend', function () {
+            if (dragged) { dragged.classList.remove('rc-dragging'); }
+            dragged = null;
+            board.querySelectorAll('.rc-drop').forEach(function (c) { c.classList.remove('rc-drop'); });
+        });
+        board.addEventListener('dragover', function (e) {
+            var col = e.target.closest('.rc-col');
+            if (!col || !dragged) { return; }
+            e.preventDefault();
+            board.querySelectorAll('.rc-drop').forEach(function (c) { if (c !== col) { c.classList.remove('rc-drop'); } });
+            col.classList.add('rc-drop');
+            // scroll the board when dragging near its edges
+            var r = board.getBoundingClientRect();
+            if (e.clientX > r.right - 60) { board.scrollLeft += 20; } else if (e.clientX < r.left + 60) { board.scrollLeft -= 20; }
+        });
+        board.addEventListener('drop', function (e) {
+            var col = e.target.closest('.rc-col');
+            if (!col || !dragged) { return; }
+            e.preventDefault();
+            var id = dragged.dataset.id, from = dragged.dataset.stage, to = col.dataset.stage;
+            var choices = JSON.parse(dragged.dataset.choices || '[]');
+            col.classList.remove('rc-drop');
+            if (to === from) { return; }
+
+            if (to === 'offered') {
+                if (from === 'selected') { openPanel(offerUrl.replace(':id', id)); }
+                else { refuse('Only a Selected applicant can be offered. Move them to Selected first.'); }
+                return;
+            }
+            if (to === 'offer_accepted' || to === 'joined') {
+                refuse(to === 'joined' ? 'An applicant joins by converting them to an employee, from an accepted offer.'
+                    : 'An offer is marked accepted from the offer itself.');
+                return;
+            }
+            if (choices.indexOf(to) === -1) {
+                refuse('An applicant in ' + names[from] + ' cannot be moved to ' + names[to] + '.');
+                return;
+            }
+            if (needsForm.indexOf(to) !== -1) {
+                // a reason is needed: fill the form, it moves when saved
+                openPanel(moveForm.replace(':id', id).replace(':to', to));
+                return;
+            }
+            $.easyAjax({
+                url: moveUrl.replace(':id', id), type: 'POST', blockUI: true,
+                data: { _token: '{{ csrf_token() }}', stage: to },
+                success: function (r) { if (r.status === 'success') { window.location.reload(); } }
+            });
+        });
+    });
+</script>
+<style>
+    .rc-card[draggable="true"] { cursor: grab; }
+    .rc-card.rc-dragging { opacity: .45; }
+    .rc-col.rc-drop { outline: 2px dashed var(--epic-blue, #cb6b4f); outline-offset: -4px; background: color-mix(in srgb, var(--epic-blue, #cb6b4f) 6%, #f4f6f9); }
+</style>
+@endpush
+@include('recruitment.partials.standard-bar', ['form' => '#rc-filter-form', 'active' => request()->anyFilled(['stage', 'source', 'search'])])
 @endsection
 
 @push('scripts')

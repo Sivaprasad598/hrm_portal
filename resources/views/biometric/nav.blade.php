@@ -35,19 +35,21 @@
         'Configure' => [
             'settings' => ['biometric-settings.index', __('app.menu.biometricSettings')],
             'devices' => ['biometric.devices', __('app.menu.biometricDevices')],
-            'employees' => ['biometric.employees', __('app.menu.biometricEmployees')],
             'shifts' => ['biometric.shifts', __('app.menu.biometricShifts')],
         ],
         'History & tools' => [
             'calendar' => ['biometric.calendar', 'Sync Calendar & re-sync'],
             'sync' => ['biometric.sync-logs', __('app.menu.biometricSync')],
-            'comparison' => ['biometric.comparison', __('app.menu.employeeComparison')],
             'actions' => ['biometric.actions', 'Departed enrolments'],
         ],
     ];
     // Who may open what: the mapping entries need the mapping permission, the rest is technical.
     $needs = ['employees' => 'mapping', 'comparison' => 'mapping'];
     $flow = $bioAccess['view'] ? $flow : [];
+    // Employee Mapping (link people to their device codes): a tab of its own, for whoever may map
+    if ($bioAccess['mapping']) {
+        $flow['employees'] = ['biometric.employees', __('app.menu.biometricEmployees'), 'bi-link-45deg'];
+    }
 
     foreach ($setup as $group => $items) {
         $setup[$group] = array_filter($items, fn ($key) => $bioAccess[$needs[$key] ?? 'system'], ARRAY_FILTER_USE_KEY);
@@ -61,9 +63,16 @@
     .bio-nav { border-bottom: 1px solid #e8eef3; gap: 2px; }
     .bio-nav .nav-link { color: #667085; font-size: 14px; padding: 8px 12px; border: 0; border-bottom: 2px solid transparent; }
     .bio-nav .nav-link:hover { color: #1d2939; }
-    .bio-nav .nav-link.active, .bio-nav .show > .nav-link { color: #1d82f5; border-bottom-color: #1d82f5; background: transparent; }
+    .bio-nav .nav-link.active, .bio-nav .show > .nav-link { color: var(--epic-blue, #cb6b4f) !important; border-bottom-color: var(--epic-blue, #cb6b4f) !important; background: transparent; }
     .bio-nav .nav-link i { margin-right: 4px; }
     .bio-nav .dropdown-menu { font-size: 13px; }
+    body:not(.bio-filters-open) .bio-filter-card { display: none !important; }
+    body.epic .bio-filter-btn { position: relative; height: 38px; padding: 0 14px !important; border-radius: 8px !important; display: inline-flex; align-items: center; margin-bottom: 4px; cursor: pointer; }
+    body.epic .bio-filter-btn.is-open { background: color-mix(in srgb, var(--epic-blue, #cb6b4f) 10%, #fff) !important; border-color: var(--epic-blue, #cb6b4f) !important; color: var(--epic-blue, #cb6b4f) !important; }
+    body.epic .bio-filter-btn.is-open i { color: var(--epic-blue, #cb6b4f) !important; }
+    .bio-filter-dot { display: none; position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--epic-blue, #cb6b4f); border: 2px solid #fff; }
+    .bio-filter-btn.has-filter .bio-filter-dot { display: block; }
+    .bio-filter-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 3px rgba(16, 24, 40, .06); margin-bottom: 16px; }
     .bio-nav .dropdown-header { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
     @media (max-width: 767.98px) {
         .bio-nav { flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; }
@@ -86,7 +95,7 @@
         box-shadow: none;
     }
 
-    .content-wrapper input.form-control:focus { border-color: #1d82f5; box-shadow: none; }
+    .content-wrapper input.form-control:focus { border-color: var(--epic-blue, #cb6b4f); box-shadow: none; }
 
     /* bootstrap-select copies .form-control onto its wrapper, which drew a second
        bordered, padded box round the real button - the oversized dropdown */
@@ -107,7 +116,7 @@
         display: flex; align-items: center;
     }
 
-    .content-wrapper .bootstrap-select > .dropdown-toggle:focus { border-color: #1d82f5 !important; outline: none !important; }
+    .content-wrapper .bootstrap-select > .dropdown-toggle:focus { border-color: var(--epic-blue, #cb6b4f) !important; outline: none !important; }
     /* Text centred in the box whatever size class the select carried
        (form-control-sm pushed it to the top of the taller field) */
     .content-wrapper .bootstrap-select > .dropdown-toggle,
@@ -221,8 +230,21 @@
         </li>
     @endforeach
 
+    @if (!empty($navFilters))
+        {{-- the page's filter card opens from here (hidden until clicked) --}}
+        <li class="nav-item ml-md-auto d-flex align-items-center">
+            @if (!empty($navFiltersOpen))
+                <script>document.body.classList.add('bio-filters-open');</script>
+            @endif
+            <button type="button" class="btn-secondary rounded f-14 bio-filter-btn {{ !empty($navFiltersActive) ? 'has-filter' : '' }} {{ !empty($navFiltersOpen) ? 'is-open' : '' }}"
+                    onclick="var o=document.body.classList.toggle('bio-filters-open');this.classList.toggle('is-open',o);">
+                <i class="fa fa-filter mr-1"></i>Filters<span class="bio-filter-dot"></span>
+            </button>
+        </li>
+    @endif
+
     @if ($setup)
-    <li class="nav-item dropdown ml-md-auto">
+    <li class="nav-item dropdown {{ empty($navFilters) ? 'ml-md-auto' : '' }}">
         <a class="nav-link dropdown-toggle {{ in_array($active, $setupKeys, true) ? 'active' : '' }}" data-toggle="dropdown" href="#" role="button">
             <i class="bi bi-gear"></i>Setup
             @if ($outstanding > 0)

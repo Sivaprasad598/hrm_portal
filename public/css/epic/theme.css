@@ -2483,3 +2483,7 @@ body.epic .emp-dashboard .fc .fc-button { border-radius: 8px !important; }
 .dept-opt__of { color: #98a2b3; font-size: 11.5px; margin-left: 4px; }
 .dropdown-menu .active .dept-opt__of, .dropdown-menu .selected .dept-opt__of { color: inherit; opacity: .7; }
 .dropdown-menu .active .dept-opt--top { color: inherit; }
+
+/* the chosen department on a closed drop-down: just its name */
+.bootstrap-select .filter-option .dept-opt__of { display: none; }
+.bootstrap-select .filter-option .dept-opt { padding-left: 0 !important; }

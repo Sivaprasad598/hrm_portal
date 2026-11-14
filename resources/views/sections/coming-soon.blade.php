@@ -4,7 +4,7 @@
 @php
     $comingSoonRoutes = [
         // Assets
-        'assets.*', 'asset-types.*',
+        // (Assets: open again)
         // Work
         'contracts.*', 'projects.*', 'tasks.*', 'timelogs.*', 'weekly-timesheets.*', 'taskboards.*',
     ];

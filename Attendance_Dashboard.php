@@ -99,15 +99,30 @@ if ($companyId > 0) {
 
         // Day Off, from the shift roster
         $dayOffByUserDay = [];
+        $rosterShiftByUserDay = [];
         EmployeeShiftSchedule::whereIn('user_id', $employeeIds)
             ->whereBetween('date', [$monthStart->toDateString(), $monthEnd->toDateString()])
             ->with('shift')
             ->get()
-            ->each(function ($schedule) use (&$dayOffByUserDay) {
+            ->each(function ($schedule) use (&$dayOffByUserDay, &$rosterShiftByUserDay) {
                 if ($schedule->shift && $schedule->shift->shift_name === 'Day Off') {
                     $dayOffByUserDay[$schedule->user_id][(int) Carbon::parse($schedule->date)->day] = true;
+                } elseif ($schedule->shift) {
+                    $rosterShiftByUserDay[$schedule->user_id][(int) Carbon::parse($schedule->date)->day] = $schedule->shift;
                 }
             });
+
+        // Working days follow the shift: a day the person's shift (rostered, else the
+        // company's default shift) is not open is a Day Off; Sundays always are.
+        $defaultShift = null;
+        try {
+            $defaultShiftId = DB::table('attendance_settings')->where('company_id', $companyId)->value('default_employee_shift');
+            $defaultShift = $defaultShiftId ? \App\Models\EmployeeShift::find($defaultShiftId) : null;
+        } catch (\Throwable $e) {}
+        $openDays = function ($shift) {
+            $days = $shift ? json_decode((string) $shift->office_open_days, true) : null;
+            return is_array($days) && $days ? array_map('intval', $days) : null;
+        };
 
         // Approved leave
         $leaveByUserDay = [];
@@ -140,7 +155,11 @@ if ($companyId > 0) {
                     continue;
                 }
 
-                if (!empty($dayOffByUserDay[$employee->id][$day])) {
+                $dayShift = $rosterShiftByUserDay[$employee->id][$day] ?? $defaultShift;
+                $open = $openDays($dayShift);
+                $notOpen = $date->dayOfWeek === Carbon::SUNDAY || ($open !== null && !in_array($date->dayOfWeek, $open, true));
+
+                if (!empty($dayOffByUserDay[$employee->id][$day]) || $notOpen) {
                     $status = 'Day Off';
                 } elseif (!empty($holidaysByDay[$day])) {
                     $status = 'Holiday';
@@ -747,6 +766,8 @@ $employeeDeptJson = json_encode(isset($employees) ? $employees->pluck('departmen
         .filter-group .dd-top { font-weight: 600; color: #101828; }
         .filter-group .dd-sub small { color: #98a2b3; font-size: 11.5px; margin-left: 4px; }
         .filter-group .choices__list--single .dd-sub { padding-left: 0 !important; }
+        /* the chosen department: just its name (the division is only shown in the list) */
+        .filter-group .choices__list--single .dd-sub small { display: none !important; }
         .search-wrapper i { left: 12px; color: var(--epic-muted); }
         ::-webkit-scrollbar { width: 12px; height: 12px; background: #eceef1; }
         ::-webkit-scrollbar-thumb { background-color: #9aa1ab; border: 2px solid #eceef1; border-radius: 8px; }
@@ -782,6 +803,24 @@ $employeeDeptJson = json_encode(isset($employees) ? $employees->pluck('departmen
         .stat-card, .chart-card, .details-section, .report-option { border-radius: 12px !important; box-shadow: 0 1px 3px rgba(16, 24, 40, .06) !important; }
         .details-section { background: #fff; padding: 18px 20px; }
         .stat-icon { border-radius: 10px !important; }
+
+        /* summary cards: a clear figure, its name, and what it is made of */
+        .stat-card .stat-info { flex-direction: column !important; }
+        .stat-card .stat-label { order: 1; margin: 0 0 6px !important; }
+        .stat-card .stat-number { order: 2; }
+        .stat-card .stat-sub { order: 3; font-size: 12px; color: #98a2b3; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .sc-rate .stat-number { color: var(--epic-blue) !important; }
+        .sc-absent .stat-number { color: #d92d20 !important; }
+        .sc-present .stat-number { color: #067647 !important; }
+
+        /* Particular Employee: the eight cards four to a row, clear of the table below */
+        #tab-particular .details-section { margin-bottom: 16px; overflow: hidden; }
+        #tab-particular .particular-section .stats-grid { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 12px !important; margin: 4px 0 0 !important; }
+        #tab-particular .particular-section .stat-card { min-height: 84px !important; box-shadow: none !important; border: 1px solid #eaecf0 !important; }
+        @media (max-width: 991px) { #tab-particular .particular-section .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
+
+        /* no single-date filter: Month / Year choose the period (the field stays, empty, for the scripts) */
+        .filter-group:has(#datePicker) { display: none !important; }
     </style>
 </head>
 <body>
@@ -806,7 +845,7 @@ $employeeDeptJson = json_encode(isset($employees) ? $employees->pluck('departmen
                 <i class="fas fa-calendar-alt"></i> Monthly Dashboard
             </button>
             <button type="button" class="dashboard-tab" id="tab-btn-particular" data-tab="particular">
-                <i class="fas fa-user-circle"></i> Particular Employee Dashboard
+                <i class="fas fa-user-circle"></i> Employee Summary
             </button>
             <button type="button" class="dashboard-tab" id="tab-btn-reports" data-tab="reports">
                 <i class="fas fa-file-alt"></i> Reports
@@ -853,7 +892,7 @@ $employeeDeptJson = json_encode(isset($employees) ? $employees->pluck('departmen
                 <label for="datePicker">
                     <i class="fas fa-calendar-day"></i> Date
                 </label>
-                <input type="date" id="datePicker" value="<?php echo adEsc($selectedDate); ?>" />
+                <input type="date" id="datePicker" value="" />
             </div>
 
             <!-- Month Dropdown -->
@@ -890,50 +929,58 @@ $employeeDeptJson = json_encode(isset($employees) ? $employees->pluck('departmen
         <div class="tab-pane active" id="tab-monthly">
 
         <!-- ====== STATS CARDS ====== -->
+        <!-- Summary: averages per working day (not raw employee-day totals), each with what it is made of -->
         <section class="stats-grid" id="statsGrid">
-            <div class="stat-card">
+            <div class="stat-card sc-rate">
+                <div class="stat-icon present"><i class="fas fa-chart-line"></i></div>
+                <div class="stat-info">
+                    <div class="stat-number" id="statRate">0</div>
+                    <div class="stat-label">Attendance rate</div>
+                    <div class="stat-sub" id="statRateSub"></div>
+                </div>
+            </div>
+            <div class="stat-card sc-present">
                 <div class="stat-icon present"><i class="fas fa-user-check"></i></div>
                 <div class="stat-info">
                     <div class="stat-number" id="presentCount">0</div>
-                    <div class="stat-label">Present</div>
+                    <div class="stat-label">Present per day</div>
+                    <div class="stat-sub" id="presentSub"></div>
                 </div>
             </div>
-            <div class="stat-card">
+            <div class="stat-card sc-absent">
                 <div class="stat-icon absent"><i class="fas fa-user-times"></i></div>
                 <div class="stat-info">
                     <div class="stat-number" id="absentCount">0</div>
-                    <div class="stat-label">Absent</div>
+                    <div class="stat-label">Absent per day</div>
+                    <div class="stat-sub" id="absentSub"></div>
                 </div>
             </div>
-            <div class="stat-card">
+            <div class="stat-card sc-leave">
                 <div class="stat-icon halfday"><i class="fas fa-user-clock"></i></div>
                 <div class="stat-info">
                     <div class="stat-number" id="halfdayCount">0</div>
-                    <div class="stat-label">Half Day</div>
+                    <div class="stat-label">Half day / leave</div>
+                    <div class="stat-sub" id="halfdaySub"></div>
                 </div>
             </div>
-            <div class="stat-card">
-                <div class="stat-icon dayoff"><i class="fas fa-calendar-week"></i></div>
+            <div class="stat-card sc-days">
+                <div class="stat-icon holiday"><i class="fas fa-calendar-check"></i></div>
                 <div class="stat-info">
                     <div class="stat-number" id="dayoffCount">0</div>
-                    <div class="stat-label">Day Off</div>
+                    <div class="stat-label">Working days</div>
+                    <div class="stat-sub" id="dayoffSub"></div>
                 </div>
             </div>
-            <div class="stat-card">
-                <div class="stat-icon holiday"><i class="fas fa-star"></i></div>
-                <div class="stat-info">
-                    <div class="stat-number" id="holidayCount">0</div>
-                    <div class="stat-label">Holidays</div>
-                </div>
-            </div>
-            <div class="stat-card">
+            <div class="stat-card sc-people">
                 <div class="stat-icon total"><i class="fas fa-users"></i></div>
                 <div class="stat-info">
                     <div class="stat-number" id="totalCount">0</div>
-                    <div class="stat-label">Total Employees</div>
+                    <div class="stat-label">Employees</div>
+                    <div class="stat-sub" id="totalSub"></div>
                 </div>
             </div>
         </section>
+        <span id="holidayCount" hidden></span>
 
         <!-- ====== CHARTS (follow the filters) ====== -->
         <section class="charts-grid">
@@ -948,6 +995,22 @@ $employeeDeptJson = json_encode(isset($employees) ? $employees->pluck('departmen
             <div class="chart-card chart-full">
                 <div class="chart-head"><i class="fas fa-building"></i> Attendance rate by department <span class="chart-note">present + half days, of the working days</span></div>
                 <div class="chart-box chart-box-dept"><canvas id="chartDept"></canvas></div>
+            </div>
+            <div class="chart-card chart-wide">
+                <div class="chart-head"><i class="fas fa-chart-line"></i> Attendance rate over the month <span class="chart-note">% of the working day's staff present</span></div>
+                <div class="chart-box"><canvas id="chartRate"></canvas></div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-head"><i class="fas fa-calendar-week"></i> By weekday <span class="chart-note">attendance %</span></div>
+                <div class="chart-box"><canvas id="chartWeekday"></canvas></div>
+            </div>
+            <div class="chart-card chart-wide">
+                <div class="chart-head"><i class="fas fa-user-times"></i> Most days absent <span class="chart-note">top 10, working days only</span></div>
+                <div class="chart-box chart-box-dept"><canvas id="chartAbsent"></canvas></div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-head"><i class="fas fa-users"></i> Employees by attendance <span class="chart-note">how many fall in each band</span></div>
+                <div class="chart-box chart-box-dept"><canvas id="chartBands"></canvas></div>
             </div>
         </section>
 
@@ -1013,7 +1076,7 @@ $employeeDeptJson = json_encode(isset($employees) ? $employees->pluck('departmen
         <section class="details-section particular-section">
             <div class="details-header">
                 <div class="details-header-left">
-                    <h3><i class="fas fa-user-circle"></i> Particular Employee Dashboard</h3>
+                    <h3><i class="fas fa-user-circle"></i> Employee Summary</h3>
                 </div>
             </div>
 
@@ -1281,15 +1344,34 @@ $employeeDeptJson = json_encode(isset($employees) ? $employees->pluck('departmen
                 else if (rec.status === 'Holiday') holiday++;
             });
 
-            presentCountEl.textContent = present;
-            absentCountEl.textContent = absent;
-            halfdayCountEl.textContent = halfday;
-            dayoffCountEl.textContent = dayOff;
+            // Averages per working day, so the figures read as "on a normal day":
+            // the raw totals are employee-days (351 people x 13 days) and mean little.
+            const leave = filteredRecords.filter(r => r.status === 'On Leave').length;
+            const people = new Set(filteredRecords.map(r => r.userId));
+            const workDays = new Set(filteredRecords.filter(r => r.status !== 'Day Off' && r.status !== 'Holiday').map(r => r.date)).size;
+            const offDays = new Set(filteredRecords.filter(r => r.status === 'Day Off').map(r => r.date)).size;
+            const holDays = new Set(filteredRecords.filter(r => r.status === 'Holiday').map(r => r.date)).size;
+            const worked = present + halfday / 2;
+            const slots = present + absent + halfday + leave;
+            const perDay = n => workDays ? (Math.round(n / workDays * 10) / 10) : 0;
+            const fmt = n => Number(n).toLocaleString('en-IN');
+            // people who never once punched in this period (often: not linked to a device code)
+            const punched = new Set(filteredRecords.filter(r => r.status === 'Present' || r.status === 'Half Day').map(r => r.userId));
+            const neverIn = [...people].filter(id => !punched.has(id)).length;
+
+            document.getElementById('statRate').textContent = slots ? (Math.round(worked / slots * 1000) / 10) + '%' : '—';
+            document.getElementById('statRateSub').textContent = 'days attended';
+            presentCountEl.textContent = perDay(present);
+            document.getElementById('presentSub').textContent = fmt(present) + ' days in total';
+            absentCountEl.textContent = perDay(absent);
+            document.getElementById('absentSub').textContent = fmt(absent) + ' days in total';
+            halfdayCountEl.textContent = perDay(halfday + leave);
+            document.getElementById('halfdaySub').textContent = fmt(halfday) + ' half · ' + fmt(leave) + ' leave';
+            dayoffCountEl.textContent = workDays;
+            document.getElementById('dayoffSub').textContent = holDays + ' holiday · ' + offDays + ' off';
             holidayCountEl.textContent = holiday;
-            // "Total Employees" is a headcount, not a row count — filteredRecords has one row
-            // per employee per day, so counting rows directly (248 for a full month) is wrong;
-            // count distinct employees represented in the current filter instead.
-            totalCountEl.textContent = new Set(filteredRecords.map(rec => rec.userId)).size;
+            totalCountEl.textContent = people.size;
+            document.getElementById('totalSub').textContent = neverIn ? fmt(neverIn) + ' never punched' : 'all have punched';
 
             renderTable(filteredRecords, tableBody);
             updateCharts(filteredRecords);
@@ -1384,6 +1466,9 @@ $employeeDeptJson = json_encode(isset($employees) ? $employees->pluck('departmen
             const rows = Object.entries(dept).filter(([, v]) => v.days > 0)
                 .map(([name, v]) => [name || '—', Math.round(v.worked / v.days * 1000) / 10])
                 .sort((a, b) => b[1] - a[1]).slice(0, 10);
+            // the four further charts
+            moreCharts(records);
+
             drawChart('chartDept', {
                 type: 'bar',
                 data: { labels: rows.map(r => r[0]), datasets: [{ label: 'Attendance %', data: rows.map(r => r[1]), backgroundColor: tone('--epic-blue', '#b8892e'), borderRadius: 4, maxBarThickness: 18 }] },
@@ -1392,6 +1477,62 @@ $employeeDeptJson = json_encode(isset($employees) ? $employees->pluck('departmen
                     plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.parsed.x + '%' } } },
                     scales: { x: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' }, grid: { color: '#f0f1f3' } }, y: { grid: { display: false } } }
                 }
+            });
+        }
+
+        // Rate over the month, weekday pattern, most absent, attendance bands
+        function moreCharts(records) {
+            const work = records.filter(r => r.status !== 'Day Off' && r.status !== 'Holiday');
+            const credit = r => r.status === 'Present' ? 1 : (r.status === 'Half Day' ? 0.5 : 0);
+            const brand = tone('--epic-blue', '#cb6b4f');
+
+            // 1. attendance % per working day
+            const perDay = {};
+            work.forEach(r => { const d = perDay[r.date] = perDay[r.date] || { w: 0, n: 0 }; d.n++; d.w += credit(r); });
+            const dDays = Object.keys(perDay).sort();
+            drawChart('chartRate', {
+                type: 'line',
+                data: { labels: dDays.map(d => parseInt(d.slice(8), 10)), datasets: [{ label: 'Attendance %',
+                    data: dDays.map(d => Math.round(perDay[d].w / perDay[d].n * 1000) / 10),
+                    borderColor: brand, backgroundColor: 'rgba(203, 107, 79, .12)', fill: true, tension: .35, pointRadius: 3 }] },
+                options: { maintainAspectRatio: false, plugins: { legend: { display: false },
+                    tooltip: { callbacks: { title: i => dDays[i[0].dataIndex], label: c => c.parsed.y + '%' } } },
+                    scales: { y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' }, grid: { color: '#f0f1f3' } }, x: { grid: { display: false } } } }
+            });
+
+            // 2. attendance % by weekday
+            const names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+            const wk = names.map(() => ({ w: 0, n: 0 }));
+            work.forEach(r => { const i = (new Date(r.date + 'T00:00:00').getDay() + 6) % 7; wk[i].n++; wk[i].w += credit(r); });
+            drawChart('chartWeekday', {
+                type: 'bar',
+                data: { labels: names, datasets: [{ label: 'Attendance %', data: wk.map(x => x.n ? Math.round(x.w / x.n * 1000) / 10 : 0),
+                    backgroundColor: brand, borderRadius: 4, maxBarThickness: 26 }] },
+                options: { maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.parsed.y + '%' } } },
+                    scales: { y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' }, grid: { color: '#f0f1f3' } }, x: { grid: { display: false } } } }
+            });
+
+            // 3. most days absent (working days)
+            const per = {};
+            work.forEach(r => { const e = per[r.userId] = per[r.userId] || { name: r.name, absent: 0, w: 0, n: 0 };
+                e.n++; e.w += credit(r); if (r.status === 'Absent') e.absent++; });
+            const top = Object.values(per).filter(e => e.absent > 0).sort((a, b) => b.absent - a.absent).slice(0, 10);
+            drawChart('chartAbsent', {
+                type: 'bar',
+                data: { labels: top.map(e => e.name), datasets: [{ label: 'Days absent', data: top.map(e => e.absent),
+                    backgroundColor: COLORS['Absent'], borderRadius: 4, maxBarThickness: 18 }] },
+                options: { indexAxis: 'y', maintainAspectRatio: false, plugins: { legend: { display: false } },
+                    scales: { x: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: '#f0f1f3' } }, y: { grid: { display: false } } } }
+            });
+
+            // 4. how many people in each attendance band
+            const bands = [['90–100%', 90, 101, '#12b76a'], ['75–90%', 75, 90, '#84cc16'], ['50–75%', 50, 75, '#f79009'], ['Below 50%', 0, 50, '#f04438']];
+            const rates = Object.values(per).filter(e => e.n).map(e => e.w / e.n * 100);
+            drawChart('chartBands', {
+                type: 'doughnut',
+                data: { labels: bands.map(b => b[0]), datasets: [{ data: bands.map(b => rates.filter(x => x >= b[1] && x < b[2]).length),
+                    backgroundColor: bands.map(b => b[3]), borderWidth: 2, borderColor: '#fff' }] },
+                options: { maintainAspectRatio: false, cutout: '62%', plugins: { legend: { position: 'bottom' } } }
             });
         }
 

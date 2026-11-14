@@ -163,11 +163,6 @@
     </div>
 
     {{-- DataTable --}}
-    <div class="d-flex justify-content-between action-bar mb-3">
-        <div id="table-actions">
-            <span class="f-15 font-weight-600 text-dark">Employee Resignation Requests</span>
-        </div>
-    </div>
 
     <div class="d-flex flex-column w-tables rounded mt-3 bg-white">
         {!! $dataTable->table(['class' => 'table table-hover border-0 w-100']) !!}

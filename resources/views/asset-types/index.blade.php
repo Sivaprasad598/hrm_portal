@@ -1,30 +1,21 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="content-wrapper">
+<div class="content-wrapper at">
+    {{-- Count on the left; add a type on the right; then the list --}}
+    <div class="at-bar">
+        <span class="at-count"><b>{{ $types->count() }}</b> asset types</span>
+        <form id="add-type-form" class="at-add" onsubmit="return false">
+            @csrf
+            <input type="text" name="name" class="form-control" placeholder="New type, e.g. Tablet" maxlength="100">
+            <button type="button" id="add-type" class="btn-primary rounded f-14"><i class="fa fa-plus mr-1"></i>Add Type</button>
+        </form>
+    </div>
     <div class="row">
-        {{-- Full width; what types are for, in a line under the title. --}}
         <div class="col-12">
-            <div class="bg-white rounded b-shadow-4">
-                <div class="p-20 border-bottom-grey d-flex justify-content-between align-items-start">
-                    <div>
-                        <h4 class="f-18 font-weight-normal mb-1">Asset Types</h4>
-                        <p class="f-13 text-dark-grey mb-0">
-                            Every asset is filed under a type, so the Asset List and Assigned Assets can be filtered by it
-                            (all laptops, all SIM cards...). A type that still has assets cannot be deleted: move those assets first.
-                        </p>
-                    </div>
-                    <span class="f-13 text-dark-grey text-nowrap ml-3">{{ $types->count() }} types</span>
-                </div>
-
-                <form id="add-type-form" class="p-20 border-bottom-grey d-flex" onsubmit="return false">
-                    @csrf
-                    <input type="text" name="name" class="form-control f-14 mr-2" style="max-width: 420px" placeholder="New type, e.g. Tablet" maxlength="100">
-                    <button type="button" id="add-type" class="btn btn-primary rounded f-14 text-nowrap"><i class="fa fa-plus mr-1"></i>Add Type</button>
-                </form>
-
+            <div class="at-card">
                 <table class="table mb-0 f-14">
-                    <thead class="bg-light"><tr><th>Name</th><th class="text-center">Assets</th><th class="text-right pr-4">Action</th></tr></thead>
+                    <thead><tr><th>Name</th><th class="text-center">Assets</th><th class="text-right pr-4">Action</th></tr></thead>
                     <tbody>
                     @forelse ($types as $type)
                         <tr data-type-id="{{ $type->id }}">
@@ -38,7 +29,7 @@
                             <td class="text-right pr-4 text-nowrap">
                                 <button type="button" class="btn btn-sm btn-outline-secondary rename-type"><i class="fa fa-edit"></i> Rename</button>
                                 <button type="button" class="btn btn-sm btn-primary save-type d-none"><i class="fa fa-check"></i> Save</button>
-                                <button type="button" class="btn btn-sm btn-outline-danger delete-type" @disabled($type->assets_count)
+                                <button type="button" class="btn btn-sm btn-outline-danger delete-type at-icon" @disabled($type->assets_count)
                                     title="{{ $type->assets_count ? 'Assets are filed under this type' : 'Delete' }}"><i class="fa fa-trash"></i></button>
                             </td>
                         </tr>
@@ -51,6 +42,24 @@
         </div>
     </div>
 </div>
+
+<style>
+    .at-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+    .at-count { font-size: 14px; color: #667085; }
+    .at-count b { color: #101828; font-size: 16px; margin-right: 3px; }
+    .at-add { display: flex; gap: 10px; margin: 0; }
+    .at-add .form-control { width: 280px; height: 38px; border-radius: 8px; border: 1px solid #e8e9e9; font-size: 14px; }
+    .at-add .form-control:focus { border-color: var(--epic-blue, #cb6b4f); box-shadow: 0 0 0 3px color-mix(in srgb, var(--epic-blue, #cb6b4f) 15%, transparent); }
+    body.epic .at-add .btn-primary { height: 38px; border-radius: 8px !important; padding: 0 14px !important; display: inline-flex; align-items: center; white-space: nowrap; }
+    .at-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 3px rgba(16, 24, 40, .06); overflow: hidden; }
+    .at-card table th { font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: #667085; padding: 14px 20px !important;
+        border-top: 0 !important; border-bottom: 1px solid #eaecf0 !important; background: #fff; }
+    .at-card table td { padding: 12px 20px !important; vertical-align: middle !important; border-top: 1px solid #f2f4f7 !important; color: #101828; }
+    .at-card table tbody tr:hover td { background: #fcfcfd; }
+    body.epic .at-card .btn-sm { height: 32px; border-radius: 8px !important; display: inline-flex; align-items: center; gap: 4px; padding: 0 12px !important; }
+    body.epic .at-card .at-icon { width: 32px; padding: 0 !important; justify-content: center; }
+    .at-card .delete-type:disabled { opacity: .35; }
+</style>
 @endsection
 
 @push('scripts')

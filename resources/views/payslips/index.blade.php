@@ -22,10 +22,11 @@
 @extends('layouts.app')
 
 @section('content')
-    <div class="row">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-body">
+    {{-- On the grey page like the other pages: no white card around it --}}
+    <div class="content-wrapper">
+        <div>
+            <div>
+                <div>
                     @if ($userRole === 'admin')
                         {{-- The tabs above lead to Run Payroll, Issued Payslips and the rest;
                              here there are just the two views of this page. --}}
@@ -42,13 +43,13 @@
                     @endif
 
                     <div id="pane-calculator">
-                        <iframe src="{{ $calculatorSrc }}" class="w-100" style="min-height: calc(100vh - 220px); border: 0;"
+                        <iframe src="{{ $calculatorSrc }}" class="w-100 d-block" style="min-height: calc(100vh - 200px); border: 0; background: transparent;"
                             title="Salary Calculator"></iframe>
                     </div>
 
                     @if ($userRole === 'admin')
                         <div id="pane-single" style="display: none;">
-                            <iframe data-src="{{ $singleSrc }}" class="w-100" style="min-height: calc(100vh - 220px); border: 0;"
+                            <iframe data-src="{{ $singleSrc }}" class="w-100 d-block" style="min-height: calc(100vh - 200px); border: 0; background: transparent;"
                                 title="Generate One Payslip"></iframe>
                         </div>
                     @endif
@@ -60,7 +61,7 @@
 
 @push('styles')
     <style>
-        .calc-switch { display: flex; flex-wrap: wrap; gap: 10px; }
+        .calc-switch { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
         .calc-option { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border: 1px solid #d0d5dd; border-radius: 10px;
             background: #fff; text-align: left; cursor: pointer; min-width: 260px; }
         .calc-option i { font-size: 18px; color: #667085; }

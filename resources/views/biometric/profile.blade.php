@@ -23,10 +23,12 @@
     {{-- Standard page gutter, matching the rest of the app --}}
     <div class="content-wrapper arw-dash">
 
-        @include('biometric.nav', ['active' => $activeTab])
+        {{-- Filters at the top right; the card is open on load (nothing shows until an employee is picked) --}}
+        @include('biometric.nav', ['active' => $activeTab, 'navFilters' => true, 'navFiltersOpen' => true])
 
-        <x-cards.data padding="false" class="mb-3 employee-picker-row">
-            <form method="GET" action="{{ route('biometric.profile') }}" class="p-3">
+        <x-cards.data padding="false" class="mb-3 employee-picker-row bio-filter-card">
+            {{-- No Apply: picking an employee or changing a date loads the profile --}}
+            <form method="GET" action="{{ route('biometric.profile') }}" class="p-3" id="e360-filters">
                 <div class="row align-items-end">
                     {{-- One searchable dropdown rather than a text box feeding a
                          second control: typing filtered the list server-side, so
@@ -46,16 +48,13 @@
                             @endforeach
                         </select>
                     </div>
-                    <div class="col-md-3 mb-2">
+                    <div class="col-md mb-2">
                         <label class="f-12 text-dark-grey">@lang('app.startDate')</label>
                         <input type="date" name="start_date" value="{{ $startDate }}" class="form-control f-14">
                     </div>
-                    <div class="col-md-3 mb-2">
+                    <div class="col-md mb-2">
                         <label class="f-12 text-dark-grey">@lang('app.endDate')</label>
                         <input type="date" name="end_date" value="{{ $endDate }}" class="form-control f-14">
-                    </div>
-                    <div class="col-md-1 mb-2">
-                        <button type="submit" class="btn btn-primary f-14 w-100">@lang('app.apply')</button>
                     </div>
                 </div>
             </form>
@@ -531,4 +530,13 @@
         $('#' + $(this).data('target')).toggleClass('d-none');
     });
 </script>
+    <script>
+        // any change loads the profile (once an employee is picked)
+        $(function () {
+            var form = document.getElementById('e360-filters');
+            $(form).on('change', 'input, select', function () {
+                if (form.querySelector('[name=employee]').value) { form.submit(); }
+            });
+        });
+    </script>
 @endpush

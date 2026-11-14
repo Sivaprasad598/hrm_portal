@@ -5,7 +5,7 @@
 @php $fmt = company()->date_format; @endphp
 <div class="content-wrapper">
 
-    <form method="GET" action="{{ route('candidates.index') }}" class="bg-white rounded b-shadow-4 p-3 mb-3">
+    <form method="GET" action="{{ route('candidates.index') }}" id="rc-filter-form" class="bg-white rounded b-shadow-4 p-3 mb-3">
         <div class="row align-items-end">
             <div class="col-lg-3 col-md-6 mb-2">
                 <label class="f-13 text-dark-grey mb-1">Search</label>
@@ -144,6 +144,7 @@
         </div>
     @endif
 </div>
+@include('recruitment.partials.standard-bar', ['form' => '#rc-filter-form', 'active' => request()->anyFilled(['search', 'status', 'source', 'position_id', 'exp_min', 'exp_max'])])
 @endsection
 
 @push('scripts')

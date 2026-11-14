@@ -254,6 +254,14 @@ class BiometricController extends AccountBaseController
             ->sortBy(fn ($r) => [$r->is_exception ? 0 : 1, $r->resolved_at ? 1 : 0, array_search($r->status, array_keys(\App\Models\AttendanceReview::STATUSES)), $r->user?->name])
             ->values();
 
+        // one page of the list: 10 / 25 / 50 / 100 rows (default 25)
+        $perPage = in_array((int) $request->per_page, [10, 25, 50, 100], true) ? (int) $request->per_page : 25;
+        $page = max(1, (int) $request->page);
+        $this->reviews = new \Illuminate\Pagination\LengthAwarePaginator(
+            $this->reviews->forPage($page, $perPage)->values(), $this->reviews->count(), $perPage, $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
+
         // Employee 360 is keyed by the device register, not the user.
         $this->profileIds = IappEmployee::whereIn('user_id', $all->pluck('user_id'))->where('map_status', IappEmployee::STATUS_MAPPED)->pluck('id', 'user_id');
         $this->run = \App\Models\AttendanceDailyRun::where('date', $this->date->toDateString())->first();
@@ -1076,7 +1084,8 @@ class BiometricController extends AccountBaseController
                 DB::table('employee_details')->where('department_id', $request->department_id)->pluck('user_id')))
             ->when($request->controller_code, fn ($q) => $q->where('controller_code', $request->controller_code))
             ->orderByDesc('punch_time')
-            ->paginate(100)
+            // rows per page: 10 / 25 / 50 / 100 (default 25)
+            ->paginate(in_array((int) $request->per_page, [10, 25, 50, 100], true) ? (int) $request->per_page : 25)
             ->withQueryString();
 
         $this->controllers = $this->deviceOptions();

@@ -103,10 +103,48 @@ if ($pdo && $_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['delete_termi
 // ---------------------------------------------------------------------------
 // Departments (for the filter)
 // ---------------------------------------------------------------------------
+
+// Departments as a tree (division, then its sub divisions), and for each one
+// itself + every level below it: picking a division covers its sub divisions.
+if (!function_exists('termDeptTree')) {
+    function termDeptTree(array $rows): array
+    {
+        $byParent = [];
+        $ids = array_map(fn ($r) => (int) $r['id'], $rows);
+        foreach ($rows as $r) {
+            $p = (int) ($r['parent_id'] ?? 0);
+            $byParent[in_array($p, $ids, true) ? $p : 0][] = $r;
+        }
+        $out = [];
+        $walk = function ($parent, $depth, $division) use (&$walk, &$out, $byParent) {
+            $kids = $byParent[$parent] ?? [];
+            usort($kids, fn ($a, $b) => strnatcasecmp($a['team_name'], $b['team_name']));
+            foreach ($kids as $k) {
+                $top = $division ?? $k['team_name'];
+                $out[] = ['id' => (int) $k['id'], 'name' => $k['team_name'], 'depth' => $depth, 'division' => $top];
+                $walk((int) $k['id'], $depth + 1, $top);
+            }
+        };
+        $walk(0, 0, null);
+        return $out;
+    }
+    function termDeptScope(array $rows, int $id): array
+    {
+        $ids = [$id];
+        for ($i = 0; $i < count($ids); $i++) {
+            foreach ($rows as $r) {
+                if ((int) ($r['parent_id'] ?? 0) === $ids[$i] && !in_array((int) $r['id'], $ids, true)) {
+                    $ids[] = (int) $r['id'];
+                }
+            }
+        }
+        return $ids;
+    }
+}
 $departments = [];
 
 if ($pdo) {
-    $stmt = $pdo->prepare('SELECT id, team_name FROM teams WHERE company_id = :companyId ORDER BY team_name');
+    $stmt = $pdo->prepare('SELECT id, team_name, parent_id FROM teams WHERE company_id = :companyId ORDER BY team_name');
     $stmt->execute([':companyId' => $companyId]);
     $departments = $stmt->fetchAll();
 }
@@ -155,8 +193,8 @@ if ($pdo) {
     $params = [':companyId' => $companyId];
 
     if ($filterDept !== '') {
-        $sql .= ' AND ed.department_id = :filterDept';
-        $params[':filterDept'] = (int) $filterDept;
+        $scopeIds = termDeptScope($departments, (int) $filterDept);
+        $sql .= ' AND ed.department_id IN (' . implode(',', array_map('intval', $scopeIds)) . ')';
     }
 
     if ($filterName !== '') {
@@ -543,14 +581,18 @@ if (isset($_GET['deleted'])) {
   .empty-icon { width: 52px; height: 52px; margin: 0 auto 10px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
     background: color-mix(in srgb, var(--brand) 12%, #fff); color: var(--brand); font-size: 22px; }
   table th { font-size: 12px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--muted); }
+
+    /* the filter card is hidden until "Filters" (top right of the page) opens it */
+    body:not(.filters-open) #tm-filter-card { display: none !important; }
+    #tm-filter-card { margin-bottom: 16px; }
 </style>
 </head>
 
-<body>
+<body class="<?= ($filterDept !== '' || $filterName !== '') ? 'filters-open' : '' ?>">
 
-  <div class="page-header-row">
-    <h2 class="page-title">Employee Termination Dashboard</h2>
-    <button type="button" class="add-button" id="addTerminationBtn">+ Add Employee Termination</button>
+  <div class="page-header-row" style="display:none">
+    <span></span>
+    <button type="button" class="add-button" id="addTerminationBtn" style="display:none">+ Add Employee Termination</button>
   </div>
 
   <?php if ($successMessage): ?>
@@ -558,6 +600,34 @@ if (isset($_GET['deleted'])) {
   <?php elseif ($error): ?>
     <div class="message error-message"><?= e($error) ?></div>
   <?php endif; ?>
+
+  <!-- Filters: above the cards, shown from "Filters" at the top right of the page -->
+  <section class="card filter-card" id="tm-filter-card">
+    <form method="get" action="TerminationDashboard.php">
+      <div class="filter-grid">
+        <div class="field">
+          <label for="dept">Department</label>
+          <select id="dept" name="dept" onchange="this.form.submit()">
+            <option value="">All Departments</option>
+            <?php foreach (termDeptTree($departments) as $dept): ?>
+              <option value="<?= e($dept['id']) ?>" data-depth="<?= (int) $dept['depth'] ?>" data-name="<?= e($dept['name']) ?>"
+                data-division="<?= e($dept['division']) ?>" <?= $filterDept == $dept['id'] ? 'selected' : '' ?>><?= e($dept['name']) ?><?= $dept['depth'] ? ' (' . e($dept['division']) . ')' : '' ?></option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="name">Employee Name</label>
+          <input id="name" name="name" type="text" placeholder="Search by name..." value="<?= e($filterName) ?>">
+        </div>
+
+        <div class="filter-actions">
+          <button type="submit" class="search-button">Search</button>
+          <a href="TerminationDashboard.php" class="button reset-button">Reset</a>
+        </div>
+      </div>
+    </form>
+  </section>
 
   <div class="stats-grid">
     <div class="stat-card">
@@ -578,35 +648,6 @@ if (isset($_GET['deleted'])) {
     </div>
   </div>
 
-  <section class="card filter-card">
-    <h3 class="section-title">Filter</h3>
-
-    <form method="get" action="TerminationDashboard.php">
-      <div class="filter-grid">
-        <div class="field">
-          <label for="dept">Department</label>
-          <select id="dept" name="dept" onchange="this.form.submit()">
-            <option value="">All Departments</option>
-            <?php foreach ($departments as $dept): ?>
-              <option value="<?= e($dept['id']) ?>" <?= $filterDept == $dept['id'] ? 'selected' : '' ?>>
-                <?= e($dept['team_name']) ?>
-              </option>
-            <?php endforeach; ?>
-          </select>
-        </div>
-
-        <div class="field">
-          <label for="name">Employee Name</label>
-          <input id="name" name="name" type="text" placeholder="Search by name..." value="<?= e($filterName) ?>">
-        </div>
-
-        <div class="filter-actions">
-          <button type="submit" class="search-button">Search</button>
-          <a href="TerminationDashboard.php" class="button reset-button">Reset</a>
-        </div>
-      </div>
-    </form>
-  </section>
 
   <section class="card">
     <h3 class="section-title">Termination History</h3>
@@ -715,6 +756,11 @@ if (isset($_GET['deleted'])) {
     // rather than navigating this iframe away.
     document.getElementById('addTerminationBtn').addEventListener('click', function () {
       try {
+        // the form opens in a pop-up on the page around this frame
+        if (typeof window.parent.openTerminationForm === 'function') {
+          window.parent.openTerminationForm();
+          return;
+        }
         var parentDoc = window.parent.document;
         var formTab = parentDoc.getElementById('termination-form-tab');
 
@@ -758,5 +804,9 @@ if (isset($_GET['deleted'])) {
     })();
   </script>
 
+  <script src="<?= function_exists('asset') ? asset('js/searchable-select.js') . '?v=' . @filemtime(__DIR__ . '/public/js/searchable-select.js') : 'public/js/searchable-select.js' ?>"></script>
+  <script>
+    makeSearchable(document.getElementById('dept'), 'All Departments');
+  </script>
 </body>
 </html>

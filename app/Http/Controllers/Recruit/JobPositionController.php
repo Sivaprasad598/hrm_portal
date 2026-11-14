@@ -31,7 +31,7 @@ class JobPositionController extends RecruitBaseController
             ->withCount('applications')
             ->when($request->status, fn ($q, $s) => $q->where('status', $s), fn ($q) => $q->where('status', '<>', 'closed'))
             ->when($request->type, fn ($q, $t) => $q->where('employment_type', $t))
-            ->when($request->department_id, fn ($q, $d) => $q->where('department_id', $d))
+            ->when($request->department_id, fn ($q, $d) => $q->whereIn('department_id', \App\Models\Team::withDescendants($d)))
             ->when($request->search, fn ($q, $s) => $q->where(fn ($w) => $w->where('title', 'like', "%$s%")
                 ->orWhere('code', 'like', "%$s%")->orWhere('location', 'like', "%$s%")->orWhere('skills', 'like', "%$s%")))
             ->orderByRaw("FIELD(status, 'open', 'on_hold', 'draft', 'closed')")->orderByDesc('id')

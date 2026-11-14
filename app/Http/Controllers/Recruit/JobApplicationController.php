@@ -36,9 +36,13 @@ class JobApplicationController extends RecruitBaseController
 
         if ($this->board) {
             // The board shows the stages still moving; a closed stage asked for is shown on its own.
-            $query->when($stage === 'active' || $stage === '', fn ($q) => $q->whereIn('stage', JobApplication::ACTIVE),
+            // All stages as columns: the moving ones, then Joined and the closed ones (those
+            // closed in the last 90 days, so old history does not crowd the board)
+            $done = array_merge(['joined'], JobApplication::CLOSING);
+            $query->when($stage === 'active' || $stage === '', fn ($q) => $q->where(fn ($w) => $w->whereIn('stage', JobApplication::ACTIVE)
+                    ->orWhere(fn ($c) => $c->whereIn('stage', $done)->where('stage_changed_at', '>=', now()->subDays(90)))),
                 fn ($q) => $q->where('stage', $stage));
-            $this->columns = $stage === 'active' || $stage === '' ? JobApplication::ACTIVE : [$stage];
+            $this->columns = $stage === 'active' || $stage === '' ? array_merge(JobApplication::ACTIVE, $done) : [$stage];
             $this->applications = $query->orderByDesc('stage_changed_at')->limit(600)->get()->groupBy('stage');
         } else {
             $query->when($stage === 'active', fn ($q) => $q->whereIn('stage', JobApplication::ACTIVE))

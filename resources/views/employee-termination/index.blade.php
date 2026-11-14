@@ -1,78 +1,88 @@
 @extends('layouts.app')
 
 @section('content')
+@push('page-tab-actions')
+    <button type="button" class="btn-primary rounded f-14" onclick="window.openTerminationForm()"
+            style="height:38px;border-radius:8px;padding:0 14px;display:inline-flex;align-items:center;">
+        <i class="fa fa-plus mr-1"></i> Add Employee Termination
+    </button>
+    {{-- shows / hides the list's filter card (inside the frame) --}}
+    <button type="button" class="btn-secondary rounded f-14 tm-filter-btn" id="tmFilterBtn"
+            style="height:38px;border-radius:8px;padding:0 14px;display:inline-flex;align-items:center;">
+        <i class="fa fa-filter mr-1"></i> Filters
+    </button>
+@endpush
 <div class="content-wrapper tm-wrap">
-    <ul class="nav nav-tabs tm-tabs mb-3" id="terminationTabs" role="tablist">
-        <li class="nav-item">
-            <a class="nav-link active" id="termination-dashboard-tab" data-toggle="tab" href="#terminationDashboardPane"
-               role="tab" aria-controls="terminationDashboardPane" aria-selected="true">
-                Dashboard
-            </a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link" id="termination-form-tab" data-toggle="tab" href="#terminationFormPane"
-               role="tab" aria-controls="terminationFormPane" aria-selected="false">
-                Employee Termination
-            </a>
-        </li>
-    </ul>
+    {{-- The terminations list; "+ Add Employee Termination" opens the form in a pop-up --}}
+    <iframe
+        id="employeeTerminationDashboardFrame"
+        src="{{ route('legacy.page', 'termination_dashboard') }}"
+        style="display: block; width: 100%; border: 0; background: transparent;"
+        title="Employee Terminations">
+    </iframe>
+</div>
 
-    <div class="tab-content" id="terminationTabContent">
-        <div class="tab-pane fade" id="terminationFormPane" role="tabpanel" aria-labelledby="termination-form-tab">
-            <iframe
-                id="employeeTerminationFrame"
-                src="{{ route('legacy.page', 'termination') }}"
-                style="display: block; width: 100%; border: 0;"
-                title="Employee Termination">
-            </iframe>
-        </div>
-
-        <div class="tab-pane fade show active" id="terminationDashboardPane" role="tabpanel" aria-labelledby="termination-dashboard-tab">
-            <iframe
-                id="employeeTerminationDashboardFrame"
-                src="{{ route('legacy.page', 'termination_dashboard') }}"
-                style="display: block; width: 100%; border: 0;"
-                title="Employee Termination Dashboard">
-            </iframe>
+<div class="modal fade" id="terminationModal" tabindex="-1" role="dialog" aria-labelledby="terminationModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="terminationModalTitle">Employee Termination</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            </div>
+            <div class="modal-body p-0">
+                <iframe id="employeeTerminationFrame" data-src="{{ route('legacy.page', 'termination') }}"
+                        style="display: block; width: 100%; height: 72vh; border: 0;" title="Employee Termination"></iframe>
+            </div>
         </div>
     </div>
 </div>
 
-    <style>
-        /* Termination: page padding like every other page, and the two views as underlined tabs */
-        .tm-wrap .tm-tabs { border-bottom: 1px solid var(--epic-line, #e8e9e9); gap: 4px; }
-        .tm-wrap .tm-tabs .nav-link { border: 0; border-bottom: 2px solid transparent; color: var(--epic-muted, #667085);
-            font-size: 14px; font-weight: 500; padding: 10px 14px; background: transparent; }
-        .tm-wrap .tm-tabs .nav-link:hover { color: var(--epic-text, #1d2939); }
-        .tm-wrap .tm-tabs .nav-link.active { color: var(--epic-blue, #cb6b4f); border-bottom-color: var(--epic-blue, #cb6b4f); background: transparent; }
-    </style>
-
     <script>
         (function () {
-            var frames = [
-                document.getElementById('employeeTerminationFrame'),
-                document.getElementById('employeeTerminationDashboardFrame'),
-            ];
+            var list = document.getElementById('employeeTerminationDashboardFrame');
+            var form = document.getElementById('employeeTerminationFrame');
 
-            function resizeFrame(frame) {
-                if (!frame) {
-                    return;
-                }
-
-                var top = frame.getBoundingClientRect().top;
-                frame.style.height = Math.max(window.innerHeight - top, 400) + 'px';
+            function resizeList() {
+                var top = list.getBoundingClientRect().top;
+                list.style.height = Math.max(window.innerHeight - top, 400) + 'px';
             }
+            window.addEventListener('resize', resizeList);
 
-            function resizeAll() {
-                frames.forEach(resizeFrame);
+            // Filters: toggles the filter card in the list frame; the button shows when it is open
+            var fbtn = document.getElementById('tmFilterBtn');
+            function syncBtn() {
+                try { fbtn.classList.toggle('is-open', list.contentDocument.body.classList.contains('filters-open')); } catch (e) {}
             }
+            fbtn.addEventListener('click', function () {
+                try { list.contentDocument.body.classList.toggle('filters-open'); } catch (e) {}
+                syncBtn();
+            });
+            list.addEventListener('load', syncBtn);
+            resizeList();
 
-            window.addEventListener('resize', resizeAll);
-            resizeAll();
+            // opened from the list's "+ Add Employee Termination"; a fresh form each time
+            window.openTerminationForm = function () {
+                form.src = form.getAttribute('data-src');
+                $('#terminationModal').modal('show');
+            };
 
-            // A tab-pane that isn't active has zero height, so its iframe can't
-            // size itself correctly until the tab is actually shown.
-            $('a[data-toggle="tab"]').on('shown.bs.tab', resizeAll);
+            // after a save / undo / delete the form reloads with ?added= / ?undone= / ?deleted=:
+            // close the pop-up and refresh the list
+            form.addEventListener('load', function () {
+                try {
+                    if (/[?&](added|undone|deleted)=1/.test(form.contentWindow.location.search)) {
+                        $('#terminationModal').modal('hide');
+                        list.contentWindow.location.reload();
+                        if (window.Swal) {
+                            Swal.fire({ icon: 'success', title: 'Done', text: 'Termination saved.', timer: 2000, showConfirmButton: false });
+                        }
+                    }
+                } catch (e) {}
+            });
         })();
     </script>
+    <style>
+        html body.epic .tm-filter-btn.is-open { background: color-mix(in srgb, var(--epic-blue, #cb6b4f) 10%, #fff) !important; border-color: var(--epic-blue, #cb6b4f) !important; color: var(--epic-blue, #cb6b4f) !important; }
+        html body.epic .tm-filter-btn.is-open i { color: var(--epic-blue, #cb6b4f) !important; }
+    </style>
 @endsection

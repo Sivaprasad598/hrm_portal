@@ -3,12 +3,6 @@
 @section('content')
 <div class="content-wrapper">
 
-    <div class="d-flex justify-content-between action-bar mb-3">
-        <div id="table-actions">
-            <span class="f-15 font-weight-600 text-dark">Resignation</span>
-        </div>
-    </div>
-
     @if($pendingResignation)
         <div class="card border-0 shadow-sm">
             <div class="card-body text-center py-5">
@@ -35,54 +29,9 @@
             <div class="card border-0 shadow-sm">
                 <div class="card-body p-4">
 
-                    {{-- Employee Information --}}
-                    <h6 class="font-weight-700 mb-3">Employee Information</h6>
-                    <div class="d-flex align-items-center p-3 rounded mb-3" style="background:#f8f9fa;">
-                        @if($employee->image)
-                            <img src="{{ asset_url('avatar/' . $employee->image) }}" class="rounded-circle mr-3" width="48" height="48" alt="">
-                        @else
-                            <img src="{{ asset('img/gravatar.png') }}" class="rounded-circle mr-3" width="48" height="48" alt="">
-                        @endif
-                        <div>
-                            <strong class="f-15">{{ $employee->name }}</strong><br>
-                            <span class="text-muted f-13">{{ $employee->email }}</span>
-                        </div>
-                    </div>
-
-                    <div class="row mb-4">
-                        <div class="col-md-3 col-sm-6 mb-2">
-                            <p class="f-11 text-uppercase text-muted mb-1">Employee ID</p>
-                            <p class="mb-0 font-weight-600">{{ $employeeDetail->employee_id ?? '--' }}</p>
-                        </div>
-                        <div class="col-md-3 col-sm-6 mb-2">
-                            <p class="f-11 text-uppercase text-muted mb-1">Department</p>
-                            <p class="mb-0 font-weight-600">{{ optional($employeeDetail->department)->team_name ?? '--' }}</p>
-                        </div>
-                        <div class="col-md-3 col-sm-6 mb-2">
-                            <p class="f-11 text-uppercase text-muted mb-1">Designation</p>
-                            <p class="mb-0 font-weight-600">{{ optional($employeeDetail->designation)->name ?? '--' }}</p>
-                        </div>
-                        <div class="col-md-3 col-sm-6 mb-2">
-                            <p class="f-11 text-uppercase text-muted mb-1">Date of Joining</p>
-                            <p class="mb-0 font-weight-600">
-                                {{ optional($employeeDetail)->joining_date ? \Carbon\Carbon::parse($employeeDetail->joining_date)->format(company()->date_format) : '--' }}
-                            </p>
-                        </div>
-                        <div class="col-md-3 col-sm-6 mb-2">
-                            <p class="f-11 text-uppercase text-muted mb-1">Employment Status</p>
-                            <span class="badge px-2 py-1 {{ match($employmentStatus) {
-                                'probation' => 'badge-warning',
-                                default => 'badge-success',
-                            } }}">
-                                {{ ucfirst(str_replace('_', ' ', $employmentStatus)) }}
-                            </span>
-                        </div>
-                    </div>
-
-                    <hr>
-
+                    {{-- (no Employee Information block: it is their own record) --}}
                     {{-- Resignation Details --}}
-                    <h6 class="font-weight-700 mb-3 mt-3">Resignation Details</h6>
+                    <h6 class="font-weight-700 mb-3">Resignation Details</h6>
 
                     <div class="row">
                         <div class="col-lg-6 col-md-6">

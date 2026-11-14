@@ -199,6 +199,37 @@
                     </tbody>
                 </table>
             </div>
+
+            {{-- Show N entries · Showing x to y of z · pages --}}
+            <div class="pl-pager">
+                <form method="GET" class="pl-pager__size">
+                    @foreach (request()->except(['per_page', 'page']) as $k => $v)
+                        @if (!is_array($v))<input type="hidden" name="{{ $k }}" value="{{ $v }}">@endif
+                    @endforeach
+                    <span>Show</span>
+                    <select name="per_page" class="form-control" onchange="this.form.submit()">
+                        @foreach ([10, 25, 50, 100] as $n)
+                            <option value="{{ $n }}" @selected($reviews->perPage() === $n)>{{ $n }}</option>
+                        @endforeach
+                    </select>
+                    <span>entries</span>
+                </form>
+                <div class="pl-pager__info">
+                    @if ($reviews->total())
+                        Showing {{ $reviews->firstItem() }} to {{ $reviews->lastItem() }} of {{ number_format($reviews->total()) }} entries
+                    @endif
+                </div>
+                @if ($reviews->hasPages())
+                    <div class="pl-pager__links">{{ $reviews->onEachSide(1)->links() }}</div>
+                @endif
+            </div>
+            <style>
+                .pl-pager { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 20px; padding: 16px 16px 12px; }
+                .pl-pager__size { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; color: #344054; }
+                .pl-pager__size select { width: 72px; height: 36px; border-radius: 8px; }
+                .pl-pager__info { margin-left: auto; font-size: 14px; color: #475467; }
+                .pl-pager__links .pagination { margin: 0; }
+            </style>
         </div>
     </div>
 @endsection

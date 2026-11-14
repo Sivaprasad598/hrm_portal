@@ -25,8 +25,12 @@
 
     <div class="content-wrapper arw-dash">
 
-        {{-- Which month: one row, Excel on the right --}}
-        <div class="card bg-white border-0 b-shadow-4 mb-3">
+        {{-- Which month (hidden until "Filters" at the top right); Excel on the tab row --}}
+        @include('sections.card-filter-toggle', ['card' => '#ss-filter-card', 'active' => $includeUnapproved])
+        @push('page-tab-actions')
+            <a href="{{ route('payroll-register.export', request()->query()) }}" class="btn-secondary rounded f-14" title="The salary statement, PF, ESI and the summary, one sheet each"><i class="fa fa-file-excel mr-1"></i> Export to Excel</a>
+        @endpush
+        <div class="card bg-white border-0 b-shadow-4 mb-3" id="ss-filter-card">
             <div class="card-body p-3">
                 <form method="GET" action="{{ route('payroll-register.index') }}" class="ss-bar">
                     <div>
@@ -52,10 +56,6 @@
                         <label class="custom-control-label f-13" for="include_unapproved">Include drafts</label>
                     </div>
                     <button type="submit" class="btn btn-primary f-14 px-4">@lang('app.apply')</button>
-                    <a href="{{ route('payroll-register.export', request()->query()) }}" class="btn btn-outline-secondary f-14 ml-md-auto"
-                       title="The salary statement, PF, ESI and the summary, one sheet each">
-                        <i class="fa fa-file-excel mr-1"></i> Export to Excel
-                    </a>
                 </form>
             </div>
         </div>

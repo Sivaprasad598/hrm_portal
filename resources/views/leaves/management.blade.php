@@ -8,18 +8,13 @@
 @extends('layouts.app')
 
 @section('content')
-    <div class="row">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-body p-0">
-                    <iframe
-                        src="{{ $iframeSrc }}"
-                        class="w-100"
-                        style="min-height: calc(100vh - 220px); border: 0;"
-                        title="@lang('app.menu.leaveManagement')">
-                    </iframe>
-                </div>
-            </div>
-        </div>
+    {{-- On the grey page like the other pages: no white card around the frame --}}
+    <div class="content-wrapper">
+        <iframe
+            src="{{ $iframeSrc }}"
+            class="w-100 d-block"
+            style="min-height: calc(100vh - 160px); border: 0; background: transparent;"
+            title="@lang('app.menu.leaveManagement')">
+        </iframe>
     </div>
 @endsection

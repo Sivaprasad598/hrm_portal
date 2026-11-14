@@ -13,8 +13,9 @@
     {{-- Standard page gutter, matching the rest of the app --}}
     <div class="content-wrapper arw-dash">
 
-        {{-- Filters first: the totals below are for what they select --}}
-        <div class="card bg-white border-0 b-shadow-4 mb-3">
+        {{-- Filters (hidden until "Filters" at the top right): the totals below are for what they select --}}
+        @include('sections.card-filter-toggle', ['card' => '#ps-filter-card', 'active' => !empty($filters['period']) || !empty($filters['employee']) || !empty($filters['department']) || !empty($filters['all_versions'])])
+        <div class="card bg-white border-0 b-shadow-4 mb-3" id="ps-filter-card">
             <div class="card-body p-3">
                 <form method="GET" action="{{ route('payslips.generated') }}">
                     <div class="form-row align-items-end">
@@ -245,11 +246,7 @@
                     </button>
                 @endif
 
-                @if ($canPrepare)
-                    <a href="{{ route('payslips.index') }}" class="btn btn-sm btn-outline-secondary">
-                        <i class="fa fa-calculator mr-1"></i> Payslip calculator
-                    </a>
-                @endif
+                {{-- (Payslip Calculator: a tab of its own at the top) --}}
             </div>
 
             <div class="table-responsive">

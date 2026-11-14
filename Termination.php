@@ -275,10 +275,48 @@ if ($pdo && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_terminat
 // ---------------------------------------------------------------------------
 // Departments (for the search filter)
 // ---------------------------------------------------------------------------
+
+// Departments as a tree (division, then its sub divisions), and for each one
+// itself + every level below it: picking a division covers its sub divisions.
+if (!function_exists('termDeptTree')) {
+    function termDeptTree(array $rows): array
+    {
+        $byParent = [];
+        $ids = array_map(fn ($r) => (int) $r['id'], $rows);
+        foreach ($rows as $r) {
+            $p = (int) ($r['parent_id'] ?? 0);
+            $byParent[in_array($p, $ids, true) ? $p : 0][] = $r;
+        }
+        $out = [];
+        $walk = function ($parent, $depth, $division) use (&$walk, &$out, $byParent) {
+            $kids = $byParent[$parent] ?? [];
+            usort($kids, fn ($a, $b) => strnatcasecmp($a['team_name'], $b['team_name']));
+            foreach ($kids as $k) {
+                $top = $division ?? $k['team_name'];
+                $out[] = ['id' => (int) $k['id'], 'name' => $k['team_name'], 'depth' => $depth, 'division' => $top];
+                $walk((int) $k['id'], $depth + 1, $top);
+            }
+        };
+        $walk(0, 0, null);
+        return $out;
+    }
+    function termDeptScope(array $rows, int $id): array
+    {
+        $ids = [$id];
+        for ($i = 0; $i < count($ids); $i++) {
+            foreach ($rows as $r) {
+                if ((int) ($r['parent_id'] ?? 0) === $ids[$i] && !in_array((int) $r['id'], $ids, true)) {
+                    $ids[] = (int) $r['id'];
+                }
+            }
+        }
+        return $ids;
+    }
+}
 $departments = [];
 
 if ($pdo) {
-    $stmt = $pdo->prepare('SELECT id, team_name FROM teams WHERE company_id = :companyId ORDER BY team_name');
+    $stmt = $pdo->prepare('SELECT id, team_name, parent_id FROM teams WHERE company_id = :companyId ORDER BY team_name');
     $stmt->execute([':companyId' => $companyId]);
     $departments = $stmt->fetchAll();
 }
@@ -302,8 +340,8 @@ if ($pdo) {
     $params = [':companyId' => $companyId];
 
     if ($searchDept !== '') {
-        $sql .= ' AND ed.department_id = :searchDept';
-        $params[':searchDept'] = (int) $searchDept;
+        $scopeIds = termDeptScope($departments, (int) $searchDept);
+        $sql .= ' AND ed.department_id IN (' . implode(',', array_map('intval', $scopeIds)) . ')';
     }
 
     $sql .= ' ORDER BY u.name';
@@ -880,7 +918,6 @@ $reasons = [
 
 <body>
 
-  <h2 class="page-title">Employee Termination</h2>
 
   <?php if ($successMessage): ?>
     <div class="message success-message">✓ <?= e($successMessage) ?></div>
@@ -901,10 +938,9 @@ $reasons = [
           <label for="department">Department</label>
           <select id="department" name="search_dept" onchange="this.form.submit()">
             <option value="">All Departments</option>
-            <?php foreach ($departments as $dept): ?>
-              <option value="<?= e($dept['id']) ?>" <?= $searchDept == $dept['id'] ? 'selected' : '' ?>>
-                <?= e($dept['team_name']) ?>
-              </option>
+            <?php foreach (termDeptTree($departments) as $dept): ?>
+              <option value="<?= e($dept['id']) ?>" data-depth="<?= (int) $dept['depth'] ?>" data-name="<?= e($dept['name']) ?>"
+                data-division="<?= e($dept['division']) ?>" <?= $searchDept == $dept['id'] ? 'selected' : '' ?>><?= e($dept['name']) ?><?= $dept['depth'] ? ' (' . e($dept['division']) . ')' : '' ?></option>
             <?php endforeach; ?>
           </select>
         </div>
@@ -1142,82 +1178,7 @@ $reasons = [
 
   </section>
 
-  <!-- Recent Terminations -->
-  <section class="card">
-
-    <h3 class="section-title">Recent Terminations</h3>
-
-    <div class="period-list">
-
-      <?php if (empty($terminations)): ?>
-
-        <div class="empty-state">
-          <div class="empty-icon">⏻</div>
-          <p>No terminations recorded yet.</p>
-        </div>
-
-      <?php else: ?>
-
-        <?php foreach ($terminations as $row): ?>
-
-          <?php
-            $label = 'Recorded on ' . date('d-m-Y', strtotime($row['created_at']));
-            $sub = e($row['department_name'] ?? 'No department')
-                . ' &middot; Last working: ' . e(date('d-m-Y', strtotime($row['last_working_date'])));
-          ?>
-
-          <div class="period-row">
-
-            <div class="period-info">
-              <div class="period-icon">⏻</div>
-
-              <div>
-                <div class="period-name">
-                  <?= e($row['employee_name']) ?>
-                  <?= $row['employee_code'] ? '(' . e($row['employee_code']) . ')' : '' ?>
-                </div>
-                <div class="period-sub"><?= $sub ?></div>
-                <div class="period-sub"><?= e($label) ?> &middot; <?= e($row['reason']) ?></div>
-              </div>
-            </div>
-
-            <div class="period-right">
-
-              <div class="period-badge">
-                <?= (int) $row['notice_period_days'] ?> Days Notice
-              </div>
-
-              <form
-                method="post"
-                action="Termination.php"
-                class="delete-form"
-                onsubmit="return confirm('Undo this termination? The employee\'s status will be restored to what it was before (<?= e($row['previous_employment_status'] ?: 'confirmed') ?>).');"
-              >
-                <input type="hidden" name="undo_termination_id" value="<?= (int) $row['id'] ?>">
-                <button type="submit" class="action-btn undo-btn">Undo</button>
-              </form>
-
-              <form
-                method="post"
-                action="Termination.php"
-                class="delete-form"
-                onsubmit="return confirm('Are you sure you want to delete this termination record?');"
-              >
-                <input type="hidden" name="delete_termination_id" value="<?= (int) $row['id'] ?>">
-                <button type="submit" class="action-btn delete-btn">Delete</button>
-              </form>
-
-            </div>
-
-          </div>
-
-        <?php endforeach; ?>
-
-      <?php endif; ?>
-
-    </div>
-
-  </section>
+  <!-- (Recent Terminations: listed on the Termination page itself) -->
 
   <script>
     // Date calculation
@@ -1386,5 +1347,11 @@ $reasons = [
     })();
   </script>
 
+  <script src="<?= function_exists('asset') ? asset('js/searchable-select.js') . '?v=' . @filemtime(__DIR__ . '/public/js/searchable-select.js') : 'public/js/searchable-select.js' ?>"></script>
+  <script>
+    makeSearchable(document.getElementById('department'), 'All Departments');
+    makeSearchable(document.getElementById('termination-reason'), 'Select');
+    makeSearchable(document.getElementById('notice-period'), 'Select');
+  </script>
 </body>
 </html>

@@ -1450,6 +1450,10 @@ function allocation_footer($label, $opening, $amount)
         .preview-slip .highlight-net .value {
             font-size: 1rem;
         }
+        /* On the app's grey page (no white sheet around the calculator) */
+        html, body { background: #f3f3f9 !important; }
+        body > .card { background: transparent !important; box-shadow: none !important; border: 0 !important; }
+        .slip-panel { background: transparent !important; }
     </style>
 </head>
 <body>

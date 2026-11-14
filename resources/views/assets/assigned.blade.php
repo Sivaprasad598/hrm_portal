@@ -4,7 +4,7 @@
 @php $fmt = company()->date_format; @endphp
 <div class="content-wrapper">
 
-    <form method="GET" action="{{ route('assets.assigned') }}" class="bg-white rounded b-shadow-4 p-3 mb-3">
+    <form method="GET" action="{{ route('assets.assigned') }}" id="rc-filter-form" class="bg-white rounded b-shadow-4 p-3 mb-3">
         <div class="row align-items-end">
             <div class="col-md-3">
                 <label class="f-13 text-dark-grey mb-1">Employee</label>
@@ -42,7 +42,7 @@
     </form>
 
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <span class="f-15 font-weight-600 text-dark">{{ $assignments->total() }} asset(s) with employees</span>
+
         <a href="{{ route('assets.assign-form') }}" class="btn btn-primary rounded f-14 openRightModal"><i class="fa fa-user-plus mr-1"></i>Assign Asset</a>
     </div>
 
@@ -98,4 +98,5 @@
 
     <div class="mt-3">{{ $assignments->links() }}</div>
 </div>
+@include('recruitment.partials.standard-bar', ['form' => '#rc-filter-form', 'active' => request()->anyFilled(['user_id', 'type_id', 'search', 'overdue'])])
 @endsection

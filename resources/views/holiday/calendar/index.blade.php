@@ -12,6 +12,26 @@
 
 @section('filter-section')
     <x-filters.filter-box>
+        {{-- Month / Year, as on the table view: picking one moves the calendar there --}}
+        <div class="select-box d-flex py-2 px-lg-2 px-md-2 px-0 border-right-grey border-right-grey-sm-0">
+            <p class="mb-0 pr-2 f-14 text-dark-grey d-flex align-items-center">@lang('app.month')</p>
+            <div class="select-month">
+                <select class="form-control select-picker" name="month" id="month" data-size="8">
+                    <x-forms.months :selectedMonth="$currentMonth" fieldRequired="true"/>
+                </select>
+            </div>
+        </div>
+        <div class="select-box d-flex py-2 px-lg-2 px-md-2 px-0 border-right-grey border-right-grey-sm-0">
+            <p class="mb-0 pr-2 f-14 text-dark-grey d-flex align-items-center">@lang('app.year')</p>
+            <div class="select-year">
+                <select class="form-control select-picker" name="year" id="year" data-size="8">
+                    @foreach ($years as $year)
+                        <option @selected($year == $currentYear) value="{{ $year }}">{{ $year }}</option>
+                    @endforeach
+                </select>
+            </div>
+        </div>
+
         <!-- SEARCH BY TASK START -->
         <div class="task-search d-flex  py-1 pr-lg-3 px-0 border-right-grey align-items-center">
             <form class="w-100 mr-1 mr-lg-0 mr-md-1 ml-md-1 ml-0 ml-lg-0">
@@ -54,9 +74,6 @@ $addHolidayPermission = user()->permission('add_holiday');
                         icon="plus">
                         @lang('modules.holiday.addNewHoliday')
                     </x-forms.link-primary>
-                    <x-forms.button-secondary icon="check" class="mr-3 float-left mb-2 mb-lg-0 mb-md-0" id="mark-holiday">
-                        @lang('modules.holiday.markSunday')
-                    </x-forms.button-secondary>
                 @endif
             </div>
 
@@ -146,6 +163,19 @@ $addHolidayPermission = user()->permission('add_holiday');
         });
 
         calendar.render();
+
+        // Month / Year filters move the calendar; moving the calendar keeps them in step
+        $('#month, #year').on('change', function () {
+            var m = parseInt($('#month').val(), 10), y = parseInt($('#year').val(), 10);
+            if (m && y) { calendar.gotoDate(new Date(y, m - 1, 1)); }
+        });
+        calendar.on('datesSet', function () {
+            var d = calendar.getDate();
+            if (String($('#month').val()) !== String(d.getMonth() + 1)) { $('#month').val(String(d.getMonth() + 1)).selectpicker('refresh'); }
+            if ($('#year option[value="' + d.getFullYear() + '"]').length && String($('#year').val()) !== String(d.getFullYear())) {
+                $('#year').val(String(d.getFullYear())).selectpicker('refresh');
+            }
+        });
 
         function loadData() {
             calendar.refetchEvents();

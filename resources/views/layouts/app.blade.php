@@ -195,6 +195,7 @@
 
         {{-- Assets and Work: "Coming soon" over the page for now --}}
         @include('sections.coming-soon')
+        @include('sections.hr-filter-layout')
 
     </section>
     <!-- MAIN CONTAINER END -->

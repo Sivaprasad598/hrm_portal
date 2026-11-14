@@ -61,6 +61,24 @@ if ($companyId > 0) {
             ->get(['id', 'team_name'])
             ->toArray();
 
+        // The same departments as a tree (a division, then its sub divisions under it),
+        // and for each, itself + every level below it: picking a division lists the
+        // people of its sub divisions too.
+        $deptRows = $db->table('teams')->where('company_id', $companyId)->get(['id', 'team_name', 'parent_id']);
+        $deptTree = \App\Models\Team::treeOptions($deptRows);
+        $deptScope = [];
+        foreach ($deptRows as $row) {
+            $ids = [(int) $row->id];
+            for ($i = 0; $i < count($ids); $i++) {
+                foreach ($deptRows as $child) {
+                    if ((int) $child->parent_id === $ids[$i] && !in_array((int) $child->id, $ids, true)) {
+                        $ids[] = (int) $child->id;
+                    }
+                }
+            }
+            $deptScope[(int) $row->id] = $ids;
+        }
+
         $employees = $db->table('users as u')
             ->join('employee_details as ed', 'ed.user_id', '=', 'u.id')
             ->leftJoin('teams as t', 't.id', '=', 'ed.department_id')
@@ -1229,6 +1247,55 @@ $employeesJson = json_encode(array_map(function ($employee) {
         .lb-empty p { margin: 0; font-size: 13px; }
         body.lb-none .lb-empty { display: block; }
         body.lb-none .lb-data { display: none !important; }
+
+        /* ---- Same look as the app's other pages (Attendance Register etc.) ---- */
+        html, body { background: #f3f3f9 !important; }
+        .dashboard { max-width: none !important; padding: 0 0 24px !important; margin: 0 !important; background: transparent !important; }
+        .dashboard-header { background: #fff !important; border: 0 !important; border-radius: 12px !important;
+            box-shadow: 0 1px 3px rgba(16, 24, 40, .06) !important; padding: 18px 20px !important; margin-bottom: 16px !important;
+            display: block !important; }
+        .dashboard-header .header-left { display: none !important; }
+        .dashboard-header .header-right { display: flex !important; align-items: flex-end !important; gap: 14px !important; width: 100%; flex-wrap: wrap; }
+        .employee-filters { display: flex !important; align-items: flex-end !important; gap: 14px !important; flex: 0 1 auto !important; }
+        .lb-field, .user-select-wrap.lb-field { display: flex !important; flex-direction: column !important; align-items: stretch !important; gap: 6px !important; min-width: 240px; flex: 0 0 auto !important; }
+        .lb-label { font-size: 13.5px; font-weight: 500; color: #667085; margin: 0; }
+        .lb-field .ss { width: 100%; }
+        .lb-field .ss__btn { height: 38px !important; border-radius: 8px !important; border-color: #e8e9e9 !important; }
+        /* the employee shown: a compact chip, only once someone is picked */
+        body.lb-none .employee-badge { display: none !important; }
+        .employee-badge { margin-left: 4px; padding: 6px 12px 6px 6px !important; border-radius: 999px !important; background: #f9fafb !important;
+            border: 1px solid #eaecf0 !important; box-shadow: none !important; }
+        .employee-badge .employee-avatar { width: 30px !important; height: 30px !important; font-size: 11px !important; background: color-mix(in srgb, #cb6b4f 14%, #fff) !important; color: #cb6b4f !important; }
+        .employee-badge .name { font-size: 13.5px !important; }
+        .employee-badge .detail { font-size: 11.5px !important; }
+        /* Export / Apply: the app's white buttons, top right */
+        .header-actions { margin-left: auto !important; display: flex !important; gap: 10px !important; }
+        .header-actions button { height: 38px !important; padding: 0 14px !important; border-radius: 8px !important; background: #fff !important;
+            border: 1px solid #d5d8dc !important; color: #344054 !important; font-size: 13.5px !important; font-weight: 500 !important; box-shadow: none !important; }
+        .header-actions button i { color: #344054 !important; }
+        .header-actions button:hover { border-color: #cb6b4f !important; color: #cb6b4f !important; }
+        .header-actions button:hover i { color: #cb6b4f !important; }
+        body.lb-none .header-actions { display: none !important; }
+        /* nothing picked yet: a plain white card */
+        .lb-empty { border: 0 !important; border-radius: 12px !important; box-shadow: 0 1px 3px rgba(16, 24, 40, .06); margin: 0 !important; }
+        /* the data cards: the same rounded white cards */
+        .summary-card, .leave-card, .section-card, .table-card, .card { border-radius: 12px !important; }
+
+        /* searchable lists: no sideways scroll, the department tree look */
+        .ss__panel { width: 100% !important; min-width: 280px !important; max-width: 360px !important; overflow: hidden !important; }
+        .ss__list { overflow-x: hidden !important; }
+        .ss__opt { overflow: hidden; text-overflow: ellipsis; padding-top: 8px !important; padding-bottom: 8px !important; }
+        .ss__top { font-weight: 600; color: #101828; }
+        .ss__of { color: #98a2b3; font-size: 11.5px; margin-left: 4px; }
+        .ss__opt.is-selected .ss__top, .ss__opt.is-selected { color: #cb6b4f; }
+        .ss__search { border-radius: 6px !important; }
+        .ss__btn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        /* the two pickers share the whole card (they stay visible: nothing shows until one is picked) */
+        .employee-filters { flex: 1 1 auto !important; }
+        .lb-field, .user-select-wrap.lb-field { flex: 1 1 0 !important; min-width: 220px; max-width: none !important; }
+        .user-select-wrap .filter-select, .lb-field .ss, .lb-field .ss__btn { width: 100% !important; max-width: none !important; }
+        .ss__panel { max-width: none !important; }
     </style>
 </head>
 <body>
@@ -1248,14 +1315,19 @@ $employeesJson = json_encode(array_map(function ($employee) {
             </div>
             <div class="header-right">
                 <div class="employee-filters">
+                    <div class="lb-field">
+                    <label class="lb-label" for="departmentFilter">Department</label>
                     <select id="departmentFilter" class="filter-select">
                         <option value="">Select department</option>
-                        <?php foreach ($departments as $department): ?>
-                            <option value="<?php echo (int) $department->id; ?>"><?php echo leaveMgmtEsc($department->team_name); ?></option>
+                        <?php foreach (($deptTree ?? []) as $department): ?>
+                            <option value="<?php echo (int) $department->id; ?>" data-depth="<?php echo (int) $department->depth; ?>"
+                                data-name="<?php echo leaveMgmtEsc($department->name); ?>" data-division="<?php echo leaveMgmtEsc($department->division); ?>"><?php echo leaveMgmtEsc($department->path); ?></option>
                         <?php endforeach; ?>
                     </select>
+                    </div>
 
-                    <div class="user-select-wrap">
+                    <div class="user-select-wrap lb-field">
+                    <label class="lb-label" for="userFilter">Employee</label>
                         <select id="userFilter" class="filter-select">
                             <option value="">Select Employee</option>
                             <?php foreach ($employees as $employee): ?>
@@ -1376,13 +1448,17 @@ $employeesJson = json_encode(array_map(function ($employee) {
             return div.innerHTML;
         }
 
+        // department id -> itself and every sub division below it
+        const DEPT_SCOPE = <?php echo json_encode($deptScope ?? (object) []); ?>;
+
         function renderUserOptions() {
             const departmentId = departmentFilter.value;
             const query = '';
             const previousValue = userFilter.value;
 
             const filtered = employeesData.filter(function(employee) {
-                const matchesDepartment = !departmentId || String(employee.departmentId) === departmentId;
+                const scope = DEPT_SCOPE[departmentId] || [Number(departmentId)];
+                const matchesDepartment = !departmentId || scope.includes(Number(employee.departmentId));
                 const matchesQuery = !query
                     || (employee.name || '').toLowerCase().includes(query)
                     || (employee.card || '').toLowerCase().includes(query);
@@ -2056,15 +2132,21 @@ $employeesJson = json_encode(array_map(function ($employee) {
             const label = () => {
                 const opt = select.options[select.selectedIndex];
                 const empty = !opt || opt.value === '';
-                btn.textContent = empty ? placeholder : opt.textContent.trim();
+                btn.textContent = empty ? placeholder : (opt.dataset.name || opt.textContent.trim());
+                btn.title = empty ? '' : opt.textContent.trim();
                 btn.classList.toggle('is-empty', empty);
             };
             const draw = () => {
                 const q = search.value.trim().toLowerCase();
                 const rows = [...select.options].filter(o => o.value !== '' && (!q || o.textContent.toLowerCase().includes(q)));
                 list.innerHTML = rows.length
-                    ? rows.map(o => '<div class="ss__opt' + (o.value === select.value ? ' is-selected' : '') + '" data-v="' + o.value + '">'
-                        + escapeHtml(o.textContent.trim()) + '</div>').join('')
+                    ? rows.map(o => '<div class="ss__opt' + (o.value === select.value ? ' is-selected' : '') + '" data-v="' + o.value + '"'
+                        + (o.dataset.depth !== undefined ? ' style="padding-left:' + (10 + 14 * Number(o.dataset.depth)) + 'px"' : '') + '>'
+                        + (o.dataset.depth === undefined ? escapeHtml(o.textContent.trim())
+                            : (Number(o.dataset.depth) === 0
+                                ? '<span class="ss__top">' + escapeHtml(o.dataset.name) + '</span>'
+                                : escapeHtml(o.dataset.name) + ' <small class="ss__of">' + escapeHtml(o.dataset.division) + '</small>'))
+                        + '</div>').join('')
                     : '<div class="ss__none">No match</div>';
             };
             btn.addEventListener('click', () => {

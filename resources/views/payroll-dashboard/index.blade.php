@@ -106,6 +106,34 @@
         .pd-table tfoot td { background: #faf5ea; font-weight: 700; position: sticky; bottom: 0; }
         .credit { color: #067647; }
         .debit { color: #b42318; }
+
+        /* ---- Same look as the app's other pages ---- */
+        /* the period card */
+        .pd-filter { background: #fff; border-radius: 12px; box-shadow: 0 1px 3px rgba(16, 24, 40, .06); padding: 18px 20px 14px; }
+        .pd-filter__row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px; }
+        .pd-field { display: flex; flex-direction: column; gap: 6px; width: 190px; }
+        .pd-field--wide { width: 240px; }
+        .pd-field label { margin: 0; font-size: 13.5px; font-weight: 500; color: #667085; }
+        .pd-field .form-control { height: 38px !important; border-radius: 8px !important; border: 1px solid #e8e9e9 !important; font-size: 14px; color: #101828; padding: 0 12px; }
+        .pd-field .form-control:focus { border-color: var(--epic-blue, #cb6b4f) !important; box-shadow: 0 0 0 3px color-mix(in srgb, var(--epic-blue, #cb6b4f) 15%, transparent) !important; }
+        body.epic .pd-btn { height: 38px; padding: 0 16px !important; border-radius: 8px !important; display: inline-flex; align-items: center; white-space: nowrap; }
+        .pd-btn--right { margin-left: auto; }
+        .pd-filter__foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #f2f4f7; }
+        .pd-check { display: inline-flex; align-items: center; gap: 8px; margin: 0; font-size: 13px; font-weight: 500; color: #344054; cursor: pointer; }
+        .pd-check input { width: 16px; height: 16px; accent-color: var(--epic-blue, #cb6b4f); margin: 0; }
+        .pd-filter__note { font-size: 12px; color: #98a2b3; }
+        .pd-filter__note i { color: #c0c5cc; }
+        /* the strip and the cards: white, rounded 12px, one soft shadow; the tone stays on the icon */
+        .pd-strip { border-radius: 12px; box-shadow: 0 1px 3px rgba(16, 24, 40, .06); padding: 10px 16px; }
+        .pd-chip--dark { background: color-mix(in srgb, var(--epic-blue, #cb6b4f) 12%, #fff); border-color: color-mix(in srgb, var(--epic-blue, #cb6b4f) 35%, #fff); color: var(--epic-blue, #cb6b4f); font-weight: 600; }
+        .pd-card { border-radius: 12px; box-shadow: 0 1px 3px rgba(16, 24, 40, .06); }
+        .pd-card::before { display: none; }
+        .pd-card:hover, .pd-card:focus { box-shadow: 0 8px 22px rgba(16, 24, 40, .10); }
+        .pd-card__icon { border-radius: 10px; }
+        .pd-card__lines { background: #fff; }
+        .pd-card__more { color: var(--epic-blue, #cb6b4f); }
+        .pd-mini, .pd-returns, .pd-panel { border-radius: 12px; box-shadow: 0 1px 3px rgba(16, 24, 40, .06); }
+        .pd-return { border-radius: 10px; }
     </style>
 @endpush
 
@@ -117,49 +145,42 @@
     <div class="content-wrapper">
 
         {{-- Which stretch of time --}}
-        <div class="card bg-white border-0 b-shadow-4 mb-3">
-            <div class="card-body p-3">
-                <form method="GET" action="{{ route('payroll-dashboard.index') }}">
-                    <div class="row align-items-end">
-                        <div class="col-md-3 mb-2">
-                            <label class="f-12 text-dark-grey">Period</label>
-                            <select name="preset" class="form-control f-14" onchange="this.form.from.value=''; this.form.to.value=''; this.form.submit();">
-                                @foreach ($presets as $key => $label)
-                                    <option value="{{ $key }}" @selected($preset === $key)>{{ $label }}</option>
-                                @endforeach
-                                <option value="custom" @selected($preset === 'custom')>Chosen dates</option>
-                            </select>
-                        </div>
-                        <div class="col-md-2 mb-2">
-                            <label class="f-12 text-dark-grey">From</label>
-                            <input type="date" name="from" class="form-control f-14" value="{{ $from->toDateString() }}">
-                        </div>
-                        <div class="col-md-2 mb-2">
-                            <label class="f-12 text-dark-grey">To</label>
-                            <input type="date" name="to" class="form-control f-14" value="{{ $to->toDateString() }}">
-                        </div>
-                        <div class="col-md-2 mb-2">
-                            <button type="submit" class="btn btn-primary f-14 w-100">@lang('app.apply')</button>
-                        </div>
-                        <div class="col-md-3 mb-2">
-                            <a href="{{ route('payroll-register.index') }}" class="btn btn-outline-secondary f-14 w-100">
-                                <i class="fa fa-book mr-1"></i> Salary Statement
-                            </a>
-                        </div>
-                        <div class="col-12">
-                            <label class="f-12 text-lightest mb-0 mr-3">
-                                <input type="checkbox" name="include_drafts" value="1" @checked($includeDrafts)
-                                       onchange="this.form.submit()">
-                                Include payslips still in draft
-                            </label>
-                            <span class="f-12 text-lightest">
-                                A payslip counts here when its pay period <strong>started</strong> between these dates,
-                                so no payslip is ever counted twice.
-                            </span>
-                        </div>
+        <div class="pd-filter mb-3">
+            <form method="GET" action="{{ route('payroll-dashboard.index') }}">
+                <div class="pd-filter__row">
+                    <div class="pd-field pd-field--wide">
+                        <label for="pd-preset">Period</label>
+                        <select id="pd-preset" name="preset" class="form-control" onchange="this.form.from.value=''; this.form.to.value=''; this.form.submit();">
+                            @foreach ($presets as $key => $label)
+                                <option value="{{ $key }}" @selected($preset === $key)>{{ $label }}</option>
+                            @endforeach
+                            <option value="custom" @selected($preset === 'custom')>Chosen dates</option>
+                        </select>
                     </div>
-                </form>
-            </div>
+                    <div class="pd-field">
+                        <label for="pd-from">From</label>
+                        <input id="pd-from" type="date" name="from" class="form-control" value="{{ $from->toDateString() }}">
+                    </div>
+                    <div class="pd-field">
+                        <label for="pd-to">To</label>
+                        <input id="pd-to" type="date" name="to" class="form-control" value="{{ $to->toDateString() }}">
+                    </div>
+                    <button type="submit" class="btn-primary rounded f-14 pd-btn"><i class="fa fa-check mr-1"></i>@lang('app.apply')</button>
+                    <a href="{{ route('payroll-register.index') }}" class="btn-secondary rounded f-14 pd-btn pd-btn--right">
+                        <i class="fa fa-book mr-1"></i> Salary Statement
+                    </a>
+                </div>
+                <div class="pd-filter__foot">
+                    <label class="pd-check">
+                        <input type="checkbox" name="include_drafts" value="1" @checked($includeDrafts) onchange="this.form.submit()">
+                        <span>Include payslips still in draft</span>
+                    </label>
+                    <span class="pd-filter__note">
+                        <i class="fa fa-info-circle mr-1"></i>A payslip counts here when its pay period <strong>started</strong> between these dates,
+                        so no payslip is ever counted twice.
+                    </span>
+                </div>
+            </form>
         </div>
 
         @if ($rows === [])

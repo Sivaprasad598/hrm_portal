@@ -16,7 +16,6 @@
     }
 @endphp
 <div class="att-legend">
-    <span class="att-legend__title"><i class="fa fa-info-circle mr-1"></i>Legend</span>
     @foreach ($legend as [$key, $label])
         <span class="att-legend__item"><span class="att-dot att-dot--{{ $key }}"></span>{{ $label }}</span>
     @endforeach

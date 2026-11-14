@@ -104,6 +104,7 @@
 
     <div class="mt-3">{{ $interviews->links() }}</div>
 </div>
+@include('recruitment.partials.standard-bar', ['form' => '.rc-filters', 'active' => request()->anyFilled(['position_id', 'status', 'mine'])])
 @endsection
 
 @push('scripts')
