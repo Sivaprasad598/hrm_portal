@@ -141,13 +141,19 @@ $addLeavePermission = user()->permission('add_leave');
             </div>
         </div>
 
+        {{-- The filter row sits here, under the buttons (moved in on load from the
+             layout's filter section above the content), hidden until "Filters". --}}
+        <div id="lc-filter-slot"></div>
+
         <div class="lc-card">
             <div id="calendar"></div>
         </div>
 
         <style>
             /* the filter row: hidden until "Filters" is clicked */
-            body:not(.page-filters-open) #fullscreen > .filter-box { display: none !important; }
+            body:not(.page-filters-open) #fullscreen > .filter-box,
+            body:not(.page-filters-open) #lc-filter-slot { display: none !important; }
+            body.epic #lc-filter-slot > .filter-box { margin: 0 0 16px !important; }
             .lc-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
             .lc-bar__left, .lc-bar__right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
             body.epic .lc-bar .btn-primary, body.epic .lc-bar .btn-secondary, body.epic .lc-bar .btn-group > .btn {
@@ -222,12 +228,13 @@ $addLeavePermission = user()->permission('add_leave');
         // "Filters": shows / hides the filter row; a dot while one is set
         // the drop-downs are sized once, the first time the filters show (after drawing)
         var lcSized = false;
+        $('#lc-filter-slot').append($('#fullscreen > .filter-box'));
         $('#lc-filters').on('click', function () {
             var open = $('body').toggleClass('page-filters-open').hasClass('page-filters-open');
             $(this).attr('aria-expanded', open);
             if (open && !lcSized) {
                 lcSized = true;
-                requestAnimationFrame(function () { setTimeout(function () { $('#fullscreen > .filter-box .select-picker').selectpicker('refresh'); }, 0); });
+                requestAnimationFrame(function () { setTimeout(function () { $('#lc-filter-slot .filter-box .select-picker').selectpicker('refresh'); }, 0); });
             }
         });
 

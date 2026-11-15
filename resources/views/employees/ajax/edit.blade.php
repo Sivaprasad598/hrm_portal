@@ -570,9 +570,11 @@ $probationMonths = (int) (\Illuminate\Support\Facades\DB::table('probation_perio
                         @endif
 
                         @if ($employee->id != user()->id)
+                            {{-- Exit Date only for Inactive: hidden, disabled (not sent) and not
+                                 required while Active; shown and required once Inactive is picked. --}}
                             <div @class([
                                 'col-lg-3 col-md-6',
-                                // 'd-none' => $employee->status != 'deactive'
+                                'd-none' => $employee->status != 'deactive'
                             ]) id="employeeExitDate">
                                 <x-forms.datepicker fieldId="last_date" :fieldLabel="__('modules.employees.lastDate')"
                                                     fieldName="last_date" :fieldPlaceholder="__('placeholders.date')" fieldRequired="true"
@@ -860,10 +862,31 @@ $probationMonths = (int) (\Illuminate\Support\Facades\DB::table('probation_perio
     }
 
 
+    // Exit Date follows the status: Inactive shows it and makes it required,
+    // Active hides and disables it so it is neither required nor sent.
+    function toggleExitDate() {
+        var inactive = document.getElementById('status-inactive');
+        var box = document.getElementById('employeeExitDate');
+        var input = document.getElementById('last_date');
+
+        if (!inactive || !box || !input) {
+            return;
+        }
+
+        var isInactive = inactive.checked;
+        box.classList.toggle('d-none', !isInactive);
+        input.disabled = !isInactive;
+        input.required = isInactive;
+    }
+
+    toggleExitDate();
+
     // Add event listeners for radio buttons and date picker to call checkExitDate on change
-    document.getElementById('status-active').addEventListener('change', checkExitDate);
-    document.getElementById('status-inactive').addEventListener('change', checkExitDate);
-    document.getElementById('last_date').addEventListener('change', checkExitDate);
+    document.getElementById('status-active')?.addEventListener('change', toggleExitDate);
+    document.getElementById('status-inactive')?.addEventListener('change', toggleExitDate);
+    document.getElementById('status-active')?.addEventListener('change', checkExitDate);
+    document.getElementById('status-inactive')?.addEventListener('change', checkExitDate);
+    document.getElementById('last_date')?.addEventListener('change', checkExitDate);
 
     // Initialize the message state on page load
     window.onload = checkExitDate;

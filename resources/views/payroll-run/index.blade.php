@@ -54,24 +54,26 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div class="col-md-4 mb-2">
+                        {{-- Division first: picking one narrows the Employee list to that division. --}}
+                        <div class="col-md-3 mb-2">
+                            <label class="f-12 text-dark-grey">Division</label>
+                            <select name="department" id="division-filter" class="form-control f-14" data-live-search="true">
+                                <option value="">All</option>
+                                @foreach ($departments as $id => $name)
+                                    <option value="{{ $id }}" @selected((string) $id === (string) $departmentId)>{{ $name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-3 mb-2">
                             <label class="f-12 text-dark-grey">@lang('app.employee')</label>
                             <select name="employees[]" id="employee-filter" class="form-control f-14" multiple
                                     data-live-search="true" title="Everyone">
                                 @foreach ($employees as $employee)
-                                    <option value="{{ $employee->id }}"
+                                    <option value="{{ $employee->id }}" data-division="{{ $employee->department_id }}"
+                                            data-subtext="{{ $employee->employee_id }}"
                                             @selected(in_array((string) $employee->id, $selectedEmployees))>
                                         {{ $employee->name }}
                                     </option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-md-2 mb-2">
-                            <label class="f-12 text-dark-grey">@lang('modules.employees.department')</label>
-                            <select name="department" class="form-control f-14">
-                                <option value="">All</option>
-                                @foreach ($departments as $id => $name)
-                                    <option value="{{ $id }}" @selected((string) $id === (string) $departmentId)>{{ $name }}</option>
                                 @endforeach
                             </select>
                         </div>
@@ -516,12 +518,35 @@
             $('#employee-filter').selectpicker({
                 liveSearch: true,
                 actionsBox: true,
+                hideDisabled: true,
                 selectedTextFormat: 'count > 2',
                 countSelectedText: '{0} employees',
                 noneSelectedText: 'Everyone',
                 container: 'body',
                 width: '100%'
             });
+
+            $('#division-filter').selectpicker({
+                liveSearch: true,
+                container: 'body',
+                width: '100%'
+            });
+
+            // Employee list follows the Division: only that division's people
+            // can be picked, and picks from another division are dropped.
+            function filterEmployeesByDivision() {
+                var division = String($('#division-filter').val() || '');
+                $('#employee-filter option').each(function () {
+                    var match = division === '' || String($(this).data('division')) === division;
+                    $(this).prop('hidden', !match).prop('disabled', !match);
+                    if (!match) {
+                        $(this).prop('selected', false);
+                    }
+                });
+                $('#employee-filter').selectpicker('refresh');
+            }
+            $('#division-filter').on('changed.bs.select change', filterEmployeesByDivision);
+            filterEmployeesByDivision();
 
             var csrf = '{{ csrf_token() }}';
             var generateRoute = "{{ route('payroll-run.generate') }}";

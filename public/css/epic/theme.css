@@ -2487,3 +2487,41 @@ body.epic .emp-dashboard .fc .fc-button { border-radius: 8px !important; }
 /* the chosen department on a closed drop-down: just its name */
 .bootstrap-select .filter-option .dept-opt__of { display: none; }
 .bootstrap-select .filter-option .dept-opt { padding-left: 0 !important; }
+
+/* --------------------------------------------------------------------------
+   Smooth corners everywhere (last, so it wins over the 2px rules above):
+   cards and tiles 12px, buttons 8px (small ones 6px). Buttons joined in a
+   group or to an input keep straight inner edges.
+   -------------------------------------------------------------------------- */
+body.epic .card,
+body.epic .b-shadow-4,
+body.epic .bg-white.rounded,
+body.epic .arw-stat,
+body.epic .widget-box,
+body.epic .dashboard-stats,
+body.epic .modal-content { border-radius: var(--card-radius, 12px) !important; }
+
+/* a card's header / footer follow its corners (no overflow: hidden, so open drop-downs are not cut off) */
+body.epic .card > .card-header:first-child { border-top-left-radius: var(--card-radius, 12px) !important; border-top-right-radius: var(--card-radius, 12px) !important; }
+body.epic .card > .card-footer:last-child { border-bottom-left-radius: var(--card-radius, 12px) !important; border-bottom-right-radius: var(--card-radius, 12px) !important; }
+body.epic .modal-content > .modal-header:first-child { border-top-left-radius: var(--card-radius, 12px) !important; border-top-right-radius: var(--card-radius, 12px) !important; }
+body.epic .modal-content > .modal-footer:last-child { border-bottom-left-radius: var(--card-radius, 12px) !important; border-bottom-right-radius: var(--card-radius, 12px) !important; }
+
+/* buttons, also the links styled as buttons without .btn ("btn-secondary rounded") */
+body.epic .btn,
+body.epic a.btn-primary, body.epic a.btn-secondary, body.epic a.btn-cancel,
+body.epic button.btn-primary, body.epic button.btn-secondary, body.epic button.btn-cancel,
+body.epic .btn-danger, body.epic .btn-success, body.epic .btn-warning, body.epic .btn-info,
+body.epic [class*="btn-outline-"] { border-radius: 8px !important; }
+body.epic .btn-sm, body.epic .btn-xs, body.epic .row-actions .row-action { border-radius: 6px !important; }
+
+/* joined buttons: straight edges where they meet */
+body.epic .btn-group > .btn:not(:last-child):not(.dropdown-toggle),
+body.epic .btn-group > .btn-group:not(:last-child) > .btn,
+body.epic .input-group > .input-group-prepend > .btn { border-top-right-radius: 0 !important; border-bottom-right-radius: 0 !important; }
+body.epic .btn-group > .btn:not(:first-child),
+body.epic .btn-group > .btn-group:not(:first-child) > .btn,
+body.epic .input-group > .input-group-append > .btn { border-top-left-radius: 0 !important; border-bottom-left-radius: 0 !important; }
+
+/* drop-down menus: softened to match */
+body.epic .dropdown-menu { border-radius: 8px !important; }

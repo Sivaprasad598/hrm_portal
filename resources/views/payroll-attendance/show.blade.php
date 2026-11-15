@@ -27,10 +27,15 @@
     }
     $rules = \App\Services\Attendance\WorkRules::forCompany(company()?->id);
     $periodUrl = fn ($p) => route('payroll.attendance', ['userId' => $employee->id, 'month' => $p->month, 'year' => $p->year]);
+    // As a page (payroll-attendance.page): the standard layout - a header card, stat
+    // cards and the table in its own card. In the side panel: the compact version.
+    $asPage = $asPage ?? false;
+    $btn = $asPage ? 'btn-secondary rounded f-14' : 'btn btn-sm btn-outline-secondary';
 @endphp
 
-<div class="payroll-attendance">
-    <div class="d-flex flex-wrap justify-content-between align-items-start mb-3">
+<div class="payroll-attendance {{ $asPage ? 'pa-page' : '' }}">
+    <div class="{{ $asPage ? 'card bg-white border-0 b-shadow-4 mb-3' : '' }}">
+    <div class="d-flex flex-wrap justify-content-between align-items-start {{ $asPage ? 'card-body p-3' : 'mb-3' }}">
         <div>
             <h4 class="f-18 mb-1">{{ $employee->name }}
                 <span class="f-13 text-lightest">{{ $employee->employee_id }}{{ $employee->designation ? ' · ' . $employee->designation : '' }}{{ $employee->department ? ' · ' . $employee->department : '' }}</span>
@@ -41,17 +46,18 @@
             </p>
         </div>
         <div class="d-flex flex-wrap align-items-center mt-2 mt-md-0">
-            <a href="{{ $periodUrl($previousPeriod) }}" class="btn btn-sm btn-outline-secondary mr-1 pa-step" title="Previous salary period">
+            <a href="{{ $periodUrl($previousPeriod) }}" class="{{ $btn }} mr-1 pa-step" title="Previous salary period">
                 <i class="fa fa-chevron-left"></i> {{ \Carbon\Carbon::create($previousPeriod->year, $previousPeriod->month, 1)->format('M Y') }}
             </a>
-            <a href="{{ $periodUrl($nextPeriod) }}" class="btn btn-sm btn-outline-secondary mr-2 pa-step" title="Next salary period">
+            <a href="{{ $periodUrl($nextPeriod) }}" class="{{ $btn }} mr-2 pa-step" title="Next salary period">
                 {{ \Carbon\Carbon::create($nextPeriod->year, $nextPeriod->month, 1)->format('M Y') }} <i class="fa fa-chevron-right"></i>
             </a>
             <a href="{{ route('attendances.index', ['period' => 'cycle', 'month' => $month, 'year' => $year, 'employee' => $employee->id]) }}"
-               class="btn btn-sm btn-outline-primary" target="_blank">
+               class="{{ $asPage ? 'btn-secondary rounded f-14' : 'btn btn-sm btn-outline-primary' }}" target="_blank">
                 <i class="fa fa-calendar-alt mr-1"></i> Attendance grid
             </a>
         </div>
+    </div>
     </div>
 
     @if ($basis === 'exempt')
@@ -61,13 +67,13 @@
         <div class="alert alert-secondary f-13 py-2"><i class="fa fa-building mr-1"></i>
             <strong>{{ $employee->department }}</strong> does not consider attendance hours: any punch on a working day is a full day; no punch and no leave is absent.</div>
     @elseif ($basis === 'rules' && $rules)
-        <div class="f-12 text-dark-grey mb-2">
-            <i class="fa fa-info-circle mr-1"></i>
+        <div class="{{ $asPage ? 'alert alert-info f-13 d-flex align-items-start' : 'f-12 text-dark-grey mb-2' }}">
+            <i class="fa fa-info-circle mr-{{ $asPage ? '2 mt-1' : '1' }}"></i><div>
             Counted {{ $rules->withinShiftOnly() ? 'within the shift timings' : 'from first to last punch' }};
             a full day is the shift's length less its breaks (only the part of a break inside the time in office is taken off),
             grace {{ $rules->s->wh_grace_minutes }} min. After the half-day mark a day is a half day; every
             {{ \Illuminate\Support\Facades\DB::table('attendance_settings')->value('half_day_late_threshold') ?? 3 }} lates cost a deduction.
-        </div>
+        </div></div>
     @endif
 
     @if ($running)
@@ -89,18 +95,35 @@
 
     <div class="row">
         @foreach ($tiles as [$label, $value, $class, $sub])
-            <div class="col-lg-3 col-md-4 col-6 mb-2">
-                <div class="border rounded p-2 h-100 bg-white">
-                    <div class="f-11 text-lightest text-uppercase">{{ $label }}</div>
-                    <div class="f-18 font-weight-bold {{ $class }}">{{ $value }}</div>
-                    <div class="f-11 text-lightest">{{ $sub }}</div>
-                </div>
+            <div class="col-lg-3 col-md-4 col-6 mb-{{ $asPage ? '3' : '2' }}">
+                @if ($asPage)
+                    <div class="card bg-white border-0 b-shadow-4 h-100">
+                        <div class="card-body p-3">
+                            <p class="mb-1 f-12 text-lightest text-uppercase">{{ $label }}</p>
+                            <h4 class="mb-0 f-21 {{ $class }}">{{ $value }}</h4>
+                            <p class="mb-0 f-11 text-lightest">{{ $sub }}</p>
+                        </div>
+                    </div>
+                @else
+                    <div class="border rounded p-2 h-100 bg-white">
+                        <div class="f-11 text-lightest text-uppercase">{{ $label }}</div>
+                        <div class="f-18 font-weight-bold {{ $class }}">{{ $value }}</div>
+                        <div class="f-11 text-lightest">{{ $sub }}</div>
+                    </div>
+                @endif
             </div>
         @endforeach
     </div>
 
-    <div class="table-responsive mt-2">
-        <table class="table table-sm table-hover mb-0 f-13">
+    <div class="{{ $asPage ? 'card bg-white border-0 b-shadow-4 mb-3' : '' }}">
+    @if ($asPage)
+        <div class="card-header bg-white border-bottom p-3">
+            <h6 class="mb-0 f-14">Day by day</h6>
+            <p class="mb-0 f-12 text-lightest">How each day of {{ $cycle->start->format('d M') }} – {{ $cycle->end->format('d M Y') }} was counted for pay.</p>
+        </div>
+    @endif
+    <div class="table-responsive {{ $asPage ? '' : 'mt-2' }}">
+        <table class="table {{ $asPage ? '' : 'table-sm' }} table-hover mb-0 f-13">
             <thead class="thead-light">
                 <tr>
                     <th>Date</th>
@@ -147,10 +170,11 @@
             </tfoot>
         </table>
     </div>
-    <p class="f-11 text-lightest mt-2 mb-0">
+    <p class="f-11 text-lightest mb-0 {{ $asPage ? 'px-3 py-2 border-top' : 'mt-2' }}">
         A day is worked in full or as a half day by the time between the first and last punch, against the shift's own thresholds.
         Week offs follow the employee's shift; holidays, approved paid leave and week offs are paid; absence and unpaid leave are LOP.
     </p>
+    </div>
 </div>
 
 <script>

@@ -18,7 +18,7 @@
         $ownOnly = $ownOnly || $myAttendance;
     @endphp
 
-    <x-filters.filter-box>
+    <x-filters.filter-box class="filters-one-row">
         {{-- (d-none in place of d-flex, not beside it: Bootstrap's d-flex wins over d-none) --}}
         <div class="select-box {{ $ownOnly ? 'd-none' : 'd-flex' }} py-2 px-lg-2 px-md-2 px-0 border-right-grey border-right-grey-sm-0">
             <p class="mb-0 pr-2 f-14 text-dark-grey d-flex align-items-center">@lang('app.employee')</p>

@@ -126,6 +126,7 @@ if ($dbConn) {
             // The cycle must be over and, for anyone on the biometric device, the
             // feed pulled through its last day - the same rule Payroll Run applies.
             $guardBlocker = null;
+            $guardUserId = 0;
 
             if ($periodStart && class_exists(\App\Services\Iapp\Pipeline\PipelineStatus::class)) {
                 $guardUserStmt = $pdo->prepare(
@@ -145,13 +146,12 @@ if ($dbConn) {
                 $guardBlocker = $guardBlocked[0] ?? null;
             }
 
-            $figureError = match (true) {
-                $postedGross <= 0 => 'This employee has no salary on record, so a payslip cannot be valued. Add their CTC first.',
-                $postedWorking < 1 || $postedWorking > 31 => 'Working days must be between 1 and 31. Check the pay period and the attendance.',
-                $postedPresent < 0 || $postedPresent > $postedWorking => 'Days present cannot be negative or more than the working days.',
-                abs($postedComponents - $postedGross) > 1 => 'Basic, HRA, CA, LTA, CEA and Special Allowance do not add up to the gross salary. Check the percentages on the calculator.',
-                default => null,
-            };
+            // Only whether there is a salary at all is checked here; every figure
+            // on the payslip is worked out by PayslipWriter (below), not taken
+            // from the form.
+            $figureError = $postedGross <= 0
+                ? 'This employee has no salary on record, so a payslip cannot be valued. Add their CTC first.'
+                : null;
 
             if ($figureError !== null) {
                 $payslipBlockedMessage = htmlspecialchars($figureError, ENT_QUOTES, 'UTF-8');
@@ -166,6 +166,30 @@ if ($dbConn) {
                 $payslipBlockedMessage = (str_starts_with($guardBlocker, 'no attendance') ? '' : 'Not yet: ')
                     . htmlspecialchars(str_starts_with($guardBlocker, 'no attendance') ? ucfirst($guardBlocker) : $guardBlocker, ENT_QUOTES, 'UTF-8');
                 $id = 0;
+
+                // The period is still running: show the payslip as it stands today
+                // (the same figures as Payroll Run), marked as an estimate. Nothing
+                // is saved and it cannot be issued until the period has ended.
+                try {
+                    if ($guardUserId && isset($guardCycle) && $guardCycle->end->copy()->startOfDay()->gte(now()->startOfDay())) {
+                        $preview = app(\App\Services\Payroll\PayslipWriter::class)
+                            ->preview((int) $guardUserId, (int) date('n', $periodStart), (int) date('Y', $periodStart));
+
+                        if ($preview['ok']) {
+                            $previewRow = $preview['values'] + [
+                                'id' => 0, 'payslip_number' => 'Not issued (estimate)', 'approval_status' => 'estimate',
+                                'status' => 'active', 'deleted_at' => null, 'leave_encashment' => 0, 'encashed_days' => 0,
+                            ];
+                            $previewExtras = array_map(fn ($line) => ['kind' => $line->kind, 'label' => $line->label, 'amount' => (float) $line->amount],
+                                $preview['extras']);
+                            $payslipBlockedMessage .= ' <br>Below is an <strong>estimate</strong> calculated up to '
+                                . e(now()->format('d M Y')) . ' (' . (int) $preview['counted'] . ' of ' . (int) $preview['days']
+                                . ' days counted). It is not saved and cannot be issued until the period has ended.';
+                        }
+                    }
+                } catch (Throwable $previewError) {
+                    $previewRow = null;
+                }
             } elseif ($existingSlipId) {
                 $payslipBlockedMessage = 'A payslip for '
                     . htmlspecialchars((string) ($_POST['emp_name'] ?? 'this employee'), ENT_QUOTES, 'UTF-8')
@@ -176,274 +200,36 @@ if ($dbConn) {
                 // blank page, so the refusal is self-explanatory.
                 $id = (int) $existingSlipId;
             } else {
-                // Each submission of the "Generate Payslip" form is one generated
-                // payslip, so it's recorded in its own table (payslips) rather than
-                // the calculator's payroll_calculations snapshots.
-                // Who this payslip belongs to and who is issuing it. The card id
-                // is kept as it was, but the employee and company are recorded
-                // properly, so the slip stays attached if that id ever changes.
-                $identity = ['user_id' => null, 'company_id' => null];
-
-                $identityStmt = $pdo->prepare(
-                    'SELECT user_id, company_id FROM employee_details
-                      WHERE CAST(employee_card_id AS CHAR) = CAST(:card AS CHAR) LIMIT 1'
-                );
-                $identityStmt->execute([':card' => $_POST['emp_id'] ?? '']);
-                $identity = $identityStmt->fetch() ?: $identity;
-
-                $issuedBy = function_exists('user') && user() ? user()->id : null;
-
-                // AROW/2026-27/000123 — one run of numbers per financial year.
-                $fyLabel = (function (?string $period) {
-                    $date = $period ? strtotime('first day of ' . str_replace(' - ', ' ', $period)) : false;
-                    $date = $date ?: time();
-                    $start = (int) date('n', $date) >= 4 ? (int) date('Y', $date) : (int) date('Y', $date) - 1;
-
-                    return $start . '-' . substr((string) ($start + 1), -2);
-                })($_POST['period'] ?? null);
-
-                $nextPayslipNumber = function () use ($pdo, $fyLabel) {
-                    $stmt = $pdo->prepare(
-                        "SELECT COALESCE(MAX(CAST(SUBSTRING_INDEX(payslip_number, '/', -1) AS UNSIGNED)), 0) + 1
-                           FROM payslips WHERE payslip_number LIKE :prefix"
-                    );
-                    $stmt->execute([':prefix' => 'AROW/' . $fyLabel . '/%']);
-
-                    return sprintf('AROW/%s/%06d', $fyLabel, (int) $stmt->fetchColumn());
-                };
-                $payslipNumber = $nextPayslipNumber();
-
-                $insertStmt = $pdo->prepare(
-                    "INSERT INTO payslips (
-                        gross, basic_pct, hra_pct, ca_threshold, ca_high, ca_low,
-                        pt, esi_threshold, esi_pct, pf_pct,
-                        working_days, days_present,
-                        basic, hra, ca, lta, cea, others, esi, pf,
-                        total_deductions, net_salary, per_day, attendance_net,
-                        tds, period_start, period_end,
-                        emp_name, emp_id, emp_designation, emp_pan, period,
-                        payslip_number, user_id, company_id, generated_by, generated_at,
-                        employer_pf, employer_esi, pf_wage_ceiling, esi_employer_pct
-                    ) VALUES (
-                        :gross, :basicPct, :hraPct, :caThreshold, :caHigh, :caLow,
-                        :pt, :esiThreshold, :esiPct, :pfPct,
-                        :workingDays, :daysPresent,
-                        :basic, :hra, :ca, :lta, :cea, :others, :esi, :pf,
-                        :totalDeductions, :netSalary, :perDay, :attendanceNet,
-                        :tds, :periodStart, :periodEnd,
-                        :empName, :empId, :empDesignation, :empPan, :period,
-                        :payslipNumber, :userId, :companyId, :generatedBy, NOW(),
-                        :employerPf, :employerEsi, :pfWageCeiling, :esiEmployerPct
-                    )"
-                );
-
-                // Income tax is a figure per employee, kept against the employee
-                // rather than typed on this form. The form sends what it showed;
-                // if the figure has moved since the page was opened, the totals
-                // are corrected here so the payslip is never short.
-                $monthlyTds = 0.0;
-
-                if (!empty($identity['user_id'])) {
-                    try {
-                        $tdsStmt = $pdo->prepare('SELECT monthly_tds FROM users WHERE id = :id');
-                        $tdsStmt->execute([':id' => $identity['user_id']]);
-                        $monthlyTds = max(0.0, (float) $tdsStmt->fetchColumn());
-                    } catch (Throwable $tdsError) {
-                        // An older copy without the column pays no income tax.
-                    }
-                }
-
-                $storedTotalDeductions = (float) ($_POST['total_deductions'] ?? 0);
-                $storedNet = (float) ($_POST['net_salary'] ?? 0);
-                $storedPerDay = (float) ($_POST['per_day'] ?? 0);
-                $storedAttendanceNet = (float) ($_POST['attendance_net'] ?? 0);
-                $tdsDrift = round($monthlyTds - (float) ($_POST['tds'] ?? 0), 2);
-
-                // TDS comes off after the attendance deduction, so the day's
-                // pay and the LOP stand; only the totals move.
-                if (abs($tdsDrift) >= 0.01) {
-                    $storedTotalDeductions += $tdsDrift;
-                    $storedNet -= $tdsDrift;
-                    $storedAttendanceNet -= $tdsDrift;
-                }
-
-                // Which days this payslip covers, so the pay elements for the
-                // period can be found and the slip reads like the ones issued
-                // from the payroll screen.
-                $cycle = null;
+                // Issued by PayslipWriter, exactly as Payroll Run issues it, so a
+                // payslip made here and one made in bulk always carry the same
+                // values: the salary in force for that month (revisions), the
+                // payroll settings' rates, attendance counted the same way (with
+                // pending device days written first and OT-bank days), pay
+                // elements, loan instalments and leave encashment. It used to be
+                // a second copy of the calculation fed by the form's figures, and
+                // drifted from Payroll Run (OT-bank days, today's CTC for an old
+                // month, a form sent before its attendance loaded).
+                $writerResult = ['ok' => false, 'message' => 'This employee could not be found.', 'payslip_id' => null];
 
                 try {
-                    if ($periodStart && class_exists(\App\Services\Payroll\PayPeriod::class)) {
-                        $cycle = \App\Services\Payroll\PayPeriod::forMonth(
+                    if ($guardUserId && $periodStart) {
+                        $writerResult = app(\App\Services\Payroll\PayslipWriter::class)->issue(
+                            (int) $guardUserId,
                             (int) date('n', $periodStart),
-                            (int) date('Y', $periodStart)
+                            (int) date('Y', $periodStart),
+                            function_exists('user') && user() ? (int) user()->id : null
                         );
                     }
-                } catch (Throwable $cycleError) {
-                    // Without it the payslip still stands; it records no dates.
+                } catch (Throwable $writerError) {
+                    error_log('Generate One Payslip failed: ' . $writerError->getMessage());
+                    $writerResult = ['ok' => false, 'message' => 'The payslip could not be generated. Please try again.', 'payslip_id' => null];
                 }
 
-                $insertValues = [
-                    ':gross'           => $_POST['gross'] ?? 0,
-                    ':basicPct'        => $_POST['basic_pct'] ?? 0,
-                    ':hraPct'          => $_POST['hra_pct'] ?? 0,
-                    ':caThreshold'     => $_POST['ca_threshold'] ?? 0,
-                    ':caHigh'          => $_POST['ca_high'] ?? 0,
-                    ':caLow'           => $_POST['ca_low'] ?? 0,
-                    ':pt'              => $_POST['pt'] ?? 0,
-                    ':esiThreshold'    => $_POST['esi_threshold'] ?? 0,
-                    ':esiPct'          => $_POST['esi_pct'] ?? 0,
-                    ':pfPct'           => $_POST['pf_pct'] ?? 0,
-                    ':workingDays'     => $_POST['working_days'] ?? 0,
-                    ':daysPresent'     => $_POST['days_present'] ?? 0,
-                    ':basic'           => $_POST['basic'] ?? 0,
-                    ':hra'             => $_POST['hra'] ?? 0,
-                    ':ca'              => $_POST['ca'] ?? 0,
-                    ':lta'             => $_POST['lta'] ?? 0,
-                    ':cea'             => $_POST['cea'] ?? 0,
-                    ':others'          => $_POST['others'] ?? 0,
-                    ':esi'             => $_POST['esi'] ?? 0,
-                    ':pf'              => $_POST['pf'] ?? 0,
-                    ':totalDeductions' => $storedTotalDeductions,
-                    ':netSalary'       => $storedNet,
-                    ':perDay'          => $storedPerDay,
-                    ':attendanceNet'   => $storedAttendanceNet,
-                    ':tds'             => $monthlyTds,
-                    ':periodStart'     => $cycle ? $cycle->start->toDateString() : null,
-                    ':periodEnd'       => $cycle ? $cycle->end->toDateString() : null,
-                    ':empName'         => $_POST['emp_name'] ?? null,
-                    ':empId'           => $_POST['emp_id'] ?? null,
-                    ':empDesignation'  => $_POST['emp_designation'] ?? null,
-                    ':empPan'          => $_POST['emp_pan'] ?? null,
-                    ':period'          => $_POST['period'] ?? null,
-                    ':payslipNumber'   => $payslipNumber,
-                    ':userId'          => $identity['user_id'] ?? null,
-                    ':companyId'       => $identity['company_id'] ?? null,
-                    ':generatedBy'     => $issuedBy,
-                    ':employerPf'      => $_POST['employer_pf'] ?? ($_POST['pf'] ?? 0),
-                    ':employerEsi'     => $_POST['employer_esi'] ?? ($_POST['esi'] ?? 0),
-                    ':pfWageCeiling'   => $_POST['pf_wage_ceiling'] ?? null,
-                    ':esiEmployerPct'  => $_POST['esi_employer_pct'] ?? null,
-                ];
-
-                // The amounts are worked out again here with the payroll formula
-                // (SalaryCalculator) and the rates the calculator page showed,
-                // rather than taken from the browser: a slip generated here then
-                // matches what Payroll Run would issue for the same days - PF and
-                // ESI on the days paid, the final figure rounded to the rupee.
-                if (class_exists(\App\Services\Payroll\SalaryCalculator::class) && $postedGross > 0) {
-                    $rates = (array) (new \App\Services\Payroll\SalaryCalculator())->settings();
-
-                    foreach (['basic_pct', 'hra_pct', 'ca_threshold', 'ca_high', 'ca_low', 'esi_threshold', 'esi_pct',
-                                 'pf_pct', 'pf_wage_ceiling', 'esi_employer_pct', 'lta_pct', 'cea_threshold', 'cea_low', 'cea_high'] as $rateKey) {
-                        if (isset($_POST[$rateKey]) && $_POST[$rateKey] !== '' && is_numeric($_POST[$rateKey])) {
-                            $rates[$rateKey] = (float) $_POST[$rateKey];
-                        }
-                    }
-
-                    $pay = (new \App\Services\Payroll\SalaryCalculator((object) $rates))->forEmployee(
-                        $postedGross * 12,
-                        isset($_POST['basic_pct']) && (float) $_POST['basic_pct'] > 0 ? (float) $_POST['basic_pct'] : null,
-                        (int) round($postedWorking),
-                        $postedPresent,
-                        $monthlyTds
-                    );
-                    $employeeNet = $pay['gross'] - ($pay['pf_employee'] + $pay['esi_employee'] + $pay['pt'] + $pay['tds']);
-
-                    $insertValues = array_merge($insertValues, [
-                        ':basicPct'        => $pay['basic_pct'],
-                        ':basic'           => round($pay['basic'], 2),
-                        ':hra'             => round($pay['hra'], 2),
-                        ':ca'              => round($pay['ca'], 2),
-                        ':lta'             => round($pay['lta'], 2),
-                        ':cea'             => round($pay['cea'], 2),
-                        ':others'          => round($pay['other'], 2),
-                        ':pf'              => $pay['pf_employee'],
-                        ':esi'             => $pay['esi_employee'],
-                        ':pt'              => $pay['pt'],
-                        ':employerPf'      => $pay['pf_employer'],
-                        ':employerEsi'     => $pay['esi_employer'],
-                        ':totalDeductions' => $pay['pf_employee'] + $pay['esi_employee'] + $pay['pt'] + $pay['tds'],
-                        ':netSalary'       => $employeeNet,
-                        ':perDay'          => round($pay['per_day'], 2),
-                        ':attendanceNet'   => $employeeNet - $pay['lop_amount'],
-                    ]);
-                }
-
-                // The payslip number is the highest so far plus one, so two
-                // people generating at the same moment can pick the same one.
-                // The unique index on the column catches that; the loser simply
-                // asks for the next number and tries again.
-                for ($attempt = 1; ; $attempt++) {
-                    try {
-                        $insertStmt->execute($insertValues);
-                        break;
-                    } catch (PDOException $clash) {
-                        if ($attempt >= 5 || !str_contains($clash->getMessage(), 'payslips_payslip_number_unique')) {
-                            throw $clash;
-                        }
-
-                        $payslipNumber = $nextPayslipNumber();
-                        $insertValues[':payslipNumber'] = $payslipNumber;
-                    }
-                }
-
-                $id = $pdo->lastInsertId();
-
-                // Overtime, a bonus, an advance being recovered: the same lines
-                // the payroll screen would have put on this month's payslip. An
-                // instalment still due is drawn first, then everything for the
-                // period is attached to this payslip, so it cannot be paid twice.
-                try {
-                    if ($cycle && !empty($identity['user_id']) && class_exists(\App\Services\Payroll\PayComponents::class)) {
-                        $payComponents = new \App\Services\Payroll\PayComponents();
-                        $payComponents->forPeriod((int) $identity['user_id'], $cycle->start);
-                        $payComponents->attachToPayslip((int) $identity['user_id'], $cycle->start, (int) $id);
-                    }
-                } catch (Throwable $componentError) {
-                    // The payslip stands on its own; the lines wait for the next.
-                }
-
-                // Leave encashed when a leave year was closed is paid on the
-                // employee's next payslip. Only rows still pending are claimed,
-                // and each records the payslip it went out on, so the same
-                // leave is never paid twice. If anything here fails the payslip
-                // stands on its own and the encashment waits for the next one.
-                try {
-                    $claimStmt = $pdo->prepare(
-                        "SELECT le.id, le.days, le.amount
-                           FROM leave_encashments le
-                           JOIN employee_details ed ON ed.user_id = le.user_id
-                          WHERE ed.employee_card_id = :card AND le.status = 'pending'"
-                    );
-                    $claimStmt->execute([':card' => (string) ($_POST['emp_id'] ?? '')]);
-                    $pendingEncashments = $claimStmt->fetchAll();
-
-                    $claimedDays = 0.0;
-                    $claimedAmount = 0.0;
-                    $markStmt = $pdo->prepare(
-                        "UPDATE leave_encashments
-                            SET status = 'paid', payslip_id = :slip, paid_at = NOW(), updated_at = NOW()
-                          WHERE id = :id AND status = 'pending'"
-                    );
-
-                    foreach ($pendingEncashments as $pending) {
-                        $markStmt->execute([':slip' => $id, ':id' => $pending['id']]);
-
-                        // Counted only if this request is the one that claimed it.
-                        if ($markStmt->rowCount() === 1) {
-                            $claimedDays += (float) $pending['days'];
-                            $claimedAmount += (float) $pending['amount'];
-                        }
-                    }
-
-                    if ($claimedAmount > 0) {
-                        $pdo->prepare("UPDATE payslips SET leave_encashment = :amt, encashed_days = :days WHERE id = :id")
-                            ->execute([':amt' => round($claimedAmount, 2), ':days' => $claimedDays, ':id' => $id]);
-                    }
-                } catch (Throwable $encashmentError) {
-                    // The leave_encashments table may not exist on an older copy;
-                    // payslip generation must never depend on it.
+                if ($writerResult['ok'] && $writerResult['payslip_id']) {
+                    $id = (int) $writerResult['payslip_id'];
+                } else {
+                    $payslipBlockedMessage = htmlspecialchars((string) $writerResult['message'], ENT_QUOTES, 'UTF-8');
+                    $id = 0;
                 }
             }
         }
@@ -451,15 +237,20 @@ if ($dbConn) {
         $refusedEmpId = (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset($_POST['from_calculator']))
             ? trim((string) ($_POST['emp_id'] ?? '')) : '';
 
-        if ($id > 0) {
+        if (!empty($previewRow)) {
+            // An estimate for a period still running (built above): not a stored payslip.
+            $row = $previewRow;
+        } elseif ($id > 0) {
             $stmt = $pdo->prepare("SELECT * FROM payslips WHERE id = :id");
             $stmt->execute([':id' => $id]);
             $row = $stmt->fetch();
         } elseif ($refusedEmpId !== '') {
             // A generation was refused: show that employee's slip for the month
-            // asked for, else their latest - never another employee's.
+            // asked for, if there is one - never another month's (an older draft
+            // under a "not yet" message read as if that month had been refused)
+            // and never another employee's.
             $stmt = $pdo->prepare("SELECT * FROM payslips WHERE emp_id = :empId AND deleted_at IS NULL
-                                   ORDER BY (period = :period) DESC, id DESC LIMIT 1");
+                                   AND period = :period ORDER BY id DESC LIMIT 1");
             $stmt->execute([':empId' => $refusedEmpId, ':period' => trim((string) ($_POST['period'] ?? ''))]);
             $row = $stmt->fetch();
         } elseif (!empty($_GET['emp_id'])) {
@@ -671,7 +462,7 @@ if ($dbConn) {
                 );
                 $componentStmt->execute([':id' => $row['id']]);
 
-                foreach ($componentStmt->fetchAll() as $component) {
+                foreach (!empty($previewRow) ? ($previewExtras ?? []) : $componentStmt->fetchAll() as $component) {
                     $line = [$component['label'], (float) $component['amount']];
                     $component['kind'] === 'earning' ? $extraEarnings[] = $line : $extraDeductions[] = $line;
                 }
@@ -867,6 +658,30 @@ if ($dbConn) {
                     'days' => (float) ($row['encashed_days'] ?? 0),
                 ],
             ];
+
+            // "Back" returns to Generate One Payslip with this employee filled in,
+            // so another month can be generated straight away.
+            if (!empty($empCardId)) {
+                $calculatorUrl .= '?' . http_build_query(['compact' => 1, 'card_id' => (string) $empCardId]);
+            }
+
+            // "Issue payslip" on a draft, for whoever may approve payslips: the same
+            // approval as Payroll -> Issued Payslips -> Approve.
+            $issueAction = null;
+            try {
+                if (($row['approval_status'] ?? '') === 'draft' && ($row['status'] ?? 'active') === 'active'
+                    && empty($row['deleted_at']) && function_exists('route')
+                    && class_exists(\App\Services\Access\PayrollAccess::class) && \App\Services\Access\PayrollAccess::can('approve')) {
+                    $issueAction = [
+                        'id' => (int) $row['id'],
+                        'url' => route('payslips.generated.approve'),
+                        'token' => csrf_token(),
+                        'view' => route('legacy.page', 'payslips') . '?id=' . (int) $row['id'],
+                    ];
+                }
+            } catch (Throwable $issueError) {
+                $issueAction = null;
+            }
         }
     } catch (PDOException $e) {
         error_log('Payslip fetch failed: ' . $e->getMessage());
@@ -886,11 +701,11 @@ if (!$payslip) {
             <div style="padding:12px 16px; border:1px solid #f0c36d; background:#fdf7e3; border-radius:6px; color:#7a5d00; font-size:14px; line-height:1.5; margin-bottom:14px;">
                 <strong>Payslip not generated.</strong> <?= $payslipBlockedMessage ?>
             </div>
-            <p style="font-size:14px; color:#475467;">This employee has no payslip on record yet.</p>
+            <p style="font-size:14px; color:#475467;">There is no payslip for this employee for <?= e(trim((string) ($_POST['period'] ?? '')) ?: 'this month') ?> yet.</p>
         <?php else: ?>
             <p>No payroll record found. Please generate a payslip first using the calculator.</p>
         <?php endif; ?>
-            <p><a href="<?= e($calculatorUrl) ?>?compact=1" style="color:#1f5b91;">← Back to calculator</a></p>
+            <p><a href="<?= e($calculatorUrl . '?' . http_build_query(array_filter(['compact' => 1, 'card_id' => trim((string) ($_POST['emp_id'] ?? ''))]))) ?>" style="color:#1f5b91;">← Back to calculator</a></p>
         </div>
     </body>
     </html>

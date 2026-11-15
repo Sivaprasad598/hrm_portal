@@ -12,8 +12,10 @@ use RuntimeException;
  *
  *   manager          the top manager above the applicant: up the Reporting To chain
  *                    (employee -> team lead -> manager -> ...), the highest active person
- *                    with the Manager role. Team leads are passed by; no manager in the
- *                    chain -> the step is passed over.
+ *                    with the Manager role. Team leads are passed by when there is a
+ *                    manager above them; with no Manager in the chain, the applicant's
+ *                    own Reporting To person approves (a team lead / project manager).
+ *                    Nobody set as Reporting To -> the step is passed over.
  *   ceo              a manager's own leave: the CEO in their chain, or any active CEO.
  *                    Runs with the manager step (one or the other, never both).
  *   department_head  the head of the applicant's department
@@ -97,14 +99,28 @@ class LeaveApprovals
         return $found;
     }
 
-    /** The manager who approves this employee's leave; null for a manager or CEO themselves, or no manager above. */
+    /**
+     * Who approves this employee's leave at the manager step: the top Manager up
+     * the Reporting To chain, else (no Manager above) their own Reporting To
+     * person. Null for a manager or CEO themselves, or nobody to report to.
+     */
     public static function managerFor(int $applicantId): ?int
     {
         if (static::hasRole($applicantId, 'manager') || static::hasRole($applicantId, 'ceo')) {
             return null;
         }
 
-        return static::topInChain($applicantId, 'manager');
+        if ($manager = static::topInChain($applicantId, 'manager')) {
+            return $manager;
+        }
+
+        // Only a few people hold the Manager role, so without this fallback most
+        // leave skipped the first step and went straight to HR, unseen by the
+        // team lead / project manager the employee reports to.
+        $people = static::people();
+        $direct = (int) ($people[$applicantId][0] ?? 0);
+
+        return ($direct && $direct !== $applicantId && ($people[$direct][2] ?? false)) ? $direct : null;
     }
 
     /** Who approves a manager's own leave: the CEO in their chain, or else every active CEO. */

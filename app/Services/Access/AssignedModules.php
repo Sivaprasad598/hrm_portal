@@ -54,8 +54,31 @@ class AssignedModules
      */
     public static function plainEmployee(): bool
     {
-        return user() && collect(user_roles())->diff(['employee'])->isEmpty();
+        $user = user();
+
+        if (!$user) {
+            return false;
+        }
+
+        // Decided by what their menu holds, not by role name: a job-title role
+        // (GIS Engineer, Developer) adds no pages, so someone with only Dashboard
+        // and My Space gets the simple layout too. My Team (team lead) or any
+        // other section keeps the menu panel.
+        return self::$plain[$user->id] ??= (function () use ($user) {
+            try {
+                $menus = $user->visibleMenus();
+            } catch (\Throwable) {
+                return collect(user_roles())->diff(['employee'])->isEmpty();
+            }
+
+            return $menus->isNotEmpty() && $menus->every(fn ($menu) => $menu->slug === 'my-space'
+                || \Illuminate\Support\Str::startsWith((string) $menu->slug, 'dashboard')
+                || \Illuminate\Support\Str::startsWith((string) $menu->route, 'dashboard'));
+        })();
     }
+
+    /** user_id => plainEmployee(), per request. */
+    private static array $plain = [];
 
     /** @return string[] */
     public static function forUser(): array

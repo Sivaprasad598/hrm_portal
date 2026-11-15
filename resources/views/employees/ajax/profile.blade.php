@@ -84,6 +84,11 @@ $viewAppreciationPermission = user()->permission('view_appreciation');
                                                 aria-labelledby="dropdownMenuLink" tabindex="0">
                                                 <a class="dropdown-item openRightModal"
                                                     href="{{ route('employees.edit', $employee->id) }}">@lang('app.edit')</a>
+                                                {{-- Generate One Payslip for this employee (Payroll -> Payslip Calculator) --}}
+                                                @if ($employee->status === 'active' && !$employee->employeeDetail?->last_date
+                                                    && \App\Services\Access\PayrollAccess::can('prepare'))
+                                                    <a class="dropdown-item" href="{{ route('payslips.index', ['generate' => 1, 'card_id' => $employee->employeeDetail?->employee_id ?: $employee->id]) }}">Generate Payslip</a>
+                                                @endif
                                                 @if ($employee->employeeDetail?->last_date && $employee->employeeDetail->last_date->lt(now()->startOfDay())
                                                     && user()->permission('edit_employees') === 'all')
                                                     <a class="dropdown-item" href="{{ route('employees.rejoin.create', $employee->id) }}">Rejoin</a>

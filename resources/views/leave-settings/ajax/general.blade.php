@@ -51,7 +51,7 @@
         $chainSetting = \App\Services\Leaves\LeaveApprovals::settings();
         $ticked = json_decode((string) ($chainSetting->approval_levels ?? ''), true) ?: [];
         $stepHelp = [
-            'manager' => 'The top person with the Manager role up the employee\'s Reporting To chain. A manager\'s own leave goes to the CEO.',
+            'manager' => 'The top person with the Manager role up the employee\'s Reporting To chain; with no Manager above, the person they report to (team lead / project manager). A manager\'s own leave goes to the CEO.',
             'department_head' => 'The head of the employee\'s division (set on the division).',
             'hr' => 'Anyone with Approve / Reject Leaves (HR, Admin).',
         ];

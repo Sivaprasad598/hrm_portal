@@ -1,19 +1,19 @@
-<div class="d-grid d-lg-flex d-md-flex action-bar">
+<div class="ml-bar">
     {{-- Applying is self-service: everybody applies for their own leave here. --}}
-    <div class="flex-grow-1 align-items-center">
+    <div class="ml-bar__left">
         @if (\App\Http\Controllers\LeaveController::access()['apply'] && user()->employeeDetail)
             <x-forms.link-primary :link="route('leaves.create')" data-redirect-url="{{ route('leaves.personal') }}"
-                class="mr-3 openRightModal float-left" icon="plus">
+                class="openRightModal" icon="plus">
                 Apply leave
             </x-forms.link-primary>
         @endif
     </div>
 
-    @include('leaves.partials.view-switch', ['active' => 'personal', 'class' => 'ml-3'])
+    @include('leaves.partials.view-switch', ['active' => 'personal', 'class' => 'ml-0'])
 </div>
 
 <!-- TAB CONTENT START -->
-<div class="tab-pane fade show active mt-4" role="tabpanel" aria-labelledby="nav-email-tab">
+<div class="tab-pane fade show active ml-std" role="tabpanel" aria-labelledby="nav-email-tab">
     @php
         $rows = collect($hasLeaveQuotas ? $allowedEmployeeLeavesQuotas : [])
             ->filter(fn ($quota) => $quota->leaveType && !$quota->leaveType->deleted_at)
@@ -40,12 +40,9 @@
         $statusPill = ['approved' => 'ok', 'rejected' => 'bad', 'pending' => 'warn'];
     @endphp
 
-    <div class="card bg-white border-0 b-shadow-4">
-        <div class="card-header bg-white border-0 pt-4">
-            <h4 class="f-18 f-w-500 mb-0">My Leaves</h4>
-            <p class="ms-intro">Your leave balance for this leave year, by type, and your latest requests. Apply above; your manager or HR approves.</p>
-        </div>
-        <div class="card-body pt-2">
+    {{-- (no heading or intro text: the top bar names the page) --}}
+    <div>
+        <div>
             <div class="ms-stats">
                 <div class="ms-stat is-total">
                     <div class="lbl"><span class="ic" style="--ic-bg:var(--epic-blue,#cb6b4f);--ic-fg:#fff"><i class="fa fa-umbrella-beach"></i></span>Days left</div>
@@ -69,9 +66,10 @@
                 </div>
             </div>
 
-            <div class="ms-sec">
-                <h5>Balance by leave type <span>given this year, taken, and what is left</span></h5>
-                @if ($rows->isNotEmpty())<a href="javascript:;" class="f-12" id="lq-toggle">Show full breakdown</a>@endif
+            <div class="ml-card">
+            <div class="ml-card-head">
+                <h5>Balance by leave type</h5><span class="ml-count">{{ $rows->count() }}</span>
+                @if ($rows->isNotEmpty())<a href="javascript:;" class="f-13 ml-auto" id="lq-toggle">Show full breakdown</a>@endif
             </div>
             @if ($rows->isEmpty())
                 <div class="ms-empty"><i class="fa fa-calendar-times"></i><b>No leave types are given to you yet</b>HR assigns your leave types and quota. Ask HR if you need to apply for leave.</div>
@@ -102,10 +100,12 @@
                 {{-- The detailed sums (accrued, carried over, expired) for whoever wants them --}}
                 <div class="d-none mt-3" id="lq-detail">@include('employees.leaves_quota')</div>
             @endif
+            </div>
 
-            <div class="ms-sec mt-4">
-                <h5>Recent requests <span>your latest leave, newest first</span></h5>
-                <a href="{{ route('leaves.index') }}" class="f-12">See all</a>
+            <div class="ml-card">
+            <div class="ml-card-head">
+                <h5>Recent requests</h5><span class="ml-count">{{ $recent->count() }}</span>
+                <a href="{{ route('leaves.index') }}" class="f-13 ml-auto">See all</a>
             </div>
             @if ($recent->isEmpty())
                 <div class="ms-empty py-3">You have not applied for leave yet.</div>
@@ -127,12 +127,28 @@
                     </table>
                 </div>
             @endif
+            </div>
         </div>
     </div>
 </div>
 <!-- TAB CONTENT END -->
 
 <style>
+    /* the app's standard: buttons on one row; no heading (the top bar names the page);
+       counts and sections as white rounded cards on the grey page, a count badge each */
+    .ml-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+    body.epic .ml-bar .btn-primary, body.epic .ml-bar .btn-group > .btn { height: 38px; display: inline-flex; align-items: center; padding: 0 14px !important; font-size: 14px; margin: 0 !important; }
+    body.epic .ml-bar .btn-primary { border-radius: 8px !important; }
+    body.epic .ml-bar .btn-group > .btn:first-child { border-top-left-radius: 8px !important; border-bottom-left-radius: 8px !important; }
+    body.epic .ml-bar .btn-group > .btn:last-child { border-top-right-radius: 8px !important; border-bottom-right-radius: 8px !important; }
+    .ml-std .ms-stats { margin-bottom: 16px; }
+    .ml-std .ms-stats > * { background: #fff; border-radius: 12px !important; box-shadow: 0 1px 3px rgba(16, 24, 40, .06); }
+    .ml-std .ml-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 3px rgba(16, 24, 40, .06); padding: 16px 20px; margin-bottom: 16px; }
+    .ml-std .ml-card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .ml-std .ml-card-head h5 { font-size: 15px; font-weight: 600; margin: 0; color: #1f2937; }
+    .ml-std .ml-count { background: #f3f4f6; color: #4b5563; border-radius: 10px; font-size: 12px; padding: 1px 8px; }
+    .ml-std .ms-empty { border: 1px dashed #e5e7eb; border-radius: 10px; }
+
     .lq-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 8px; vertical-align: 1px; }
     .lq-bar { height: 6px; border-radius: 999px; background: #eef0f3; overflow: hidden; }
     .lq-bar span { display: block; height: 100%; border-radius: 999px; }

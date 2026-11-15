@@ -95,6 +95,7 @@
     <?php if (!empty($attendanceUrl)): ?>
       <a href="<?= e($attendanceUrl) ?>" target="_blank" title="Every day of this salary period, as it was counted">📅 Attendance for this period</a>
     <?php endif; ?>
+    <?php include __DIR__ . '/issue-button.php'; ?>
   <?php endif; ?>
   <button type="button" onclick="window.print()">🖨 Print</button>
 </div>
@@ -125,6 +126,12 @@
   <div style="margin:6px 12px; padding:6px 10px; border:1px dashed #b45309; color:#b45309;
               font-size:12px; font-weight:bold; text-align:center; letter-spacing:1px;">
     DRAFT — NOT APPROVED
+  </div>
+<?php endif; ?>
+<?php if (($payslip['approval_status'] ?? '') === 'estimate'): ?>
+  <div style="margin:6px 12px; padding:6px 10px; border:1px dashed #b45309; color:#b45309;
+              font-size:12px; font-weight:bold; text-align:center; letter-spacing:1px;">
+    ESTIMATE — PERIOD STILL RUNNING, NOT ISSUED
   </div>
 <?php endif; ?>
 

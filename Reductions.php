@@ -1478,7 +1478,7 @@ function allocation_footer($label, $opening, $amount)
             <div class="input-group">
                 <label>Employee Card ID</label>
                 <!-- FIX: removed readonly so user can type -->
-                <input type="text" id="employee_card_id" name="emp_id" value="<?= e(isset($_POST['emp_id']) ? $_POST['emp_id'] : '') ?>" placeholder="ACPL0000" autocomplete="off" />
+                <input type="text" id="employee_card_id" name="emp_id" value="<?= e(isset($_POST['emp_id']) ? $_POST['emp_id'] : (isset($_GET['card_id']) ? (string) $_GET['card_id'] : '')) ?>" placeholder="ACPL0000" autocomplete="off" />
             </div>
             <div class="input-group">
                 <label>Employee name</label>
@@ -2029,6 +2029,21 @@ function allocation_footer($label, $opening, $amount)
         // application's authenticated route it is not "Reductions.php".
         const SELF_URL = <?= json_encode($selfUrl) ?>;
         const ATTENDANCE_URL = <?= json_encode(function_exists('route') ? route('payroll.attendance', ['userId' => '__USER__']) : null) ?>;
+        // The month picked by default: the latest pay cycle that has ended. With
+        // a cycle starting on the 21st, on 15 Nov that is October (21 Sep - 20 Oct);
+        // November's cycle is still running and cannot be paid yet.
+        <?php
+        $defaultPayCycle = null;
+        try {
+            if (class_exists(\App\Services\Iapp\Pipeline\PipelineStatus::class)) {
+                $defaultPayCycle = (new \App\Services\Iapp\Pipeline\PipelineStatus())->lastEndedCycle();
+            }
+        } catch (Throwable $defaultCycleError) {
+            $defaultPayCycle = null;
+        }
+        ?>
+        const DEFAULT_PAY_MONTH = <?= json_encode($defaultPayCycle ? (int) $defaultPayCycle->month : null) ?>;
+        const DEFAULT_PAY_YEAR = <?= json_encode($defaultPayCycle ? (int) $defaultPayCycle->year : null) ?>;
 
         // DOM refs for employee form
         const employeeCardId = byId('employee_card_id');
@@ -2374,7 +2389,8 @@ function allocation_footer($label, $opening, $amount)
                 opt.textContent = year;
                 yearSelect.appendChild(opt);
             }
-            yearSelect.value = currentYear;
+            yearSelect.value = (DEFAULT_PAY_YEAR && DEFAULT_PAY_YEAR >= startYear && DEFAULT_PAY_YEAR <= endYear)
+                ? DEFAULT_PAY_YEAR : currentYear;
         }
 
         function populateMonths(joinYear, joinMonth) {
@@ -2396,7 +2412,9 @@ function allocation_footer($label, $opening, $amount)
                 monthSelect.appendChild(opt);
             }
             const currentMonth = new Date().getMonth() + 1;
-            if (selectedYear === new Date().getFullYear() && currentMonth >= startMonth) {
+            if (DEFAULT_PAY_MONTH && selectedYear === DEFAULT_PAY_YEAR && DEFAULT_PAY_MONTH >= startMonth && DEFAULT_PAY_MONTH <= lastMonth) {
+                monthSelect.value = DEFAULT_PAY_MONTH;
+            } else if (selectedYear === new Date().getFullYear() && currentMonth >= startMonth) {
                 monthSelect.value = currentMonth;
             }
 

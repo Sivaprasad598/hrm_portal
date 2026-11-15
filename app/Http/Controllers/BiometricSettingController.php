@@ -37,9 +37,12 @@ class BiometricSettingController extends AccountBaseController
             // Admin could work the biometric screens but not reach the page
             // that connects them. manage_attendance_setting is the permission
             // that matches what this page is.
+            // (A second check on manage_biometric_system, the technical biometric
+            // permission only the Super Admin holds, shut HR and the Admin out of
+            // this page again; it was dropped on 2026-11-15.)
             abort_403(user()->permission('manage_attendance_setting') !== 'all');
-            // The device connection, the nightly run and the automation: technical.
-            abort_403(user()->permission('manage_biometric_system') !== 'all');
+            // Admin only (Super Admin and Admin), not HR - decided 2026-11-15.
+            abort_403(!array_intersect(['admin', 'manager_admin'], user_roles()));
 
             return $next($request);
         });

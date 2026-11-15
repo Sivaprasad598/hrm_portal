@@ -17,7 +17,13 @@
     $calculatorSrc = $userRole === 'admin'
         ? route('legacy.page', 'reductions')
         : route('legacy.page', 'payslips') . '?' . http_build_query(array_filter($employeeParams));
-    $singleSrc = route('legacy.page', 'reductions') . '?compact=1';
+    // ?generate=1&card_id=ACPL0481 (from HR -> Employees, or "Back" on a slip):
+    // opens Generate One Payslip with that employee filled in and looked up.
+    $openSingle = $userRole === 'admin' && request()->boolean('generate');
+    $singleSrc = route('legacy.page', 'reductions') . '?' . http_build_query(array_filter([
+        'compact' => 1,
+        'card_id' => $openSingle ? (string) request('card_id') : null,
+    ]));
 @endphp
 @extends('layouts.app')
 
@@ -31,25 +37,25 @@
                         {{-- The tabs above lead to Run Payroll, Issued Payslips and the rest;
                              here there are just the two views of this page. --}}
                         <div class="calc-switch mb-3" role="tablist">
-                            <button type="button" class="calc-option active" data-pane="calculator" role="tab" aria-selected="true">
+                            <button type="button" class="calc-option {{ $openSingle ? '' : 'active' }}" data-pane="calculator" role="tab" aria-selected="{{ $openSingle ? 'false' : 'true' }}">
                                 <i class="fa fa-calculator"></i>
                                 <span><strong>Salary Calculator</strong><small>Try the salary formula: change any input and see the payslip it makes</small></span>
                             </button>
-                            <button type="button" class="calc-option" data-pane="single" role="tab" aria-selected="false">
+                            <button type="button" class="calc-option {{ $openSingle ? 'active' : '' }}" data-pane="single" role="tab" aria-selected="{{ $openSingle ? 'true' : 'false' }}">
                                 <i class="fa fa-file-invoice"></i>
                                 <span><strong>Generate One Payslip</strong><small>Issue a payslip for one employee and month</small></span>
                             </button>
                         </div>
                     @endif
 
-                    <div id="pane-calculator">
-                        <iframe src="{{ $calculatorSrc }}" class="w-100 d-block" style="min-height: calc(100vh - 200px); border: 0; background: transparent;"
+                    <div id="pane-calculator" @if ($openSingle) style="display: none;" @endif>
+                        <iframe @if ($openSingle) data-src="{{ $calculatorSrc }}" @else src="{{ $calculatorSrc }}" @endif class="w-100 d-block" style="min-height: calc(100vh - 200px); border: 0; background: transparent;"
                             title="Salary Calculator"></iframe>
                     </div>
 
                     @if ($userRole === 'admin')
-                        <div id="pane-single" style="display: none;">
-                            <iframe data-src="{{ $singleSrc }}" class="w-100 d-block" style="min-height: calc(100vh - 200px); border: 0; background: transparent;"
+                        <div id="pane-single" @unless ($openSingle) style="display: none;" @endunless>
+                            <iframe @if ($openSingle) src="{{ $singleSrc }}" @else data-src="{{ $singleSrc }}" @endif class="w-100 d-block" style="min-height: calc(100vh - 200px); border: 0; background: transparent;"
                                 title="Generate One Payslip"></iframe>
                         </div>
                     @endif
@@ -90,9 +96,9 @@
                 document.getElementById('pane-calculator').style.display = pane === 'calculator' ? '' : 'none';
                 document.getElementById('pane-single').style.display = pane === 'single' ? '' : 'none';
 
-                // The single-payslip view loads the first time it is opened.
-                var frame = document.querySelector('#pane-single iframe');
-                if (pane === 'single' && frame && !frame.src) {
+                // Each view loads the first time it is opened.
+                var frame = document.querySelector('#pane-' + pane + ' iframe');
+                if (frame && !frame.getAttribute('src') && frame.dataset.src) {
                     frame.src = frame.dataset.src;
                 }
             });

@@ -130,6 +130,16 @@ class EmployeesDataTable extends BaseDataTable
                 }
             }
 
+            // Generate One Payslip for this employee (Payroll -> Payslip Calculator),
+            // for whoever prepares payroll; not for someone inactive or already gone.
+            if ($row->status === 'active' && empty($row->last_date)
+                && !\App\Services\Access\SystemAccounts::is((int) $row->id)
+                && \App\Services\Access\PayrollAccess::can('prepare')) {
+                $action .= '<a class="dropdown-item" href="' . route('payslips.index', ['generate' => 1, 'card_id' => $row->employee_id ?: $row->id]) . '">
+                                <i class="fa fa-file-invoice mr-2"></i>Generate Payslip
+                            </a>';
+            }
+
             // The list's bulk actions, for this one employee
             if ($this->editEmployeePermission == 'all' && user()->id !== $row->id) {
                 $action .= '<a class="dropdown-item row-assign-reporting" href="javascript:;" data-user-id="' . $row->id . '">

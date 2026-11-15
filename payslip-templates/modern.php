@@ -277,6 +277,7 @@ if (!empty($ytdSource['label'])) {
   <?php if (!empty($attendanceUrl)): ?>
     <a href="<?= e($attendanceUrl) ?>" target="_blank" title="Every day of this salary period, as it was counted">📅 Attendance for this period</a>
   <?php endif; ?>
+  <?php include __DIR__ . '/issue-button.php'; ?>
   <button type="button" onclick="window.print()">🖨 Print</button>
 </div>
 <?php endif; ?>

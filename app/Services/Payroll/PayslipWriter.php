@@ -107,33 +107,7 @@ class PayslipWriter
             );
         }
 
-        $count = $this->days->forRange($userId, $cycle->start, $cycle->end);
-
-        // The pay in force for this month (salary revisions): an earlier month is paid at the old rate.
-        (new SalaryRevisions())->applyDue();
-        [$ctcForMonth, $basicPct] = SalaryRevisions::payFor($userId, $cycle, (float) $employee->employee_ctc,
-            $employee->basic_for_payroll !== null ? (float) $employee->basic_for_payroll : null);
-        $employee->employee_ctc = $ctcForMonth;
-        $pay = $this->calculator->forEmployee((float) $employee->employee_ctc, $basicPct,
-            $count['working_days'], $count['days_present'], (float) ($employee->monthly_tds ?? 0));
-
-        // OT bank: the LOP days it covers this period are paid days - decided in
-        // the payroll run, or automatically if so set. The overtime itself is
-        // banked once the payslip is written (below).
-        $bank = new OtBank();
-        $otBank = null;
-
-        if ($bank->enabled((int) $employee->company_id) && ($count['basis'] ?? '') === 'rules') {
-            $ot = (new OvertimeCalculator())->forEmployee((int) $employee->company_id, $cycle, $count, $pay);
-            $otBank = $bank->summary($userId, (int) $employee->company_id, $cycle, $count, $pay, $ot);
-            $otBank = $bank->autoCompensate($userId, (int) $employee->company_id, $cycle, $otBank);
-
-            if ($otBank['comp_days'] > 0) {
-                $count['days_present'] += min($otBank['comp_days'], $otBank['lop_days']);
-                $pay = $this->calculator->forEmployee((float) $employee->employee_ctc, $basicPct,
-                    $count['working_days'], $count['days_present'], (float) ($employee->monthly_tds ?? 0));
-            }
-        }
+        [$count, $pay, $otBank, $bank] = $this->calculate($employee, $userId, $cycle, true);
 
         // Somebody whose settlement has been paid has had their final money and
         // their advances closed; another payslip would pay them twice over.
@@ -159,8 +133,6 @@ class PayslipWriter
             return $this->refuse('No working days in ' . $period . ' for ' . $employee->name);
         }
 
-        $settings = $this->calculator->settings();
-
         // The month's standing pay rules and the instalment due on an advance or
         // loan are drawn in here too. They were drawn only when the Payroll Run
         // screen was opened, so a payslip issued any other way (automatically
@@ -168,47 +140,7 @@ class PayslipWriter
         // rule or an instalment is applied once per period.
         $this->components->forPeriod($userId, $cycle->start);
 
-        // Stored the way the payslip screens store it: net salary here is the
-        // employee's side only (gross less their PF, ESI, PT and TDS); the
-        // printed slip takes the employer's PF and ESI off as well, since CTC
-        // includes them. The attendance deduction is the one the calculation
-        // sheet arrives at — LOP days x per day, taken to the rounded final
-        // figure — so the slip prints exactly the sheet's Net Salary.
-        $netStored = $pay['gross'] - ($pay['pf_employee'] + $pay['esi_employee'] + $pay['pt'] + $pay['tds']);
-        $perDay = round($pay['per_day'], 2);
-        $attendanceNet = $netStored - $pay['lop_amount'];
-
-        // The design this slip is printed in, fixed now. A payslip is a document
-        // somebody was given: changing the setting later must not restyle what
-        // has already been issued, e-mailed and filed.
-        $template = DB::table('payslip_template_settings')
-            ->when($employee->company_id, fn ($q) => $q->where('company_id', $employee->company_id))
-            ->orderBy('id')
-            ->value('template') ?: 'classic';
-
-        $values = [
-            'template' => $template,
-            'gross' => $pay['gross'], 'basic_pct' => $pay['basic_pct'], 'hra_pct' => $settings->hra_pct,
-            'ca_threshold' => $settings->ca_threshold, 'ca_high' => $settings->ca_high, 'ca_low' => $settings->ca_low,
-            'pt' => $pay['pt'], 'tds' => $pay['tds'], 'esi_threshold' => $settings->esi_threshold, 'esi_pct' => $settings->esi_pct,
-            'pf_pct' => $settings->pf_pct, 'pf_employer_pct' => $pay['pf_employer_pct'],
-            'pf_wage_ceiling' => $settings->pf_wage_ceiling, 'prorate_statutory' => $pay['prorated'],
-            'esi_employer_pct' => $settings->esi_employer_pct ?? null,
-            'working_days' => $pay['working_days'], 'days_present' => $pay['days_present'],
-            'lop_days' => $pay['lop_days'],
-            'basic' => $pay['basic'], 'hra' => $pay['hra'], 'ca' => $pay['ca'],
-            'lta' => $pay['lta'], 'cea' => $pay['cea'], 'others' => $pay['other'],   // others = Special Allowance
-            'esi' => $pay['esi_employee'], 'pf' => $pay['pf_employee'],
-            'employer_pf' => $pay['pf_employer'], 'employer_esi' => $pay['esi_employer'],
-            'total_deductions' => $pay['pf_employee'] + $pay['esi_employee'] + $pay['pt'] + $pay['tds'],
-            'net_salary' => $netStored, 'per_day' => $perDay, 'attendance_net' => $attendanceNet,
-            'emp_name' => $employee->name, 'emp_id' => $employee->employee_card_id,
-            'emp_designation' => $employee->designation, 'emp_pan' => $employee->pan_number,
-            'period' => $period, 'period_start' => $cycle->start->toDateString(),
-            'period_end' => $cycle->end->toDateString(),
-            'user_id' => $employee->id, 'company_id' => $employee->company_id,
-            'generated_by' => $issuedBy, 'generated_at' => now(), 'created_at' => now(),
-        ];
+        $values = $this->values($employee, $cycle, $pay, $issuedBy);
 
         // The number is the highest so far plus one, so two runs at the same
         // moment can pick the same one; the unique index catches that and the
@@ -236,6 +168,139 @@ class PayslipWriter
         }
 
         return ['ok' => true, 'message' => $employee->name . ' — ' . $period, 'payslip_id' => (int) $id];
+    }
+
+    /**
+     * The payslip as it would be issued now, without issuing anything: the same
+     * figures as issue() (and as Payroll Run shows), worked out up to today when
+     * the period is still running. Nothing is written except the period's pay
+     * element lines, which Payroll Run also draws in when it is opened.
+     *
+     * @return array{ok: bool, message: string, values?: array, extras?: array, counted?: int, days?: int}
+     */
+    public function preview(int $userId, int $month, int $year): array
+    {
+        $cycle = PayPeriod::forMonth($month, $year);
+        \App\Services\Attendance\ShiftResolver::reset();
+
+        $employee = DB::table('users as u')
+            ->join('employee_details as ed', 'ed.user_id', '=', 'u.id')
+            ->leftJoin('designations as d', 'd.id', '=', 'ed.designation_id')
+            ->where('u.id', $userId)
+            ->first(['u.id', 'u.name', 'u.pan_number', 'u.employee_ctc', 'u.basic_for_payroll', 'u.monthly_tds',
+                'ed.employee_card_id', 'ed.company_id', 'ed.attendance_exempt', 'd.name as designation']);
+
+        if (!$employee || (float) $employee->employee_ctc <= 0 || $cycle->start->gt(now())) {
+            return $this->refuse('No estimate is possible for this employee and month');
+        }
+
+        [$count, $pay] = $this->calculate($employee, $userId, $cycle, false);
+
+        if ($pay['working_days'] < 1) {
+            return $this->refuse('No days of ' . $cycle->label . ' have been counted yet');
+        }
+
+        $extras = $this->components->forPeriod($userId, $cycle->start);
+
+        return ['ok' => true, 'message' => '', 'values' => $this->values($employee, $cycle, $pay, null),
+            'extras' => array_merge($extras['earnings'], $extras['deductions']),
+            'counted' => (int) $count['working_days'], 'days' => $cycle->days()];
+    }
+
+    /**
+     * Attendance counted, the salary in force for the period, and OT-bank days.
+     * $live: issuing for real - salary revisions due are applied and the OT bank
+     * may decide its automatic cover; an estimate only reads.
+     *
+     * @return array{0: array, 1: array, 2: ?array, 3: OtBank}
+     */
+    protected function calculate(object $employee, int $userId, PayPeriod $cycle, bool $live): array
+    {
+        $count = $this->days->forRange($userId, $cycle->start, $cycle->end);
+
+        // The pay in force for this month (salary revisions): an earlier month is paid at the old rate.
+        if ($live) {
+            (new SalaryRevisions())->applyDue();
+        }
+        [$ctcForMonth, $basicPct] = SalaryRevisions::payFor($userId, $cycle, (float) $employee->employee_ctc,
+            $employee->basic_for_payroll !== null ? (float) $employee->basic_for_payroll : null);
+        $employee->employee_ctc = $ctcForMonth;
+        $pay = $this->calculator->forEmployee((float) $employee->employee_ctc, $basicPct,
+            $count['working_days'], $count['days_present'], (float) ($employee->monthly_tds ?? 0));
+
+        // OT bank: the LOP days it covers this period are paid days - decided in
+        // the payroll run, or automatically if so set. The overtime itself is
+        // banked once the payslip is written (below).
+        $bank = new OtBank();
+        $otBank = null;
+
+        if ($bank->enabled((int) $employee->company_id) && ($count['basis'] ?? '') === 'rules') {
+            $ot = (new OvertimeCalculator())->forEmployee((int) $employee->company_id, $cycle, $count, $pay);
+            $otBank = $bank->summary($userId, (int) $employee->company_id, $cycle, $count, $pay, $ot);
+            if ($live) {
+                $otBank = $bank->autoCompensate($userId, (int) $employee->company_id, $cycle, $otBank);
+            }
+
+            if ($otBank['comp_days'] > 0) {
+                $count['days_present'] += min($otBank['comp_days'], $otBank['lop_days']);
+                $pay = $this->calculator->forEmployee((float) $employee->employee_ctc, $basicPct,
+                    $count['working_days'], $count['days_present'], (float) ($employee->monthly_tds ?? 0));
+            }
+        }
+
+
+        return [$count, $pay, $otBank, $bank];
+    }
+
+    /** The payslip row as stored (issue) or shown (preview). */
+    protected function values(object $employee, PayPeriod $cycle, array $pay, ?int $issuedBy): array
+    {
+        $period = $cycle->label;
+        $settings = $this->calculator->settings();
+
+
+        // Stored the way the payslip screens store it: net salary here is the
+        // employee's side only (gross less their PF, ESI, PT and TDS); the
+        // printed slip takes the employer's PF and ESI off as well, since CTC
+        // includes them. The attendance deduction is the one the calculation
+        // sheet arrives at — LOP days x per day, taken to the rounded final
+        // figure — so the slip prints exactly the sheet's Net Salary.
+        $netStored = $pay['gross'] - ($pay['pf_employee'] + $pay['esi_employee'] + $pay['pt'] + $pay['tds']);
+        $perDay = round($pay['per_day'], 2);
+        $attendanceNet = $netStored - $pay['lop_amount'];
+
+        // The design this slip is printed in, fixed now. A payslip is a document
+        // somebody was given: changing the setting later must not restyle what
+        // has already been issued, e-mailed and filed.
+        $template = DB::table('payslip_template_settings')
+            ->when($employee->company_id, fn ($q) => $q->where('company_id', $employee->company_id))
+            ->orderBy('id')
+            ->value('template') ?: 'classic';
+
+        return [
+            'template' => $template,
+            'gross' => $pay['gross'], 'basic_pct' => $pay['basic_pct'], 'hra_pct' => $settings->hra_pct,
+            'ca_threshold' => $settings->ca_threshold, 'ca_high' => $settings->ca_high, 'ca_low' => $settings->ca_low,
+            'pt' => $pay['pt'], 'tds' => $pay['tds'], 'esi_threshold' => $settings->esi_threshold, 'esi_pct' => $settings->esi_pct,
+            'pf_pct' => $settings->pf_pct, 'pf_employer_pct' => $pay['pf_employer_pct'],
+            'pf_wage_ceiling' => $settings->pf_wage_ceiling, 'prorate_statutory' => $pay['prorated'],
+            'esi_employer_pct' => $settings->esi_employer_pct ?? null,
+            'working_days' => $pay['working_days'], 'days_present' => $pay['days_present'],
+            'lop_days' => $pay['lop_days'],
+            'basic' => $pay['basic'], 'hra' => $pay['hra'], 'ca' => $pay['ca'],
+            'lta' => $pay['lta'], 'cea' => $pay['cea'], 'others' => $pay['other'],   // others = Special Allowance
+            'esi' => $pay['esi_employee'], 'pf' => $pay['pf_employee'],
+            'employer_pf' => $pay['pf_employer'], 'employer_esi' => $pay['esi_employer'],
+            'total_deductions' => $pay['pf_employee'] + $pay['esi_employee'] + $pay['pt'] + $pay['tds'],
+            'net_salary' => $netStored, 'per_day' => $perDay, 'attendance_net' => $attendanceNet,
+            'emp_name' => $employee->name, 'emp_id' => $employee->employee_card_id,
+            'emp_designation' => $employee->designation, 'emp_pan' => $employee->pan_number,
+            'period' => $period, 'period_start' => $cycle->start->toDateString(),
+            'period_end' => $cycle->end->toDateString(),
+            'user_id' => $employee->id, 'company_id' => $employee->company_id,
+            'generated_by' => $issuedBy, 'generated_at' => now(), 'created_at' => now(),
+        ];
+
     }
 
     /** AROW/2026-27/000123, one run of numbers per financial year. */

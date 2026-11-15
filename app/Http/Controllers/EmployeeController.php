@@ -881,10 +881,13 @@ class EmployeeController extends AccountBaseController
 
         $this->employeeData($request, $employee);
 
-        $employee->last_date = null;
-
-        if ($request->last_date != '') {
-            $employee->last_date = companyToYmd($request->last_date);
+        // Exit Date is only on the form for Inactive. When it is not sent (Active,
+        // or the status cannot be changed here) an upcoming exit date already on
+        // record is kept; a past one is cleared, since an active employee has not left.
+        if ($request->has('last_date')) {
+            $employee->last_date = $request->last_date != '' ? companyToYmd($request->last_date) : null;
+        } elseif ($employee->last_date && Carbon::parse($employee->last_date)->lt(now()->startOfDay())) {
+            $employee->last_date = null;
         }
 
         $employee->save();

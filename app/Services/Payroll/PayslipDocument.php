@@ -153,6 +153,30 @@ class PayslipDocument
         return preg_replace('/[^A-Za-z0-9 _.-]/', '', $name) . '.pdf';
     }
 
+    /** The HTML with every "@media screen { ... }" block removed (braces balanced). */
+    protected function withoutScreenRules(string $html): string
+    {
+        $out = '';
+        $offset = 0;
+
+        while (preg_match('/@media\s+screen\b[^{]*\{/i', $html, $match, PREG_OFFSET_CAPTURE, $offset)) {
+            $start = $match[0][1];
+            $i = $start + strlen($match[0][0]);
+            $depth = 1;
+            $length = strlen($html);
+
+            while ($i < $length && $depth > 0) {
+                $depth += ($html[$i] === '{') - ($html[$i] === '}');
+                $i++;
+            }
+
+            $out .= substr($html, $offset, $start - $offset);
+            $offset = $i;
+        }
+
+        return $out . substr($html, $offset);
+    }
+
     /**
      * The same document, laid out for paper: the slip fills the sheet instead of
      * overflowing it, and the screen's grey surround is dropped.
@@ -169,10 +193,23 @@ class PayslipDocument
         // fixed-width sheet with its own inner margin reach the PDF and push a
         // one-page payslip onto two. This is the only place that knows the
         // output is paper.
-        if (preg_match('/@page\s*\{[^}]*size\s*:/i', $html)) {
+        if (preg_match('/@page\s*\{[^}]*\bsize\s*:/i', $html)) {
+            // The screen-only rules (grey desk, a 210mm sheet with its own
+            // padding, the buttons) are taken out altogether: DomPDF applies
+            // them, so the sheet came out wider than the printable area - cut
+            // off on the right, and on two pages.
+            $html = $this->withoutScreenRules($html);
+
             $flatten = '<style>'
                 . '.desk{background:#fff !important;padding:0 !important}'
-                . '.sheet{width:auto !important;margin:0 !important;padding:0 !important;box-shadow:none !important}'
+                . '.sheet{width:192mm !important;margin:0 !important;padding:0 !important;box-shadow:none !important}'
+                . 'table{width:100% !important}'
+                // DomPDF sets this font's lines taller than a browser: tighter rows keep the slip on one A4 page
+                . 'body{line-height:1.25 !important}'
+                . '.who td,.money td,.panel td{padding-top:3px !important;padding-bottom:3px !important}'
+                . '.money th,.panel .head{padding-top:5px !important;padding-bottom:5px !important}'
+                . '.who,.money,.net,.panels{margin-top:9px !important}'
+                . '.panels td{vertical-align:top !important}'
                 . '</style>';
 
             return str_contains($html, '</head>')

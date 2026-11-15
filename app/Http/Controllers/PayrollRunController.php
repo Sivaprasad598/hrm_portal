@@ -529,7 +529,7 @@ class PayrollRunController extends AccountBaseController
             ->where('u.status', 'active')
             ->whereNotIn('u.id', \App\Services\Access\SystemAccounts::ids())   // not the Super Admin login
             ->orderBy('u.name')
-            ->get(['u.id', 'u.name', 'ed.employee_id']);
+            ->get(['u.id', 'u.name', 'ed.employee_id', 'ed.department_id']);
     }
 
 }

@@ -54,16 +54,24 @@ class LeaveListener
             // admin and HR here as well asked people who were not to decide yet.
             // A leave recorded as already decided still tells them.
             $toApprovers = $event->leave->status !== 'pending';
+            // The "Leave application applied." receipt goes to the employee only when
+            // someone else (HR) applied for them. Their own application needs no bell
+            // of its own: the manager / HR are told by the approval steps.
+            $toApplicant = (int) ($event->leave->added_by ?? 0) !== (int) $event->leave->user_id;
 
             if (!is_null($event->multiDates)) {
-                Notification::send($event->leave->user, new MultipleLeaveApplication($event->leave, $event->multiDates));
+                if ($toApplicant) {
+                    Notification::send($event->leave->user, new MultipleLeaveApplication($event->leave, $event->multiDates));
+                }
 
                 if ($toApprovers) {
                     Notification::send($adminUsers, new NewMultipleLeaveRequest($event->leave, $event->multiDates));
                 }
             }
             else {
-                Notification::send($event->leave->user, new LeaveApplication($event->leave));
+                if ($toApplicant) {
+                    Notification::send($event->leave->user, new LeaveApplication($event->leave));
+                }
 
                 if ($toApprovers) {
                     Notification::send($adminUsers, new NewLeaveRequest($event->leave));

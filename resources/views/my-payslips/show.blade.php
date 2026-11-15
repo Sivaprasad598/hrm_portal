@@ -5,6 +5,9 @@
         /* The slip is a page of its own; let it keep its own styling and sit
            on the card rather than inheriting the theme's table rules. */
         .payslip-frame { border: 0; width: 100%; min-height: 80vh; background: #fff; }
+        .ms-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        body.epic .ms-actions > a { height: 38px; display: inline-flex; align-items: center; padding: 0 14px !important;
+            border-radius: 8px !important; white-space: nowrap; text-decoration: none; }
     </style>
 @endpush
 
@@ -17,12 +20,15 @@
                     <p class="mb-0 f-12 text-lightest">{{ $payslip->payslip_number }}</p>
                 </div>
 
-                <a href="{{ route('my-payslips.index') }}" class="btn btn-sm btn-outline-secondary mr-2">
-                    <i class="fa fa-arrow-left mr-1"></i> All payslips
-                </a>
-                <a href="{{ route('my-payslips.pdf', $payslip->id) }}" class="btn btn-sm btn-primary">
-                    <i class="fa fa-download mr-1"></i> Download PDF
-                </a>
+                {{-- Both actions together at the right, the same size --}}
+                <div class="ms-actions ml-auto">
+                    <a href="{{ route('my-payslips.index') }}" class="btn-secondary rounded f-14">
+                        <i class="fa fa-arrow-left mr-1"></i> All payslips
+                    </a>
+                    <a href="{{ route('my-payslips.pdf', $payslip->id) }}" class="btn-primary rounded f-14">
+                        <i class="fa fa-download mr-1"></i> Download PDF
+                    </a>
+                </div>
             </div>
 
             <div class="card-body p-0">
