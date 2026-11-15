@@ -91,7 +91,6 @@
                         <label class="f-13 text-dark-grey mb-1">Show</label>
                         <select name="show" class="form-control select-picker" data-live-search="true">
                             <option value="exceptions" @selected($show === 'exceptions')>Exceptions ({{ $counts['exceptions'] }})</option>
-                            <option value="open" @selected($show === 'open')>Not resolved yet ({{ $counts['open'] }})</option>
                             <option value="all" @selected($show === 'all')>Everybody ({{ $counts['employees'] }})</option>
                         </select>
                     </div>
@@ -174,14 +173,9 @@
                                         @if ($review->note)
                                             <div class="f-11 text-dark-grey">{{ $review->note }}</div>
                                         @endif
-                                        @if ($canAct)
-                                            <a href="javascript:;" class="f-12 rv-reopen" data-id="{{ $review->id }}">Open again</a>
-                                        @endif
-                                    @elseif ($review->is_exception && $canAct)
-                                        <button type="button" class="btn btn-sm btn-secondary rv-resolve" data-id="{{ $review->id }}" data-name="{{ $review->user?->name }}">
-                                            <i class="fa fa-check mr-1"></i> Resolve
-                                        </button>
                                     @endif
+                                    {{-- No Resolve / Open again here (removed 2026-11-15): a day is put right in
+                                         the attendance itself, which is what payroll counts. --}}
                                     <a href="{{ route('attendances.index') }}" class="f-12 d-block mt-1">Attendance →</a>
                                 </td>
                             </tr>
@@ -261,40 +255,5 @@
             });
         });
 
-        $('.rv-resolve').on('click', function () {
-            let id = $(this).data('id');
-
-            Swal.fire({
-                title: 'Resolve ' + $(this).data('name') + "'s day?",
-                input: 'text',
-                inputPlaceholder: 'Note (optional), e.g. on client visit, leave applied',
-                showCancelButton: true,
-                confirmButtonText: 'Mark resolved',
-                customClass: {confirmButton: 'btn btn-primary mr-3', cancelButton: 'btn btn-secondary'},
-                buttonsStyling: false
-            }).then(function (result) {
-                if (result.isConfirmed) {
-                    $.easyAjax({
-                        url: "{{ route('biometric.review.resolve') }}",
-                        type: 'POST',
-                        data: {id: id, note: result.value, _token: '{{ csrf_token() }}'},
-                        success: function (response) {
-                            if (response.status === 'success') { window.location.reload(); }
-                        }
-                    });
-                }
-            });
-        });
-
-        $('.rv-reopen').on('click', function () {
-            $.easyAjax({
-                url: "{{ route('biometric.review.resolve') }}",
-                type: 'POST',
-                data: {id: $(this).data('id'), reopen: 1, _token: '{{ csrf_token() }}'},
-                success: function (response) {
-                    if (response.status === 'success') { window.location.reload(); }
-                }
-            });
-        });
     </script>
 @endpush

@@ -435,6 +435,11 @@
                                 <div class="pe-field" id="rule-target-wrap" style="display:none">
                                     <label>Which one</label>
                                     <select id="rule-target" class="form-control f-14" data-live-search="true" data-size="8"></select>
+                                    {{-- "A division": the standard Division drop-down options (divisions in bold,
+                                         sub divisions indented with their division; search finds either) --}}
+                                    <template id="rule-division-options">
+                                        @include('departments.partials.tree-options', ['departments' => \App\Models\Team::all()])
+                                    </template>
                                 </div>
                                 <div class="pe-field">
                                     <label>Amount each period (₹)</label>
@@ -998,9 +1003,11 @@
 
                 if (!options) { return; }
 
-                var html = Object.keys(options).map(function (id) {
-                    return '<option value="' + id + '">' + $('<div>').text(options[id]).html() + '</option>';
-                }).join('');
+                var html = scope === 'department'
+                    ? document.getElementById('rule-division-options').innerHTML.trim()
+                    : Object.keys(options).map(function (id) {
+                        return '<option value="' + id + '">' + $('<div>').text(options[id]).html() + '</option>';
+                    }).join('');
 
                 $('#rule-target').html(html || '<option value="">Nothing to choose</option>');
                 $('#rule-target').selectpicker('refresh');

@@ -352,6 +352,23 @@ class AttendanceController extends AccountBaseController
         $user = user();
         $this->holidays = Holiday::whereRaw('MONTH(holidays.date) = ?', [$request->month])->whereRaw('YEAR(holidays.date) = ?', [$request->year])->get();
 
+        // Full day / half day / absent come from the attendance rules (Attendance
+        // Settings -> Working Hours, Lates & Half Day), counted exactly as payroll
+        // counts them (AttendanceDays), so this grid, the pay-cycle grid and the
+        // payslip agree. It used to judge a day by the shift's own minimum hours
+        // with no breaks taken off and none of the late / half-day mark rules, and
+        // differed from payroll on about a quarter of the days.
+        $ruleTz = company()->timezone ?: 'Asia/Kolkata';
+        $ruleFrom = Carbon::create((int) $request->year, (int) $request->month, 1, 0, 0, 0, $ruleTz)->startOfDay();
+        $ruleTo = $ruleFrom->copy()->endOfMonth();
+        $ruleCounter = new \App\Services\Payroll\AttendanceDays($ruleTz);
+
+        try {
+            $ruleCounter->preload(collect($employees)->pluck('id')->all(), $ruleFrom, $ruleTo);
+        } catch (\Throwable) {
+            // counted one by one below instead
+        }
+
         $final = [];
         $holidayOccasions = [];
         $leaveReasons = [];
@@ -381,6 +398,13 @@ class AttendanceController extends AccountBaseController
             }
 
             $shiftScheduleCollection = $employee->shifts->keyBy('date');
+
+            // This employee's month as the rules count it, by date.
+            try {
+                $ruleDays = collect($ruleCounter->forRange((int) $employee->id, $ruleFrom, $ruleTo)['days'] ?? [])->keyBy('date');
+            } catch (\Throwable) {
+                $ruleDays = collect();
+            }
 
 
             foreach ($employee->shifts as $shifts) {
@@ -455,8 +479,13 @@ class AttendanceController extends AccountBaseController
 
                     $shift = $attendance->shift;
                     $hasConfiguredPolicy = $shift && !is_null($shift->min_working_hours_full_day) && !is_null($shift->min_working_hours_half_day);
+                    $ruleStatus = $ruleDays[$clockInTime->toDateString()]['status'] ?? null;
 
-                    if ($hasConfiguredPolicy) {
+                    if (in_array($ruleStatus, ['present', 'half_day', 'half_day_leave', 'absent'], true)) {
+                        // The attendance rules' answer, as payroll counts the day.
+                        $isHalfDay[$employee->id][$startOfDayKey] = in_array($ruleStatus, ['half_day', 'half_day_leave'], true);
+                        $isBelowMinimumHours[$employee->id][$startOfDayKey] = $ruleStatus === 'absent';
+                    } elseif ($hasConfiguredPolicy) {
                         // Shift has a real policy (Attendance Settings > Shift > Add New Shift) —
                         // always trust actual worked hours over the stored half_day flag. half_day
                         // is set by AttendanceObserver::creating() using the wall-clock time at the

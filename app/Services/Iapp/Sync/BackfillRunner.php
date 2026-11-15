@@ -320,6 +320,20 @@ class BackfillRunner
         }
 
         $run->forceFill(['days_built' => $run->days_built + $built['days']])->save();
+
+        // Then into ERP attendance, so a fetched range shows on the Attendance
+        // Register and in payroll at once (it used to stop at device days and
+        // wait for the hourly push). Skip mode: a day that already holds
+        // attendance from anywhere else is left as it is, and a day already on
+        // a payslip is never touched. The daily review is refreshed too (day
+        // credit, late, overtime days). No notifications are sent from here:
+        // the reconciler, which notifies employees, is left to the nightly run.
+        try {
+            (new AttendanceSync($this->config))->run($from, $to, \App\Models\IappAttendanceSyncRun::MODE_SKIP, null, $run->started_by);
+            (new \App\Services\Attendance\DailyAttendanceReview())->review(Carbon::parse($date), true, now());
+        } catch (\Throwable $e) {
+            Log::warning('Backfill: ' . $date . ' pulled, but writing it into attendance failed: ' . $e->getMessage());
+        }
     }
 
     /**

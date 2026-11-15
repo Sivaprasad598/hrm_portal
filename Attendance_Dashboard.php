@@ -145,13 +145,63 @@ if ($companyId > 0) {
                 $holidaysByDay[(int) Carbon::parse($holiday->date)->day] = true;
             });
 
+        // Each day as the attendance rules count it (Attendance Settings -> Working
+        // Hours, Lates & Half Day, shifts, leave, holidays), exactly as payroll does
+        // (AttendanceDays), so this dashboard agrees with the Attendance Register
+        // and the payslips. It used to judge a day by the shift's own minimum hours,
+        // with no breaks taken off and no late / half-day-mark rules, and differed
+        // from payroll on about a quarter of the days. The older reckoning below is
+        // kept only for when the counter cannot run.
+        $ruleCounter = null;
+        $ruleTo = $monthEnd->copy()->min($today->copy()->endOfDay());
+        $ruleLabels = [
+            'present' => 'Present', 'half_day' => 'Half Day', 'half_day_leave' => 'Half Day', 'absent' => 'Absent',
+            'week_off' => 'Day Off', 'holiday' => 'Holiday', 'paid_leave' => 'On Leave', 'half_leave' => 'On Leave', 'lop_leave' => 'On Leave',
+        ];
+
+        try {
+            if ($monthStart->lte($ruleTo)) {
+                $ruleCounter = new \App\Services\Payroll\AttendanceDays($timezone);
+                $ruleCounter->preload($employeeIds->all(), $monthStart, $ruleTo);
+            }
+        } catch (\Throwable $e) {
+            $ruleCounter = null;
+        }
+
         foreach ($employees as $employee) {
             $branchName = $deptLabel[$employee->department_id] ?? ($departments[$employee->department_id] ?? '—');
+
+            $ruleDays = null;
+            try {
+                $ruleDays = $ruleCounter ? collect($ruleCounter->forRange((int) $employee->id, $monthStart, $ruleTo)['days'] ?? [])->keyBy('date') : null;
+            } catch (\Throwable $e) {
+                $ruleDays = null;
+            }
 
             for ($day = 1; $day <= $daysInMonth; $day++) {
                 $date = Carbon::createFromDate($year, $month, $day, $timezone)->startOfDay();
 
                 if ($date->greaterThan($today)) {
+                    continue;
+                }
+
+                $ruleDay = $ruleDays ? ($ruleDays[$date->toDateString()] ?? null) : null;
+
+                if ($ruleDay) {
+                    // Not employed yet / any more, or not happened: not a day of theirs.
+                    if (!isset($ruleLabels[$ruleDay['status']])) {
+                        continue;
+                    }
+
+                    $records[] = [
+                        'userId' => $employee->id,
+                        'name' => $employee->name,
+                        'branch' => $branchName,
+                        'deptId' => (int) $employee->department_id,
+                        'status' => $ruleLabels[$ruleDay['status']],
+                        'date' => $date->toDateString(),
+                    ];
+
                     continue;
                 }
 
@@ -852,6 +902,13 @@ $employeeDeptJson = json_encode(isset($employees) ? $employees->pluck('departmen
             </button>
             <!-- the filter block is hidden until this is clicked; a dot while one is set -->
             <div class="dash-actions">
+                <?php if (function_exists('route') && \Illuminate\Support\Facades\Route::has('attendance-rules.index')): ?>
+                <!-- how a day is counted, from the settings in force: opens in a new tab -->
+                <a class="dash-filter-btn" href="<?= htmlspecialchars(route('attendance-rules.index'), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener"
+                   style="text-decoration:none;" title="How attendance, half days, lates and overtime are counted">
+                    <i class="fas fa-book-open"></i> Attendance Rules
+                </a>
+                <?php endif; ?>
                 <button type="button" class="dash-filter-btn" id="dashFilterBtn" aria-expanded="false">
                     <i class="fas fa-filter"></i> Filters<span class="dash-filter-dot"></span>
                 </button>

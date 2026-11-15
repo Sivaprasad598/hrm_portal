@@ -62,11 +62,29 @@ class BiometricController extends AccountBaseController
             // Then the Biometric permission this screen or action belongs to
             // (Settings -> Roles & Permissions -> Attendance): HR sees and fixes
             // the day-to-day; device data, sync and logs are technical.
-            $needs = self::ACTION_PERMISSIONS[$request->route()?->getActionMethod()] ?? 'manage_biometric_system';
+            $action = $request->route()?->getActionMethod();
+
+            // Fetch Attendance (Sync Calendar and its range pull): also for the
+            // Super Admin and Admin roles, who bring a period's attendance in.
+            if (in_array($action, self::FETCH_ACTIONS, true) && self::canFetch()) {
+                return $next($request);
+            }
+
+            $needs = self::ACTION_PERMISSIONS[$action] ?? 'manage_biometric_system';
             abort_403(!collect((array) $needs)->contains(fn ($p) => user()->permission($p) === 'all'));
 
             return $next($request);
         });
+    }
+
+    /** Fetch Attendance: the Sync Calendar page and its range pull (startBackfill writes attendance). */
+    public const FETCH_ACTIONS = ['calendar', 'startBackfill', 'stepBackfill', 'backfillStatus', 'controlBackfill'];
+
+    /** Who may fetch a date range: the technical permission, or the Super Admin / Admin role. */
+    public static function canFetch(): bool
+    {
+        return user()->permission('manage_biometric_system') === 'all'
+            || (bool) array_intersect(['admin', 'manager_admin'], user_roles());
     }
 
     /** Action => the permission it needs (any of a list). Anything not listed is technical. */
@@ -88,7 +106,7 @@ class BiometricController extends AccountBaseController
         $can = fn ($p) => user()->permission($p) === 'all';
 
         return ['view' => $can('view_biometric'), 'resolve' => $can('manage_biometric_exceptions'),
-            'mapping' => $can('manage_biometric_mapping'), 'system' => $can('manage_biometric_system')];
+            'mapping' => $can('manage_biometric_mapping'), 'system' => $can('manage_biometric_system'), 'fetch' => self::canFetch()];
     }
 
     /**
@@ -418,7 +436,7 @@ class BiometricController extends AccountBaseController
      */
     public function calendar(Request $request, BackfillRunner $runner)
     {
-        $this->pageTitle = 'app.menu.syncCalendar';
+        $this->pageTitle = 'Fetch Attendance';
         $this->activeTab = 'calendar';
 
         $month = $this->resolveMonth($request);

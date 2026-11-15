@@ -706,6 +706,8 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account'], function () {
     Route::get('attendances/by-member', [AttendanceController::class, 'byMember'])->name('attendances.by_member');
     Route::get('attendances/by-hour', [AttendanceController::class, 'byHour'])->name('attendances.by_hour');
     Route::get('attendances/dashboard', [AttendanceController::class, 'dashboard'])->name('attendances.dashboard');
+    // Attendance -> Dashboard -> "Attendance Rules": how a day is counted, from the settings in force.
+    Route::get('attendance-rules', [App\Http\Controllers\AttendanceRulesController::class, 'index'])->name('attendance-rules.index');
     Route::post('attendances/bulk-mark', [AttendanceController::class, 'bulkMark'])->name('attendances.bulk_mark');
     Route::get('attendances/import', [AttendanceController::class, 'importAttendance'])->name('attendances.import');
     Route::post('attendances/import', [AttendanceController::class, 'importStore'])->name('attendances.import.store');

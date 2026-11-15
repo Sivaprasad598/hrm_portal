@@ -128,7 +128,8 @@
             </div>
 
             {{-- Arbitrary period, for the long backfill --}}
-            <div class="collapse" id="range-panel">
+            {{-- Open by default: fetching a date range is what this page is mostly for --}}
+            <div class="collapse show" id="range-panel">
                 <div class="card-body border-bottom p-3 bg-light">
                     <div class="form-row align-items-end">
                         <div class="col-md-3 mb-2">
@@ -145,12 +146,16 @@
                         </div>
                         <div class="col-md-6 mb-2">
                             <button type="button" class="btn btn-sm btn-primary" id="sync-range">
-                                <i class="fa fa-download mr-1"></i> Sync this period
+                                <i class="fa fa-download mr-1"></i> Fetch attendance for this period
                             </button>
                             <span class="f-11 text-lightest ml-2">
                                 Device history starts {{ $earliest->format('d M Y') }}.
                                 Roughly two minutes per day pulled.
                             </span>
+                            <div class="f-11 text-dark-grey mt-1">
+                                Pulls the punches, builds each day and writes it into attendance (Attendance Register and payroll):
+                                only days with nothing recorded are filled, and a day already on a payslip is never changed.
+                            </div>
                         </div>
                     </div>
                 </div>

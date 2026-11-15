@@ -36,37 +36,48 @@ class OtPastImport
 
     public const MAX_ROWS = 10000;
 
+    /**
+     * The default format: one row per employee per year - Employee ID, Year, and
+     * a column per month (Jan ... Dec) with that month's OT hours. The other columns (Used for LOP, Encashed, a Date for a
+     * day-wise month, Note) are still read when a sheet has them; the second
+     * sheet lists them.
+     */
     public function template(): string
     {
+        $goLive = OtPast::goLive(company()?->id);
+        $lastMonth = $goLive->copy()->subDay();
+
         $book = new Spreadsheet();
         $sheet = $book->getActiveSheet()->setTitle('Past OT');
-        $sheet->fromArray(array_column(self::COLUMNS, 0), null, 'A1');
+        $monthHeads = array_map(fn ($m) => date('M', mktime(0, 0, 0, $m, 1)), range(1, 12));
+        $sheet->fromArray(array_merge(['Employee ID', 'Year'], $monthHeads), null, 'A1');
         $sheet->fromArray([
-            ['EMP001', 'Sample Employee', 2025, 'Oct', '', 14.5, 12, 8, 1, 0, '', 'Monthly figure'],
-            ['EMP001', 'Sample Employee', 2025, 'Nov', '', 6, '', 0, '', 4, 1250, ''],
-            ['EMP002', 'Another Employee', '', '', '05-08-2025', 3, 2, '', '', '', '', 'Day-wise: Year and Month are taken from the date'],
+            array_merge(['ACPL0000', (int) $lastMonth->year - 1], [4, 6.5, '', 3, '', 8, 2, '', 5, 1.5, '', 12]),
+            array_merge(['ACPL0000', (int) $lastMonth->year], [2, 3, '', '', 4, '', '', 6.5, '', '', '', '']),
         ], null, 'A2');
-        $sheet->getStyle('A1:L1')->getFont()->setBold(true);
-
-        foreach (range('A', 'L') as $col) {
-            $sheet->getColumnDimension($col)->setAutoSize(true);
+        $sheet->getStyle('A1:N1')->getFont()->setBold(true);
+        $sheet->getStyle('A1:N1')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFEEF2F8');
+        $sheet->getStyle('A2:A1000')->getNumberFormat()->setFormatCode('@');   // keep IDs like 0123 as typed
+        $sheet->getColumnDimension('A')->setWidth(16);
+        $sheet->getColumnDimension('B')->setWidth(8);
+        foreach (range('C', 'N') as $col) {
+            $sheet->getColumnDimension($col)->setWidth(7);
         }
+        $sheet->freezePane('C2');
 
-        $goLive = OtPast::goLive(company()?->id);
         $help = $book->createSheet()->setTitle('How to fill');
         $help->fromArray([
             ['Column', 'What to put'],
-            ['Employee ID', 'Required. The Employee ID in the portal. Employee Name is only for your reference.'],
-            ['Year + Month', 'The salary month the overtime belongs to: Month as Oct, October or 10. Months up to ' . $goLive->copy()->subDay()->format('F Y') . ' (the system counts from ' . $goLive->format('d M Y') . ').'],
-            ['Date', 'Leave empty for a monthly figure (the usual). Fill it (DD-MM-YYYY) only to enter a month day by day: one row per day, OT Hours Banked only.'],
-            ['OT Hours Banked', 'Hours added to the bank that month, already times the rate (4h on a Sunday at 1.5x = 6). 12.5 or 12:30.'],
-            ['OT Hours Worked', 'Optional: the hours actually worked, for reference only.'],
-            ['Used for LOP (hours)', 'Hours taken from the bank that month to cover LOP. LOP Days Covered is optional, for reference.'],
-            ['Encashed Hours / Amount', 'Hours paid out that month, and the amount paid (optional).'],
-            ['Again', 'Uploading a month again replaces its figures. A month is either monthly or day by day, not both.'],
+            ['Employee ID', 'Required. The Employee ID as in the portal (HR -> Employees), e.g. ACPL0481. Replace the two sample rows (ACPL0000).'],
+            ['Year', 'The year, e.g. ' . $lastMonth->year . '. One row per employee per year: two years of history = two rows for that employee.'],
+            ['Jan ... Dec', 'OT hours of that salary month, as they go into the bank: 12.5 or 12:30. Leave a month empty when there was none. If your records already apply a rate (4h on a Sunday at 1.5x = 6), give that figure.'],
+            ['Cut-off', 'Months up to ' . $lastMonth->format('F Y') . ' only. From ' . $goLive->format('d M Y') . ' the system counts OT from attendance, so later months are refused.'],
+            ['Opening balance', 'If you only have a total, put it in ' . $lastMonth->format('M') . ' of ' . $lastMonth->year . ' for each employee.'],
+            ['Again', 'Uploading a month again replaces its figures for that employee.'],
+            ['Other layout', 'A sheet with one row per month (Employee ID, Year, Month, OT Hours, and optionally "Used for LOP (hours)", "Encashed Hours", "Encashed Amount", "Note") is read as well.'],
         ], null, 'A1');
         $help->getStyle('A1:B1')->getFont()->setBold(true);
-        $help->getColumnDimension('A')->setWidth(24);
+        $help->getColumnDimension('A')->setWidth(18);
         $help->getColumnDimension('B')->setWidth(120);
         $book->setActiveSheetIndex(0);
 
@@ -89,19 +100,49 @@ class OtPastImport
 
         foreach (array_slice($data, 0, 10, true) as $i => $row) {
             $m = $this->mapHeadings($row);
-            if (isset($m['employee_code']) && (isset($m['ot_hours']) || isset($m['used_hours']) || isset($m['encashed_hours']))) {
+            $hasHours = isset($m['ot_hours']) || isset($m['used_hours']) || isset($m['encashed_hours']);
+            if (isset($m['employee_code']) && ($hasHours || $this->monthColumns($row))) {
                 $headerRow = $i;
                 break;
             }
         }
 
         if ($headerRow === null) {
-            return $this->fail('No heading row with "Employee ID" and "OT Hours Banked" was found. Download the template and use its headings.');
+            return $this->fail('No heading row with "Employee ID", "Year" and the months (Jan ... Dec) was found. Download the template and use its headings.');
         }
 
         $map = $this->mapHeadings($data[$headerRow]);
-        $unknown = array_values(array_filter(array_map('trim', array_map('strval', array_diff_key($data[$headerRow], array_flip($map))))));
-        $body = array_slice($data, $headerRow + 1, null, true);
+        $monthColumns = isset($map['month']) || isset($map['date']) ? [] : $this->monthColumns($data[$headerRow]);
+        $known = array_merge(array_values($map), array_keys($monthColumns));
+        $unknown = array_values(array_filter(array_map('trim', array_map('strval', array_diff_key($data[$headerRow], array_flip($known))))));
+
+        // Each entry: the sheet row it came from and its cells.
+        $body = [];
+        foreach (array_slice($data, $headerRow + 1, null, true) as $i => $raw) {
+            if (!$monthColumns) {
+                $body[] = ['line' => $i + 1, 'raw' => $raw];
+                continue;
+            }
+
+            // The default layout: one row per employee per year, a column per
+            // month (Employee ID, Year, Jan ... Dec). Each filled month becomes
+            // one row of Employee ID, Year, Month, OT Hours, checked like any other.
+            foreach ($monthColumns as $col => $monthNo) {
+                if (trim((string) ($raw[$col] ?? '')) === '') {
+                    continue;
+                }
+                $body[] = ['line' => $i + 1, 'raw' => [
+                    $raw[$map['employee_code']] ?? null,
+                    isset($map['year']) ? ($raw[$map['year']] ?? null) : null,
+                    $monthNo,
+                    $raw[$col],
+                ]];
+            }
+        }
+
+        if ($monthColumns) {
+            $map = ['employee_code' => 0, 'year' => 1, 'month' => 2, 'ot_hours' => 3];
+        }
 
         if (count($body) > self::MAX_ROWS) {
             return $this->fail('The sheet has more than ' . self::MAX_ROWS . ' rows. Split it into smaller files.');
@@ -116,13 +157,14 @@ class OtPastImport
         $rows = [];
         $seen = [];
 
-        foreach ($body as $i => $raw) {
+        foreach ($body as $entry) {
+            $raw = $entry['raw'];
             if (implode('', array_map(fn ($v) => trim((string) $v), $raw)) === '') {
                 continue;
             }
 
             $get = fn ($field) => isset($map[$field]) ? $raw[$map[$field]] ?? null : null;
-            $row = ['line' => $i + 1, 'errors' => [], 'hints' => [], 'code' => trim((string) $get('employee_code')), 'user_id' => null, 'name' => null];
+            $row = ['line' => $entry['line'], 'errors' => [], 'hints' => [], 'code' => trim((string) $get('employee_code')), 'user_id' => null, 'name' => null];
 
             $e = $employees[mb_strtolower($row['code'])] ?? null;
             if ($row['code'] === '') {
@@ -375,6 +417,25 @@ class OtPastImport
         }
 
         return false;
+    }
+
+    /** Columns headed with a month (Jan / January ... Dec): column index => month number. */
+    protected function monthColumns(array $headings): array
+    {
+        $months = [];
+
+        foreach ($headings as $i => $heading) {
+            $h = mb_strtolower(trim((string) $heading));
+            foreach (range(1, 12) as $m) {
+                $full = mb_strtolower(date('F', mktime(0, 0, 0, $m, 1)));
+                if ($h !== '' && ($h === $full || $h === substr($full, 0, 3) || ($m === 9 && $h === 'sept'))) {
+                    $months[$i] = $m;
+                    break;
+                }
+            }
+        }
+
+        return $months;
     }
 
     protected function mapHeadings(array $headings): array

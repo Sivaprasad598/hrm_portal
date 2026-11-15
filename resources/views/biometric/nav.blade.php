@@ -38,7 +38,6 @@
             'shifts' => ['biometric.shifts', __('app.menu.biometricShifts')],
         ],
         'History & tools' => [
-            'calendar' => ['biometric.calendar', 'Sync Calendar & re-sync'],
             'sync' => ['biometric.sync-logs', __('app.menu.biometricSync')],
             'actions' => ['biometric.actions', 'Departed enrolments'],
         ],
@@ -46,6 +45,11 @@
     // Who may open what: the mapping entries need the mapping permission, the rest is technical.
     $needs = ['employees' => 'mapping', 'comparison' => 'mapping'];
     $flow = $bioAccess['view'] ? $flow : [];
+    // Fetch Attendance (pull a date range and write it into attendance): a tab of its
+    // own for the Super Admin and Admin, so it is not buried in Setup
+    if ($bioAccess['fetch']) {
+        $flow['calendar'] = ['biometric.calendar', 'Fetch Attendance', 'bi-cloud-download'];
+    }
     // Employee Mapping (link people to their device codes): a tab of its own, for whoever may map
     if ($bioAccess['mapping']) {
         $flow['employees'] = ['biometric.employees', __('app.menu.biometricEmployees'), 'bi-link-45deg'];
