@@ -55,7 +55,7 @@
             </tr>
             <tr>
                 <td class="l">Designation</td><td>{{ $employee->employeeDetail?->designation?->name ?: '--' }}</td>
-                <td class="l">Department</td><td>{{ $employee->employeeDetail?->department?->team_name ?: '--' }}</td>
+                <td class="l">Division</td><td>{{ $employee->employeeDetail?->department?->team_name ?: '--' }}</td>
             </tr>
             <tr>
                 <td class="l">Date</td><td>{{ now(company()->timezone)->format(company()->date_format) }}</td>

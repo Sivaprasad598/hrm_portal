@@ -108,7 +108,7 @@ $recurringTaskPermission = user()->permission('manage_recurring_task');
                                 <option value="all">@lang('app.all')</option>
                             @endif
                             @foreach ($clients as $client)
-                                <x-user-option :user="$client"></x-user-option>
+                                {!! \App\View\Components\UserOption::plain($client) !!}
                             @endforeach
                         </select>
                     </div>
@@ -122,8 +122,7 @@ $recurringTaskPermission = user()->permission('manage_recurring_task');
                             data-container="body" data-size="8">
                             <option value="all">@lang('app.all')</option>
                             @foreach ($employees as $employee)
-                                <x-user-option :user="$employee">
-                                </x-user-option>
+                                {!! \App\View\Components\UserOption::plain($employee) !!}
                             @endforeach
                             @if ($viewUnassignedTasksPermission == 'all')
                                 <option value="unassigned">@lang('modules.tasks.unassigned')</option>
@@ -141,7 +140,7 @@ $recurringTaskPermission = user()->permission('manage_recurring_task');
                             data-container="body" data-size="8">
                             <option value="all">@lang('app.all')</option>
                             @foreach ($employees as $employee)
-                                <x-user-option :user="$employee" />
+                                {!! \App\View\Components\UserOption::plain($employee) !!}
                             @endforeach
                         </select>
                     </div>

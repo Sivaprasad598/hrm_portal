@@ -57,7 +57,7 @@ class HolidayDataTable extends BaseDataTable
             // every option ticked); otherwise the first two and "+N more", the
             // whole list on hover. (Listing all 43 departments made rows a page tall.)
             ->addColumn('department', fn ($row) => $this->audience(
-                $row->department_id_json, fn ($ids) => Holiday::department($ids), $this->totals()['departments'], 'All departments'))
+                $row->department_id_json, fn ($ids) => Holiday::department($ids), $this->totals()['departments'], 'All divisions'))
             ->addColumn('designation', fn ($row) => $this->audience(
                 $row->designation_id_json, fn ($ids) => Holiday::designation($ids), $this->totals()['designations'], 'All designations'))
             ->addColumn('employment_type', fn ($row) => $this->audience(

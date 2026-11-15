@@ -51,7 +51,7 @@
 
 @if ($promoted)
     <p>We are pleased to inform you that, in recognition of your performance and contribution to the organisation, the Management has
-        promoted you to the position of <span class="hl">{{ $r->new_designation }}</span>{!! $r->new_department ? ' in the <span class="hl">' . e($r->new_department) . '</span> department' : '' !!},
+        promoted you to the position of <span class="hl">{{ $r->new_designation }}</span>{!! $r->new_department ? ' in the <span class="hl">' . e($r->new_department) . '</span> division' : '' !!},
         with effect from <span class="hl">{{ $effective->format('d F Y') }}</span>.</p>
 @elseif ($increase > 0)
     <p>We are pleased to inform you that, in recognition of your performance and contribution to the organisation, the Management has

@@ -971,20 +971,19 @@ class User extends BaseModel implements AuthenticatableContract, AuthorizableCon
         // dozens of times. Not kept in the cache between requests - permissions
         // are also changed in bulk, past the observer that would clear it - and
         // static rather than on the model, which can sit in the session.
-        if (isset(self::$permissionMemo[$this->id]) && array_key_exists($permission, self::$permissionMemo[$this->id])) {
-            return self::$permissionMemo[$this->id][$permission];
+        // All of this person's permissions in one query (a page asks for 10-30 of them)
+        if (!isset(self::$permissionMemo[$this->id])) {
+            self::$permissionMemo[$this->id] = UserPermission::join('permissions', 'user_permissions.permission_id', '=', 'permissions.id')
+                ->join('permission_types', 'user_permissions.permission_type_id', '=', 'permission_types.id')
+                ->where('user_permissions.user_id', $this->id)
+                // aliased: both columns are "name", and pluck would read the same one twice
+                ->select('permission_types.name as level', 'permissions.name as permission')
+                ->pluck('level', 'permission')
+                ->all();
         }
 
-        $permissionType = UserPermission::join('permissions', 'user_permissions.permission_id', '=', 'permissions.id')
-            ->join('permission_types', 'user_permissions.permission_type_id', '=', 'permission_types.id')
-            ->select('permission_types.name')
-            ->where('permissions.name', $permission)
-            ->where('user_permissions.user_id', $this->id)
-            ->first();
-
-        $permissionType = $permissionType ? $permissionType->name : false;
-
-        return self::$permissionMemo[$this->id][$permission] = $permissionType;
+        // A permission they hold no row for: false, as before
+        return self::$permissionMemo[$this->id][$permission] ?? false;
     }
 
     /** Permission levels looked up in this request, by user (see permission()). */

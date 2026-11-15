@@ -29,6 +29,37 @@ class Separation
 {
 
     /**
+     * The records reasonFor() reads, for many people at once (a list of
+     * everybody asked 4 queries per person). Anything not preloaded is read
+     * as before.
+     */
+    protected ?array $pre = null;
+
+    public function preload(array $userIds): void
+    {
+        $ids = array_values(array_unique(array_map('intval', $userIds)));
+
+        $this->pre = [
+            'ids' => array_flip($ids),
+            'details' => DB::table('employee_details')->whereIn('user_id', $ids ?: [0])
+                ->get(['user_id', 'last_date', 'notice_period_end_date', 'employment_status'])->keyBy('user_id'),
+            // every approved resignation with a last day: the date test is made per call (asOf)
+            'resignations' => DB::table('resignations')->whereIn('user_id', $ids ?: [0])
+                ->when($this->hasColumn('resignations', 'closed_by_rejoin_id'), fn ($q) => $q->whereNull('closed_by_rejoin_id'))
+                ->where('status', 'approved')->whereNotNull('last_working_date')
+                ->get(['user_id', 'last_working_date'])->groupBy('user_id'),
+            // the latest termination per person
+            'terminations' => $this->tableExists('terminations')
+                ? DB::table('terminations as t')->whereIn('t.user_id', $ids ?: [0])
+                    ->when($this->hasColumn('terminations', 'closed_by_rejoin_id'), fn ($q) => $q->whereNull('t.closed_by_rejoin_id'))
+                    ->whereRaw('t.id = (SELECT MAX(t2.id) FROM terminations t2 WHERE t2.user_id = t.user_id'
+                        . ($this->hasColumn('terminations', 'closed_by_rejoin_id') ? ' AND t2.closed_by_rejoin_id IS NULL' : '') . ')')
+                    ->get(['t.user_id', 't.termination_date', 't.last_working_date'])->keyBy('user_id')
+                : collect(),
+        ];
+    }
+
+    /**
      * Why this person has left, or null if they have not.
      *
      * A date in the future means they are working their notice and still have
@@ -38,7 +69,8 @@ class Separation
     {
         $asOf = ($asOf ?: Carbon::today())->toDateString();
 
-        $details = DB::table('employee_details')->where('user_id', $userId)
+        $pre = $this->pre && isset($this->pre['ids'][$userId]) ? $this->pre : null;
+        $details = $pre ? $pre['details']->get($userId) : DB::table('employee_details')->where('user_id', $userId)
             ->first(['last_date', 'notice_period_end_date', 'employment_status']);
 
         // Each candidate: the reason to show, and the date it took effect.
@@ -56,11 +88,15 @@ class Separation
 
         // A resignation from an employment that has since ended in a rejoin no
         // longer closes the account.
-        $resignation = DB::table('resignations')->where('user_id', $userId)
-            ->when($this->hasColumn('resignations', 'closed_by_rejoin_id'), fn ($q) => $q->whereNull('closed_by_rejoin_id'))
-            ->where('status', 'approved')->whereNotNull('last_working_date')
-            ->whereDate('last_working_date', '<', $asOf)
-            ->orderByDesc('last_working_date')->value('last_working_date');
+        $resignation = $pre
+            // the latest last day before asOf, as the query below picks it
+            ? collect($pre['resignations']->get($userId, []))->pluck('last_working_date')
+                ->filter(fn ($d) => substr((string) $d, 0, 10) < $asOf)->sortDesc()->first()
+            : DB::table('resignations')->where('user_id', $userId)
+                ->when($this->hasColumn('resignations', 'closed_by_rejoin_id'), fn ($q) => $q->whereNull('closed_by_rejoin_id'))
+                ->where('status', 'approved')->whereNotNull('last_working_date')
+                ->whereDate('last_working_date', '<', $asOf)
+                ->orderByDesc('last_working_date')->value('last_working_date');
 
         if ($resignation) {
             $candidates[] = ['reason' => 'resigned', 'label' => 'Resigned, notice period finished',
@@ -121,7 +157,7 @@ class Separation
             return null;
         }
 
-        $row = DB::table('terminations')->where('user_id', $userId)
+        $row = $this->pre && isset($this->pre['ids'][$userId]) ? $this->pre['terminations']->get($userId) : DB::table('terminations')->where('user_id', $userId)
             ->when($this->hasColumn('terminations', 'closed_by_rejoin_id'), fn ($q) => $q->whereNull('closed_by_rejoin_id'))
             ->orderByDesc('id')
             ->first(['termination_date', 'last_working_date']);
@@ -144,7 +180,7 @@ class Separation
     protected function hasColumn(string $table, string $column): bool
     {
         try {
-            return \Illuminate\Support\Facades\Schema::hasColumn($table, $column);
+            return \App\Support\SchemaCache::hasColumn($table, $column);
         } catch (\Throwable) {
             return false;
         }
@@ -153,7 +189,7 @@ class Separation
     protected function tableExists(string $table): bool
     {
         try {
-            return \Illuminate\Support\Facades\Schema::hasTable($table);
+            return \App\Support\SchemaCache::hasTable($table);
         } catch (\Throwable) {
             return false;
         }
@@ -167,12 +203,15 @@ class Separation
     public function everyoneWhoHasLeft(?Carbon $asOf = null): array
     {
         $rows = [];
-
-        foreach (DB::table('users as u')->join('employee_details as ed', 'ed.user_id', '=', 'u.id')
+        $people = DB::table('users as u')->join('employee_details as ed', 'ed.user_id', '=', 'u.id')
             ->whereNotIn('u.id', \App\Services\Access\SystemAccounts::ids())   // not the Super Admin login
             ->orderBy('u.name')
             ->get(['u.id', 'u.name', 'u.email', 'u.status', 'u.login', 'ed.employee_card_id',
-                'ed.iapp_emp_code', 'ed.employment_status']) as $user) {
+                'ed.iapp_emp_code', 'ed.employment_status']);
+
+        $this->preload($people->pluck('id')->all());
+
+        foreach ($people as $user) {
 
             $reason = $this->reasonFor((int) $user->id, $asOf);
 

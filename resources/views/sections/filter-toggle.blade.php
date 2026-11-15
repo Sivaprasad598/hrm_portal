@@ -28,10 +28,16 @@
 @push('scripts')
     <script>
         $(function () {
+            // The drop-downs are sized once, the first time the filters show, after
+            // they have been drawn (not rebuilt on every click)
+            var sized = false;
             $('#toggle-page-filters').on('click', function () {
                 var open = $('body').toggleClass('page-filters-open').hasClass('page-filters-open');
                 $(this).attr('aria-expanded', open);
-                if (open) { $('#fullscreen > .filter-box .select-picker').selectpicker('refresh'); }
+                if (open && !sized) {
+                    sized = true;
+                    requestAnimationFrame(function () { setTimeout(function () { $('#fullscreen > .filter-box .select-picker').selectpicker('refresh'); }, 0); });
+                }
             });
 
             var dotFields = @json($dot ?? []);

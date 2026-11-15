@@ -947,7 +947,7 @@ $(document).ready(function () {
         h += r('Email',          val('email'));
         h += r('Personal Email', val('personal_email'));
         h += r('Designation',       selText('employee_designation'));
-        h += r('Department',        selText('employee_department'));
+        h += r('Division',          selText('employee_department'));
         h += r('Branch',            selText('employee_branch'));
         h += r('Joining Date',      val('joining_date'));
         h += r('Date of Birth',     val('date_of_birth'));
@@ -1044,7 +1044,7 @@ $(document).ready(function () {
         if (!employeeEmail.value.trim() || !emailRegex.test(employeeEmail.value)) { setFieldState(employeeEmail, false, 'Please enter a valid email address.');                isValid = false; } else { setFieldState(employeeEmail, true); }
         if (!employeePassword.value || employeePassword.value.length < 8)         { setFieldState(employeePassword, false, 'Password must be at least 8 characters.');         isValid = false; } else { setFieldState(employeePassword, true); }
         if (!designation.value)                                                    { setFieldState(designation, false, 'Designation is required.');                             isValid = false; } else { setFieldState(designation, true); }
-        if (!department.value)                                                     { setFieldState(department, false, 'Department is required.');                               isValid = false; } else { setFieldState(department, true); }
+        if (!department.value)                                                     { setFieldState(department, false, 'Division is required.');                               isValid = false; } else { setFieldState(department, true); }
         if (!cardId.value || !cardIdRegex.test(cardId.value.trim()))               { setFieldState(cardId, false, 'Employee Card ID may use letters, numbers, hyphens and underscores (max 50).');         isValid = false; } else { setFieldState(cardId, true); }
         if (!panNumber.value.trim() || !panRegex.test(panNumber.value.toUpperCase())) { setFieldState(panNumber, false, 'Enter a valid PAN in format ABCDE1234F.');             isValid = false; } else { panNumber.value = panNumber.value.toUpperCase(); setFieldState(panNumber, true); }
         if (!joiningDate.value)                                                    { setFieldState(joiningDate, false, 'Joining Date is required.');                            isValid = false; } else { setFieldState(joiningDate, true); }

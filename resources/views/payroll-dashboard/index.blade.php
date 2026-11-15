@@ -275,14 +275,14 @@
                 <div class="col-12 mb-3">
                     <div class="pd-panel">
                         <div class="pd-panel__head">
-                            <h6>By department</h6>
+                            <h6>By division</h6>
                             <p>Largest cost first.</p>
                         </div>
                         <div class="table-responsive">
                             <table class="table mb-0 dash-table">
                                 <thead>
                                     <tr>
-                                        <th>Department</th>
+                                        <th>Division</th>
                                         <th class="num">Payslips</th>
                                         <th class="num">Paid</th>
                                         <th class="num">Cost</th>

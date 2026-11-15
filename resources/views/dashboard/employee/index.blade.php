@@ -490,7 +490,8 @@
         )
         <script src="{{ asset('vendor/full-calendar/main.min.js') }}"  defer="defer"></script>
         <script src="{{ asset('vendor/full-calendar/locales-all.min.js') }}"  defer="defer"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/moment-timezone/0.5.43/moment-timezone-with-data.min.js"></script>
+        {{-- moment.tz comes with js/main.js (all time zones); the copy from a CDN
+             here held up every dashboard while it was fetched from outside --}}
 
         <script>
 

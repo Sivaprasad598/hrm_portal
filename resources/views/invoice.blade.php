@@ -15,7 +15,7 @@
     <link rel="stylesheet" href="{{ asset('vendor/css/simple-line-icons.css') }}">
 
     <!-- Template CSS -->
-    <link type="text/css" rel="stylesheet" media="all" href="{{ asset('css/main.css') }}">
+    <link type="text/css" rel="stylesheet" media="all" href="{{ asset('css/main.css') }}?v={{ filemtime(public_path('css/main.css')) }}">
 
     <title>@lang($pageTitle)</title>
     <meta name="msapplication-TileColor" content="#ffffff">
@@ -686,7 +686,7 @@
 </div>
 
 <!-- Global Required Javascript -->
-<script src="{{ asset('js/main.js') }}"></script>
+<script src="{{ asset('js/main.js') }}?v={{ filemtime(public_path('js/main.js')) }}"></script>
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script src="https://js.stripe.com/v3/"></script>
 

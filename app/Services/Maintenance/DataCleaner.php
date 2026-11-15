@@ -41,7 +41,7 @@ class DataCleaner
             'universal_search', 'notifications', 'users_chat', 'users_chat_files', 'conversation', 'conversation_reply', 'removal_requests',
             'probation_replies', 'personal_access_tokens',
         ]],
-        'organisation' => ['Departments, designations, branches', 'The import creates them again from the sheet.', [
+        'organisation' => ['Divisions, designations, branches', 'The import creates them again from the sheet.', [
             'teams', 'designations', 'branches',
         ]],
         'roles' => ['Custom roles', 'Roles other than Super Admin, Employee and Client.', []],

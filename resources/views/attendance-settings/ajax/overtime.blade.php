@@ -8,7 +8,7 @@
     <x-form id="overtime-form">
         <div class="rules-head">
             <h3>Overtime</h3>
-            <p>Hours worked beyond the full day, paid at an hourly rate. Not for attendance-exempt employees or departments that do not consider hours.</p>
+            <p>Hours worked beyond the full day, paid at an hourly rate. Not for attendance-exempt employees or divisions that do not consider hours.</p>
         </div>
 
         <div class="rules-group">

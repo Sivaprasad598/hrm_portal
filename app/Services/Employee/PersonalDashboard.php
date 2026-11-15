@@ -134,7 +134,7 @@ class PersonalDashboard
             ->where('l.user_id', $user->id)
             ->orderByDesc('l.created_at')->orderByDesc('l.leave_date')->limit(3)
             ->get(['l.id', 'l.leave_date', 'l.duration', 'l.status', 't.type_name',
-                DB::raw(\Illuminate\Support\Facades\Schema::hasColumn('leaves', 'approval_step') ? 'l.approval_step' : 'NULL as approval_step')])
+                DB::raw(\App\Support\SchemaCache::hasColumn('leaves', 'approval_step') ? 'l.approval_step' : 'NULL as approval_step')])
             ->map(fn ($l) => [
                 'id' => $l->id, 'date' => Carbon::parse($l->leave_date), 'type' => $l->type_name,
                 'half' => $l->duration === 'half day', 'status' => $l->status,

@@ -70,7 +70,7 @@
         @if ($s['assumed'] > 0)
             <p class="f-12 text-lightest mb-3">
                 {{ $s['assumed'] }} of {{ $s['employees'] }} biometric code(s) are not linked to an ERP employee, so they are
-                measured against the default shift and without leave or department holidays.
+                measured against the default shift and without leave or division holidays.
                 <a href="{{ route('biometric.employees') }}">Link them</a> for exact figures.
             </p>
         @endif

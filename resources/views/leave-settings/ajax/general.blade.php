@@ -52,14 +52,14 @@
         $ticked = json_decode((string) ($chainSetting->approval_levels ?? ''), true) ?: [];
         $stepHelp = [
             'manager' => 'The top person with the Manager role up the employee\'s Reporting To chain. A manager\'s own leave goes to the CEO.',
-            'department_head' => 'The head of the employee\'s department (set on the department).',
+            'department_head' => 'The head of the employee\'s division (set on the division).',
             'hr' => 'Anyone with Approve / Reject Leaves (HR, Admin).',
         ];
     @endphp
     <div class="border rounded p-3 mb-4" id="approval-steps">
         <h4 class="f-15 font-weight-bold text-dark mb-1">Leave approval steps</h4>
         <p class="f-12 text-dark-grey mb-3">A leave goes through the ticked steps in this order and counts only after the last one approves it.
-            A step with nobody for it (no manager or department head set, or the applicant themselves) is skipped.
+            A step with nobody for it (no manager or division head set, or the applicant themselves) is skipped.
             HR can approve ahead of a step, with a note.</p>
         {{-- The CEO step goes with the manager step (a manager's own leave), so it has no box of its own --}}
         @foreach (array_diff_key(\App\Services\Leaves\LeaveApprovals::STEPS, ['ceo' => 1]) as $key => $label)
@@ -70,7 +70,7 @@
             </label>
         @endforeach
         <div class="d-flex align-items-center flex-wrap mt-3">
-            <span class="f-14 mr-2">If the manager or department head has not decided in</span>
+            <span class="f-14 mr-2">If the manager or division head has not decided in</span>
             <input type="number" min="0" max="30" id="escalate_after_days" class="form-control height-35 f-14 mr-2" style="width: 80px"
                    value="{{ (int) ($chainSetting->escalate_after_days ?? 2) }}">
             <span class="f-14">day(s), move it on to the next step <span class="text-lightest f-12">(0: wait)</span></span>

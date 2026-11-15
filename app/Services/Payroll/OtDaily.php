@@ -36,10 +36,11 @@ class OtDaily
         // calls this for every employee each time it is opened, and a day that
         // has not changed is left alone rather than deleted or written again.
         $dates = array_column($count['days'], 'date');
-        $stored = $dates ? DB::table('ot_daily')->where('user_id', $userId)
+        // the payroll run preloads these for everybody at once (OtBank::preload)
+        $stored = $dates ? (OtBank::preloadedDays($userId, min($dates), max($dates)) ?? DB::table('ot_daily')->where('user_id', $userId)
             ->whereBetween('date', [min($dates), max($dates)])
             ->get(['date', 'day_type', 'first_in', 'last_out', 'worked_minutes', 'ot_minutes', 'rate', 'bank_minutes', 'note'])
-            ->keyBy(fn ($row) => substr((string) $row->date, 0, 10)) : collect();
+            ->keyBy(fn ($row) => substr((string) $row->date, 0, 10))) : collect();
         $gone = [];
 
         foreach ($count['days'] as $day) {
@@ -94,7 +95,8 @@ class OtDaily
             DB::table('ot_daily')->where('user_id', $userId)->whereIn('date', $gone)->delete();
         }
 
-        return $written;
+        // rows changed, deletions included (0: what is stored already says the same)
+        return $written + count($gone);
     }
 
     /** Whether the stored row already says exactly this. */

@@ -53,7 +53,7 @@
                             <input type="checkbox" class="custom-control-input" id="consider_attendance_hours" name="consider_attendance_hours" value="1" @checked($department->consider_attendance_hours ?? true)>
                             <label class="custom-control-label f-14" for="consider_attendance_hours">Consider attendance hours</label>
                         </div>
-                        <small class="text-dark-grey d-block mt-1">Off: for this department any punch on a working day is a full day (no hour minimum, no lates, no overtime). Days with no punch and no leave still count as absent.</small>
+                        <small class="text-dark-grey d-block mt-1">Off: for this division any punch on a working day is a full day (no hour minimum, no lates, no overtime). Days with no punch and no leave still count as absent.</small>
                     </div>
                 </div>
 

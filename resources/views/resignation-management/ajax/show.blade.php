@@ -35,7 +35,7 @@
                         <p class="mb-0 f-14 font-weight-600">{{ $employeeDetail->employee_id ?? '--' }}</p>
                     </div>
                     <div class="col-md-4 mb-3">
-                        <label class="f-12 text-muted mb-1">Department</label>
+                        <label class="f-12 text-muted mb-1">Division</label>
                         <p class="mb-0 f-14 font-weight-600">{{ optional($employeeDetail->department ?? null)->team_name ?? '--' }}</p>
                     </div>
                     <div class="col-md-4 mb-3">

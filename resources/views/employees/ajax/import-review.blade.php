@@ -47,7 +47,7 @@
                 </div>
 
                 <p class="f-13 text-dark-grey mt-2 mb-3">
-                    Will create <strong>{{ $newDepartments }}</strong> department(s), <strong>{{ $newDesignations }}</strong> designation(s)
+                    Will create <strong>{{ $newDepartments }}</strong> division(s), <strong>{{ $newDesignations }}</strong> designation(s)
                     and up to <strong>{{ count($newBranches) }}</strong> branch(es). Nothing has been saved yet.
                     A value that could not be used is left empty and listed under that employee; the rest of the row is imported.
                     <a href="{{ route('employees.import.report') }}" class="ml-1"><i class="fa fa-download"></i> Download the list of problems (Excel)</a>
@@ -55,7 +55,7 @@
 
                 <ul class="nav nav-tabs mb-3" role="tablist">
                     <li class="nav-item"><a class="nav-link active f-14" data-toggle="tab" href="#imp-employees">Employees ({{ count($records) }})</a></li>
-                    <li class="nav-item"><a class="nav-link f-14" data-toggle="tab" href="#imp-departments">Departments ({{ count($m['departments']) + count($m['divisions']) }})</a></li>
+                    <li class="nav-item"><a class="nav-link f-14" data-toggle="tab" href="#imp-departments">Divisions ({{ count($m['departments']) + count($m['divisions']) }})</a></li>
                     <li class="nav-item"><a class="nav-link f-14" data-toggle="tab" href="#imp-designations">Designations ({{ count($m['designations']) }})</a></li>
                     <li class="nav-item"><a class="nav-link f-14" data-toggle="tab" href="#imp-branches">Branches ({{ count($m['branches']) }})</a></li>
                 </ul>
@@ -76,7 +76,7 @@
                                 <table class="table table-hover imp-table mb-0">
                                     <thead>
                                         <tr>
-                                            <th>Line</th><th>EMP ID</th><th>Employee</th><th>Department</th><th>Designation</th><th>Branch</th>
+                                            <th>Line</th><th>EMP ID</th><th>Employee</th><th>Division</th><th>Designation</th><th>Branch</th>
                                             <th>DOJ</th><th class="text-right">CTC / year</th><th>Email (sign-in)</th><th>Checks</th>
                                         </tr>
                                     </thead>
@@ -127,7 +127,7 @@
 
                         {{-- Departments: parent department, and the departments under it --}}
                         <div class="tab-pane fade" id="imp-departments">
-                            <p class="f-12 text-lightest">The second Department column is the parent; the first is the employee's department under it. Spellings that differ only in case are one department.</p>
+                            <p class="f-12 text-lightest">In the sheet the second Department column is the parent division; the first is the employee's division under it. Spellings that differ only in case are one division.</p>
                             <ul class="imp-tree pl-0 f-13">
                                 @foreach ($m['departments'] as $key => $d)
                                     <li class="mb-2">
@@ -246,7 +246,7 @@
 
             Swal.fire({
                 title: 'Import {{ $s['new'] }} new and update {{ $s['update'] }} existing employee(s)?',
-                text: 'Departments, designations and the ticked branches are created. It takes a minute or two.',
+                text: 'Divisions, designations and the ticked branches are created. It takes a minute or two.',
                 showCancelButton: true,
                 confirmButtonText: 'Import',
                 customClass: { confirmButton: 'btn btn-primary mr-2', cancelButton: 'btn btn-secondary' },

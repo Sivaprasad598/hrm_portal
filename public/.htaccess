@@ -5,16 +5,30 @@
 
     RewriteEngine On
     # No RewriteBase: the same file works wherever the app sits
-    # (/hrm_portal/public locally, /hrm/public on https://arowanauk.com).
-    # Only if a host insists on one, set it to the URL path of this folder:
-    # RewriteBase /hrm/public/
+    # (https://arowanaone.com at the root live, /hrm_portal/public here).
+    # Only if a host insists on one, set it to the URL path of this folder.
+
+    # https, for a host that points the domain straight at this folder (the root
+    # .htaccess does it otherwise). Not on this machine, which has no certificate.
+    RewriteCond %{HTTPS} !=on
+    RewriteCond %{HTTP:X-Forwarded-Proto} !https
+    RewriteCond %{HTTP_HOST} !^(localhost|127\.0\.0\.1)(:\d+)?$ [NC]
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,NE,L]
 
     # Old links and bookmarks with "/public" in them go to the same address
-    # without it (see ../.htaccess; 308 keeps a form post a post). Only what the
-    # browser asked for is looked at (the query string is kept as it is), so the root's internal hand-over to
-    # public/ never loops back here.
-    RewriteCond %{THE_REQUEST} \s(/\S*?)/public(/[^?\s]*)?(\?\S*)?\sHTTP [NC]
+    # without it (308 keeps a form post a post). Only what the browser asked for
+    # is looked at, so the root's internal hand-over to public/ never loops back
+    # here. "/public" may come straight after the domain (live) or after a folder.
+    RewriteCond %{THE_REQUEST} \s(\S*?)/public(/[^?\s]*)?(\?\S*)?\sHTTP [NC]
     RewriteRule ^ %1%2 [R=308,NE,L]
+
+    # Hidden files (.env, .git, .htaccess ...) are never served; SSL checks
+    # (.well-known) still are.
+    RewriteRule (^|/)\.(?!well-known/) - [F,L]
+
+    # The installer and the purchase check stay closed on an installed site
+    # (take this line out only while deliberately running a fresh install).
+    RewriteRule ^(install|verify-purchase)(/.*)?$ - [F,L,NC]
 
     # Handle Authorization Header
     RewriteCond %{HTTP:Authorization} .
@@ -31,57 +45,72 @@
     RewriteRule ^ index.php [L]
 </IfModule>
 
+# Browser caching - only when mod_headers is there, so a host without it is not
+# left with an error on every page.
+<IfModule mod_headers.c>
+    # 1 YEAR
+    <FilesMatch "\.(flv|ico|pdf|avi|mov|ppt|doc|mp3|wmv|wav|woff|woff2|ttf|otf|eot)$">
+        Header set Cache-Control "max-age=31536000, public"
+    </FilesMatch>
 
-# 1 YEAR
-<FilesMatch "\.(flv|ico|pdf|avi|mov|ppt|doc|mp3|wmv|wav)$">
-Header set Cache-Control "max-age=31536000, public"
-</FilesMatch>
+    # 1 WEEK - images
+    <FilesMatch "\.(jpg|jpeg|png|gif|webp|svg|swf)$">
+        Header set Cache-Control "max-age=604800, public"
+    </FilesMatch>
 
-# 1 WEEK
-<FilesMatch "\.(jpg|jpeg|png|gif|swf)$">
-Header set Cache-Control "max-age=604800, public"
-</FilesMatch>
+    # 1 WEEK - styles and scripts (the app's own carry ?v=<file time>, so a change is fetched at once)
+    <FilesMatch "\.(js|css)$">
+        Header set Cache-Control "max-age=604800, public"
+    </FilesMatch>
 
-# 3 HOUR
-<FilesMatch "\.(txt|xml|js|css)$">
-Header set Cache-Control "max-age=10800"
-</FilesMatch>
+    # 3 HOURS
+    <FilesMatch "\.(txt|xml)$">
+        Header set Cache-Control "max-age=10800"
+    </FilesMatch>
 
-# NEVER CACHE - notice the extra directives
-<FilesMatch "\.(html|htm|php|cgi|pl)$">
-Header set Cache-Control "max-age=0, private, no-store, no-cache, must-revalidate"
-</FilesMatch>
+    # NEVER CACHE - pages
+    <FilesMatch "\.(html|htm|php|cgi|pl)$">
+        Header set Cache-Control "max-age=0, private, no-store, no-cache, must-revalidate"
+    </FilesMatch>
+</IfModule>
 
+# Compressed on the way out: main.js 3.5 MB -> about 0.8 MB, pages about a quarter
+# of their size. Needs mod_deflate on the server (Apache: LoadModule deflate_module).
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/css text/xml text/javascript
+    AddOutputFilterByType DEFLATE application/javascript application/x-javascript application/json application/xml
+    AddOutputFilterByType DEFLATE image/svg+xml font/ttf font/otf application/vnd.ms-fontobject
+</IfModule>
 
 <IfModule mod_expires.c>
-  ExpiresActive On
+    ExpiresActive On
 
- # Images
-  ExpiresByType image/jpeg "access plus 1 year"
-  ExpiresByType image/gif "access plus 1 year"
-  ExpiresByType image/png "access plus 1 year"
-  ExpiresByType image/webp "access plus 1 year"
-  ExpiresByType image/svg+xml "access plus 1 year"
-  ExpiresByType image/x-icon "access plus 1 year"
+    # Images
+    ExpiresByType image/jpeg "access plus 1 year"
+    ExpiresByType image/gif "access plus 1 year"
+    ExpiresByType image/png "access plus 1 year"
+    ExpiresByType image/webp "access plus 1 year"
+    ExpiresByType image/svg+xml "access plus 1 year"
+    ExpiresByType image/x-icon "access plus 1 year"
 
-  # Video
-  ExpiresByType video/webm "access plus 1 year"
-  ExpiresByType video/mp4 "access plus 1 year"
-  ExpiresByType video/mpeg "access plus 1 year"
+    # Video
+    ExpiresByType video/webm "access plus 1 year"
+    ExpiresByType video/mp4 "access plus 1 year"
+    ExpiresByType video/mpeg "access plus 1 year"
 
-  # Fonts
-  ExpiresByType font/ttf "access plus 1 year"
-  ExpiresByType font/otf "access plus 1 year"
-  ExpiresByType font/woff "access plus 1 year"
-  ExpiresByType font/woff2 "access plus 1 year"
-  ExpiresByType application/font-woff "access plus 1 year"
+    # Fonts
+    ExpiresByType font/ttf "access plus 1 year"
+    ExpiresByType font/otf "access plus 1 year"
+    ExpiresByType font/woff "access plus 1 year"
+    ExpiresByType font/woff2 "access plus 1 year"
+    ExpiresByType application/font-woff "access plus 1 year"
 
-  # CSS, JavaScript
-  ExpiresByType text/css "access plus 1 year"
-  ExpiresByType text/javascript "access plus 1 year"
-  ExpiresByType application/javascript "access plus 1 year"
+    # CSS and JavaScript: one week, as the Cache-Control above
+    ExpiresByType text/css "access plus 1 week"
+    ExpiresByType text/javascript "access plus 1 week"
+    ExpiresByType application/javascript "access plus 1 week"
 
-  # Others
-  ExpiresByType application/pdf "access plus 1 year"
-  ExpiresByType image/vnd.microsoft.icon "access plus 1 year"
+    # Others
+    ExpiresByType application/pdf "access plus 1 year"
+    ExpiresByType image/vnd.microsoft.icon "access plus 1 year"
 </IfModule>

@@ -29,7 +29,7 @@
     @stack('datatable-styles')
 
     <!-- Template CSS -->
-    <link type="text/css" rel="stylesheet" media="all" href="{{ asset('css/main.css') }}">
+    <link type="text/css" rel="stylesheet" media="all" href="{{ asset('css/main.css') }}?v={{ filemtime(public_path('css/main.css')) }}">
 
     <title>{{ is_array(__($pageTitle)) ? $pageTitle : __($pageTitle) }}</title>
     <meta name="msapplication-TileColor" content="#ffffff">
@@ -135,6 +135,8 @@
     <link href="{{ asset('css/epic/theme.css') }}?v={{ filemtime(public_path('css/epic/theme.css')) }}" rel="stylesheet">
     @include('sections.epic-colors')
     @include('sections.brand-loader')
+    {{-- instant, smooth moves between pages (prerender on hover, view transitions, top bar) --}}
+    @include('sections.fast-nav')
 
     <script src="{{ asset('vendor/jquery/jquery.min.js') }}"></script>
     <script src="{{ asset('vendor/jquery/modernizr.min.js') }}"></script>
@@ -156,6 +158,7 @@
 
 
 <body id="body" class="{{ user()->dark_theme ? 'dark-theme' : 'epic' }} {{ \App\Services\Access\AssignedModules::plainEmployee() ? 'epic-solo' : '' }} {{ isRtl('rtl') }}">
+<div class="nav-progress" aria-hidden="true"></div>
 <script>
     if (checkMiniSidebar == "yes" || checkMiniSidebar == "") {
         $('body').addClass('sidebar-toggled');
@@ -221,7 +224,7 @@
 @includeIf('aitools::floating-chat-widget')
 
 <!-- Global Required Javascript -->
-<script src="{{ asset('js/main.js') }}"></script>
+<script src="{{ asset('js/main.js') }}?v={{ filemtime(public_path('js/main.js')) }}"></script>
 <script>
     // Row action menus near the bottom of a list opened downwards and were cut
     // off by the table's scroll box (QA TC-0043/0044): while a menu is open the
@@ -393,10 +396,13 @@
 @endif
 
 <script>
-    $(window).on('load', function () {
-        // Animate loader off screen
-        init();
-        $(".preloader-container").fadeOut("slow", function () {
+    // The page is usable once its HTML is in: the pickers are set up and the
+    // loader goes then, rather than after every image and frame has loaded (the
+    // window "load" event) and a slow fade - which kept each page covered longer.
+    // Registered after the pages' own ready handlers (their scripts stack above), as before.
+    $(function () {
+        try { init(); } catch (e) { window.__initError = String(e && e.stack || e); }
+        $(".preloader-container").fadeOut(120, function () {
             $(this).removeClass("d-flex");
         });
     });

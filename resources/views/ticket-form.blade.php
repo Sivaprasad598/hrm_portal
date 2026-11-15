@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="{{ asset('vendor/css/all.min.css') }}">
 
     <!-- Template CSS -->
-    <link type="text/css" rel="stylesheet" media="all" href="{{ asset('css/main.css') }}">
+    <link type="text/css" rel="stylesheet" media="all" href="{{ asset('css/main.css') }}?v={{ filemtime(public_path('css/main.css')) }}">
 
     <!-- DatePicker CSS -->
     <link rel="stylesheet" href="{{ asset('vendor/css/datepicker.min.css') }}">
@@ -317,7 +317,7 @@
 <script src="{{ asset('vendor/jquery/all.min.js') }}"></script>
 
 <!-- Template JS -->
-<script src="{{ asset('js/main.js') }}"></script>
+<script src="{{ asset('js/main.js') }}?v={{ filemtime(public_path('js/main.js')) }}"></script>
 <script src="{{ asset('vendor/froiden-helper/helper.js') }}"></script>
 
 <script>

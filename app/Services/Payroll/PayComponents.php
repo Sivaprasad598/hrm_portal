@@ -21,6 +21,69 @@ class PayComponents
 {
 
     /**
+     * What forPeriod() reads, for many employees at once (the payroll run asked
+     * 4 queries per person). Keyed by the period's first day. An employee
+     * something was written for is read from the tables again (dirty).
+     */
+    protected static array $pre = [];
+
+    public static function preload(array $userIds, Carbon $periodStart): void
+    {
+        $period = $periodStart->toDateString();
+        $ids = array_values(array_unique(array_map('intval', $userIds)));
+
+        if (!$ids) {
+            return;
+        }
+
+        self::$pre[$period] = [
+            'ids' => array_flip($ids),
+            'dirty' => [],
+            'rules' => static::activeRules($period),
+            'applied' => DB::table('pay_element_rule_applications')->whereIn('user_id', $ids)->whereDate('period_start', $period)
+                ->get(['user_id', 'rule_id'])->groupBy('user_id')->map(fn ($rows) => $rows->pluck('rule_id')->all()),
+            'arrangements' => DB::table('payroll_arrangements')->whereIn('user_id', $ids)->where('status', 'active')
+                ->whereDate('starts_on', '<=', $periodStart->copy()->endOfMonth()->toDateString())->get()->groupBy('user_id'),
+            'lines' => DB::table('payslip_components')->whereIn('user_id', $ids)->whereDate('period_start', $period)
+                ->orderBy('id')->get()->groupBy('user_id'),
+        ];
+    }
+
+    public static function forgetPreload(): void
+    {
+        self::$pre = [];
+    }
+
+    /** Preloaded data for this employee and period, unless written to since. */
+    protected static function pre(int $userId, string $period): ?array
+    {
+        $p = self::$pre[$period] ?? null;
+
+        return $p && isset($p['ids'][$userId]) && !isset($p['dirty'][$userId]) ? $p : null;
+    }
+
+    protected static function dirty(int $userId, string $period): void
+    {
+        if (isset(self::$pre[$period])) {
+            self::$pre[$period]['dirty'][$userId] = true;
+        }
+    }
+
+    /** The standing instructions in force for a period (the same for everybody). */
+    protected static function activeRules(string $period)
+    {
+        return DB::table('pay_element_rules as r')
+            ->join('pay_element_types as t', 't.id', '=', 'r.element_type_id')
+            ->where('r.status', 'active')
+            ->where('t.is_active', true)
+            ->whereDate('r.starts_on', '<=', $period)
+            ->where(fn ($q) => $q->whereNull('r.ends_on')->orWhereDate('r.ends_on', '>=', $period))
+            ->orderBy('r.id')
+            ->get(['r.id', 'r.company_id', 'r.scope', 'r.scope_id', 'r.amount', 'r.note',
+                'r.element_type_id', 't.name as element_name', 't.kind']);
+    }
+
+    /**
      * Everything owed or recovered for one employee in one period, with any
      * instalment due from a standing arrangement drawn in first.
      *
@@ -33,7 +96,8 @@ class PayComponents
             $this->drawInstalments($userId, $periodStart);
         }
 
-        $lines = DB::table('payslip_components')
+        $p = static::pre($userId, $periodStart->toDateString());
+        $lines = $p ? collect($p['lines']->get($userId, []))->values() : DB::table('payslip_components')
             ->where('user_id', $userId)
             ->whereDate('period_start', $periodStart->toDateString())
             ->orderBy('id')
@@ -243,22 +307,15 @@ class PayComponents
     public function applyRules(int $userId, Carbon $periodStart): void
     {
         $period = $periodStart->toDateString();
+        $p = static::pre($userId, $period);
 
-        $rules = DB::table('pay_element_rules as r')
-            ->join('pay_element_types as t', 't.id', '=', 'r.element_type_id')
-            ->where('r.status', 'active')
-            ->where('t.is_active', true)
-            ->whereDate('r.starts_on', '<=', $period)
-            ->where(fn ($q) => $q->whereNull('r.ends_on')->orWhereDate('r.ends_on', '>=', $period))
-            ->orderBy('r.id')
-            ->get(['r.id', 'r.company_id', 'r.scope', 'r.scope_id', 'r.amount', 'r.note',
-                'r.element_type_id', 't.name as element_name', 't.kind']);
+        $rules = $p ? $p['rules'] : static::activeRules($period);
 
         if ($rules->isEmpty()) {
             return;
         }
 
-        $already = DB::table('pay_element_rule_applications')
+        $already = $p ? ($p['applied'][$userId] ?? []) : DB::table('pay_element_rule_applications')
             ->where('user_id', $userId)->whereDate('period_start', $period)
             ->pluck('rule_id')->all();
 
@@ -294,6 +351,7 @@ class PayComponents
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
+            static::dirty($userId, $period);
         }
     }
 
@@ -324,7 +382,8 @@ class PayComponents
      */
     protected function drawInstalments(int $userId, Carbon $periodStart): void
     {
-        $arrangements = DB::table('payroll_arrangements')
+        $p = static::pre($userId, $periodStart->toDateString());
+        $arrangements = $p ? collect($p['arrangements']->get($userId, [])) : DB::table('payroll_arrangements')
             ->where('user_id', $userId)
             ->where('status', 'active')
             ->whereDate('starts_on', '<=', $periodStart->copy()->endOfMonth()->toDateString())
@@ -367,6 +426,8 @@ class PayComponents
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
+
+            static::dirty($userId, $periodStart->toDateString());
 
             $recovered = round((float) $arrangement->recovered + $amount, 2);
 

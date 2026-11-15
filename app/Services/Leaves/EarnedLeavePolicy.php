@@ -24,16 +24,25 @@ class EarnedLeavePolicy
 
     protected ?object $settings = null;
 
+    /** The settings row per company, read once per request (made once per employee in loops). */
+    protected static array $rows = [];
+
     public function __construct(?int $companyId = null)
     {
-        if (!Schema::hasColumn('leave_settings', 'earned_leave_type_id')) {
+        if (!\App\Support\SchemaCache::hasColumn('leave_settings', 'earned_leave_type_id')) {
             return;
         }
 
-        $this->settings = DB::table('leave_settings')
+        $this->settings = static::$rows[(int) $companyId] ??= DB::table('leave_settings')
             ->when($companyId, fn ($q) => $q->where('company_id', $companyId))
             ->first(array_merge(['earned_leave_type_id', 'earned_leave_min_service_years', 'earned_leave_encash_max_days'],
-                Schema::hasColumn('leave_settings', 'earned_leave_starts_from') ? ['earned_leave_starts_from'] : []));
+                \App\Support\SchemaCache::hasColumn('leave_settings', 'earned_leave_starts_from') ? ['earned_leave_starts_from'] : []));
+    }
+
+    /** After Leave Settings are saved in the same request. */
+    public static function forget(): void
+    {
+        static::$rows = [];
     }
 
     public function typeId(): ?int

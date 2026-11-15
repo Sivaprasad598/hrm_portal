@@ -25,7 +25,7 @@
                 </select>
             </div>
             <div class="col-lg-2 col-md-4 col-6">
-                <label class="f-13 text-dark-grey mb-1">Department</label>
+                <label class="f-13 text-dark-grey mb-1">Division</label>
                 <select name="department" class="form-control select-picker" data-live-search="true">
                     <option value="">All</option>
                     @foreach ($departments as $id => $name)<option value="{{ $id }}" @selected($id == $departmentId)>{{ $name }}</option>@endforeach

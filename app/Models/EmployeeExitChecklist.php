@@ -31,7 +31,7 @@ class EmployeeExitChecklist extends Model
             'hr_clearance'         => 'HR Clearance',
             'it_clearance'         => 'IT Clearance',
             'finance_clearance'    => 'Finance Clearance',
-            'department_clearance' => 'Department Clearance',
+            'department_clearance' => 'Division Clearance',
             'management_clearance' => 'Management Clearance',
             default                => ucfirst(str_replace('_', ' ', $this->category)),
         };

@@ -27,7 +27,7 @@ class Resignation extends Model
     {
         return static::where('user_id', $userId)
             ->whereIn('status', ['pending', 'approved'])
-            ->when(\Illuminate\Support\Facades\Schema::hasColumn('resignations', 'closed_by_rejoin_id'),
+            ->when(\App\Support\SchemaCache::hasColumn('resignations', 'closed_by_rejoin_id'),
                 fn ($q) => $q->whereNull('closed_by_rejoin_id'))
             ->when($exceptId, fn ($q) => $q->where('id', '<>', $exceptId))
             ->orderByDesc('id')

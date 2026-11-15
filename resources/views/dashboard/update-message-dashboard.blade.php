@@ -1,6 +1,9 @@
 @if (global_setting()->system_update == 1 &&  in_array('admin', user_roles()))
     @php
-        $updateVersionInfo = \Froiden\Envato\Functions\EnvatoUpdate::updateVersionInfo();
+        // Asked of the update server at most every 6 hours: its version log does not
+        // answer, the package only caches answers, so every dashboard load waited ~0.5 s
+        $updateVersionInfo = cache()->remember('dashboard.update_version_info', now()->addHours(6),
+            fn () => \Froiden\Envato\Functions\EnvatoUpdate::updateVersionInfo() ?: []);
     @endphp
     @if (isset($updateVersionInfo['lastVersion']))
         <div class="col-md-12">

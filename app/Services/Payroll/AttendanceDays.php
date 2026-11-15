@@ -49,6 +49,9 @@ class AttendanceDays
     /** Rows loaded ahead for many employees at once (preload()), for one range. */
     protected ?array $pre = null;
 
+    /** Half-day-for-lates settings per company, read once per instance */
+    protected array $lateSettings = [];
+
     /**
      * Load what forRange() reads, for many employees at once: the payroll run
      * counts every employee in turn, and one query per table beats one per
@@ -63,6 +66,9 @@ class AttendanceDays
         $from = $from->copy()->setTimezone($tz)->startOfDay();
         $to = $to->copy()->setTimezone($tz)->startOfDay();
         $userIds = array_values(array_unique(array_map('intval', $userIds)));
+
+        // employment periods too (payableDays), one query for everybody
+        \App\Services\Employment\EmploymentPeriods::preload($userIds);
 
         if (!$userIds) {
             return;
@@ -309,7 +315,8 @@ class AttendanceDays
         // Every Nth late in the period costs half a day (Attendance Settings ->
         // Half Day): lates one and two do not touch the day, the third does.
         if ($rules && $basis === 'rules' && $breakdown['late_marks'] > 0) {
-            $setting = DB::table('attendance_settings')
+            // once per company per request (it was asked again for each late employee)
+            $setting = $this->lateSettings[(int) $employee?->company_id] ??= DB::table('attendance_settings')
                 ->when($employee?->company_id, fn ($q) => $q->where('company_id', $employee->company_id))
                 ->first(['half_day_late_threshold', 'half_day_deduction_type']);
             $deduction = min($daysPresent, $rules->lateDeduction((int) $breakdown['late_marks'], $setting ?? (object) []));

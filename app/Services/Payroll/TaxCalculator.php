@@ -49,10 +49,71 @@ class TaxCalculator
      * @param  Carbon $periodStart  the pay period being worked out
      * @return array<string, mixed>
      */
+    /** tax_settings and tax_slabs per year + regime: the same for everybody, read once per request */
+    protected static array $settingsMemo = [];
+    protected static array $slabsMemo = [];
+
+    /**
+     * What forEmployee() reads per person, for many at once (the payroll run and
+     * Tax & Returns asked 6 queries per employee). Keyed by the period's first day.
+     */
+    protected static array $pre = [];
+
+    public static function preload(array $userIds, Carbon $periodStart): void
+    {
+        $ids = array_values(array_unique(array_map('intval', $userIds)));
+
+        if (!$ids) {
+            return;
+        }
+
+        $year = static::financialYear($periodStart);
+        $from = static::yearStart($year)->toDateString();
+        $to = static::yearStart($year)->copy()->addYear()->subDay()->toDateString();
+
+        // the latest settlement's last day, else the latest resignation's (monthsRemaining)
+        $settled = DB::table('settlements')->whereIn('user_id', $ids)->whereIn('status', ['draft', 'agreed', 'paid'])
+            ->groupBy('user_id')->pluck(DB::raw('MAX(last_working_day)'), 'user_id');
+        $resigned = DB::table('resignations as r')->whereIn('r.user_id', $ids)
+            ->whereRaw('r.id = (SELECT MAX(r2.id) FROM resignations r2 WHERE r2.user_id = r.user_id)')
+            ->pluck('r.last_working_date', 'r.user_id');
+
+        self::$pre[$periodStart->toDateString()] = [
+            'ids' => array_flip($ids),
+            'year' => $year,
+            'users' => DB::table('users')->whereIn('id', $ids)->get(['id', 'name', 'employee_ctc', 'monthly_tds'])->keyBy('id'),
+            'declarations' => DB::table('tax_declarations')->whereIn('user_id', $ids)->where('financial_year', $year)->get()->keyBy('user_id'),
+            'paid' => DB::table('payslips')->whereIn('user_id', $ids)->where('status', 'active')->whereNull('deleted_at')
+                ->whereIn('approval_status', ['approved', 'paid'])
+                ->whereDate('period_start', '>=', $from)->whereDate('period_start', '<=', $to)
+                ->whereDate('period_start', '<', $periodStart->toDateString())
+                ->groupBy('user_id')
+                ->selectRaw('user_id, COALESCE(SUM(gross), 0) g, COALESCE(SUM(tds), 0) t, COALESCE(SUM(pt), 0) p, COUNT(*) n')
+                ->get()->keyBy('user_id'),
+            'leaving' => collect($ids)->mapWithKeys(fn ($id) => [$id => $settled[$id] ?? ($resigned[$id] ?? null)]),
+        ];
+    }
+
+    public static function forgetPreload(): void
+    {
+        self::$pre = [];
+        self::$settingsMemo = [];
+        self::$slabsMemo = [];
+    }
+
+    /** Preloaded data when it was taken for this employee, this period and this year. */
+    protected static function pre(int $userId, ?Carbon $periodStart, string $year): ?array
+    {
+        $p = $periodStart ? (self::$pre[$periodStart->toDateString()] ?? null) : null;
+
+        return $p && $p['year'] === $year && isset($p['ids'][$userId]) ? $p : null;
+    }
+
     public function forEmployee(int $userId, Carbon $periodStart): array
     {
         $year = static::financialYear($periodStart);
-        $declaration = $this->declaration($userId, $year);
+        $pre = static::pre($userId, $periodStart, $year);
+        $declaration = $pre ? $this->declaration($userId, $year, $pre['declarations']->get($userId) ?? false) : $this->declaration($userId, $year);
         $regime = $declaration->regime ?? 'new';
         $settings = $this->settings($year, $regime);
 
@@ -60,7 +121,7 @@ class TaxCalculator
             return $this->nothing($year, $regime, 'No tax rates are set up for ' . $year . '.');
         }
 
-        $employee = DB::table('users')->where('id', $userId)->first(['id', 'name', 'employee_ctc', 'monthly_tds']);
+        $employee = $pre ? $pre['users']->get($userId) : DB::table('users')->where('id', $userId)->first(['id', 'name', 'employee_ctc', 'monthly_tds']);
 
         if (!$employee || (float) $employee->employee_ctc <= 0) {
             return $this->nothing($year, $regime, 'No salary on record, so tax cannot be worked out.');
@@ -197,7 +258,7 @@ class TaxCalculator
      */
     public function applySlabs(float $taxable, string $year, string $regime): array
     {
-        $slabs = DB::table('tax_slabs')
+        $slabs = self::$slabsMemo[$year . '|' . $regime] ??= DB::table('tax_slabs')
             ->where('financial_year', $year)->where('regime', $regime)
             ->orderBy('sort_order')->get();
 
@@ -312,6 +373,17 @@ class TaxCalculator
      */
     public function paidSoFar(int $userId, string $year, ?Carbon $before = null): array
     {
+        if ($pre = static::pre($userId, $before, $year)) {
+            $row = $pre['paid']->get($userId);
+
+            return [
+                'gross' => (float) ($row->g ?? 0),
+                'tds' => (float) ($row->t ?? 0),
+                'pt' => (float) ($row->p ?? 0),
+                'payslips' => (int) ($row->n ?? 0),
+            ];
+        }
+
         $query = DB::table('payslips')
             ->where('user_id', $userId)
             ->where('status', 'active')
@@ -350,13 +422,14 @@ class TaxCalculator
             return $left;
         }
 
-        $leaving = DB::table('settlements')
+        $pre = static::pre($userId, $periodStart, $year);
+        $leaving = $pre ? $pre['leaving'][$userId] : DB::table('settlements')
             ->where('user_id', $userId)
             ->whereIn('status', ['draft', 'agreed', 'paid'])
             ->orderByDesc('last_working_day')
             ->value('last_working_day');
 
-        if (!$leaving) {
+        if (!$leaving && !$pre) {
             $leaving = DB::table('resignations')
                 ->where('user_id', $userId)
                 ->orderByDesc('id')
@@ -383,9 +456,9 @@ class TaxCalculator
     }
 
     /** An employee's declaration, or an empty one. */
-    public function declaration(int $userId, string $year): object
+    public function declaration(int $userId, string $year, object|false|null $preloaded = null): object
     {
-        $row = DB::table('tax_declarations')->where('user_id', $userId)
+        $row = $preloaded !== null ? $preloaded : DB::table('tax_declarations')->where('user_id', $userId)
             ->where('financial_year', $year)->first();
 
         return $row ?: (object) [
@@ -400,7 +473,7 @@ class TaxCalculator
 
     public function settings(string $year, string $regime)
     {
-        return DB::table('tax_settings')->where('financial_year', $year)
+        return self::$settingsMemo[$year . '|' . $regime] ??= DB::table('tax_settings')->where('financial_year', $year)
             ->where('regime', $regime)->first();
     }
 

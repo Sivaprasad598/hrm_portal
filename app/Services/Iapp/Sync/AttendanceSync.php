@@ -491,7 +491,7 @@ class AttendanceSync
      */
     public static function payslipLocks(array $userIds): array
     {
-        if ($userIds === [] || !\Illuminate\Support\Facades\Schema::hasColumn('payslips', 'approval_status')) {
+        if ($userIds === [] || !\App\Support\SchemaCache::hasColumn('payslips', 'approval_status')) {
             return [];
         }
 

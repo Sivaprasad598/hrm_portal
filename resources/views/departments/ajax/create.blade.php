@@ -28,7 +28,7 @@
                     </div>
                     <div class="col-md-6">
                         <x-forms.text fieldId="designation_name" fieldLabel="Division Name" fieldName="team_name"
-                            fieldRequired="true" fieldPlaceholder="e.g. GIS Department / LIDAR">
+                            fieldRequired="true" fieldPlaceholder="e.g. GIS Division / LIDAR">
                         </x-forms.text>
                     </div>
                     {{-- Department head: approves this department's leave (Leave Settings -> approval steps). --}}

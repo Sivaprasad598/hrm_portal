@@ -55,9 +55,6 @@ $overrideCredit = ['present' => 1, 'wfh' => 1, 'late' => 1, 'halfday' => 0.5, 'c
                 <td class="w-30 px-2"> {!! end($attendance) !!} </td>
                 @foreach ($attendance as $key2 => $day)
                     @if ($key2 + 1 <= count($attendance))
-                        @php
-                            $attendanceDate = \Carbon\Carbon::parse($year.'-'.$month.'-'.$key2);
-                        @endphp
                         <td class="px-1 att-day">
                             @if ($day == 'Leave')
                             <span data-toggle="tooltip" data-html="true"
@@ -71,7 +68,7 @@ $overrideCredit = ['present' => 1, 'wfh' => 1, 'late' => 1, 'halfday' => 0.5, 'c
                                 @php
                                     $totalPresent = $totalPresent + 0.5;
                                 @endphp
-                                @if ($attendanceDate->isFuture())
+                                @if (\Carbon\Carbon::parse($year.'-'.$month.'-'.$key2)->isFuture())
                                     <span data-toggle="tooltip" data-original-title="@lang('modules.attendance.halfDay')"><i
                                         class="fa fa-star-half-alt text-red"></i></span>
                                 @else

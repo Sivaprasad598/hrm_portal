@@ -7,7 +7,7 @@
 @section('filter-section')
     <x-filters.filter-box>
         <div class="select-box d-flex py-2 px-lg-2 px-md-2 px-0 border-right-grey border-right-grey-sm-0">
-            <p class="mb-0 pr-2 f-14 text-dark-grey d-flex align-items-center">Department</p>
+            <p class="mb-0 pr-2 f-14 text-dark-grey d-flex align-items-center">Division</p>
             <div class="select-status">
                 <select class="form-control select-picker" name="exit_department" id="exit_department">
                     <option value="all">All</option>

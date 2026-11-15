@@ -64,6 +64,16 @@ class PayElementsController extends AccountBaseController
         $this->departments = DB::table('teams')->orderBy('team_name')->pluck('team_name', 'id');
 
         $this->lines = $this->periodLines($cycle);
+
+        // The table shows 25 lines a page; the totals above it still count every line
+        $perPage = 25;
+        $page = max(1, (int) $request->query('lines_page', 1));
+        $page = min($page, max(1, (int) ceil(count($this->lines) / $perPage)));
+        $this->linesPage = (new \Illuminate\Pagination\LengthAwarePaginator(
+            array_slice($this->lines, ($page - 1) * $perPage, $perPage),
+            count($this->lines), $perPage, $page,
+            ['path' => $request->url(), 'pageName' => 'lines_page']
+        ))->appends(['tab' => 'period', 'month' => $cycle->month, 'year' => $cycle->year])->fragment('period-lines');
         $this->arrangements = $this->arrangements();
         $this->rules = $this->rules();
         $this->groups = $this->groups();
@@ -414,7 +424,7 @@ class PayElementsController extends AccountBaseController
         foreach ($rules as $rule) {
             $rule->target = match ($rule->scope) {
                 'everyone' => 'Everyone',
-                'department' => 'Department: ' . ($departments[$rule->scope_id] ?? 'gone'),
+                'department' => 'Division: ' . ($departments[$rule->scope_id] ?? 'gone'),
                 'designation' => 'Designation: ' . ($designations[$rule->scope_id] ?? 'gone'),
                 'group' => 'Group: ' . ($groups[$rule->scope_id] ?? 'gone'),
                 'employee' => $people[$rule->scope_id] ?? 'gone',

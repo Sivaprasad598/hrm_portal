@@ -4,13 +4,16 @@
 @php
     $comingSoonRoutes = [
         // Assets
-        // (Assets: open again)
+        'assets.*', 'asset-types.*',
         // Work
         'contracts.*', 'projects.*', 'tasks.*', 'timelogs.*', 'weekly-timesheets.*', 'taskboards.*',
     ];
+    // My Space -> My Assets (and an employee's Assets tab opened by its link):
+    // the profile page with ?tab=assets. Take this out with 'assets.*' above.
+    $comingSoonTab = request()->routeIs('employees.show') && request('tab') === 'assets';
 @endphp
 
-@if (request()->routeIs(...$comingSoonRoutes))
+@if (request()->routeIs(...$comingSoonRoutes) || $comingSoonTab)
     <div class="coming-soon" role="dialog" aria-label="Coming soon">
         <div class="coming-soon__card">
             {{-- the illustration: a rocket rising over a gently pulsing ring --}}

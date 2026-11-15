@@ -58,7 +58,7 @@
                         <option value="all">@lang('app.all')</option>
                     @endif
                     @forelse ($employees as $item)
-                        <x-user-option :user="$item" :selected="request('employee_id') == $item->id || $selectedEmployee == $item->id"></x-user-option>
+                        {!! \App\View\Components\UserOption::plain($item, request('employee_id') == $item->id || $selectedEmployee == $item->id) !!}
                     @empty
                         <x-user-option :user="user()"></x-user-option>
                     @endforelse
@@ -154,8 +154,7 @@
     </div>
     <!-- CONTENT WRAPPER END -->
 
-@endsection
-
+{{-- Inside the content section: outside it, it was printed above <!doctype> (no tab icon, quirks mode) --}}
 @if (canDataTableExport())
     <div class="modal fade" id="attendanceExportModal" tabindex="-1" role="dialog" aria-labelledby="attendanceExportModalLabel"
          aria-hidden="true">
@@ -179,6 +178,8 @@
         </div>
     </div>
 @endif
+
+@endsection
 
 @push('scripts')
 

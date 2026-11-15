@@ -76,7 +76,7 @@ class PageGroups
             return $cache;
         }
 
-        if (!\Illuminate\Support\Facades\Schema::hasColumn('sidebar_menus', 'tab_group')) {
+        if (!\App\Support\SchemaCache::hasColumn('sidebar_menus', 'tab_group')) {
             return $cache = self::GROUPS;
         }
 

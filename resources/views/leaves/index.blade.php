@@ -68,7 +68,7 @@ $teamView = \App\Http\Controllers\LeaveController::access()['team'];
                         data-live-search="true" data-size="8" data-container="body">
                         <option value="all">All team members</option>
                         @foreach ($employees as $employee)
-                            <x-user-option :user="$employee" />
+                            {!! \App\View\Components\UserOption::plain($employee) !!}
                         @endforeach
                     </select>
                 </div>
@@ -125,7 +125,7 @@ $teamView = \App\Http\Controllers\LeaveController::access()['team'];
                                 <option value="all">@lang('app.all')</option>
                             @endif
                             @foreach ($employees as $employee)
-                                    <x-user-option :user="$employee" />
+                                    {!! \App\View\Components\UserOption::plain($employee) !!}
                             @endforeach
                         </select>
                     </div>

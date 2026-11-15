@@ -16,7 +16,7 @@
 
     <!-- Template CSS -->
     <link href="{{ asset('vendor/froiden-helper/helper.css') }}" rel="stylesheet" defer="defer">
-    <link type="text/css" rel="stylesheet" media="all" href="{{ asset('css/main.css') }}">
+    <link type="text/css" rel="stylesheet" media="all" href="{{ asset('css/main.css') }}?v={{ filemtime(public_path('css/main.css')) }}">
 
     <title>{{ $globalSetting->global_app_name }}</title>
 
@@ -55,6 +55,25 @@
                 max-width: unset;
             }
         </style>
+    @endif
+
+    {{-- While someone types their password: the portal's own stylesheets and scripts
+         (the ones this page does not use) are fetched quietly in the background, so the
+         dashboard after signing in opens from the browser's cache. Same addresses as
+         layouts/app, or the cache would not be used. --}}
+    @if (request()->routeIs('login'))
+        @foreach (['vendor/css/simple-line-icons.css', 'vendor/css/datepicker.min.css', 'vendor/css/bootstrap-timepicker.min.css',
+                   'vendor/css/select2.min.css', 'vendor/css/bootstrap-icons.css'] as $file)
+            <link rel="prefetch" as="style" href="{{ asset($file) }}">
+        @endforeach
+        @foreach (['css/app-custom.css', 'css/theme-custom.css', 'css/epic/theme.css'] as $file)
+            @if (file_exists(public_path($file)))
+                <link rel="prefetch" as="style" href="{{ asset($file) }}?v={{ filemtime(public_path($file)) }}">
+            @endif
+        @endforeach
+        @foreach (['vendor/jquery/modernizr.min.js', 'vendor/jquery/bootstrap-colorpicker.js', 'vendor/jquery/bootstrap-timepicker.min.js'] as $file)
+            <link rel="prefetch" as="script" href="{{ asset($file) }}">
+        @endforeach
     @endif
 
 </head>
@@ -146,7 +165,7 @@
 <script src="{{ asset('vendor/jquery/all.min.js') }}" defer="defer"></script>
 
 <!-- Template JS -->
-<script src="{{ asset('js/main.js') }}"></script>
+<script src="{{ asset('js/main.js') }}?v={{ filemtime(public_path('js/main.js')) }}"></script>
 <script>
     document.loading = '@lang('app.loading')';
     const MODAL_DEFAULT = '#myModalDefault';

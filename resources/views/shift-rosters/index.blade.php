@@ -51,7 +51,7 @@
                     @forelse ($employees as $item)
                         <x-user-option :user="$item" :selected="request('employee_id') == $item->id"/>
                     @empty
-                        <x-user-option :user="user()"/>
+                        {!! \App\View\Components\UserOption::plain(user()) !!}
                     @endforelse
                 </select>
             </div>

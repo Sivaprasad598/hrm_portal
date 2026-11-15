@@ -24,6 +24,20 @@ class LoginController extends Controller
 
     protected $redirectTo = 'account/dashboard';
 
+    /**
+     * The sign-in form takes a fresh token just before it is sent (the page may
+     * have been open a while, or the session changed in another tab). It used to
+     * download the whole login page for it; this answers with just the token, or
+     * where to go when already signed in.
+     */
+    public function freshToken()
+    {
+        return response()->json([
+            'token' => csrf_token(),
+            'home' => auth()->check() ? url($this->redirectTo) : null,
+        ])->header('Cache-Control', 'no-store');
+    }
+
     public function checkEmail(LoginRequest $request)
     {
         $user = User::where('email', $request->email)

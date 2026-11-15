@@ -87,7 +87,7 @@
                         {{-- Every mapped employee is listed; search by name, employee ID,
                              device code or card ID, or narrow by department (QA TC-0017) --}}
                         <select class="form-control form-control-sm select-picker mb-1" id="sync-department" data-live-search="true" data-size="8">
-                            <option value="">All departments</option>
+                            <option value="">All divisions</option>
                             @foreach ($departments as $deptId => $deptName)
                                 <option value="{{ $deptId }}">{{ $deptName }}</option>
                             @endforeach
@@ -99,7 +99,7 @@
                                         data-tokens="{{ $employee->tokens }}" data-subtext="{{ $employee->subtext }}">{{ $employee->name }}</option>
                             @endforeach
                         </select>
-                        <span class="filter-hint">Leave empty for everyone mapped (in the department, if one is picked).</span>
+                        <span class="filter-hint">Leave empty for everyone mapped (in the division, if one is picked).</span>
                     </div>
 
                     <div class="col-md-3">

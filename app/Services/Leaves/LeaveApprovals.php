@@ -33,7 +33,7 @@ use RuntimeException;
 class LeaveApprovals
 {
 
-    public const STEPS = ['manager' => 'Manager', 'ceo' => 'CEO', 'department_head' => 'Department head', 'hr' => 'HR'];
+    public const STEPS = ['manager' => 'Manager', 'ceo' => 'CEO', 'department_head' => 'Division head', 'hr' => 'HR'];
 
     public const DONE = 'done';
 

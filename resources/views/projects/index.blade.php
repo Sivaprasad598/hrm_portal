@@ -91,7 +91,7 @@
                                 <option selected value="all">@lang('app.all')</option>
                             @endif
                             @foreach ($clients as $client)
-                                <x-user-option :user="$client" />
+                                {!! \App\View\Components\UserOption::plain($client) !!}
                             @endforeach
                         </select>
                     </div>

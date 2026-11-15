@@ -336,6 +336,13 @@ class PayrollRunController extends AccountBaseController
         // queries, rather than a handful per employee.
         $days->preload($employees->pluck('id')->all(), $cycle->start, $cycle->end);
 
+        // ...and the OT bank, the extra lines and the tax figures, the same way
+        // (they asked 18 queries per employee: ~6,000 for the whole company)
+        $ids = $employees->pluck('id')->all();
+        \App\Services\Payroll\OtBank::preload($ids, $cycle);
+        PayComponents::preload($ids, $cycle->start);
+        \App\Services\Payroll\TaxCalculator::preload($ids, $cycle->start);
+
         // Which of them already hold a payslip for this month.
         $existing = DB::table('payslips')
             ->where('period', $periodLabel)->where('status', 'active')->whereNull('deleted_at')

@@ -100,7 +100,7 @@ $viewUnassignedTasksPermission = user()->permission('view_unassigned_tasks');
                         <select class="form-control select-picker" id="clientID" data-live-search="true" data-container="body" data-size="8">
                             <option value="all">@lang('app.all')</option>
                             @foreach ($clients as $client)
-                                <x-user-option :user="$client"></x-user-option>
+                                {!! \App\View\Components\UserOption::plain($client) !!}
                             @endforeach
                         </select>
                     </div>
@@ -113,7 +113,7 @@ $viewUnassignedTasksPermission = user()->permission('view_unassigned_tasks');
                         <select class="form-control select-picker" id="assignedTo" data-live-search="true" data-container="body" data-size="8">
                             <option value="all">@lang('app.all')</option>
                             @foreach ($employees as $employee)
-                                <x-user-option :user="$employee"></x-user-option>
+                                {!! \App\View\Components\UserOption::plain($employee) !!}
                             @endforeach
                             @if ($viewUnassignedTasksPermission == 'all')
                                 <option value="unassigned">@lang('modules.tasks.unassigned')</option>
@@ -130,7 +130,7 @@ $viewUnassignedTasksPermission = user()->permission('view_unassigned_tasks');
                         <select class="form-control select-picker" id="assignedBY" data-live-search="true" data-container="body" data-size="8">
                             <option value="all">@lang('app.all')</option>
                             @foreach ($employees as $employee)
-                                <x-user-option :user="$employee" />
+                                {!! \App\View\Components\UserOption::plain($employee) !!}
                             @endforeach
                         </select>
                     </div>

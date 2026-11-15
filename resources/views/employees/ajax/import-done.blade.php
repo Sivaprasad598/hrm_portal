@@ -13,7 +13,7 @@
                     ['Employees added', $result['created'], 'text-success', 'fa-user-plus'],
                     ['Updated', $result['updated'], 'text-primary', 'fa-user-edit'],
                     ['Not imported', $result['skipped'], $result['skipped'] ? 'text-red' : 'text-lightest', 'fa-user-times'],
-                    ['Departments created', $result['teams'], 'text-dark-grey', 'fa-sitemap'],
+                    ['Divisions created', $result['teams'], 'text-dark-grey', 'fa-sitemap'],
                     ['Designations created', $result['designations'], 'text-dark-grey', 'fa-id-badge'],
                     ['Branches created', $result['branches'], 'text-dark-grey', 'fa-map-marker-alt'],
                 ] as [$label, $value, $class, $icon])

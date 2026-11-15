@@ -67,7 +67,7 @@ class PayrollRegisterSheet implements FromArray, WithHeadings, WithTitle, WithEv
 
     public function headings(): array
     {
-        return ['S.No', 'Payslip No', 'Employee', 'Code', 'Department', 'PAN',
+        return ['S.No', 'Payslip No', 'Employee', 'Code', 'Division', 'PAN',
             'Gross', 'Basic', 'HRA', 'CA', 'LTA', 'CEA', 'Special Allowance',
             'Working Days', 'Days Paid', 'LOP Days',
             'PF (employee)', 'ESI (employee)', 'PT', 'TDS', 'Total Deductions',
@@ -300,7 +300,7 @@ class PayrollSummarySheet implements FromArray, WithTitle, WithEvents, ShouldAut
             ['Unpaid days deducted across the month', $round($t['lop_days'])],
             ['', ''],
             ['BY DEPARTMENT', ''],
-            ['Department', 'People', 'Gross', 'Paid', 'Cost to company'],
+            ['Division', 'People', 'Gross', 'Paid', 'Cost to company'],
         ];
 
         $groups = [];

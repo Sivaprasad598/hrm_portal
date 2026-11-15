@@ -20,7 +20,7 @@ class SandwichRule
 
     public static function enabled(): bool
     {
-        return self::$on ??= Schema::hasColumn('leave_settings', 'sandwich_rule')
+        return self::$on ??= \App\Support\SchemaCache::hasColumn('leave_settings', 'sandwich_rule')
             && (bool) DB::table('leave_settings')->value('sandwich_rule');
     }
 

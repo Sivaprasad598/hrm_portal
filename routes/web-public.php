@@ -68,6 +68,7 @@ Route::get('/task-board/load-more/{hash}', [HomeController::class, 'taskboardLoa
 // Socialite routes
 Route::get('/redirect/{provider}', [LoginController::class, 'redirect'])->name('social_login');
 Route::get('/callback/{provider}', [LoginController::class, 'callback'])->name('social_login_callback');
+Route::get('login-token', [LoginController::class, 'freshToken'])->name('login.fresh_token');
 Route::post('check-email', [LoginController::class, 'checkEmail'])->name('check_email');
 Route::post('check-code', [LoginController::class, 'checkCode'])->name('check_code');
 Route::get('resend-code', [LoginController::class, 'resendCode'])->name('resend_code');

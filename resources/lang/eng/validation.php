@@ -171,7 +171,7 @@ return array(
         'remind_time' => 'remind time',
         'next_follow_up_date' => 'next follow up date',
         'employee_id' => 'employee id',
-        'department' => 'department',
+        'department' => 'division',
         'designation' => 'designation',
         'hourly_rate' => 'hourly rate',
         'joining_date' => 'joining date',

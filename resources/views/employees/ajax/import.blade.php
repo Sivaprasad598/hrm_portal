@@ -7,7 +7,7 @@
                 <div class="col-sm-12 pt-2">
                     <div class="alert alert-warning mb-0" role="alert">
                         Upload the HR master sheet (<strong>Active Employees</strong> layout). Dates can be Excel dates or
-                        dd/mm/yyyy. Departments, parent departments, designations and branches that do not exist yet are
+                        dd/mm/yyyy. Divisions, parent divisions, designations and branches that do not exist yet are
                         created. <strong>Nothing is saved on upload</strong>: every row is shown for review first.
                     </div>
                 </div>

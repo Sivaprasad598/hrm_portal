@@ -23,7 +23,7 @@
                             <div class="card border">
                                 <div class="card-body">
                                     <div class="d-flex align-items-center mb-3">
-                                        <img src="https://cdn.worldvectorlogo.com/logos/envato.svg" alt="Envato" class="h-8 w-8 object-contain mr-3" style="height: 32px; width: 32px;">
+                                        <img src="https://cdn.worldvectorlogo.com/logos/envato.svg" loading="lazy" alt="Envato" class="h-8 w-8 object-contain mr-3" style="height: 32px; width: 32px;">
                                         <div>
                                             <h5 class="font-weight-bold text-dark mb-1">Envato Regular Support</h5>
                                             <p class="text-muted small mb-0">Included with your purchase</p>
@@ -73,7 +73,7 @@
                                     </div>
 
                                     <div class="d-flex align-items-center mb-3">
-                                        <img src="https://envato.froid.works/logo-froiden.png" alt="Froiden" class="" style="height: 32px;">
+                                        <img src="https://envato.froid.works/logo-froiden.png" loading="lazy" alt="Froiden" class="" style="height: 32px;">
                                         <div>
                                             <h5 class="font-weight-bold text-dark mb-1">Priority Support</h5>
                                             <p class="text-muted small mb-0">Premium enhancement service</p>

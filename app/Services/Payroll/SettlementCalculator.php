@@ -276,7 +276,7 @@ class SettlementCalculator
         $resignation = DB::table('resignations')
             ->where('user_id', $userId)
             ->where('status', 'approved')
-            ->when(\Illuminate\Support\Facades\Schema::hasColumn('resignations', 'closed_by_rejoin_id'),
+            ->when(\App\Support\SchemaCache::hasColumn('resignations', 'closed_by_rejoin_id'),
                 fn ($q) => $q->whereNull('closed_by_rejoin_id'))
             ->orderByDesc('id')
             ->first(['notice_period_days', 'notice_start_date', 'last_working_date', 'notice_served']);

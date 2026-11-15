@@ -1,23 +1,23 @@
-# Project root: public_html/arowanauk/hrm on the server (served as
-# https://arowanauk.com/hrm), C:/wamp64/www/hrm_portal locally.
+# Project root. Works unchanged in both places:
+#   live:  public_html/arowanaone.com  -> https://arowanaone.com/login (no sub folder)
+#   local: C:/wamp64/www/hrm_portal    -> http://localhost/hrm_portal/login
 #
-# The application lives in public/, but the address has no "/public" in it:
-#   https://arowanauk.com/hrm/login   (locally http://localhost/hrm_portal/login)
+# The application lives in public/, but the address has no "/public" in it.
 # Every request is handed to public/ internally, so nothing outside public/ is
-# ever served: .env (database password), storage/ and its backups, vendor/,
-# the source code, the HR Excel sheets in development_resourses/ and the
-# legacy PHP pages (those run only through the application, after sign-in) -
-# asked for by name they simply come back "not found".
-# public/index.php tells the framework it sits at this folder, so every link it
-# builds leaves "/public" out too (APP_URL in .env must match: no /public).
+# ever served: .env (passwords), storage/ and its backups, vendor/, the source
+# code, the HR Excel sheets and the legacy PHP pages (those run only through the
+# application, after sign-in). public/index.php tells the framework it sits at
+# this folder, so every link it builds leaves "/public" out too (APP_URL in .env
+# must match: https://arowanaone.com live, http://localhost/hrm_portal here).
 
 Options -Indexes
+DirectoryIndex index.php index.html
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
     # Plain http goes to https (the password and the API token travel in the
-    # request). Not on this machine, which has no certificate.
+    # request), also behind a proxy. Not on this machine, which has no certificate.
     RewriteCond %{HTTPS} !=on
     RewriteCond %{HTTP:X-Forwarded-Proto} !https
     RewriteCond %{HTTP_HOST} !^(localhost|127\.0\.0\.1)(:\d+)?$ [NC]
@@ -27,22 +27,32 @@ Options -Indexes
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 
+    # SSL certificate checks (cPanel AutoSSL / Let's Encrypt) are answered from
+    # here, not from public/, or the certificate stops renewing.
+    RewriteRule ^\.well-known/ - [L]
+
+    # The application's own files are never served from the root.
+    RewriteRule ^(\.env.*|\.git(/.*)?|composer\.(json|lock)|package(-lock)?\.json|artisan)$ - [F,L,NC]
+    RewriteRule ^[^/]+\.(sql|xlsx|log|sh|bak|zip)$ - [F,L,NC]
+
+    # The installer and the purchase check stay closed on an installed site
+    # (take this line out only while deliberately running a fresh install).
+    RewriteRule ^(public/)?(install|verify-purchase)(/.*)?$ - [F,L,NC]
+
     # (Old links with "/public" in them are sent to the clean address by
     # public/.htaccess: Apache runs only that file for anything under public/.)
 
     # Everything else is served from public/, without it showing.
-    RewriteRule ^(?!public(/|$))(.*)$ public/$2 [L]
+    RewriteRule ^(?!public(?:/|$))(.*)$ public/$1 [L]
 </IfModule>
 
-# Without mod_rewrite, refuse the dangerous files at least.
-<IfModule !mod_rewrite.c>
-    <FilesMatch "^(\.env.*|composer\.(json|lock)|artisan|.*\.sql|.*\.xlsx)$">
-        <IfModule mod_authz_core.c>
-            Require all denied
-        </IfModule>
-        <IfModule !mod_authz_core.c>
-            Order allow,deny
-            Deny from all
-        </IfModule>
-    </FilesMatch>
-</IfModule>
+# With or without mod_rewrite: no secrets from the root.
+<FilesMatch "^(\.env.*|composer\.(json|lock)|artisan|.*\.(sql|log))$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>

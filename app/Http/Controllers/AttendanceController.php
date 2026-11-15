@@ -147,7 +147,15 @@ class AttendanceController extends AccountBaseController
      */
     protected function gridPage($query, $request)
     {
-        $total = (clone $query)->get(['users.id'])->count();
+        // Counted without the eager loads: the month's attendance, shifts and
+        // leaves of every employee were loaded just to count them (~0.7 s)
+        $counter = clone $query;
+
+        if ($counter instanceof \Illuminate\Database\Eloquent\Builder) {
+            $counter->setEagerLoads([]);
+        }
+
+        $total = $counter->get(['users.id'])->count();
         $pages = max(1, (int) ceil($total / self::GRID_PAGE_SIZE));
         $page = min($pages, max(1, (int) $request->page));
 
@@ -208,8 +216,12 @@ class AttendanceController extends AccountBaseController
         $counter = new \App\Services\Payroll\AttendanceDays(company()->timezone ?: 'Asia/Kolkata');
         $rows = [];
 
-        foreach ($this->gridPage($employees, $request) as $employee) {
-            $rows[] = ['employee' => $employee, 'count' => $counter->forRange($employee->id, $cycle->start, $cycle->end)];
+        $page = $this->gridPage($employees, $request);
+        // The page's attendance, leaves and shifts in one read each (as Monthly Payroll does)
+        $counter->preload($page->pluck('id')->all(), $cycle->start, $cycle->end);
+
+        foreach ($page as $employee) {
+            $rows[] =['employee' => $employee, 'count' => $counter->forRange($employee->id, $cycle->start, $cycle->end)];
         }
 
         $this->cycle = $cycle;
@@ -234,7 +246,7 @@ class AttendanceController extends AccountBaseController
 
         $this->attendanceIds = $attendanceIds;
 
-        $view = view('attendances.ajax.cycle_data', $this->data)->render();
+        $view = preg_replace('/\s+/', ' ', view('attendances.ajax.cycle_data', $this->data)->render());
 
         return Reply::dataOnly(['status' => 'success', 'data' => $view]);
     }
@@ -699,7 +711,9 @@ class AttendanceController extends AccountBaseController
         $this->month = $request->month;
         $this->year = $request->year;
 
-        $view = view('attendances.ajax.summary_data', $this->data)->render();
+        // The template's indentation was two thirds of the answer (650 KB for a
+        // page of 50 people); the table reads the same with single spaces
+        $view = preg_replace('/\s+/', ' ', view('attendances.ajax.summary_data', $this->data)->render());
 
         return Reply::dataOnly(['status' => 'success', 'data' => $view]);
     }

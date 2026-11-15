@@ -20,7 +20,7 @@
                         <div class="form-group mb-0">
                             <select name="department_id" id="department_id" class="form-control select-picker" data-live-search="true"
                                 data-size="8" data-container="body">
-                                <option value="0">All departments</option>
+                                <option value="0">All divisions</option>
                                 @include('departments.partials.tree-options', ['departments' => $departments])
                             </select>
                         </div>

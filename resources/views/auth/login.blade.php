@@ -206,25 +206,20 @@
                     event.preventDefault();
                     const form = this;
 
-                    fetch("{{ route('login') }}", { credentials: 'same-origin', cache: 'no-store' })
+                    // Just the token (a few bytes), not the whole login page again
+                    fetch("{{ route('login.fresh_token') }}", { credentials: 'same-origin', cache: 'no-store', headers: { 'Accept': 'application/json' } })
                         .then(function (response) {
-                            if (response.redirected && response.url.indexOf('/login') === -1) {
-                                window.location = response.url;
-                                return null;
-                            }
-
-                            return response.text();
+                            return response.ok ? response.json() : {};
                         })
-                        .then(function (html) {
-                            if (html === null) {
+                        .then(function (data) {
+                            if (data.home) {
+                                window.location = data.home;
                                 return;
                             }
 
-                            const match = html.match(/name="_token" value="([^"]+)"/);
-
-                            if (match) {
-                                $(form).find('input[name="_token"]').val(match[1]);
-                                $('meta[name="csrf-token"]').attr('content', match[1]);
+                            if (data.token) {
+                                $(form).find('input[name="_token"]').val(data.token);
+                                $('meta[name="csrf-token"]').attr('content', data.token);
                             }
 
                             freshToken = true;

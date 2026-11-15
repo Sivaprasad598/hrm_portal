@@ -2,6 +2,10 @@
 
 @push('styles')
     <style>
+        /* the period lines pager: compact, inside the card footer */
+        .period-pager .pagination { margin: 0; flex-wrap: wrap; }
+        .period-pager .page-link { display: flex; align-items: center; justify-content: center; height: 30px; min-width: 32px; padding: 0 10px; font-size: 12px; line-height: 1; }
+        .period-pager .page-item.active .page-link { color: #fff; }
     /* Rule and advance forms: a four-column grid, labels on top, one height, the button on its own line at the right */
     .pe-form { padding: 20px 22px 18px !important; border-top: 1px solid var(--border-color, #eef0f3); }
     .pe-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px 18px; align-items: start; }
@@ -168,9 +172,9 @@
                                     </select>
                                 </div>
                                 <div class="col-md-4 mb-2">
-                                    <label class="f-12 text-dark-grey">Or everyone in a department</label>
+                                    <label class="f-12 text-dark-grey">Or everyone in a division</label>
                                     <select id="assign-department" class="form-control f-14">
-                                        <option value="">Choose a department…</option>
+                                        <option value="">Choose a division…</option>
                                         @foreach ($departments as $id => $name)
                                             <option value="{{ $id }}">{{ $name }}</option>
                                         @endforeach
@@ -218,7 +222,7 @@
                     </div>
                 </div>
 
-                <div class="card bg-white border-0 b-shadow-4 mb-3">
+                <div class="card bg-white border-0 b-shadow-4 mb-3" id="period-lines">
                     <div class="card-header bg-white border-bottom p-3">
                         <h6 class="mb-0 f-14">What is already on {{ $monthName }}</h6>
                         <p class="mb-0 f-12 text-lightest">
@@ -241,7 +245,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @forelse ($lines as $line)
+                                @forelse ($linesPage as $line)
                                     <tr>
                                         <td>
                                             {{ $line->name }}
@@ -287,6 +291,14 @@
                             </tbody>
                         </table>
                     </div>
+                    @if ($linesPage->hasPages())
+                        <div class="d-flex justify-content-between align-items-center flex-wrap px-3 py-3 border-top f-12">
+                            <span class="text-lightest">
+                                Showing {{ $linesPage->firstItem() }}–{{ $linesPage->lastItem() }} of {{ $linesPage->total() }} lines
+                            </span>
+                            <div class="period-pager">{{ $linesPage->onEachSide(1)->links() }}</div>
+                        </div>
+                    @endif
                 </div>
             </div>
 
@@ -389,7 +401,7 @@
                     <div class="card-header bg-white border-bottom p-3">
                         <h6 class="mb-0 f-14">Recurring earnings: pay an amount every month, automatically</h6>
                         <p class="mb-0 f-12 text-lightest">
-                            "Everyone in Gis Department gets ₹1,000 a month." The rule adds one line per employee
+                            "Everyone in Gis Division gets ₹1,000 a month." The rule adds one line per employee
                             per pay period, from the month it starts until it is stopped. Two rules reaching the
                             same person both apply, each as its own line, so the payslip always says where an
                             amount came from.
@@ -414,7 +426,7 @@
                                     <label>Who it is for</label>
                                     <select id="rule-scope" class="form-control f-14">
                                         <option value="everyone">Everyone</option>
-                                        <option value="department">A department</option>
+                                        <option value="department">A division</option>
                                         <option value="designation">A designation</option>
                                         <option value="group">A group</option>
                                         <option value="employee">One employee</option>
@@ -852,7 +864,7 @@
                     .map(function (e) { return String(e.id); });
 
                 if (!inDepartment.length) {
-                    Swal.fire({ icon: 'info', title: 'Nobody active in that department' });
+                    Swal.fire({ icon: 'info', title: 'Nobody active in that division' });
 
                     return;
                 }

@@ -98,9 +98,31 @@ class EmploymentPeriods
      *
      * @return array<string, bool>|null  date => payable, for every date in the range
      */
+    /** Everybody's periods for payableDays(), read in one query (AttendanceDays::preload). */
+    protected static array $preloaded = [];
+
+    public static function preload(array $userIds): void
+    {
+        $ids = array_values(array_unique(array_map('intval', $userIds)));
+        $rows = DB::table('employment_periods as p')
+            ->leftJoin('settlements as s', 's.id', '=', 'p.settlement_id')
+            ->whereIn('p.user_id', $ids ?: [0])->orderBy('p.user_id')->orderBy('p.period_no')
+            ->get(['p.user_id', 'p.joined_on', 'p.left_on', 's.status as settlement_status', 's.last_working_day'])
+            ->groupBy('user_id');
+
+        foreach ($ids as $id) {
+            static::$preloaded[$id] = collect($rows->get($id, []))->values();
+        }
+    }
+
+    public static function forgetPreload(): void
+    {
+        static::$preloaded = [];
+    }
+
     public function payableDays(int $userId, string $from, string $to): ?array
     {
-        $periods = DB::table('employment_periods as p')
+        $periods = static::$preloaded[$userId] ?? DB::table('employment_periods as p')
             ->leftJoin('settlements as s', 's.id', '=', 'p.settlement_id')
             ->where('p.user_id', $userId)->orderBy('p.period_no')
             ->get(['p.joined_on', 'p.left_on', 's.status as settlement_status', 's.last_working_day']);

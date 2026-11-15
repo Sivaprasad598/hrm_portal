@@ -204,7 +204,7 @@ return array(
         'endDateForNoticePeriod' => 'Notice period ended',
         'reportingManagerAssigned' => 'Reporting Manager Updated',
         'reportingManagerUnassigned'  => 'Reporting Manager Updated: Unassigned',
-        'departmentChanged' => 'Department Updated',
+        'departmentChanged' => 'Division Updated',
         'designationChanged' => 'Designation Updated',
         'joinedCompany' => 'Joined organisation 🎉',
         'deleteFaceId' => 'Delete Verified Face'

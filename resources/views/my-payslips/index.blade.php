@@ -14,22 +14,33 @@
         $days = fn ($v) => rtrim(rtrim(number_format((float) $v, 2), '0'), '.');
     @endphp
 
-    <div class="content-wrapper">
-        <div class="card bg-white border-0 b-shadow-4">
-            <div class="card-header bg-white border-0 d-flex justify-content-between align-items-start flex-wrap pt-4">
-                <div>
-                    <h4 class="f-18 f-w-500 mb-0">My Payslips</h4>
-                    <p class="ms-intro">Every payslip issued to you, newest first. A payslip appears here once payroll has approved it.</p>
-                </div>
-                {{-- Only once a payslip has been issued: before that there is nothing to certify. --}}
-                @if ($payslips->isNotEmpty())
-                    <a href="{{ route('my-payslips.form-16') }}" class="btn btn-outline-primary rounded f-14 mt-1">
-                        <i class="fa fa-file-alt mr-1"></i> My Form 16
-                    </a>
-                @endif
-            </div>
+    <style>
+        /* the app's standard: no heading (the top bar names the page); counts and the
+           payslips as white rounded cards on the grey page, a count badge on the section */
+        .mp-std .mp-bar { display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 16px; }
+        body.epic .mp-std .mp-bar .btn { height: 38px; border-radius: 8px !important; display: inline-flex; align-items: center; padding: 0 14px !important; font-size: 14px; }
+        .mp-std .ms-stats { margin-bottom: 16px; }
+        .mp-std .ms-stats > * { background: #fff; border-radius: 12px !important; box-shadow: 0 1px 3px rgba(16, 24, 40, .06); }
+        .mp-std .mp-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 3px rgba(16, 24, 40, .06); padding: 16px 20px; margin-bottom: 16px; }
+        .mp-std .mp-card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+        .mp-std .mp-card-head h5 { font-size: 15px; font-weight: 600; margin: 0; color: #1f2937; }
+        .mp-std .mp-count { background: #f3f4f6; color: #4b5563; border-radius: 10px; font-size: 12px; padding: 1px 8px; }
+        .mp-std .ms-empty { border: 1px dashed #e5e7eb; border-radius: 10px; }
+    </style>
 
-            <div class="card-body pt-2">
+    {{-- (no heading or intro text: the top bar names the page) --}}
+    <div class="content-wrapper mp-std">
+        {{-- Only once a payslip has been issued: before that there is nothing to certify. --}}
+        @if ($payslips->isNotEmpty())
+            <div class="mp-bar">
+                <a href="{{ route('my-payslips.form-16') }}" class="btn btn-outline-primary rounded f-14">
+                    <i class="fa fa-file-alt mr-1"></i> My Form 16
+                </a>
+            </div>
+        @endif
+
+        <div>
+            <div>
                 <div class="ms-stats">
                     <div class="ms-stat is-total">
                         <div class="lbl"><span class="ic" style="--ic-bg:var(--epic-blue,#cb6b4f);--ic-fg:#fff"><i class="fa fa-wallet"></i></span>Last take-home</div>
@@ -53,7 +64,8 @@
                     </div>
                 </div>
 
-                <div class="ms-sec"><h5>Payslips <span>newest first</span></h5></div>
+                <div class="mp-card">
+                <div class="mp-card-head"><h5>Payslips</h5><span class="mp-count">{{ $payslips->count() }}</span></div>
 
                 @if ($payslips->isEmpty())
                     <div class="ms-empty">
@@ -110,6 +122,7 @@
                         </table>
                     </div>
                 @endif
+                </div>
             </div>
         </div>
     </div>

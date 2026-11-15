@@ -204,7 +204,7 @@ class EmployeeExitDataTable extends BaseDataTable
     {
         return [
             Column::make('employee')->title('Employee'),
-            Column::make('department')->title('Department'),
+            Column::make('department')->title('Division'),
             Column::make('designation')->title('Designation'),
             Column::make('status_badge')->title('Status'),
             Column::make('exit_type')->title('Exit Type'),

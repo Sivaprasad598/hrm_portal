@@ -264,6 +264,8 @@
                         </tr>
                     </thead>
                     <tbody>
+                        {{-- The rows' indentation was most of the page (2.4 MB for 345 people): sent with single spaces --}}
+                        @php ob_start(); @endphp
                         @forelse ($rows as $row)
                             <tr @class(['text-lightest' => $row['status'] === 'blocked'])>
                                 <td class="col-sno">{{ $row['serial'] }}</td>
@@ -282,7 +284,7 @@
                                     @if (($row['basis'] ?? '') === 'exempt')
                                         <br><span class="badge badge-light f-10" title="Salary not based on attendance: full salary, leave still counts">Attendance-exempt</span>
                                     @elseif (($row['basis'] ?? '') === 'hours_off')
-                                        <br><span class="badge badge-light f-10" title="The department does not consider hours: any punch is a full day">Hours not considered</span>
+                                        <br><span class="badge badge-light f-10" title="The division does not consider hours: any punch is a full day">Hours not considered</span>
                                     @endif
                                     @if (($row['breakdown']['late_marks'] ?? 0) || ($row['breakdown']['late_half_days'] ?? 0))
                                         <br><span class="f-10 text-warning" title="Lates before the half-day mark (every Nth costs a deduction) / arrivals after the half-day mark (half day each)">
@@ -393,6 +395,7 @@
                                 </td>
                             </tr>
                         @endforelse
+                        @php echo preg_replace('/\s+/', ' ', ob_get_clean()); @endphp
                     </tbody>
                     @if ($rows !== [])
                         <tfoot>
@@ -452,10 +455,8 @@
         });
     })();
 </script>
-@endsection
 
-
-{{-- OT bank for one employee and this period --}}
+{{-- OT bank for one employee and this period (inside the content section: outside it, it was printed above <!doctype>) --}}
 <div class="modal fade" id="ot-bank-modal" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered" role="document">
         <div class="modal-content">
@@ -506,6 +507,8 @@
         </div>
     </div>
 </div>
+
+@endsection
 
 @push('scripts')
     <script>

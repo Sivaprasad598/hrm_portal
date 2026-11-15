@@ -52,7 +52,7 @@
                 </div>
                 <div class="col-lg-1 col-md-2 mb-2"><button type="button" class="btn btn-outline-primary btn-block" id="sr-add">Add</button></div>
                 <div class="col-lg-3 col-md-4 mb-2">
-                    <label class="f-13 text-dark-grey mb-1">Add a department</label>
+                    <label class="f-13 text-dark-grey mb-1">Add a division</label>
                     <div class="d-flex">
                         <select id="sr-dept" class="form-control select-picker mr-1" data-live-search="true">
                             <option value="all">Everyone with a salary</option>
@@ -82,7 +82,7 @@
                     <tr>
                         <th class="sr-name">Employee</th><th class="text-right">Current CTC</th><th style="width:90px">Hike %</th><th style="width:120px">Hike (annual)</th>
                         <th style="width:130px">New CTC</th><th class="text-right">New monthly gross</th><th style="width:140px">Type</th>
-                        <th style="width:190px">New designation</th><th style="width:170px">New department</th><th style="width:80px">Basic %</th><th style="width:200px">Reason</th><th></th>
+                        <th style="width:190px">New designation</th><th style="width:170px">New division</th><th style="width:80px">Basic %</th><th style="width:200px">Reason</th><th></th>
                     </tr>
                 </thead>
                 <tbody id="sr-rows"></tbody>

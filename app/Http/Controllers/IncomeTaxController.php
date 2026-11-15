@@ -123,6 +123,7 @@ class IncomeTaxController extends AccountBaseController
             $values + ['created_at' => now()]
         );
 
+        \App\Services\Payroll\TaxCalculator::forgetPreload();
         return Reply::success('Saved. The tax is worked out again from these figures.');
     }
 
@@ -207,6 +208,7 @@ class IncomeTaxController extends AccountBaseController
             }
         });
 
+        \App\Services\Payroll\TaxCalculator::forgetPreload();
         return Reply::success('Rates saved for ' . $request->financial_year . ', ' . $request->regime . ' regime.');
     }
 
@@ -283,6 +285,8 @@ class IncomeTaxController extends AccountBaseController
             ->get()->keyBy('user_id');
 
         $rows = [];
+        // everybody's declaration, salary, tax paid and leaving date in a few queries
+        TaxCalculator::preload($employees->pluck('id')->all(), $cycle->start);
 
         foreach ($employees as $employee) {
             $result = $tax->forEmployee((int) $employee->id, $cycle->start);

@@ -296,7 +296,7 @@
         <x-forms.select fieldId="reporting_to" :fieldLabel="__('modules.employees.reportingTo')" fieldName="reporting_to" search="true">
             <option value="">--</option>
             @foreach ($employees as $item)
-                <x-user-option :user="$item" :selected="$detail && $detail->reporting_to == $item->id" />
+                {!! \App\View\Components\UserOption::plain($item, $detail && $detail->reporting_to == $item->id) !!}
             @endforeach
         </x-forms.select>
     </div>

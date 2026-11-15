@@ -27,7 +27,7 @@
                             'hr_clearance'         => ['label' => 'HR Clearance',         'icon' => 'fa-users',       'color' => '#007bff'],
                             'it_clearance'         => ['label' => 'IT Clearance',         'icon' => 'fa-laptop',      'color' => '#6f42c1'],
                             'finance_clearance'    => ['label' => 'Finance Clearance',    'icon' => 'fa-money-bill',  'color' => '#28a745'],
-                            'department_clearance' => ['label' => 'Department Clearance', 'icon' => 'fa-building',    'color' => '#fd7e14'],
+                            'department_clearance' => ['label' => 'Division Clearance', 'icon' => 'fa-building',    'color' => '#fd7e14'],
                             'management_clearance' => ['label' => 'Management Clearance', 'icon' => 'fa-user-tie',    'color' => '#dc3545'],
                         ];
                     @endphp

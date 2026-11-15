@@ -27,7 +27,7 @@
                         <option value="all">@lang('app.all')</option>
                     @endif
                     @foreach ($employees as $employee)
-                            <x-user-option :user="$employee" :selected="request('assignee') == 'me' && $employee->id == user()->id"/>
+                            {!! \App\View\Components\UserOption::plain($employee, request('assignee') == 'me' && $employee->id == user()->id) !!}
                     @endforeach
                 </select>
             </div>

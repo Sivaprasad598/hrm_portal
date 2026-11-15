@@ -79,10 +79,18 @@
                     // (hidden until clicked, like the Attendance Register); a dot while
                     // a filter is set or something is typed in the search
                     document.body.classList.add('hr-filters-toggle');
+                    // The drop-downs were built while the card was hidden: they are
+                    // sized once, the first time it shows, and after it has been drawn,
+                    // so the card appears at once (rebuilding them, e.g. ~850 employee
+                    // options, on every click took ~0.4 s each time)
+                    var sized = false;
                     btn.addEventListener('click', function () {
                         var open = document.body.classList.toggle('hr-filters-open');
                         btn.classList.toggle('is-open', open);
-                        if (open && window.jQuery) { jQuery(card).find('.select-picker').selectpicker('refresh'); }
+                        if (open && !sized && window.jQuery) {
+                            sized = true;
+                            requestAnimationFrame(function () { setTimeout(function () { jQuery(card).find('.select-picker').selectpicker('refresh'); }, 0); });
+                        }
                     });
                     // "set" = changed from how the page opened (Month / Year always have a value)
                     var initial = Array.prototype.map.call(card.querySelectorAll('select'), function (s) { return s.value; });

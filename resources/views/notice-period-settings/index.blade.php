@@ -18,8 +18,6 @@
                                role="tab" aria-controls="noticePeriodTabPane" aria-selected="true">@lang('app.menu.noticePeriodSettings')</a>
                             <a class="nav-item nav-link f-15" id="probation-period-tab" data-toggle="tab" href="#probationPeriodTabPane"
                                role="tab" aria-controls="probationPeriodTabPane" aria-selected="false">@lang('app.menu.probationPeriodSettings')</a>
-                            <a class="nav-item nav-link f-15" id="probation-period-requests-tab" data-toggle="tab" href="#probationPeriodRequestsTabPane"
-                               role="tab" aria-controls="probationPeriodRequestsTabPane" aria-selected="false">@lang('app.menu.probationPeriodRequests')</a>
                         </div>
                     </nav>
                 </div>
@@ -51,18 +49,7 @@
                         </iframe>
                     </div>
 
-                    <div class="tab-pane fade" id="probationPeriodRequestsTabPane" role="tabpanel"
-                         aria-labelledby="probation-period-requests-tab">
-                        <iframe
-                            id="probation-period-requests-iframe"
-                            src="{{ route('legacy.page', 'probation_period_request') }}"
-                            class="w-100"
-                            style="min-height: calc(100vh - 280px); border: 0;"
-                            title="@lang('app.menu.probationPeriodRequests')"
-                            {{-- no "Filters" button on this page: its filter card stays open --}}
-                            onload="try { this.contentDocument.body.classList.add('filters-open'); } catch (e) {}">
-                        </iframe>
-                    </div>
+                    {{-- Probation Period Requests: on HR -> Employees -> Probation (no second copy here) --}}
 
                 </div>
 

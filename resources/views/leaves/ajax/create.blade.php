@@ -270,7 +270,8 @@
                 return null;
             }
 
-            var employees = @json($employees);
+            // only what the date check needs: id and joining date (the full records were ~850 KB)
+            var employees = @json($employees->map(fn ($e) => ['id' => $e->id, 'employee_detail' => ['joining_date' => $e->employeeDetail?->joining_date]])->values());
             var employee = employees.filter(function(item) {
                 return item.id == employeeID;
             });

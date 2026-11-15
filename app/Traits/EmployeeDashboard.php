@@ -376,15 +376,16 @@ trait EmployeeDashboard
             ->orderBy('day')
             ->get()->values()->all();
 
-        $this->leave = Leave::with('user', 'type')->where('status', 'approved')
+        $this->leave = Leave::with('user', 'user.employeeDetail.designation:id,name', 'type')->where('status', 'approved')
             ->where('leave_date', today(company()->timezone)->toDateString())
             ->get();
 
 
-        $this->workFromHome = Attendance::with('user')
+        $this->workFromHome = Attendance::with('user', 'user.employeeDetail.designation:id,name')
             ->select('id', 'user_id')
             ->where('work_from_type', 'home')
-            ->where(DB::raw('DATE(attendances.clock_in_time)'), now()->toDateString())
+            // the same calendar day as DATE(clock_in_time) = today, as a range the index can use
+            ->whereBetween('attendances.clock_in_time', [now()->startOfDay(), now()->endOfDay()])
             ->groupBy('user_id')
             ->get();
 
@@ -516,7 +517,7 @@ trait EmployeeDashboard
         $this->upcomingAnniversaries = EmployeeDetails::whereHas('user', function ($query) {
             return $query->where('status', 'active');
         })
-            ->with('user')
+            ->with('user', 'user.employeeDetail.designation:id,name')
             ->select('employee_details.id', 'employee_details.user_id', 'employee_details.joining_date', DB::raw('MONTH(joining_date) months'), DB::raw('DAY(joining_date) as day'))
             ->whereNotNull('joining_date')
             ->where(function ($query) use ($currentDay) {
@@ -566,7 +567,8 @@ trait EmployeeDashboard
 
         $currentDay = now(company()->timezone)->format('Y-m-d');
 
-        $this->employees = EmployeeDetails::with('user')
+        // the names on the widgets (x-employee) read each person's designation: loaded here, not one by one
+        $this->employees = EmployeeDetails::with('user', 'user.employeeDetail.designation:id,name')
             ->whereHas('user', function ($query) {
                 $query->where('status', 'active');
             })->without('clientDetails');

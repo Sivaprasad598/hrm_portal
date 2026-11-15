@@ -101,7 +101,7 @@ class ResignationManagementController extends AccountBaseController
         // One person leaves once: a second request is a duplicate to reject.
         $alreadyApproved = Resignation::where('user_id', $resignation->user_id)->where('status', 'approved')
             ->where('id', '<>', $resignation->id)
-            ->when(\Illuminate\Support\Facades\Schema::hasColumn('resignations', 'closed_by_rejoin_id'),
+            ->when(\App\Support\SchemaCache::hasColumn('resignations', 'closed_by_rejoin_id'),
                 fn ($q) => $q->whereNull('closed_by_rejoin_id'))
             ->first();
 

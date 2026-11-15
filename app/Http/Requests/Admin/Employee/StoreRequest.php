@@ -142,7 +142,7 @@ class StoreRequest extends CoreRequest
             'password.required' => __('Password is required.'),
             'password.min' => __('Password must be at least 8 characters.'),
             'designation.required' => __('Designation is required.'),
-            'department.required' => __('Department is required.'),
+            'department.required' => __('Division is required.'),
             'employee_card_id.required' => __('messages.employeeCardIdNumericMax10'),
             'employee_card_id.regex' => __('messages.employeeCardIdNumericMax10'),
             'pan_number.required' => __('Please enter a valid PAN Card Number.'),

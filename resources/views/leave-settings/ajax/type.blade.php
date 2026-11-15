@@ -2,7 +2,7 @@
 
 <!-- LEAVE SETTING START -->
 @php
-    // Who a leave type applies to, in a line: "All departments", or the first
+    // Who a leave type applies to, in a line: "All divisions", or the first
     // two and "+N more" (the full list on hover) - not a list of every one.
     $appliesTo = function ($json, $all, $nameField, string $noun) {
         $ids = array_map('intval', (array) (json_decode((string) $json, true) ?: []));
@@ -65,7 +65,7 @@
                             @lang('modules.credit-notes.unpaid')
                         @endif
                     </td>
-                    <td class="f-13">{!! $appliesTo($leaveType->department, $departments, 'team_name', 'departments') !!}</td>
+                    <td class="f-13">{!! $appliesTo($leaveType->department, $departments, 'team_name', 'divisions') !!}</td>
                     <td class="f-13">{!! $appliesTo($leaveType->designation, $designations, 'name', 'designations') !!}</td>
                     <td class="text-right">
                         <div class="task_view">

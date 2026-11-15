@@ -70,10 +70,22 @@ class Authenticate extends Middleware
 
         $this->authenticate($request, $guards);
 
-        // Update user's last activity time after successful authentication
+        // The user's last activity: at most once a minute, written straight to the
+        // row. Through the model it fired the User observers and cost 30-100 ms on
+        // every request; "online a minute ago" is all anybody reads from it.
         if (Auth::check()) {
             $user = Auth::user();
-            $user->update(['last_activity' => now()]);
+            $last = $user->last_activity ? \Carbon\Carbon::parse($user->last_activity) : null;
+
+            if (!$last || $last->lt(now()->subMinute())) {
+                \Illuminate\Support\Facades\DB::table('users')->where('id', $user->id)->update(['last_activity' => now()]);
+                $user->last_activity = now();
+                $user->syncOriginalAttribute('last_activity');
+            }
+
+            // As before (the save cleared it through UserObserver::saving): user() is read
+            // fresh each request, so a change made by somebody else shows at once (one query)
+            session()->forget('user');
         }
 
         return $next($request);

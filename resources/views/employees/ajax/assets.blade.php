@@ -33,26 +33,33 @@
     .ast-facts dt { font-size: 11.5px; color: var(--epic-muted, #99a5b5); font-weight: 500; }
     .ast-facts dd { margin: 1px 0 0; font-size: 13px; color: var(--epic-text, #212529); word-break: break-word; }
     .ast-actions { display: flex; justify-content: flex-end; border-top: 1px dashed var(--epic-line, #e8e9e9); padding-top: 10px; }
+    /* the app's standard: no heading (the top bar names the page); counts and sections
+       as white rounded cards on the grey page, a count badge per section */
+    .ast-std .ast-bar { display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 16px; }
+    body.epic .ast-std .ast-bar .btn { height: 38px; border-radius: 8px !important; display: inline-flex; align-items: center; padding: 0 14px !important; font-size: 14px; }
+    .ast-std .ms-stats { margin-bottom: 16px; }
+    .ast-std .ms-stats > * { background: #fff; border-radius: 12px !important; box-shadow: 0 1px 3px rgba(16, 24, 40, .06); }
+    .ast-std .ast-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 3px rgba(16, 24, 40, .06); padding: 16px 20px; margin-bottom: 16px; }
+    .ast-std .ast-card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .ast-std .ast-card-head h5 { font-size: 15px; font-weight: 600; margin: 0; color: #1f2937; }
+    .ast-std .ast-count { background: #f3f4f6; color: #4b5563; border-radius: 10px; font-size: 12px; padding: 1px 8px; }
+    .ast-std .ms-empty { border: 1px dashed #e5e7eb; border-radius: 10px; }
 </style>
 
-<div class="card bg-white border-0 b-shadow-4">
-    <div class="card-header bg-white border-0 d-flex justify-content-between align-items-start flex-wrap pt-4">
-        <div>
-            <h4 class="f-18 f-w-500 mb-0">{{ $isMe ? 'My Assets' : 'Assets' }}</h4>
-            <p class="ms-intro">{{ $isMe ? 'Company equipment issued to you. Contact HR if something here is not with you, or is damaged.' : 'Company equipment issued to ' . $employee->name . '.' }}</p>
-        </div>
-        <div class="mt-1">
-            @if ($manageAssets && $heldAssets->isNotEmpty())
-                <a href="{{ route('assets.handover', ['user' => $employee->id]) }}" target="_blank" class="btn btn-secondary rounded f-14 mr-1">
+{{-- (no heading or intro text: the top bar names the page) --}}
+<div class="ast-std">
+    @if ($manageAssets && ($heldAssets->isNotEmpty() || $employee->status === 'active'))
+        <div class="ast-bar">
+            @if ($heldAssets->isNotEmpty())
+                <a href="{{ route('assets.handover', ['user' => $employee->id]) }}" target="_blank" class="btn btn-secondary rounded f-14">
                     <i class="fa fa-print mr-1"></i>Print Acknowledgement</a>
             @endif
-            @if ($manageAssets && $employee->status === 'active')
+            @if ($employee->status === 'active')
                 <a href="{{ route('assets.assign-form', ['user_id' => $employee->id]) }}" class="btn btn-primary rounded f-14 openRightModal">
                     <i class="fa fa-user-plus mr-1"></i>Assign Asset</a>
             @endif
         </div>
-    </div>
-    <div class="card-body pt-2">
+    @endif
     <div class="ms-stats">
         <div class="ms-stat">
             <div class="lbl"><span class="ic" style="--ic-bg:#cb6b4f;--ic-fg:#fff"><i class="fa fa-laptop"></i></span>With {{ $isMe ? 'you' : 'them' }} now</div>
@@ -71,7 +78,8 @@
         </div>
     </div>
 
-    <div class="ms-sec"><h5>With {{ $isMe ? 'you' : $employee->name }} now</h5></div>
+    <div class="ast-card">
+    <div class="ast-card-head"><h5>With {{ $isMe ? 'you' : $employee->name }} now</h5><span class="ast-count">{{ $heldAssets->count() }}</span></div>
     @if ($heldAssets->isEmpty())
         <div class="ms-empty">
             <i class="fa fa-box-open"></i>
@@ -109,9 +117,11 @@
             @endforeach
         </div>
     @endif
+    </div>
 
     @if ($pastAssets->isNotEmpty())
-        <div class="ms-sec mt-4"><h5>Returned <span>equipment handed back earlier</span></h5></div>
+        <div class="ast-card">
+        <div class="ast-card-head"><h5>Returned</h5><span class="ast-count">{{ $pastAssets->count() }}</span></div>
         <div class="table-responsive">
             <table class="ms-table">
                 <thead><tr><th>Asset</th><th>Issued</th><th>Returned</th><th>Condition on return</th><th class="text-right">Recovered</th></tr></thead>
@@ -128,6 +138,6 @@
                 </tbody>
             </table>
         </div>
+        </div>
     @endif
-</div>
 </div>

@@ -23,8 +23,12 @@ $content = "<div class='d-flex align-items-center text-left'>
         $content .= "<span class='badge badge-pill badge-danger border align-center ml-2 px-2'>Inactive</span>";
     } 
 
+    // one line: the markup is repeated in every option of every people dropdown
+    $content = preg_replace('/\s+/', ' ', trim($content));
+
     @endphp
 
-    <option @selected($selected) data-content="{!! $content !!}" value="{{ $userID ?? $user->id }}">
+    {{-- plain: no picture or markup per option (a list of hundreds of people stays light) --}}
+    <option @selected($selected) @unless($plain) data-content="{!! $content !!}" @endunless value="{{ $userID ?? $user->id }}">
         {{ $user->name_salutation }}
     </option>

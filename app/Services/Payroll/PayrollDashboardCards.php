@@ -160,14 +160,14 @@ class PayrollDashboardCards
     public function table(array $rows, string $card): array
     {
         $who = fn ($r) => [$r['emp_name'], $r['emp_id'], $r['department'] ?: '—', $r['period']];
-        $whoColumns = [['Employee', 'text'], ['Code', 'text'], ['Department', 'text'], ['Period', 'text']];
+        $whoColumns = [['Employee', 'text'], ['Code', 'text'], ['Division', 'text'], ['Period', 'text']];
 
         if (str_starts_with($card, 'element:') || str_starts_with($card, 'label:')) {
             $result = (new PayoutQuery())->behind($rows, $card);
 
             return [
                 'title' => $result['label'],
-                'columns' => [['Employee', 'text'], ['Code', 'text'], ['Department', 'text'], ['Period', 'text'], ['Line', 'text'], ['Amount', 'money']],
+                'columns' => [['Employee', 'text'], ['Code', 'text'], ['Division', 'text'], ['Period', 'text'], ['Line', 'text'], ['Amount', 'money']],
                 'rows' => array_map(fn ($p) => [$p['name'], $p['code'], $p['department'] ?: '—', $p['period'], $p['note'] ?? '', $p['amount']], $result['rows']),
             ];
         }

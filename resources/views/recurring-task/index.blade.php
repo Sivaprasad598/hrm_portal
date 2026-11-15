@@ -141,7 +141,7 @@ $recurringTaskPermission = user()->permission('manage_recurring_task');
                             data-container="body" data-size="8">
                             <option value="all">@lang('app.all')</option>
                             @foreach ($employees as $employee)
-                                <x-user-option :user="$employee" />
+                                {!! \App\View\Components\UserOption::plain($employee) !!}
                             @endforeach
                         </select>
                     </div>

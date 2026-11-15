@@ -111,6 +111,7 @@ class LeaveSettingController extends AccountBaseController
         }
 
         $setting->save();
+        \App\Services\Leaves\EarnedLeavePolicy::forget();
 
         return Reply::success(__('messages.updateSuccess'));
     }

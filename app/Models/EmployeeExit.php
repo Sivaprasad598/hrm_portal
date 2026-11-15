@@ -29,7 +29,7 @@ class EmployeeExit extends Model
     {
         return static::where('user_id', $userId)
             ->whereNull('offboarding_date')
-            ->when(\Illuminate\Support\Facades\Schema::hasColumn('employee_exits', 'closed_by_rejoin_id'),
+            ->when(\App\Support\SchemaCache::hasColumn('employee_exits', 'closed_by_rejoin_id'),
                 fn ($q) => $q->whereNull('closed_by_rejoin_id'))
             ->when($exceptResignationId, fn ($q) => $q->where(fn ($w) => $w->whereNull('resignation_id')
                 ->orWhere('resignation_id', '<>', $exceptResignationId)))

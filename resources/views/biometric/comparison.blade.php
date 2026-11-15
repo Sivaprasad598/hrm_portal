@@ -32,7 +32,7 @@
 
         <div class="alert alert-info f-13">
             <strong>People are enrolled on the devices before they exist in the ERP.</strong>
-            The devices know only a name and an enrolment code — no email, department, PAN or bank
+            The devices know only a name and an enrolment code — no email, division, PAN or bank
             details, because the feed does not carry them. Creating someone here writes those two
             facts and leaves the rest blank for HR to complete; nothing is invented.
         </div>
@@ -339,7 +339,7 @@
                 Swal.fire({
                     title: 'Create ' + description + '?',
                     html: '<p class="mb-2">They will be created with a name and a biometric code only. ' +
-                          'Department, designation, email, PAN and bank details stay blank until HR fills them in, ' +
+                          'Division, designation, email, PAN and bank details stay blank until HR fills them in, ' +
                           'and they cannot sign in until then.</p>' + warning,
                     icon: 'question',
                     showCancelButton: true,

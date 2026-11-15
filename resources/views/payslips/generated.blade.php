@@ -42,9 +42,9 @@
                         </div>
 
                         <div class="col-md-3 mb-2">
-                            <label class="f-12 text-dark-grey">Department</label>
+                            <label class="f-12 text-dark-grey">Division</label>
                             <select name="department" class="form-control form-control-sm filter-picker">
-                                <option value="">All departments</option>
+                                <option value="">All divisions</option>
                                 @foreach ($departments as $id => $name)
                                     <option value="{{ $id }}" @selected((string) $filters['department'] === (string) $id)>
                                         {{ $name }}
@@ -258,7 +258,7 @@
                             @endif
                             <th>Employee</th>
                             <th>Designation</th>
-                            <th>Department</th>
+                            <th>Division</th>
                             <th>Period</th>
                             <th class="text-right">Gross <span class="f-11 text-lightest font-weight-normal">/ components</span></th>
                             <th class="text-right">Deductions <span class="f-11 text-lightest font-weight-normal">/ heads</span></th>

@@ -55,7 +55,7 @@ class WorkRules
         $key = (int) $companyId;
 
         if (!array_key_exists($key, self::$cache)) {
-            $row = Schema::hasColumn('attendance_settings', 'wh_count_mode')
+            $row = \App\Support\SchemaCache::hasColumn('attendance_settings', 'wh_count_mode')
                 ? DB::table('attendance_settings')->when($companyId, fn ($q) => $q->where('company_id', $companyId))->first()
                 : null;
             $zone = $tz ?: (DB::table('companies')->when($companyId, fn ($q) => $q->where('id', $companyId))->value('timezone') ?: 'Asia/Kolkata');

@@ -1316,7 +1316,7 @@ $probationMonths = (int) (\Illuminate\Support\Facades\DB::table('probation_perio
             }
 
             if (!employeeDepartment.value) {
-                setFieldState(employeeDepartment, false, 'Department is required.');
+                setFieldState(employeeDepartment, false, 'Division is required.');
                 isValid = false;
             }
             else {
@@ -1791,7 +1791,7 @@ $probationMonths = (int) (\Illuminate\Support\Facades\DB::table('probation_perio
             h += r('Email',          val('email'));
             h += r('Personal Email', val('personal_email'));
             h += r('Designation',       selText('employee_designation'));
-            h += r('Department',        selText('employee_department'));
+            h += r('Division',          selText('employee_department'));
             h += r('Branch',            selText('employee_branch'));
             h += r('Joining Date',      val('joining_date'));
             h += r('Date of Birth',     val('date_of_birth'));

@@ -17,7 +17,7 @@
                         <option value="all">@lang('app.all')</option>
                     @endif
                     @foreach ($employees as $employee)
-                        <x-user-option :user="$employee"/>
+                        {!! \App\View\Components\UserOption::plain($employee) !!}
                     @endforeach
                 </select>
             </div>
@@ -91,7 +91,7 @@
                                 <option value="all">@lang('app.all')</option>
                             @endif
                             @foreach ($employees as $employee)
-                                <x-user-option :user="$employee"/>
+                                {!! \App\View\Components\UserOption::plain($employee) !!}
                             @endforeach
                         </select>
                     </div>
@@ -268,7 +268,7 @@
                                     @else
                                         @if ($level !== 'ceo')
                                             <p class="f-12 text-dark-grey mb-2 report-dept-note d-none">
-                                                <i class="fa fa-sitemap mr-1"></i>Showing their department only.
+                                                <i class="fa fa-sitemap mr-1"></i>Showing their division only.
                                                 <a href="javascript:;" class="report-dept-all">Show everyone</a>
                                             </p>
                                         @endif

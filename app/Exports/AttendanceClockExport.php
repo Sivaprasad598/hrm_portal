@@ -37,7 +37,7 @@ class AttendanceClockExport implements FromCollection, WithHeadings, WithMapping
             '#',
             'Employee Name',
             'Email Address',
-            'Department',
+            'Division',
             'Date',
             'Clock In',
             'Clock Out',

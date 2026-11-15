@@ -44,6 +44,76 @@ class OtBank
     {
     }
 
+    /**
+     * Everything summary() reads for a period, for many employees in a few
+     * queries (the payroll run asked 8 queries per person, ~2,700 for 344).
+     * Keyed by the period's first day; anything not preloaded is read as before.
+     *
+     * @var array<string, array>
+     */
+    protected static array $pre = [];
+
+    public static function preload(array $userIds, PayPeriod $cycle): void
+    {
+        $start = $cycle->start->toDateString();
+        $end = $cycle->end->toDateString();
+        $ids = array_values(array_unique(array_map('intval', $userIds)));
+
+        if (!$ids) {
+            return;
+        }
+
+        $sum = fn ($q, string $expr) => $q->whereIn('user_id', $ids)->groupBy('user_id')
+            ->pluck(DB::raw($expr . ' as total'), 'user_id')->map(fn ($v) => (float) $v)->all();
+
+        $decisionRows = DB::table('ot_ledger')->whereIn('user_id', $ids)->whereDate('period_start', $start)
+            ->whereIn('type', [self::COMPENSATED, self::ENCASHED])->get()->groupBy('user_id');
+
+        $stored = DB::table('ot_daily')->whereIn('user_id', $ids)->whereBetween('date', [$start, $end])
+            ->get(['user_id', 'date', 'day_type', 'first_in', 'last_out', 'worked_minutes', 'ot_minutes', 'rate', 'bank_minutes', 'note'])
+            ->groupBy('user_id');
+
+        self::$pre[$start] = [
+            'ids' => array_flip($ids),
+            'end' => $end,
+            'daysBefore' => $sum(DB::table('ot_daily')->where('date', '<', $start), 'SUM(bank_minutes)'),
+            'ledgerBefore' => $sum(DB::table('ot_ledger')->whereDate('period_start', '<', $start)
+                ->where(fn ($q) => $q->where('type', self::ADJUSTED)->orWhereNotNull('payslip_id'))
+                ->whereIn('type', [self::ADJUSTED, self::COMPENSATED, self::ENCASHED]), 'SUM(hours)'),
+            'pastBefore' => $sum(DB::table('ot_past')->where('ref_date', '<', $start), 'SUM(ot_hours - used_hours - encashed_hours)'),
+            'adjusted' => $sum(DB::table('ot_ledger')->where('type', self::ADJUSTED)->whereDate('period_start', '>=', $start), 'SUM(hours)'),
+            'decisions' => $decisionRows,
+            'stored' => $stored,
+        ];
+    }
+
+    /** Preloaded data for this employee and period, or null (read as before). */
+    protected static function pre(int $userId, PayPeriod $cycle): ?array
+    {
+        $p = self::$pre[$cycle->start->toDateString()] ?? null;
+
+        return $p && isset($p['ids'][$userId]) ? $p : null;
+    }
+
+    /** The stored OT days of a preloaded period (OtDaily::store), keyed by date; null when not preloaded. */
+    public static function preloadedDays(int $userId, string $from, string $to): ?\Illuminate\Support\Collection
+    {
+        foreach (self::$pre as $start => $p) {
+            if (isset($p['ids'][$userId]) && $from >= $start && $to <= $p['end']) {
+                return collect($p['stored']->get($userId, []))
+                    ->filter(fn ($row) => ($d = substr((string) $row->date, 0, 10)) >= $from && $d <= $to)
+                    ->keyBy(fn ($row) => substr((string) $row->date, 0, 10));
+            }
+        }
+
+        return null;
+    }
+
+    public static function forgetPreload(): void
+    {
+        self::$pre = [];
+    }
+
     public function rules(int $companyId): ?WorkRules
     {
         return $this->rules ?: WorkRules::forCompany($companyId);
@@ -74,6 +144,10 @@ class OtBank
     /** Before this period: past records, the days stored, what was used on issued payslips, the corrections. */
     public function broughtForward(int $userId, PayPeriod $cycle): float
     {
+        if ($p = self::pre($userId, $cycle)) {
+            return round(round($p['pastBefore'][$userId] ?? 0.0, 2) + ((int) ($p['daysBefore'][$userId] ?? 0)) / 60 + (float) ($p['ledgerBefore'][$userId] ?? 0), 2);
+        }
+
         $start = $cycle->start->toDateString();
         $days = (int) DB::table('ot_daily')->where('user_id', $userId)->where('date', '<', $start)->sum('bank_minutes');
         $ledger = (float) DB::table('ot_ledger')->where('user_id', $userId)->whereDate('period_start', '<', $start)
@@ -108,6 +182,10 @@ class OtBank
      */
     protected function periodAdjustments(int $userId, PayPeriod $cycle): float
     {
+        if ($p = self::pre($userId, $cycle)) {
+            return round((float) ($p['adjusted'][$userId] ?? 0), 2);
+        }
+
         return round((float) DB::table('ot_ledger')->where('user_id', $userId)->where('type', self::ADJUSTED)
             ->whereDate('period_start', '>=', $cycle->start->toDateString())->sum('hours'), 2);
     }
@@ -119,9 +197,10 @@ class OtBank
     }
 
     /** This period's compensated / encashed rows. */
-    public function decisions(int $userId, PayPeriod $cycle): array
+    public function decisions(int $userId, PayPeriod $cycle, bool $fresh = false): array
     {
-        $rows = DB::table('ot_ledger')->where('user_id', $userId)
+        $p = $fresh ? null : self::pre($userId, $cycle);
+        $rows = $p ? collect($p['decisions']->get($userId, [])) : DB::table('ot_ledger')->where('user_id', $userId)
             ->whereDate('period_start', $cycle->start->toDateString())
             ->whereIn('type', [self::COMPENSATED, self::ENCASHED])->get();
 
@@ -156,12 +235,17 @@ class OtBank
 
         // This period's days are stored from this very count first, so the
         // bank and the screen read the same figures.
-        if (!empty($count['days'])) {
-            (new OtDaily())->store($userId, $companyId, $count);
+        $changed = !empty($count['days']) ? (new OtDaily())->store($userId, $companyId, $count) : 0;
+
+        if ($changed > 0) {
+            // their stored days changed: from here on they are read from the table again
+            unset(self::$pre[$cycle->start->toDateString()]['ids'][$userId]);
         }
 
         $bf = $this->broughtForward($userId, $cycle);
-        $earned = $this->periodHours($userId, $cycle);
+        // nothing written: the preloaded days are what is stored (else read them again)
+        $p = $changed === 0 ? self::pre($userId, $cycle) : null;
+        $earned = $p ? round((int) collect($p['stored']->get($userId, []))->sum('bank_minutes') / 60, 2) : $this->periodHours($userId, $cycle);
         $adjusted = $this->periodAdjustments($userId, $cycle);
         $d = $this->decisions($userId, $cycle);
         $lop = max(0.0, (float) $count['working_days'] - (float) $count['days_present']);   // before any compensation
@@ -185,6 +269,8 @@ class OtBank
      */
     public function decide(int $userId, int $companyId, PayPeriod $cycle, array $summary, float $compDays, float $encHours, ?int $by = null): array
     {
+        self::forgetPreload();   // it writes the ledger and reads it back
+
         $rules = $this->rules($companyId);
 
         if ($summary['issued'] || $this->payslipIssued($userId, $cycle)) {
@@ -251,6 +337,8 @@ class OtBank
     /** HR / Admin correction of the balance, with a reason. */
     public function adjust(int $userId, int $companyId, float $hours, string $reason, ?int $by = null): void
     {
+        self::forgetPreload();   // it writes the ledger and reads it back
+
         if ($hours == 0.0) {
             throw new RuntimeException('Give the hours to add (+) or take off (-).');
         }
@@ -268,6 +356,8 @@ class OtBank
      */
     public function onIssue(int $userId, int $companyId, PayPeriod $cycle, int $payslipId, array $summary): void
     {
+        self::forgetPreload();   // it writes the ledger and reads it back
+
         $earned = $this->periodHours($userId, $cycle);
 
         DB::table('ot_ledger')->where('user_id', $userId)->whereDate('period_start', $cycle->start->toDateString())

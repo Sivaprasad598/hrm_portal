@@ -152,7 +152,7 @@ class ResignationDataTable extends BaseDataTable
     {
         return [
             Column::make('employee')->title('Employee'),
-            Column::make('department')->title('Department'),
+            Column::make('department')->title('Division'),
             Column::make('designation')->title('Designation'),
             Column::make('resignation_date')->title('Resignation Date'),
             Column::make('last_working_date')->title('Last Working Date'),
