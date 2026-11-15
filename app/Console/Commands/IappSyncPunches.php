@@ -54,13 +54,16 @@ class IappSyncPunches extends Command
         // how often a pull actually happens. Measured from the last full pull,
         // so a missed tick (a sleeping PC) is caught up on the next one.
         if ($this->option('scheduled')) {
-            $interval = max(5, (int) ($config->setting()?->sync_interval_minutes ?: 15));
+            $interval = max(5, (int) ($config->setting()?->sync_interval_minutes ?: 5));
             $last = (new \App\Services\Iapp\Pipeline\PipelineStatus($config))->lastPull();
 
             // A few minutes' slack: a pull that started late (the scheduler ran the
             // nightly routine first) must not make the next tick skip, which left
             // 30 minutes between pulls. 15 -> pulls when the last began 10+ minutes ago.
-            $slack = min(5, intdiv($interval, 3));
+            // The scheduler now asks every 5 minutes, so 2 minutes of slack is
+            // enough and keeps each setting at its own pace: 5 -> every tick,
+            // 10 -> every 10, 15 -> every 15 (a 5-minute slack made 15 pull every 10).
+            $slack = min(2, intdiv($interval, 3));
 
             if ($last && $last->started_at && $last->started_at->gt(now()->subMinutes($interval - $slack))) {
                 return self::SUCCESS;

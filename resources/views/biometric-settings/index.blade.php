@@ -214,6 +214,16 @@
                                               :fieldLabel="__('Nightly automatic run')"
                                               :checked="$setting->sync_enabled ?? false" fieldValue="1" />
                         </div>
+                        {{-- Through the day: how often new punches are pulled and written into attendance --}}
+                        <div class="col-lg-3 col-md-6">
+                            <label class="f-14 text-dark-grey mb-1 d-block" for="sync_interval_minutes">Pull new punches every</label>
+                            <select id="sync_interval_minutes" name="sync_interval_minutes" class="form-control height-35 f-14">
+                                @foreach ([5 => '5 minutes', 10 => '10 minutes', 15 => '15 minutes', 30 => '30 minutes', 60 => '1 hour'] as $minutes => $text)
+                                    <option value="{{ $minutes }}" @selected((int) ($setting->sync_interval_minutes ?: 5) === $minutes)>{{ $text }}</option>
+                                @endforeach
+                            </select>
+                            <p class="f-11 text-lightest mt-1">Through the day, when "Nightly automatic run" is on. Needs the server's cron running every minute.</p>
+                        </div>
                         <div class="col-lg-3 col-md-6">
                             <x-forms.checkbox fieldId="verify_ssl" fieldName="verify_ssl"
                                               :fieldLabel="__('Verify TLS certificate')"

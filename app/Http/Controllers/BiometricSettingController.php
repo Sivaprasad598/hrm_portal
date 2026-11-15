@@ -97,6 +97,8 @@ class BiometricSettingController extends AccountBaseController
             'notify_time' => ['required', 'regex:/^([01][0-9]|2[0-3]):[0-5][0-9]$/'],
             // Held below the server's real 20-minute token lifetime.
             'token_cache_minutes' => 'required|integer|min:1|max:19',
+            // How often new punches are pulled through the day (the scheduler checks every 5 minutes).
+            'sync_interval_minutes' => 'nullable|integer|in:5,10,15,30,60',
         ]);
 
         $devices = array_values(array_intersect(
@@ -136,6 +138,7 @@ class BiometricSettingController extends AccountBaseController
             'verify_ssl' => $request->boolean('verify_ssl'),
             'status' => $request->boolean('status'),
             'sync_enabled' => $request->boolean('sync_enabled'),
+            'sync_interval_minutes' => (int) ($request->sync_interval_minutes ?: 5),
             'auto_promote' => $request->boolean('auto_promote'),
             'auto_generate_payslips' => $request->boolean('auto_generate_payslips'),
             'notify_employees' => $request->boolean('notify_employees'),

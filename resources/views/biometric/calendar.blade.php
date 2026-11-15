@@ -4,35 +4,79 @@
     use App\Models\IappDaySync;
 @endphp
 
+@push('styles')
+    <style>
+        /* Fetch attendance: dates, devices and the button on one line */
+        .fa-fetch .fa-devices { display: flex; flex-wrap: wrap; gap: 6px; }
+        .fa-fetch .fa-device { display: inline-flex; align-items: center; gap: 6px; margin: 0; padding: 0 10px; height: 38px;
+            border: 1px solid #d0d5dd; border-radius: 8px; background: #fff; font-size: 13px; color: #344054; cursor: pointer; white-space: nowrap; }
+        .fa-fetch .fa-device:has(input:checked) { border-color: var(--epic-blue, #cb6b4f); background: color-mix(in srgb, var(--epic-blue, #cb6b4f) 8%, #fff); }
+        .fa-fetch input[type=date] { height: 38px; }
+        .fa-fetch .fa-go { height: 38px; }
+        /* Month navigator: arrows hugging the month */
+        .fa-month { display: inline-flex; align-items: center; gap: 6px; }
+        .fa-month select { width: 180px !important; height: 38px; }
+        .fa-month .fa-arrow { width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px !important; }
+        .fa-month .fa-arrow.disabled { opacity: .45; pointer-events: none; }
+        .fa-actions { gap: 8px; }
+        body.epic .fa-actions > .btn-primary, body.epic .fa-actions > .btn-secondary { height: 38px; display: inline-flex; align-items: center; padding: 0 14px !important; border-radius: 8px !important; }
+    </style>
+@endpush
+
 @section('content')
     {{-- Standard page gutter, matching the rest of the app --}}
     <div class="content-wrapper arw-dash">
 
         @include('biometric.nav', ['active' => $activeTab])
 
-        {{-- Month summary --}}
-        <div class="row mb-3">
-            @php
-                $tiles = [
-                    ['Days in Month', $summary['days'], 'text-dark-grey', 'up to today'],
-                    ['Synced', $summary['synced'], 'text-primary', number_format($summary['punches']) . ' punches'],
-                    ['Not Synced', $summary['never'], $summary['never'] > 0 ? 'text-red' : 'text-dark-grey', 'never pulled'],
-                    // Working days pulled with far fewer punches than usual, or none (QA TC-0079)
-                    ['Look Incomplete', $summary['low'], $summary['low'] > 0 ? 'text-red' : 'text-dark-grey', 'working days with few or no punches - re-sync them'],
-                ];
-            @endphp
-
-            @foreach ($tiles as [$label, $value, $colour, $sub])
-                <div class="col-md-3 col-6 mb-2">
-                    <div class="card bg-white border-0 b-shadow-4 h-100">
-                        <div class="card-body p-3">
-                            <p class="mb-1 f-12 text-lightest text-uppercase">{{ $label }}</p>
-                            <h4 class="mb-0 f-21 {{ $colour }}">{{ $value }}</h4>
-                            <p class="mb-0 f-11 text-lightest">{{ $sub }}</p>
+        {{-- Fetch attendance for a date range: the main job of this page, at the top.
+             Pulls the punches from the ticked devices, builds each day and writes it
+             into attendance (BackfillRunner). --}}
+        <div class="card bg-white border-0 b-shadow-4 mb-3 fa-fetch">
+            <div class="card-header bg-white border-bottom p-3">
+                <h6 class="mb-0 f-15">Fetch attendance for a date range</h6>
+                <p class="mb-0 f-12 text-lightest">
+                    Pulls the punches, builds each day and writes it into attendance (Attendance Register and payroll).
+                    Only days with nothing recorded are filled; a day already on a payslip is never changed.
+                </p>
+            </div>
+            <div class="card-body p-3">
+                <div class="row align-items-end">
+                    <div class="col-lg-2 col-md-3 col-6 mb-2">
+                        <label class="f-12 text-dark-grey mb-1">From</label>
+                        <input type="date" class="form-control f-14" id="range-from"
+                               min="{{ $earliest->toDateString() }}" max="{{ now()->toDateString() }}"
+                               value="{{ $month->copy()->startOfMonth()->toDateString() }}">
+                    </div>
+                    <div class="col-lg-2 col-md-3 col-6 mb-2">
+                        <label class="f-12 text-dark-grey mb-1">To</label>
+                        <input type="date" class="form-control f-14" id="range-to"
+                               min="{{ $earliest->toDateString() }}" max="{{ now()->toDateString() }}"
+                               value="{{ $month->copy()->endOfMonth()->min(now())->toDateString() }}">
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-12 mb-2">
+                        <label class="f-12 text-dark-grey mb-1">From these devices</label>
+                        <div class="fa-devices">
+                            @foreach ($deviceOptions as $code => $label)
+                                <label class="fa-device" title="{{ $code }}">
+                                    <input type="checkbox" class="resync-device" value="{{ $code }}" @checked(in_array((string) $code, $selectedDevices, true))>
+                                    <span>{{ $label }}</span>
+                                </label>
+                            @endforeach
                         </div>
                     </div>
+                    <div class="col-lg-2 col-md-12 col-12 mb-2">
+                        <button type="button" class="btn btn-primary f-14 w-100 fa-go" id="sync-range">
+                            <i class="fa fa-download mr-1"></i> Fetch
+                        </button>
+                    </div>
                 </div>
-            @endforeach
+                <p class="f-11 text-lightest mb-0">
+                    Device history starts {{ $earliest->format('d M Y') }}. Roughly two minutes per day.
+                    Devices are ticked as on <a href="{{ route('biometric-settings.index') }}">Biometric Settings</a>;
+                    tick another to pull its history too (the nightly pull keeps following Settings).
+                </p>
+            </div>
         </div>
 
         {{-- Progress panel. Hidden until a run exists, then driven by polling. --}}
@@ -62,102 +106,61 @@
             </div>
         </div>
 
-        {{-- Re-sync: which devices the next pull from this page reads. --}}
-        <div class="card bg-white border-0 b-shadow-4 mb-3">
-            <div class="card-body p-3 d-flex flex-wrap align-items-center">
-                <span class="f-13 text-dark-grey mr-3 mb-1"><strong>Re-sync from</strong></span>
-                @foreach ($deviceOptions as $code => $label)
-                    <label class="f-13 mr-3 mb-1 d-inline-flex align-items-center">
-                        <input type="checkbox" class="resync-device mr-1" value="{{ $code }}" @checked(in_array((string) $code, $selectedDevices, true))>
-                        {{ $label }} <span class="text-lightest ml-1">{{ $code }}</span>
-                    </label>
-                @endforeach
-                <span class="f-11 text-lightest w-100">
-                    Ticked as on <a href="{{ route('biometric-settings.index') }}">Biometric Settings</a>. Tick another device and pick dates below
-                    to pull its history; the nightly pull keeps following Settings.
-                </span>
-            </div>
-        </div>
+        {{-- Month summary --}}
+        <div class="row mb-3">
+            @php
+                $tiles = [
+                    ['Days in Month', $summary['days'], 'text-dark-grey', 'up to today'],
+                    ['Synced', $summary['synced'], 'text-primary', number_format($summary['punches']) . ' punches'],
+                    ['Not Synced', $summary['never'], $summary['never'] > 0 ? 'text-red' : 'text-dark-grey', 'never pulled'],
+                    // Working days pulled with far fewer punches than usual, or none (QA TC-0079)
+                    ['Look Incomplete', $summary['low'], $summary['low'] > 0 ? 'text-red' : 'text-dark-grey', 'working days with few or no punches - re-sync them'],
+                ];
+            @endphp
 
-        {{-- Calendar --}}
-        <div class="card bg-white border-0 b-shadow-4 mb-3">
-            <div class="card-header bg-white border-bottom d-flex align-items-center flex-wrap p-3">
-                <a href="{{ route('biometric.calendar', ['month' => $prevMonth]) }}"
-                   class="btn btn-sm btn-outline-secondary mr-2" title="Previous month">
-                    <i class="fa fa-chevron-left"></i>
-                </a>
-
-                <select class="form-control form-control-sm w-auto mr-2" id="month-picker">
-                    @foreach ($monthOptions as $option)
-                        <option value="{{ $option['value'] }}"
-                            @if ($option['value'] === $month->format('Y-m')) selected @endif>
-                            {{ $option['label'] }}
-                        </option>
-                    @endforeach
-                </select>
-
-                @if ($canGoForward)
-                    <a href="{{ route('biometric.calendar', ['month' => $nextMonth]) }}"
-                       class="btn btn-sm btn-outline-secondary mr-2" title="Next month">
-                        <i class="fa fa-chevron-right"></i>
-                    </a>
-                @else
-                    <button class="btn btn-sm btn-outline-secondary mr-2" disabled title="Nothing to pull past today">
-                        <i class="fa fa-chevron-right"></i>
-                    </button>
-                @endif
-
-                <div class="ml-auto d-flex align-items-center flex-wrap">
-                    <span class="f-12 text-dark-grey mr-2" id="selection-count"></span>
-
-                    <button type="button" class="btn btn-sm btn-primary mr-2" id="sync-selected" style="display:none">
-                        <i class="fa fa-download mr-1"></i> Sync selected
-                    </button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary mr-2" id="clear-selection" style="display:none">
-                        Clear
-                    </button>
-
-                    <button type="button" class="btn btn-sm btn-outline-primary mr-2" id="sync-month">
-                        <i class="fa fa-calendar mr-1"></i> Sync whole month
-                    </button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary" data-toggle="collapse"
-                            data-target="#range-panel">
-                        <i class="fa fa-sliders mr-1"></i> Custom range
-                    </button>
-                </div>
-            </div>
-
-            {{-- Arbitrary period, for the long backfill --}}
-            {{-- Open by default: fetching a date range is what this page is mostly for --}}
-            <div class="collapse show" id="range-panel">
-                <div class="card-body border-bottom p-3 bg-light">
-                    <div class="form-row align-items-end">
-                        <div class="col-md-3 mb-2">
-                            <label class="f-12 text-lightest mb-1">From</label>
-                            <input type="date" class="form-control form-control-sm" id="range-from"
-                                   min="{{ $earliest->toDateString() }}" max="{{ now()->toDateString() }}"
-                                   value="{{ $month->copy()->startOfMonth()->toDateString() }}">
-                        </div>
-                        <div class="col-md-3 mb-2">
-                            <label class="f-12 text-lightest mb-1">To</label>
-                            <input type="date" class="form-control form-control-sm" id="range-to"
-                                   min="{{ $earliest->toDateString() }}" max="{{ now()->toDateString() }}"
-                                   value="{{ $month->copy()->endOfMonth()->min(now())->toDateString() }}">
-                        </div>
-                        <div class="col-md-6 mb-2">
-                            <button type="button" class="btn btn-sm btn-primary" id="sync-range">
-                                <i class="fa fa-download mr-1"></i> Fetch attendance for this period
-                            </button>
-                            <span class="f-11 text-lightest ml-2">
-                                Device history starts {{ $earliest->format('d M Y') }}.
-                                Roughly two minutes per day pulled.
-                            </span>
-                            <div class="f-11 text-dark-grey mt-1">
-                                Pulls the punches, builds each day and writes it into attendance (Attendance Register and payroll):
-                                only days with nothing recorded are filled, and a day already on a payslip is never changed.
-                            </div>
+            @foreach ($tiles as [$label, $value, $colour, $sub])
+                <div class="col-md-3 col-6 mb-2">
+                    <div class="card bg-white border-0 b-shadow-4 h-100">
+                        <div class="card-body p-3">
+                            <p class="mb-1 f-12 text-lightest text-uppercase">{{ $label }}</p>
+                            <h4 class="mb-0 f-21 {{ $colour }}">{{ $value }}</h4>
+                            <p class="mb-0 f-11 text-lightest">{{ $sub }}</p>
                         </div>
                     </div>
+                </div>
+            @endforeach
+        </div>
+
+        {{-- Calendar: the month day by day; pick days to (re-)fetch just those --}}
+        <div class="card bg-white border-0 b-shadow-4 mb-3">
+            <div class="card-header bg-white border-bottom d-flex align-items-center flex-wrap p-3">
+                <div class="fa-month mr-3">
+                    <a href="{{ route('biometric.calendar', ['month' => $prevMonth]) }}" class="btn-secondary rounded fa-arrow" title="Previous month">
+                        <i class="fa fa-chevron-left"></i>
+                    </a>
+                    <select class="form-control f-14" id="month-picker">
+                        @foreach ($monthOptions as $option)
+                            <option value="{{ $option['value'] }}" @selected($option['value'] === $month->format('Y-m'))>{{ $option['label'] }}</option>
+                        @endforeach
+                    </select>
+                    @if ($canGoForward)
+                        <a href="{{ route('biometric.calendar', ['month' => $nextMonth]) }}" class="btn-secondary rounded fa-arrow" title="Next month">
+                            <i class="fa fa-chevron-right"></i>
+                        </a>
+                    @else
+                        <span class="btn-secondary rounded fa-arrow disabled" title="Nothing to pull past today"><i class="fa fa-chevron-right"></i></span>
+                    @endif
+                </div>
+
+                <div class="ml-auto d-flex align-items-center flex-wrap fa-actions">
+                    <span class="f-12 text-dark-grey" id="selection-count"></span>
+                    <button type="button" class="btn-primary rounded f-14" id="sync-selected" style="display:none">
+                        <i class="fa fa-download mr-1"></i> Fetch selected days
+                    </button>
+                    <button type="button" class="btn-secondary rounded f-14" id="clear-selection" style="display:none">Clear</button>
+                    <button type="button" class="btn-secondary rounded f-14" id="sync-month">
+                        <i class="fa fa-calendar mr-1"></i> Fetch whole month
+                    </button>
                 </div>
             </div>
 

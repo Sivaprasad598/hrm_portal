@@ -188,7 +188,9 @@ class Kernel extends ConsoleKernel
         // (AttendanceSync). Biometric Settings decide it: "Sync enabled" (on/off),
         // "Sync every" (minutes), the look-back days, and "Push to ERP attendance
         // automatically" (whether the days are written into attendance).
-        $schedule->command('iapp:sync-punches --scheduled')->everyFifteenMinutes()->withoutOverlapping(60)->runInBackground();
+        // Checked every 5 minutes; "Pull new punches every" (5 / 10 / 15 / 30 / 60,
+        // default 5) decides whether a pull is due, so the setting alone sets the pace.
+        $schedule->command('iapp:sync-punches --scheduled')->everyFiveMinutes()->withoutOverlapping(60)->runInBackground();
         // Leave approval steps left undecided past the days in Leave Settings move on.
         $schedule->command('leaves:escalate-approvals')->hourly()->withoutOverlapping(30);
         // Employees' own shifts, written into the roster 60 days ahead (ShiftAssignments).
