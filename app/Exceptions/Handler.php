@@ -89,11 +89,15 @@ class Handler extends ExceptionHandler
             // A background request from a page whose session has since changed
             // (signed out, or signed in as someone else in another tab): say so
             // to that page, rather than leaving the message for the next login page
+            // An expired session simply signs out: straight to the login page, no
+            // alert. A background request answers 401 without a message, which the
+            // page's own handler (froiden helper: ajaxError 401) turns into a reload
+            // onto the login page; a page request is redirected there directly.
             if ($request->expectsJson() || $request->ajax()) {
-                return response()->json(['status' => 'fail', 'message' => __('Your session has ended. Please refresh the page and sign in again.')], 419);
+                return response()->json(['status' => 'fail'], 401);
             }
 
-            return redirect(route('login'))->with('message', 'Your session expired. Please sign in again.');
+            return redirect(route('login'));
         }
 
         return parent::render($request, $exception);

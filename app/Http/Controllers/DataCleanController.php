@@ -20,7 +20,8 @@ class DataCleanController extends AccountBaseController
         $this->activeSettingMenu = 'data_clean';
 
         $this->middleware(function ($request, $next) {
-            abort_403(!in_array('admin', user_roles()));
+            // Super Admin and Admin (manager_admin).
+            abort_403(!array_intersect(['admin', 'manager_admin'], user_roles()));
 
             return $next($request);
         });
@@ -32,6 +33,14 @@ class DataCleanController extends AccountBaseController
         $this->items = collect(array_keys(DataCleaner::GROUPS))->mapWithKeys(fn ($g) => [$g => $cleaner->items($g)])->all();
         $this->special = DataCleaner::SPECIAL;
         $this->counts = $cleaner->counts();
+
+        // Projects, tasks, CRM and the rest are not part of this installation's
+        // modules: their group shows only while it still holds any rows.
+        if (collect($this->items['modules'] ?? [])->sum(fn ($i) => $this->counts[$i] ?? 0) === 0) {
+            $groups = $this->groups;
+            unset($groups['modules']);
+            $this->groups = $groups;
+        }
         $this->phrase = DataCleaner::CONFIRM_PHRASE;
         $this->keptUsers = \App\Models\User::withoutGlobalScopes()->whereIn('id', $cleaner->keptUsers())->get(['id', 'name', 'email']);
 

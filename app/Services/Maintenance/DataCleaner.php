@@ -18,9 +18,13 @@ use Symfony\Component\Process\Process;
  *
  * Always kept: Super Admin (users with the admin role), company and module
  * settings, payroll settings (Payslip Calculation), leave types and policy,
- * notice periods, holidays, the default shift (General Shift) and Day Off,
+ * notice periods, the default shift (General Shift) and Day Off,
  * biometric devices and connection settings, the system roles (Super Admin,
  * Employee, Client) and their permissions.
+ *
+ * Links the database does not hold itself are put right as well (fixRelated):
+ * a cleaned payslip reopens the encashment it paid, a removed person's asset is
+ * available again, a hired candidate keeps its history.
  *
  * A full database backup is taken first; nothing is removed if it fails.
  */
@@ -44,12 +48,17 @@ class DataCleaner
         'organisation' => ['Divisions, designations, branches', 'The import creates them again from the sheet.', [
             'teams', 'designations', 'branches',
         ]],
-        'roles' => ['Custom roles', 'Roles other than Super Admin, Employee and Client.', []],
-        'attendance' => ['Attendance & leaves', 'Attendance, daily reviews, regularisations, day overrides, leave applications, leave balances and their history, leave encashments, timesheets.', [
-            'attendances', 'attendance_reviews', 'attendance_regularisations', 'attendance_day_overrides', 'attendance_daily_runs',
-            'leaves', 'leave_files', 'employee_leave_quotas', 'employee_leave_quota_events', 'employee_leave_quota_histories',
+        'roles' => ['Custom roles', 'Roles other than Super Admin, Admin, Employee and Client.', []],
+        'attendance' => ['Attendance', 'Attendance, daily reviews, regularisations with their approvals, day overrides, break logs, daily runs, timesheets.', [
+            'attendances', 'attendance_reviews', 'attendance_regularisations', 'attendance_regularisation_approvals', 'attendance_break_logs',
+            'attendance_day_overrides', 'attendance_daily_runs', 'weekly_timesheets', 'weekly_timesheet_entries',
+        ]],
+        'leave' => ['Leave', 'Leave applications with their files and approval trail, leave balances and their history, encashments, year-end runs. Leave types and policy stay.', [
+            'leaves', 'leave_files', 'leave_approvals', 'employee_leave_quotas', 'employee_leave_quota_events', 'employee_leave_quota_histories',
             'employee_fixed_leave_balance', 'employee_monthly_balance', 'leave_encashments', 'leave_year_end_items', 'leave_year_end_runs',
-            'weekly_timesheets', 'weekly_timesheet_entries',
+        ]],
+        'holidays' => ['Holidays', 'The holiday list (paid days off for everyone).', [
+            'holidays',
         ]],
         'shifts' => ['Shifts & rosters', 'Custom shifts, rosters, assignments, rotations and change requests. General Shift and Day Off stay.', [
             'employee_shift_schedules', 'employee_shift_assignments', 'employee_shift_change_requests', 'employee_shift_rotations',
@@ -59,9 +68,14 @@ class DataCleaner
             'resignations', 'resignation_replies', 'employee_exits', 'employee_exit_checklists', 'employee_exit_histories',
             'employee_exit_interviews', 'terminations', 'settlements',
         ]],
-        'payroll' => ['Payroll data', 'Payslips, pay elements given to people, advances and instalments, tax declarations, OT bank. Payroll settings stay.', [
-            'payslips', 'payslip_components', 'payroll_arrangements', 'pay_element_group_members', 'pay_element_rule_applications',
+        'payroll' => ['Payroll', 'Payslips and their lines, advances and loans, recurring pay rules and groups, salary revisions, tax declarations, OT bank, daily and past OT. Payroll settings, pay element types and tax slabs stay.', [
+            'payslips', 'payslip_components', 'payroll_arrangements', 'pay_element_rules', 'pay_element_rule_applications',
+            'pay_element_groups', 'pay_element_group_members', 'salary_revisions', 'salary_revision_logs', 'salary_revision_batches',
             'tax_declarations', 'payslip_mock_calculation', 'ot_ledger', 'ot_daily', 'ot_past',
+        ]],
+        'recruitment' => ['Recruitment', 'Candidates with their files, applications, interviews and feedback, offers, job positions with their rounds, the recruitment log and inbound applications. Employees hired from a candidate stay. Recruitment settings stay.', [
+            'recruit_interview_feedback', 'recruit_interviews', 'job_offers', 'job_applications', 'candidate_files', 'recruit_logs',
+            'recruit_inbound', 'candidates', 'job_positions',
         ]],
         'biometric' => ['Biometric data', 'Punches, device days, the device employee register and links, sync logs, backfills, exceptions. Devices and connection settings stay.', [
             'iapp_device_transactions', 'iapp_attendance_records', 'iapp_attendance_links', 'iapp_attendance_sync_runs', 'iapp_backfill_runs',
@@ -93,8 +107,32 @@ class DataCleaner
     /** Special items: not a table emptied completely. */
     public const SPECIAL = [
         '@users' => ['Employee accounts', 'Every user except the Super Admin. Every row that belongs to them in any table goes with them.'],
-        '@roles' => ['Custom roles', 'Every role except Super Admin, Employee and Client, with its permissions and menu. People who had one keep the base Employee role.'],
+        '@roles' => ['Custom roles', 'Every role except Super Admin, Admin, Employee and Client, with its permissions and menu. People who had one keep the base Employee role.'],
         '@shifts' => ['Custom shifts', 'Every shift except General Shift and Day Off.'],
+    ];
+
+    /** How an item reads on the page (the table name shows beside it). */
+    public const LABELS = [
+        'attendances' => 'Attendance (clock in / out)', 'attendance_reviews' => 'Daily reviews', 'attendance_regularisations' => 'Attendance corrections',
+        'attendance_regularisation_approvals' => 'Correction approval trail', 'attendance_break_logs' => 'Break logs',
+        'attendance_day_overrides' => 'Day overrides', 'attendance_daily_runs' => 'Nightly run history', 'weekly_timesheets' => 'Weekly timesheets',
+        'weekly_timesheet_entries' => 'Weekly timesheet entries',
+        'leaves' => 'Leave applications', 'leave_files' => 'Leave attachments', 'leave_approvals' => 'Leave approval trail',
+        'employee_leave_quotas' => 'Leave balances', 'employee_leave_quota_events' => 'Leave balance events', 'employee_leave_quota_histories' => 'Leave balance history',
+        'employee_fixed_leave_balance' => 'Fixed leave balances', 'employee_monthly_balance' => 'Monthly leave balances', 'leave_encashments' => 'Leave encashments',
+        'leave_year_end_items' => 'Leave year-end lines', 'leave_year_end_runs' => 'Leave year-end runs', 'holidays' => 'Holidays',
+        'payslips' => 'Payslips', 'payslip_components' => 'Payslip extra lines (OT, bonus, recoveries)', 'payroll_arrangements' => 'Advances & loans',
+        'pay_element_rules' => 'Recurring pay rules', 'pay_element_rule_applications' => 'Recurring rule history', 'pay_element_groups' => 'Pay element groups',
+        'pay_element_group_members' => 'Pay element group members', 'salary_revisions' => 'Salary revisions', 'salary_revision_logs' => 'Salary revision trail',
+        'salary_revision_batches' => 'Salary revision batches', 'tax_declarations' => 'Tax declarations', 'payslip_mock_calculation' => 'Calculator scratch rows',
+        'ot_ledger' => 'OT bank used (LOP cover, encashed)', 'ot_daily' => 'Daily overtime', 'ot_past' => 'Past OT (imported)',
+        'recruit_interview_feedback' => 'Interview feedback', 'recruit_interviews' => 'Interviews', 'job_offers' => 'Offers', 'job_applications' => 'Applications',
+        'candidate_files' => 'Candidate files', 'recruit_logs' => 'Recruitment log', 'recruit_inbound' => 'Inbound applications (mail, careers page)',
+        'candidates' => 'Candidates', 'job_positions' => 'Job positions (and their interview rounds)',
+        'assets' => 'Asset register', 'asset_assignments' => 'Hand-overs & returns', 'asset_histories' => 'Asset history', 'asset_services' => 'Services & repairs',
+        'asset_renewals' => 'Renewals', 'asset_reminders' => 'Asset reminders',
+        'settlements' => 'Final settlements', 'resignations' => 'Resignations', 'employee_exits' => 'Exits', 'terminations' => 'Terminations',
+        'teams' => 'Divisions', 'designations' => 'Designations', 'branches' => 'Branches',
     ];
 
     /** Upload folders emptied with a table (under public/user-uploads). */
@@ -108,19 +146,26 @@ class DataCleaner
         'notice_files' => ['notice-files'],
         'product_files' => ['products'],
         'assets' => ['asset-images', 'asset-files'],
+        'candidate_files' => ['candidate-files'],
     ];
 
     /** Shifts that are never removed. */
     protected const KEPT_SHIFTS = ['General Shift', 'Day Off'];
 
     /** Tables never touched when people are removed. */
-    protected const NOT_PER_PERSON = ['users', 'ticket_settings_for_agents', 'lead_setting'];
+    protected const NOT_PER_PERSON = ['users', 'ticket_settings_for_agents', 'lead_setting', 'candidates'];
 
-    /** @return array<int, int> the Super Admin accounts kept */
+    /**
+     * The accounts kept: the Super Admins, and whoever is running the clean (an
+     * Admin may run it too, and must not remove their own login mid-way).
+     *
+     * @return array<int, int>
+     */
     public function keptUsers(): array
     {
         return DB::table('role_user')->join('roles', 'roles.id', '=', 'role_user.role_id')
-            ->where('roles.name', 'admin')->pluck('role_user.user_id')->map(fn ($id) => (int) $id)->unique()->values()->all();
+            ->where('roles.name', 'admin')->pluck('role_user.user_id')
+            ->push(auth()->id())->filter()->map(fn ($id) => (int) $id)->unique()->values()->all();
     }
 
     /** What can be picked in a group: its special item (if any) then its tables that exist. */
@@ -160,7 +205,7 @@ class DataCleaner
             foreach ($this->items($group) as $item) {
                 $out[$item] = match ($item) {
                     '@users' => DB::table('users')->whereNotIn('id', $keep)->count(),
-                    '@roles' => DB::table('roles')->whereNotIn('name', ['admin', 'employee', 'client'])->count(),
+                    '@roles' => DB::table('roles')->whereNotIn('name', ['admin', 'manager_admin', 'employee', 'client'])->count(),
                     '@shifts' => DB::table('employee_shifts')->whereNotIn('shift_name', self::KEPT_SHIFTS)->count(),
                     default => DB::table($item)->count(),
                 };
@@ -337,7 +382,7 @@ class DataCleaner
             }
 
             if ($has('@roles')) {
-                $custom = DB::table('roles')->whereNotIn('name', ['admin', 'employee', 'client'])->pluck('id');
+                $custom = DB::table('roles')->whereNotIn('name', ['admin', 'manager_admin', 'employee', 'client'])->pluck('id');
                 $affected = DB::table('role_user')->whereIn('role_id', $custom)->pluck('user_id')->unique();
                 DB::table('permission_role')->whereIn('role_id', $custom)->delete();
                 DB::table('role_menus')->whereIn('role_id', $custom)->delete();
@@ -387,6 +432,8 @@ class DataCleaner
                 $removed['users'] = DB::table('users')->whereNotIn('id', $keep)->delete();
                 DB::table('sessions')->whereNotNull('user_id')->whereNotIn('user_id', $keep)->delete();
             }
+            $this->fixRelated($items, $has, $keep, $removed);
+
             // With the checks off the database cascades nothing, so rows kept in
             // settings tables can still point at rows just removed (a project
             // label at a deleted project). A dump of the database then fails on
@@ -400,6 +447,102 @@ class DataCleaner
         }
 
         return $removed;
+    }
+
+    /**
+     * What the picked items leave pointing at nothing, put right gently - the
+     * links the database itself does not hold (no foreign key), and the states
+     * that would otherwise stay wrong. $removed gains "table (put right)" lines.
+     */
+    protected function fixRelated(array $items, \Closure $has, array $keep, array &$removed): void
+    {
+        $note = function (string $table, int $n, string $what) use (&$removed) {
+            if ($n) {
+                $removed[$table . '.' . $what . ' (link cleared)'] = ($removed[$table . '.' . $what . ' (link cleared)'] ?? 0) + $n;
+            }
+        };
+        $gone = fn (string $table) => !Schema::hasTable($table) || DB::table($table)->doesntExist();
+
+        // Payslips gone: what they paid out is open again - leave encashments go
+        // back to pending (to be paid on the next payslip), OT bank movements and
+        // extra pay lines are released from them.
+        if ($has('payslips')) {
+            if (Schema::hasTable('leave_encashments') && !$has('leave_encashments')) {
+                $note('leave_encashments', DB::table('leave_encashments')->whereNotNull('payslip_id')
+                    ->update(['payslip_id' => null, 'status' => 'pending', 'paid_at' => null]), 'payslip_id');
+            }
+            if (Schema::hasTable('ot_ledger') && !$has('ot_ledger')) {
+                $note('ot_ledger', DB::table('ot_ledger')->whereNotNull('payslip_id')->update(['payslip_id' => null]), 'payslip_id');
+            }
+            if (Schema::hasTable('payslip_components') && !$has('payslip_components')) {
+                $note('payslip_components', DB::table('payslip_components')->whereNotNull('payslip_id')->update(['payslip_id' => null]), 'payslip_id');
+            }
+        }
+
+        // Advances / loans gone: their instalment lines go too.
+        if ($has('payroll_arrangements') && Schema::hasTable('payslip_components') && !$has('payslip_components')) {
+            $n = DB::table('payslip_components')->whereNotNull('arrangement_id')->delete();
+            $n && $removed['payslip_components'] = ($removed['payslip_components'] ?? 0) + $n;
+        }
+
+        // Recurring rules gone: the lines they produced and their history go too,
+        // so nothing is paid from a rule that no longer exists.
+        if ($has('pay_element_rules')) {
+            if (Schema::hasTable('payslip_components') && !$has('payslip_components')) {
+                $n = DB::table('payslip_components')->whereNotNull('rule_id')->whereNull('payslip_id')->delete();
+                $n && $removed['payslip_components'] = ($removed['payslip_components'] ?? 0) + $n;
+                $note('payslip_components', DB::table('payslip_components')->whereNotNull('rule_id')->update(['rule_id' => null]), 'rule_id');
+            }
+            if (Schema::hasTable('pay_element_rule_applications') && !$has('pay_element_rule_applications')) {
+                $n = DB::table('pay_element_rule_applications')->delete();
+                $n && $removed['pay_element_rule_applications'] = ($removed['pay_element_rule_applications'] ?? 0) + $n;
+            }
+        }
+        if ($has('pay_element_groups') && Schema::hasTable('pay_element_group_members') && !$has('pay_element_group_members')) {
+            $n = DB::table('pay_element_group_members')->delete();
+            $n && $removed['pay_element_group_members'] = ($removed['pay_element_group_members'] ?? 0) + $n;
+        }
+        if ($has('salary_revision_batches') && Schema::hasTable('salary_revision_logs') && !$has('salary_revision_logs')) {
+            $n = DB::table('salary_revision_logs')->delete();
+            $n && $removed['salary_revision_logs'] = ($removed['salary_revision_logs'] ?? 0) + $n;
+        }
+
+        // Approval trails follow what they approved.
+        foreach ([['leaves', 'leave_approvals', 'leave_id'], ['attendance_regularisations', 'attendance_regularisation_approvals', 'regularisation_id']] as [$parent, $trail, $column]) {
+            if (($has($parent) || $has('@users')) && Schema::hasTable($trail) && !$has($trail) && Schema::hasTable($parent)) {
+                $n = DB::table($trail)->whereNotIn($column, fn ($q) => $q->from($parent)->select('id'))->delete();
+                $n && $removed[$trail] = ($removed[$trail] ?? 0) + $n;
+            }
+        }
+
+        // Job positions gone: their own interview rounds go with them (the
+        // general rounds, not tied to a position, stay as settings).
+        if ($has('job_positions') && Schema::hasTable('recruit_rounds')) {
+            $n = DB::table('recruit_rounds')->whereNotNull('job_position_id')->delete();
+            $n && $removed['recruit_rounds'] = ($removed['recruit_rounds'] ?? 0) + $n;
+        }
+
+        // Candidates gone while the inbound mail stays: it no longer points at them.
+        if (($has('candidates') || $has('job_applications')) && Schema::hasTable('recruit_inbound') && !$has('recruit_inbound')) {
+            $note('recruit_inbound', DB::table('recruit_inbound')->where(fn ($q) => $q->whereNotNull('candidate_id')->orWhereNotNull('job_application_id'))
+                ->update(['candidate_id' => null, 'job_application_id' => null]), 'candidate_id');
+        }
+
+        // People gone: a candidate they were hired from keeps its history, only
+        // the link to the employee goes; an asset they held is available again.
+        if ($has('@users')) {
+            if (Schema::hasTable('candidates') && !$has('candidates')) {
+                $note('candidates', DB::table('candidates')->whereNotNull('user_id')->whereNotIn('user_id', $keep)->update(['user_id' => null]), 'user_id');
+            }
+        }
+
+        if (($has('@users') || $has('asset_assignments')) && Schema::hasTable('assets') && !$has('assets')) {
+            $held = Schema::hasTable('asset_assignments')
+                ? DB::table('asset_assignments')->whereNull('returned_on')
+                    ->when($has('@users'), fn ($q) => $q->whereIn('user_id', $keep))->pluck('asset_id')->all()
+                : [];
+            $note('assets', DB::table('assets')->where('status', 'assigned')->whereNotIn('id', $held ?: [0])->update(['status' => 'available']), 'status');
+        }
     }
 
     /**

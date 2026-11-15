@@ -51,7 +51,7 @@
                                  :href="\App\Support\ModulePresence::href('biometric-settings.index')" :text="__('app.menu.biometricSettings')"/>
         @endif
 
-        @if (in_array('admin', user_roles()))
+        @if (array_intersect(['admin', 'manager_admin'], user_roles()))
             <x-setting-menu-item :active="$activeMenu" menu="data_clean"
                                  :href="\App\Support\ModulePresence::href('data-clean.index')" text="Data Clean"/>
         @endif

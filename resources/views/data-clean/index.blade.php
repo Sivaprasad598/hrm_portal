@@ -66,7 +66,7 @@
                                     <label class="dc-item {{ $isSpecial ? 'dc-special' : '' }} {{ $n ? '' : 'is-empty' }}">
                                         <input type="checkbox" name="items[]" value="{{ $item }}">
                                         <span>
-                                            {{ $isSpecial ? $special[$item][0] : ucfirst(str_replace('_', ' ', $item)) }}
+                                            {{ $isSpecial ? $special[$item][0] : (\App\Services\Maintenance\DataCleaner::LABELS[$item] ?? ucfirst(str_replace('_', ' ', $item))) }}
                                             @if ($isSpecial)
                                                 <span class="d-block f-11 font-weight-normal {{ $item === '@users' ? 'text-red' : 'text-dark-grey' }}">{{ $special[$item][1] }}</span>
                                             @else
@@ -109,7 +109,7 @@
 @push('scripts')
 <script>
     (function () {
-        var labels = @json(collect($special)->map(fn ($s) => $s[0]));
+        var labels = Object.assign(@json(\App\Services\Maintenance\DataCleaner::LABELS), @json(collect($special)->map(fn ($s) => $s[0])));
         var form = $('#data-clean-form');
 
         function name(item) { return labels[item] || item.replace(/_/g, ' '); }
