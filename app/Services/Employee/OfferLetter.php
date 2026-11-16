@@ -666,9 +666,15 @@ Human Resource Department.",
     /** Settings text to safe HTML: escaped, placeholders filled, **bold**, line breaks kept. */
     public static function fill(string $text, array $values): string
     {
-        $html = e($text);
-        $html = strtr($html, $values);
-        $html = preg_replace('/\*\*(.+?)\*\*/s', '<strong>$1</strong>', $html);
+        // Bold first, around the placeholders themselves: an empty value (a form not filled in
+        // yet) then leaves an empty <strong>, where filling first left "****" that paired up
+        // with the next ** and bolded the wrong words. An empty value shows as a blank line.
+        $html = preg_replace('/\*\*(.+?)\*\*/s', '<strong>$1</strong>', e($text));
+        $blank = '<span style="color:#9aa5b1">__________</span>';
+        // (The signer's own lines stay empty, so a sign-off line with nothing in it is left out.)
+        $html = strtr($html, array_combine(array_keys($values), array_map(
+            fn ($k, $v) => trim(strip_tags((string) $v)) === '' && !str_starts_with($k, '{issuer') && !str_starts_with($k, '{signatory') ? $blank : $v,
+            array_keys($values), $values)));
 
         return nl2br($html, false);
     }

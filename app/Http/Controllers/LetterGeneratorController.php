@@ -25,16 +25,27 @@ class LetterGeneratorController extends AccountBaseController
         $this->pageTitle = 'Letter Generator';
 
         $this->middleware(function ($request, $next) {
-            abort_403(!OfferLetterController::canUse() && !RelievingLetterController::canUse());
+            abort_403(!OfferLetterController::canUse() && !RelievingLetterController::canUse() && !self::canPayslip());
 
             return $next($request);
         });
     }
 
+    /** Payslips carry salaries: whoever prepares payroll, and the administrators. */
+    public static function canPayslip(): bool
+    {
+        return (bool) array_intersect(['admin', 'manager_admin'], user_roles())
+            || \App\Services\Access\PayrollAccess::can('prepare');
+    }
+
     protected function type(Request $request): string
     {
-        $type = $request->type === 'relieving' ? 'relieving' : 'offer';
-        abort_403($type === 'offer' ? !OfferLetterController::canUse() : !RelievingLetterController::canUse());
+        $type = in_array($request->type, ['relieving', 'payslip'], true) ? $request->type : 'offer';
+        abort_403(match ($type) {
+            'offer' => !OfferLetterController::canUse(),
+            'relieving' => !RelievingLetterController::canUse(),
+            'payslip' => !self::canPayslip(),
+        });
 
         return $type;
     }
@@ -47,7 +58,7 @@ class LetterGeneratorController extends AccountBaseController
         $this->details = [];
 
         // Duplicate: start from a letter already issued.
-        if ($request->duplicate) {
+        if ($request->duplicate && $this->type !== 'payslip') {
             $table = $this->type === 'offer' ? 'offer_letters' : 'relieving_letters';
             $from = DB::table($table)->where('id', $request->duplicate)->where('company_id', company()->id)->first();
             $this->details = $from && $from->details ? json_decode($from->details, true) : [];
@@ -64,7 +75,38 @@ class LetterGeneratorController extends AccountBaseController
         $this->noticeOptions = DB::table('notice_period_settings')->where('company_id', company()->id)->orderByDesc('months')->get(['name', 'months']);
         $this->basicDefault = (float) ((new \App\Services\Payroll\SalaryCalculator())->settings()->basic_pct ?? 40);
 
+        if ($this->type === 'payslip') {
+            // Anyone, those who have left included: these are mostly for former staff.
+            $this->people = DB::table('users as u')->join('employee_details as ed', 'ed.user_id', '=', 'u.id')
+                ->where('u.company_id', company()->id)->orderBy('u.name')
+                ->get(['u.id', 'u.name', 'ed.employee_id as code', 'ed.last_date']);
+            $this->branchList = DB::table('branches')->orderBy('branch_name')->get(['id', 'branch_name']);
+            $this->payElements = DB::table('pay_element_types')->where('company_id', company()->id)->where('is_active', 1)
+                ->orderBy('sort_order')->get(['name', 'kind']);
+
+            return view('letter-generator.payslip', $this->data);
+        }
+
         return view('letter-generator.form', $this->data);
+    }
+
+    /** The payslips of the form's month range, as one PDF (nothing is saved). */
+    public function payslipPdf(Request $request)
+    {
+        abort_403(!self::canPayslip());
+        $details = (array) $request->input('d', []);
+
+        if ($problems = \App\Services\Payroll\ManualPayslip::problems($details)) {
+            return response(implode(' ', $problems), 422);
+        }
+
+        $binary = \App\Services\Payroll\ManualPayslip::pdf($details)->output();
+        $disposition = $request->boolean('inline') ? 'inline' : 'attachment';
+
+        return response($binary, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => $disposition . '; filename="' . \App\Services\Payroll\ManualPayslip::fileName($details) . '"',
+        ]);
     }
 
     /** An employee's details, to fill the form (everything stays editable). */
@@ -73,8 +115,11 @@ class LetterGeneratorController extends AccountBaseController
         $type = $this->type($request);
         abort_if(!DB::table('users')->where('id', $userId)->where('company_id', company()->id)->exists(), 404);
 
-        return Reply::dataOnly(['status' => 'success',
-            'details' => $type === 'offer' ? OfferLetter::detailsFor((int) $userId) : RelievingLetter::detailsFor((int) $userId)]);
+        return Reply::dataOnly(['status' => 'success', 'details' => match ($type) {
+            'offer' => OfferLetter::detailsFor((int) $userId),
+            'relieving' => RelievingLetter::detailsFor((int) $userId),
+            'payslip' => \App\Services\Payroll\ManualPayslip::detailsFor((int) $userId),
+        }]);
     }
 
     /** The letter as it stands on the form, and (offer) the salary worked out from the CTC. */
@@ -82,6 +127,12 @@ class LetterGeneratorController extends AccountBaseController
     {
         $type = $this->type($request);
         $details = (array) $request->input('d', []);
+
+        if ($type === 'payslip') {
+            return Reply::dataOnly(['status' => 'success', 'html' => \App\Services\Payroll\ManualPayslip::html($details),
+                'summary' => \App\Services\Payroll\ManualPayslip::summary($details),
+                'problems' => \App\Services\Payroll\ManualPayslip::problems($details)]);
+        }
 
         if ($type === 'relieving') {
             return Reply::dataOnly(['status' => 'success', 'html' => RelievingLetter::html(null, false, null, $details),

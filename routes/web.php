@@ -856,6 +856,7 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account'], function () {
     Route::get('letters/generate/prefill/{userId}', [App\Http\Controllers\LetterGeneratorController::class, 'prefill'])->whereNumber('userId')->name('offer-letters.generate.prefill');
     Route::post('letters/generate/preview', [App\Http\Controllers\LetterGeneratorController::class, 'preview'])->name('offer-letters.generate.preview');
     Route::post('letters/generate', [App\Http\Controllers\LetterGeneratorController::class, 'store'])->name('offer-letters.generate.store');
+    Route::post('letters/generate/payslip', [App\Http\Controllers\LetterGeneratorController::class, 'payslipPdf'])->name('offer-letters.generate.payslip');
 
     // Relieving cum experience letters: exited employees only (Exited Employees list), after clearances.
     Route::get('relieving-letters/check/{userId}', [App\Http\Controllers\RelievingLetterController::class, 'check'])->name('relieving-letters.check');

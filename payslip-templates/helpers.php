@@ -7,6 +7,36 @@
  * callers. Both are guarded, so including this twice is harmless.
  */
 
+/** The sum of a list of [label, amount] rows (payslips.php has the same, guarded the same way). */
+if (!function_exists('total_of')) {
+    function total_of(array $rows)
+    {
+        $sum = 0;
+        foreach ($rows as $row) {
+            $sum += (float) $row[1];
+        }
+
+        return $sum;
+    }
+}
+
+/** The sum of the rows with these labels, across several lists. */
+if (!function_exists('total_of_labels')) {
+    function total_of_labels(array $rowSets, array $labels)
+    {
+        $sum = 0;
+        foreach ($rowSets as $rows) {
+            foreach ($rows as $row) {
+                if (in_array($row[0], $labels, true)) {
+                    $sum += (float) $row[1];
+                }
+            }
+        }
+
+        return $sum;
+    }
+}
+
 /** Indian digit grouping: 1234567 → 12,34,567 */
 if (!function_exists('indian_number')) {
     function indian_number($value)

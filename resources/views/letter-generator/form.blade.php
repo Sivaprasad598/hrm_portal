@@ -1,27 +1,7 @@
 @extends('layouts.app')
 
 @push('styles')
-<style>
-    .lg-wrap { display: flex; gap: 18px; align-items: flex-start; }
-    .lg-form { flex: 0 0 440px; max-width: 440px; }
-    .lg-preview { flex: 1 1 auto; min-width: 0; position: sticky; top: 76px; }
-    .lg-preview iframe { width: 100%; height: calc(100vh - 150px); border: 1px solid #e8eef3; border-radius: 6px; background: #e9ecef; }
-    .lg-card { background: #fff; border: 1px solid #e8eef3; border-radius: 6px; padding: 14px 16px; margin-bottom: 14px; }
-    .lg-card h5 { font-size: 13px; font-weight: 600; color: #28313c; text-transform: uppercase; letter-spacing: .04em; margin: 0 0 10px; }
-    .lg-card label { font-size: 12.5px; color: #616e80; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; display: block; }
-    .lg-card label.lg-check { white-space: normal; display: inline; }
-    .lg-sub { font-size: 12px; font-weight: 600; color: #28313c; margin: 4px 0 6px; }
-    .lg-card select.form-control { height: calc(1.5em + .75rem + 2px); }
-    .min-w-0 { min-width: 0; }
-    .lg-card .form-control { font-size: 13.5px; }
-    .lg-card .form-group { margin-bottom: 10px; }
-    .lg-pay td { padding: 2px 0; font-size: 12.5px; }
-    .lg-pay td:last-child { text-align: right; }
-    .lg-pay tr.t td { font-weight: 600; border-top: 1px solid #e8eef3; padding-top: 4px; }
-    .lg-hint { font-size: 11.5px; color: #99a5b5; }
-    .lg-tabs .btn { font-size: 13px; }
-    @media (max-width: 1199.98px) { .lg-wrap { flex-direction: column; } .lg-form { flex-basis: auto; max-width: none; width: 100%; } .lg-preview { position: static; width: 100%; } }
-</style>
+@include('letter-generator.partials.styles')
 @endpush
 
 @section('content')
@@ -32,22 +12,7 @@
         ? $n->months . ' ' . ((int) $n->months === 1 ? 'month' : 'months') : ($n->months * 30) . ' days') ?? '60 days';
 @endphp
 <div class="content-wrapper">
-    <div class="d-flex justify-content-between align-items-center flex-wrap mb-3">
-        <div class="btn-group lg-tabs" role="group">
-            @if (\App\Http\Controllers\OfferLetterController::canUse())
-                <a href="{{ route('offer-letters.generate', ['type' => 'offer']) }}" class="btn {{ $type === 'offer' ? 'btn-primary' : 'btn-secondary' }}">Offer Letter</a>
-            @endif
-            @if (\App\Http\Controllers\RelievingLetterController::canUse())
-                <a href="{{ route('offer-letters.generate', ['type' => 'relieving']) }}" class="btn {{ $type === 'relieving' ? 'btn-primary' : 'btn-secondary' }}">Relieving Letter</a>
-            @endif
-        </div>
-        <div>
-            <x-forms.link-secondary :link="route('offer-letters.index')" icon="list" class="mr-2">Issued Letters</x-forms.link-secondary>
-            @if (\App\Http\Controllers\OfferLetterSettingController::canEdit())
-                <x-forms.link-secondary :link="route('offer-letter-settings.index')" icon="cog">Letter Settings</x-forms.link-secondary>
-            @endif
-        </div>
-    </div>
+    @include('letter-generator.partials.header')
 
     <div class="lg-wrap">
         <form id="gen-form" class="lg-form" onsubmit="return false;">

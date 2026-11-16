@@ -47,6 +47,15 @@ class PayslipDocument
             ->setOption('dpi', 96);
     }
 
+    /** A payslip page drawn elsewhere (the Letter Generator), laid out for paper the same way. */
+    public function pdfFromHtml(string $html)
+    {
+        return Pdf::loadHTML($this->localFonts($this->localImages($this->printable($html))))
+            ->setPaper('a4')
+            ->setOption('isRemoteEnabled', true)
+            ->setOption('dpi', 96);
+    }
+
     /**
      * Point the Open Sans faces at the files on disk, for the same reason as the
      * images below: outside a browser request the fetch over HTTP fails, and the

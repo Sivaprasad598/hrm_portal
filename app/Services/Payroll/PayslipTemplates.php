@@ -90,13 +90,23 @@ class PayslipTemplates
      */
     public function render(string $template): string
     {
+        return $this->renderWith($template, $this->sample());
+    }
+
+    /**
+     * A template drawn from the figures given, in the shape sample() returns
+     * (the payslip array and the totals derived from it): the Letter
+     * Generator's payslips for months outside the system.
+     */
+    public function renderWith(string $template, array $vars): string
+    {
         // The template reads these out of the enclosing scope, exactly as it
         // does when payslips.php includes it.
         // The formatting the templates and the sample both call, shared with
         // payslips.php so there is one definition rather than two that drift.
         require_once base_path('payslip-templates/helpers.php');
 
-        extract($this->sample(), EXTR_SKIP);
+        extract($vars, EXTR_SKIP);
 
         ob_start();
         include $this->fileFor($template);

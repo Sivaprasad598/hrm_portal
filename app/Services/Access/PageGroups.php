@@ -32,8 +32,8 @@ class PageGroups
         ]],
         'exits' => ['Exiting Employees', [
             'resignation-management-index' => 'Resignations',
-            'employee-exit-index' => 'Exited Employees',
             'employee-termination-index' => 'Termination',
+            'employee-exit-index' => 'Exited Employees',
             'resignations-index' => 'My Resignation',
         ]],
         // Payroll
