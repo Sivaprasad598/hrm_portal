@@ -17,9 +17,10 @@
                         $date = \Carbon\Carbon::parse($j->joining_date);
                         $days = (int) $today->diffInDays($date);
                     @endphp
-                    <tr>
+                    {{-- The whole row opens the offer letter in the slide-in panel. --}}
+                    <tr class="joining-row" style="cursor:pointer" data-url="{{ route('offer-letters.show', $j->id) }}" title="Open the offer letter">
                         <td class="pl-20">
-                            <a href="{{ route('offer-letters.show', $j->id) }}" class="text-darkest-grey font-weight-500">{{ $j->person_name }}</a>
+                            <a href="{{ route('offer-letters.show', $j->id) }}" class="text-darkest-grey font-weight-500 openRightModal">{{ $j->person_name }}</a>
                             <div class="f-11 text-lightest">{{ $j->designation }}{{ $j->location ? ' · ' . $j->location : '' }} · Offer {{ $j->reference_no }}</div>
                         </td>
                         <td class="pr-20 text-right text-nowrap">
@@ -39,4 +40,11 @@
             </x-table>
         </x-cards.data>
     </div>
+    <script>
+        // A click anywhere on the row does what the name's link does (the slide-in panel).
+        $(document).off('click.joiningRow').on('click.joiningRow', '.joining-row', function (event) {
+            if ($(event.target).closest('a').length) { return; }
+            $(this).find('a.openRightModal').first().trigger('click');
+        });
+    </script>
 @endif

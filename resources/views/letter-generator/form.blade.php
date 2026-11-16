@@ -72,12 +72,12 @@
                     <h5>Position</h5>
                     <div class="form-group">
                         <label>Designation *</label>
-                        <input type="text" name="d[designation]" class="form-control" list="gen-designations" value="{{ $v('designation') }}">
+                        @include('letter-generator.partials.pick', ['name' => 'd[designation]', 'options' => $designations, 'value' => $v('designation'), 'title' => 'Search designation'])
                     </div>
                     <div class="row">
                         <div class="col-6 form-group">
                             <label>Based in (location) *</label>
-                            <input type="text" name="d[location]" class="form-control" list="gen-branches" value="{{ $v('location') }}">
+                            @include('letter-generator.partials.pick', ['name' => 'd[location]', 'options' => $branches, 'value' => $v('location'), 'title' => 'Search location'])
                         </div>
                         <div class="col-6 form-group">
                             <label>Joining date *</label>
@@ -148,11 +148,11 @@
                     </div>
                     <div class="form-group">
                         <label>Designation at the time of relieving *</label>
-                        <input type="text" name="d[designation]" class="form-control" list="gen-designations" value="{{ $v('designation') }}">
+                        @include('letter-generator.partials.pick', ['name' => 'd[designation]', 'options' => $designations, 'value' => $v('designation'), 'title' => 'Search designation'])
                     </div>
                     <div class="form-group">
                         <label>Department *</label>
-                        <input type="text" name="d[department]" class="form-control" list="gen-departments" value="{{ $v('department') }}">
+                        @include('letter-generator.partials.pick', ['name' => 'd[department]', 'options' => $departments, 'value' => $v('department'), 'title' => 'Search department'])
                     </div>
                     <div class="form-group">
                         <label>Employment tenure</label>
@@ -180,7 +180,7 @@
             <datalist id="gen-designations">@foreach ($designations as $x)<option value="{{ $x }}">@endforeach</datalist>
             <datalist id="gen-branches">@foreach ($branches as $x)<option value="{{ $x }}">@endforeach</datalist>
             <datalist id="gen-departments">@foreach ($departments as $x)<option value="{{ $x }}">@endforeach</datalist>
-            <datalist id="gen-probation">@foreach (['1 month', '2 months', '3 months', '6 months', '45 days'] as $x)<option value="{{ $x }}">@endforeach</datalist>
+            <datalist id="gen-probation">@foreach (['No probation', '1 month', '2 months', '3 months', '6 months', '45 days'] as $x)<option value="{{ $x }}">@endforeach</datalist>
             <datalist id="gen-days">@foreach (['7 days', '15 days', '30 days'] as $x)<option value="{{ $x }}">@endforeach</datalist>
             <datalist id="gen-notice">
                 @foreach ($noticeOptions as $n)
@@ -232,6 +232,18 @@
                 });
         }
 
+        // A searchable drop-down takes a value it does not list (an employee's own) as a new option.
+        function setField(field, value) {
+            if (field.is('select.gen-pick')) {
+                if (!field.find('option').filter(function () { return this.value === String(value); }).length) {
+                    field.append($('<option>').val(value).text(value));
+                }
+                field.val(String(value)).selectpicker('refresh');
+                return;
+            }
+            field.val(value);
+        }
+
         function soon() { clearTimeout(timer); timer = setTimeout(refresh, 350); }
         form.on('input change', 'input, select, textarea', soon);
 
@@ -254,7 +266,7 @@
                     // What the record has; a field it leaves empty keeps what the form had (e.g. the default notice).
                     $.each(r.details, function (key, value) {
                         const field = form.find('[name="d[' + key + ']"]');
-                        if (field.length && value !== null && value !== undefined && String(value).trim() !== '') { field.val(value); }
+                        if (field.length && value !== null && value !== undefined && String(value).trim() !== '') { setField(field, value); }
                     });
                     refresh();
                 }
@@ -264,6 +276,7 @@
         // Clear: no employee, and the form back as it opened (the defaults).
         $('#gen-clear').on('click', function () {
             form[0].reset();
+            form.find('select.gen-pick').selectpicker('refresh');
             $('#gen-user').val('');
             $('#gen-prefill').val('').selectpicker('refresh');
             $('#gen-own-wording').trigger('change');

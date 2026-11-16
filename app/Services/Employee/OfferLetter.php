@@ -45,7 +45,7 @@ class OfferLetter
         '{ctc_words}' => 'Annual CTC in words',
         '{probation}' => 'Probation, e.g. 1 month (joining date to probation end date)',
         '{notice_probation}' => 'Notice during probation (settings)',
-        '{notice_confirmed}' => 'Notice after confirmation (the employee\'s notice period)',
+        '{notice_confirmed}' => 'Notice after confirmation (Settings -> Notice Period Settings)',
         '{date}' => 'Letter date',
         '{reference}' => 'Reference number',
         '{company}' => 'Company name',
@@ -72,6 +72,8 @@ class OfferLetter
             . "All Educational Qualification Certificates\n"
             . "Pan Card & Aadhar Card\n"
             . "3 Latest Passport size Photographs",
+        // Used in place of the paragraph with {probation} when there is no probation.
+        'no_probation_paragraph' => 'There is no probation period for this position. While we hope that this professional relationship will be mutually beneficial, nevertheless the notice period for termination of employment is {notice_confirmed} from either side.',
         'note' => 'Note- All the employment terms of the offer letter shall be applicable & valid subject to clearance of Background Verification.',
         'closing' => 'Best Regards,',
         'signoff' => "{issuer_name}
@@ -210,14 +212,14 @@ Human Resource Department.",
             $problems[] = 'Annual CTC (salary) is not set.';
         }
 
-        if (!$e->probation_end_date) {
-            $problems[] = 'Probation end date is not set - the probation period is taken from it.';
-        } elseif ($e->joining_date && Carbon::parse($e->probation_end_date)->lte(Carbon::parse($e->joining_date))) {
+        // No probation (Probation Period: No) is fine: the letter says so. A date given must make sense.
+        if ($e->probation_end_date && $e->joining_date && Carbon::parse($e->probation_end_date)->lte(Carbon::parse($e->joining_date))) {
             $problems[] = 'Probation end date is not after the joining date.';
         }
 
-        if (!$e->notice_period_setting_id || $e->notice_months === null) {
-            $problems[] = 'Notice Period is not chosen - pick it on the employee (from Settings -> Notice Period Settings).';
+        // The notice after confirmation is the company's (Settings -> Notice Period Settings).
+        if (self::standardNoticeMonths() === null) {
+            $problems[] = 'No notice period is set up - add one in Settings -> Notice Period Settings.';
         }
 
         return $problems;
@@ -352,10 +354,10 @@ Human Resource Department.",
             'joining_date' => $e->joining_date ? Carbon::parse($e->joining_date)->toDateString() : '',
             'ctc' => (float) $e->employee_ctc,
             'basic_pct' => $e->basic_for_payroll !== null ? (float) $e->basic_for_payroll : null,
-            'probation' => self::probation($e),
+            'probation' => self::probation($e) ?: 'No probation',
             'notice_probation' => self::period((int) $settings['notice_probation_days'], 'days'),
             // Not chosen on the employee: left empty, so the generator keeps its default.
-            'notice_confirmed' => $e->notice_period_setting_id ? self::noticeConfirmed($e, $settings) : '',
+            'notice_confirmed' => self::noticeConfirmed($e, $settings),
         ];
     }
 
@@ -450,6 +452,10 @@ Human Resource Department.",
         $ctc = (float) $e->employee_ctc;
         $salutation = self::salutation($e);
         $reference = $letter->reference_no ?? self::suggestReference();
+        $probationText = isset($e->probation_text) ? $e->probation_text : self::probation($e);
+        // The form's "No probation", or an employee without a probation end date (Probation Period: No).
+        // A form still being filled in (nothing typed yet) keeps the probation paragraph.
+        $noProbation = isset($e->probation_text) ? (trim($probationText) !== '' && self::noProbation($probationText)) : self::noProbation($probationText);
 
         // Signed off by whoever generated the letter (the person previewing, in Settings).
         $issuer = DB::table('users as u')->leftJoin('employee_details as ed', 'ed.user_id', '=', 'u.id')
@@ -465,7 +471,7 @@ Human Resource Department.",
             '{joining_date}' => $joining ? self::ordinalDate($joining) : '',
             '{ctc}' => 'Rs. ' . SalaryRevisionLetter::inr($ctc) . '/-',
             '{ctc_words}' => e(SalaryRevisionLetter::words($ctc) . ' Rupees Only'),
-            '{probation}' => e(isset($e->probation_text) ? $e->probation_text : self::probation($e)),
+            '{probation}' => e($probationText),
             '{notice_probation}' => e(isset($e->notice_probation_text) ? $e->notice_probation_text : self::period((int) $settings['notice_probation_days'], 'days')),
             '{notice_confirmed}' => e(isset($e->notice_confirmed_text) ? $e->notice_confirmed_text : self::noticeConfirmed($e, $settings)),
             '{date}' => self::ordinalDate($letterDate),
@@ -485,7 +491,10 @@ Human Resource Department.",
             'address' => trim((string) ($e->address ?: $e->permanent_address)),
             'joiningDate' => $joining ? self::ordinalDate($joining, true) : '',
             'subject' => self::fill($settings['subject'], $values),
-            'paragraphs' => array_map(fn ($p) => self::fill($p, $values), self::blocks(!empty($e->paragraphs) ? $e->paragraphs : $settings['paragraphs'])),
+            // No probation: the paragraph about it gives way to the one for no probation (Letter Settings).
+            'paragraphs' => array_map(fn ($p) => self::fill($p, $values), array_map(
+                fn ($p) => $noProbation && str_contains($p, '{probation}') ? $settings['no_probation_paragraph'] : $p,
+                self::blocks(!empty($e->paragraphs) ? $e->paragraphs : $settings['paragraphs']))),
             'documents' => array_map(fn ($d) => self::fill($d, $values), self::lines($settings['documents'])),
             'note' => self::fill($settings['note'], $values),
             'closing' => self::fill($settings['closing'], $values),
@@ -639,15 +648,41 @@ Human Resource Department.",
         return self::period((int) $from->diffInDays($to), 'days');
     }
 
+    /**
+     * The notice after confirmation: the company's standard one (Settings ->
+     * Notice Period Settings, the longest set there - "Actual Notice Period"),
+     * not something chosen per employee.
+     */
     protected static function noticeConfirmed(object $e, array $settings): string
     {
-        $months = (int) ($e->notice_months ?? 0);
+        $months = (int) (self::standardNoticeMonths() ?? 0);
 
         if ($months <= 0) {
             return 'no notice';
         }
 
         return $settings['notice_unit'] === 'months' ? self::period($months, 'months') : self::period($months * 30, 'days');
+    }
+
+    /** The company's standard notice in months, or null when none is set up. */
+    public static function standardNoticeMonths(): ?int
+    {
+        static $months = false;
+
+        if ($months === false) {
+            $value = DB::table('notice_period_settings')->where('company_id', company()?->id)->max('months');
+            $months = $value === null ? null : (int) $value;
+        }
+
+        return $months;
+    }
+
+    /** "No probation" (the generator's wording), or empty: either means there is none. */
+    public static function noProbation(?string $text): bool
+    {
+        $t = strtolower(trim((string) $text));
+
+        return $t === '' || in_array($t, ['no', 'none', 'nil', 'no probation', '0', '0 months', '0 days'], true);
     }
 
     public static function period(int $n, string $unit): string

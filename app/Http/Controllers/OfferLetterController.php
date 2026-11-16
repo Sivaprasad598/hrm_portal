@@ -68,6 +68,15 @@ class OfferLetterController extends AccountBaseController
             : collect();
         $this->canRelieve = RelievingLetterController::canUse();
 
+        // Payslips made in the Letter Generator, for reference.
+        $this->canPayslip = LetterGeneratorController::canPayslip();
+        $this->payslips = $this->canPayslip && \Illuminate\Support\Facades\Schema::hasTable('generated_payslips')
+            ? DB::table('generated_payslips as p')->leftJoin('users as g', 'g.id', '=', 'p.generated_by')
+                ->where('p.company_id', company()->id)->orderByDesc('p.updated_at')->limit(200)
+                ->get(['p.id', 'p.person_name', 'p.employee_code', 'p.month_from', 'p.month_to', 'p.months', 'p.net_total', 'p.updated_at', 'g.name as generated_by'])
+            : collect();
+        $this->pageTitle = 'Issued Letters & Payslips';
+
         $this->canEditSettings = OfferLetterSettingController::canEdit();
 
         return view('offer-letters.index', $this->data);
@@ -126,6 +135,12 @@ class OfferLetterController extends AccountBaseController
         // It prints what was kept with it, so the employee's record is only checked for older letters.
         $this->problems = $this->letter->user_id && empty($this->letter->details) ? OfferLetter::problems((int) $this->letter->user_id) : [];
         $this->pageTitle = 'Offer Letter ' . $this->letter->reference_no;
+
+        // In the slide-in panel (Dashboard -> Upcoming Joinings): the same view, without the page around it.
+        if (request()->ajax()) {
+            return Reply::dataOnly(['status' => 'success', 'title' => $this->pageTitle,
+                'html' => view('offer-letters.ajax.show', $this->data)->render()]);
+        }
 
         return view('offer-letters.show', $this->data);
     }

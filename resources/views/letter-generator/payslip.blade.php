@@ -13,6 +13,7 @@
         <form id="gen-form" class="lg-form" onsubmit="return false;">
             @csrf
             <input type="hidden" name="type" value="payslip">
+            <input type="hidden" name="user_id" id="gen-user" value="">
 
             <div class="lg-card">
                 <h5>Fill from an employee (optional)</h5>
@@ -28,7 +29,7 @@
                         <i class="fa fa-times mr-1"></i>Clear
                     </button>
                 </div>
-                <div class="lg-hint mt-1">Their record fills the form; your changes are for these payslips only. Nothing is saved.</div>
+                <div class="lg-hint mt-1">Their record fills the form; your changes are for these payslips only and do not change payroll.</div>
             </div>
 
             <div class="lg-card">
@@ -46,11 +47,11 @@
                 <div class="row">
                     <div class="col-6 form-group">
                         <label>Designation</label>
-                        <input type="text" name="d[designation]" class="form-control" list="gen-designations">
+                        @include('letter-generator.partials.pick', ['name' => 'd[designation]', 'options' => $designations, 'value' => '', 'title' => 'Search designation'])
                     </div>
                     <div class="col-6 form-group">
                         <label>Department</label>
-                        <input type="text" name="d[department]" class="form-control" list="gen-departments">
+                        @include('letter-generator.partials.pick', ['name' => 'd[department]', 'options' => $departments, 'value' => '', 'title' => 'Search department'])
                     </div>
                 </div>
                 <div class="row">
@@ -215,6 +216,18 @@
                 });
         }
 
+        // A searchable drop-down takes a value it does not list (an employee's own) as a new option.
+        function setField(field, value) {
+            if (field.is('select.gen-pick')) {
+                if (!field.find('option').filter(function () { return this.value === String(value); }).length) {
+                    field.append($('<option>').val(value).text(value));
+                }
+                field.val(String(value)).selectpicker('refresh');
+                return;
+            }
+            field.val(value);
+        }
+
         function soon() { clearTimeout(timer); timer = setTimeout(refresh, 350); }
         form.on('input change', 'input, select, textarea', soon);
         $('#gen-from, #gen-to').on('change', function () {
@@ -237,10 +250,11 @@
                 type: 'GET', blockUI: true,
                 success: function (r) {
                     if (r.status !== 'success') { return; }
+                    $('#gen-user').val(id);
                     $('#gen-clear').removeClass('d-none');
                     $.each(r.details, function (key, value) {
                         const field = form.find('[name="d[' + key + ']"]');
-                        if (field.length && value !== null && value !== undefined && String(value).trim() !== '') { field.val(value); }
+                        if (field.length && value !== null && value !== undefined && String(value).trim() !== '') { setField(field, value); }
                     });
                     refresh();
                 }
@@ -249,6 +263,8 @@
 
         $('#gen-clear').on('click', function () {
             form[0].reset();
+            form.find('select.gen-pick').selectpicker('refresh');
+            $('#gen-user').val('');
             $('#gen-extras').empty();
             $('#gen-prefill').val('').selectpicker('refresh');
             $(this).addClass('d-none');
@@ -256,7 +272,7 @@
             refresh();
         });
 
-        // The PDF: the form's fields posted to a new tab (print) or downloaded. Nothing is saved.
+        // The PDF: the form's fields posted to a new tab (print) or downloaded; listed under Issued Letters for reference.
         function pdf(inline) {
             if (problems.length) {
                 Swal.fire({icon: 'warning', title: 'Not yet', text: problems.join(' ')});

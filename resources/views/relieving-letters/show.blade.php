@@ -5,7 +5,7 @@
         <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap">
             <div class="mb-2">
                 @if (($letter->source ?? '') === 'manual')
-                    <a href="{{ route('offer-letters.index') }}" class="f-13 text-dark-grey"><i class="fa fa-arrow-left mr-1"></i>Letters</a>
+                    <a href="{{ route('offer-letters.index') }}" class="f-13 text-dark-grey"><i class="fa fa-arrow-left mr-1"></i>Issued Letters</a>
                 @else
                     <a href="{{ route('employee-exit.index') }}" class="f-13 text-dark-grey"><i class="fa fa-arrow-left mr-1"></i>Exited Employees</a>
                 @endif

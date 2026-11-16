@@ -115,6 +115,51 @@ class ManualPayslip
         return (new PayslipDocument())->pdfFromHtml(self::html($d, true));
     }
 
+    /**
+     * Kept for reference (Issued Letters -> Generated payslips): one row per set
+     * of details, so printing and then downloading the same payslips is one entry.
+     */
+    public static function remember(array $d, ?int $userId = null): ?object
+    {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('generated_payslips')) {
+            return null;
+        }
+
+        $months = self::months($d['from'] ?? null, $d['to'] ?? null);
+        unset($d['_token']);
+        $json = json_encode($d, JSON_UNESCAPED_UNICODE);
+        $hash = hash('sha256', $json);
+        $companyId = company()?->id;
+        $existing = DB::table('generated_payslips')->where('company_id', $companyId)->where('details_hash', $hash)->first();
+
+        if ($existing) {
+            DB::table('generated_payslips')->where('id', $existing->id)->update(['generated_by' => user()?->id, 'updated_at' => now()]);
+
+            return DB::table('generated_payslips')->find($existing->id);
+        }
+
+        $net = array_sum(array_map(fn ($my) => self::figures($d, $my[0], $my[1])[1]['netSalary'], $months));
+        $last = end($months);
+
+        $id = DB::table('generated_payslips')->insertGetId([
+            'company_id' => $companyId,
+            'user_id' => $userId,
+            'person_name' => trim((string) ($d['name'] ?? '')),
+            'employee_code' => trim((string) ($d['code'] ?? '')) ?: null,
+            'month_from' => sprintf('%04d-%02d-01', $months[0][1], $months[0][0]),
+            'month_to' => sprintf('%04d-%02d-01', $last[1], $last[0]),
+            'months' => count($months),
+            'net_total' => round($net, 2),
+            'details_hash' => $hash,
+            'details' => $json,
+            'generated_by' => user()?->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return DB::table('generated_payslips')->find($id);
+    }
+
     public static function fileName(array $d): string
     {
         $months = self::months($d['from'] ?? null, $d['to'] ?? null);

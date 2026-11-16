@@ -107,6 +107,10 @@
                                         <textarea class="form-control" id="paragraphs" name="paragraphs" rows="16">{{ $settings['paragraphs'] }}</textarea>
                                     </div>
                                     <div class="form-group">
+                                        <label for="no_probation_paragraph">When there is no probation (used in place of the paragraph with <code>{probation}</code>)</label>
+                                        <textarea class="form-control" id="no_probation_paragraph" name="no_probation_paragraph" rows="3">{{ $settings['no_probation_paragraph'] }}</textarea>
+                                    </div>
+                                    <div class="form-group">
                                         <label for="documents">Documents to bring (one per line, numbered in the letter)</label>
                                         <textarea class="form-control" id="documents" name="documents" rows="6">{{ $settings['documents'] }}</textarea>
                                     </div>

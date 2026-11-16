@@ -464,21 +464,6 @@ $addDepartmentPermission = user()->permission('add_department');
                                 :fieldRequired="$onProbation ? 'true' : 'false'"
                                 :popover="__('messages.probationEndDate')"/>
                         </div>
-                        {{-- The notice period agreed on joining (Settings -> Notice Period Settings): the offer letter states it. --}}
-                        @php
-            $noticeOptions = \Illuminate\Support\Facades\DB::table('notice_period_settings')->where('company_id', company()->id)
-                ->orderByDesc('months')->get(['id', 'name', 'months']);
-            $noticeSelected = old('notice_period_setting_id', $noticeOptions->first()?->id);
-                        @endphp
-                        <div class="col-lg-3 col-md-6">
-                            <x-forms.select fieldId="notice_period_setting_id" fieldLabel="Notice Period" fieldName="notice_period_setting_id" search="true">
-                                <option value="">--</option>
-                                @foreach ($noticeOptions as $notice)
-                                    <option value="{{ $notice->id }}" @selected((int) $noticeSelected === (int) $notice->id)>
-                                        {{ $notice->name }} ({{ $notice->months }} {{ (int) $notice->months === 1 ? 'month' : 'months' }})</option>
-                                @endforeach
-                            </x-forms.select>
-                        </div>
                         <div class="col-lg-3 col-md-6">
                             <x-forms.datepicker fieldId="notice_period_start_date"
                                 :fieldLabel="__('modules.employees.noticePeriodStartDate')"

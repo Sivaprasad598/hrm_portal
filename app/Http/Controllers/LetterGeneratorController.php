@@ -90,7 +90,22 @@ class LetterGeneratorController extends AccountBaseController
         return view('letter-generator.form', $this->data);
     }
 
-    /** The payslips of the form's month range, as one PDF (nothing is saved). */
+    /** A payslip generated before (Issued Letters): drawn again from the details it was made with. */
+    public function generatedPayslip(Request $request, $id)
+    {
+        abort_403(!self::canPayslip());
+        $row = DB::table('generated_payslips')->where('id', $id)->where('company_id', company()->id)->first();
+        abort_if(!$row, 404);
+        $details = json_decode($row->details, true) ?: [];
+
+        return response(\App\Services\Payroll\ManualPayslip::pdf($details)->output(), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => ($request->boolean('inline') ? 'inline' : 'attachment') . '; filename="'
+                . \App\Services\Payroll\ManualPayslip::fileName($details) . '"',
+        ]);
+    }
+
+    /** The payslips of the form's month range, as one PDF; kept for reference, not payroll. */
     public function payslipPdf(Request $request)
     {
         abort_403(!self::canPayslip());
@@ -102,6 +117,11 @@ class LetterGeneratorController extends AccountBaseController
 
         $binary = \App\Services\Payroll\ManualPayslip::pdf($details)->output();
         $disposition = $request->boolean('inline') ? 'inline' : 'attachment';
+
+        // Listed under Issued Letters, for reference (not payroll).
+        $userId = $request->user_id && DB::table('users')->where('id', $request->user_id)->where('company_id', company()->id)->exists()
+            ? (int) $request->user_id : null;
+        \App\Services\Payroll\ManualPayslip::remember($details, $userId);
 
         return response($binary, 200, [
             'Content-Type' => 'application/pdf',

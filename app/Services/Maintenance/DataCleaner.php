@@ -77,6 +77,9 @@ class DataCleaner
             'recruit_interview_feedback', 'recruit_interviews', 'job_offers', 'job_applications', 'candidate_files', 'recruit_logs',
             'recruit_inbound', 'candidates', 'job_positions',
         ]],
+        'letters' => ['Letters & generated payslips', 'Issued offer letters, relieving letters, and payslips made in the Letter Generator. Letter Settings (wording, footer, stamp) stay; hike letters go with Salary revisions under Payroll.', [
+            'offer_letters', 'relieving_letters', 'generated_payslips',
+        ]],
         'biometric' => ['Biometric data', 'Punches, device days, the device employee register and links, sync logs, backfills, exceptions. Devices and connection settings stay.', [
             'iapp_device_transactions', 'iapp_attendance_records', 'iapp_attendance_links', 'iapp_attendance_sync_runs', 'iapp_backfill_runs',
             'iapp_day_syncs', 'iapp_employees', 'iapp_sync_logs', 'biometric_exceptions',
@@ -133,6 +136,8 @@ class DataCleaner
         'asset_renewals' => 'Renewals', 'asset_reminders' => 'Asset reminders',
         'settlements' => 'Final settlements', 'resignations' => 'Resignations', 'employee_exits' => 'Exits', 'terminations' => 'Terminations',
         'teams' => 'Divisions', 'designations' => 'Designations', 'branches' => 'Branches',
+        'offer_letters' => 'Offer letters (reference numbers start again)', 'relieving_letters' => 'Relieving letters',
+        'generated_payslips' => 'Payslips made in the Letter Generator',
     ];
 
     /** Upload folders emptied with a table (under public/user-uploads). */
