@@ -849,6 +849,13 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account'], function () {
     Route::get('offer-letters/{id}', [App\Http\Controllers\OfferLetterController::class, 'show'])->whereNumber('id')->name('offer-letters.show');
     Route::get('offer-letters/{id}/view', [App\Http\Controllers\OfferLetterController::class, 'view'])->whereNumber('id')->name('offer-letters.view');
     Route::get('offer-letters/{id}/pdf', [App\Http\Controllers\OfferLetterController::class, 'pdf'])->whereNumber('id')->name('offer-letters.pdf');
+    Route::post('offer-letters/{id}/cancel', [App\Http\Controllers\OfferLetterController::class, 'cancel'])->whereNumber('id')->name('offer-letters.cancel');
+
+    // Letter Generator: offer / relieving letters typed into a form, drawn live (?type=offer|relieving).
+    Route::get('letters/generate', [App\Http\Controllers\LetterGeneratorController::class, 'create'])->name('offer-letters.generate');
+    Route::get('letters/generate/prefill/{userId}', [App\Http\Controllers\LetterGeneratorController::class, 'prefill'])->whereNumber('userId')->name('offer-letters.generate.prefill');
+    Route::post('letters/generate/preview', [App\Http\Controllers\LetterGeneratorController::class, 'preview'])->name('offer-letters.generate.preview');
+    Route::post('letters/generate', [App\Http\Controllers\LetterGeneratorController::class, 'store'])->name('offer-letters.generate.store');
 
     // Relieving cum experience letters: exited employees only (Exited Employees list), after clearances.
     Route::get('relieving-letters/check/{userId}', [App\Http\Controllers\RelievingLetterController::class, 'check'])->name('relieving-letters.check');

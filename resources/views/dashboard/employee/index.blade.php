@@ -418,6 +418,8 @@
 
                             @include('dashboard.employee.widgets.probation')
 
+                            @include('dashboard.employee.widgets.upcoming_joinings')
+
                             @include('dashboard.employee.widgets.internship')
 
                             @include('dashboard.employee.widgets.contract')

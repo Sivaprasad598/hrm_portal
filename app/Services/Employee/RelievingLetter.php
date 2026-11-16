@@ -147,9 +147,13 @@ class RelievingLetter
     public static function issue(int $userId, ?string $date): object
     {
         $e = self::employee($userId);
+        $details = self::detailsFor($userId);
         $id = DB::table('relieving_letters')->insertGetId([
             'company_id' => $e->company_id,
             'user_id' => $userId,
+            'source' => 'employee',
+            'person_name' => trim($details['salutation'] . ' ' . $details['name']),
+            'details' => json_encode($details, JSON_UNESCAPED_UNICODE),
             'employee_exit_id' => $e->exit->id ?? null,
             'letter_date' => $date ? Carbon::parse($date)->toDateString() : now()->toDateString(),
             'generated_by' => user()?->id,
@@ -160,11 +164,109 @@ class RelievingLetter
         return DB::table('relieving_letters')->find($id);
     }
 
-    /** Everything the letter shows. $letter null: the preview in Settings, with a sample employee. */
-    public static function data(?object $letter, bool $forPdf, ?array $settings = null): array
+    /**
+     * A letter from the Letter Generator form: someone who left before the
+     * system (or an employee's details as typed). No clearance checks - those
+     * belong to the Exited Employees route; kept with what it printed.
+     */
+    public static function issueManual(array $details, ?string $date, ?int $userId = null): object
     {
-        $e = $letter ? self::employee((int) $letter->user_id) : null;
-        $settings ??= OfferLetter::settings($e?->company_id);
+        $details = self::cleanDetails($details);
+        $id = DB::table('relieving_letters')->insertGetId([
+            'company_id' => company()->id,
+            'user_id' => $userId,
+            'source' => 'manual',
+            'person_name' => trim(($details['salutation'] ?? '') . ' ' . ($details['name'] ?? '')),
+            'details' => json_encode($details, JSON_UNESCAPED_UNICODE),
+            'letter_date' => $date ? Carbon::parse($date)->toDateString() : now()->toDateString(),
+            'generated_by' => user()?->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return DB::table('relieving_letters')->find($id);
+    }
+
+    /** An employee's details, as the form holds them (the generator's prefill). */
+    public static function detailsFor(int $userId): array
+    {
+        $e = self::employee($userId);
+
+        return [
+            'salutation' => OfferLetter::salutation($e),
+            'gender' => strtolower((string) $e->gender),
+            'name' => (string) $e->name,
+            'address' => trim((string) ($e->address ?: $e->permanent_address)),
+            'joining_date' => $e->joining_date ? Carbon::parse($e->joining_date)->toDateString() : '',
+            'relieving_date' => $e->relieving_date ? Carbon::parse($e->relieving_date)->toDateString() : '',
+            'designation' => (string) $e->designation,
+            'department' => (string) $e->department,
+        ];
+    }
+
+    public static function cleanDetails(array $d): array
+    {
+        $text = fn ($k) => trim((string) ($d[$k] ?? ''));
+
+        return array_filter([
+            'salutation' => $text('salutation'),
+            'gender' => in_array($text('gender'), ['male', 'female'], true) ? $text('gender') : '',
+            'name' => $text('name'),
+            'address' => str_replace("\r", '', $text('address')),
+            'joining_date' => $text('joining_date'),
+            'relieving_date' => $text('relieving_date'),
+            'designation' => $text('designation'),
+            'department' => $text('department'),
+            'tenure' => $text('tenure') !== '' ? $text('tenure') : null,
+            'paragraphs' => $text('paragraphs') !== '' ? str_replace("\r", '', $text('paragraphs')) : null,
+        ], fn ($v) => $v !== null);
+    }
+
+    public static function formProblems(array $d): array
+    {
+        $problems = [];
+
+        foreach (['name' => 'Name', 'address' => 'Address', 'joining_date' => 'Joining date', 'relieving_date' => 'Relieving date',
+            'designation' => 'Designation', 'department' => 'Department'] as $key => $label) {
+            if (trim((string) ($d[$key] ?? '')) === '') {
+                $problems[] = $label . ' is empty.';
+            }
+        }
+
+        if (!empty($d['joining_date']) && !empty($d['relieving_date']) && strtotime($d['relieving_date']) < strtotime($d['joining_date'])) {
+            $problems[] = 'The relieving date is before the joining date.';
+        }
+
+        return $problems;
+    }
+
+    protected static function fromDetails(array $d): object
+    {
+        $salutation = strtolower(rtrim((string) ($d['salutation'] ?? ''), '.'));
+
+        return (object) [
+            'name' => $d['name'] ?? '', 'salutation' => $d['salutation'] ?? null,
+            // his / her: the gender given, else from Mr. / Ms.
+            'gender' => ($d['gender'] ?? '') ?: (['mr' => 'male', 'ms' => 'female', 'mrs' => 'female', 'miss' => 'female'][$salutation] ?? null),
+            'address' => $d['address'] ?? '', 'permanent_address' => null,
+            'joining_date' => $d['joining_date'] ?? null, 'relieving_date' => $d['relieving_date'] ?? null,
+            'designation' => $d['designation'] ?? '', 'department' => $d['department'] ?? '',
+            'tenure_text' => $d['tenure'] ?? null, 'paragraphs' => $d['paragraphs'] ?? null,
+        ];
+    }
+
+    /** Everything the letter shows. $letter null: the preview in Settings, with a sample employee. */
+    public static function data(?object $letter, bool $forPdf, ?array $settings = null, ?array $details = null): array
+    {
+        // The copy kept with the letter, the form's details, or the employee as they are.
+        $kept = $letter && !empty($letter->details) ? json_decode($letter->details, true) : null;
+        $e = match (true) {
+            (bool) $kept => self::fromDetails($kept),
+            $details !== null => self::fromDetails(self::cleanDetails($details)),
+            $letter && $letter->user_id => self::employee((int) $letter->user_id),
+            default => null,
+        };
+        $settings ??= OfferLetter::settings($letter->company_id ?? null);
 
         if (!$e) {
             $e = (object) [
@@ -187,7 +289,7 @@ class RelievingLetter
             '{department}' => e((string) $e->department),
             '{joining_date}' => $date($e->joining_date),
             '{relieving_date}' => $date($e->relieving_date),
-            '{tenure}' => e(self::tenure($e->joining_date, $e->relieving_date)),
+            '{tenure}' => e(!empty($e->tenure_text) ? $e->tenure_text : self::tenure($e->joining_date, $e->relieving_date)),
             '{he}' => $he, '{his}' => $his, '{him}' => $him,
             '{date}' => OfferLetter::ordinalDate($letterDate),
             '{company}' => e($settings['footer_company']),
@@ -201,7 +303,7 @@ class RelievingLetter
             'addressee' => trim($salutation . ' ' . $e->name),
             'address' => trim((string) ($e->address ?: $e->permanent_address)),
             'greeting' => OfferLetter::fill($settings['relieving_greeting'], $values),
-            'paragraphs' => array_map(fn ($p) => OfferLetter::fill($p, $values), OfferLetter::blocks($settings['relieving_paragraphs'])),
+            'paragraphs' => array_map(fn ($p) => OfferLetter::fill($p, $values), OfferLetter::blocks(!empty($e->paragraphs) ? $e->paragraphs : $settings['relieving_paragraphs'])),
             'closing' => OfferLetter::fill($settings['relieving_closing'], $values),
             'signoff' => implode('<br>', array_map(fn ($l) => OfferLetter::fill($l, $values), OfferLetter::lines($settings['relieving_signoff']))),
             'logo' => OfferLetter::logo($forPdf),
@@ -231,9 +333,9 @@ class RelievingLetter
         return $parts ? implode(' ', $parts) : max(1, $diff->d) . ' Days';
     }
 
-    public static function html(?object $letter, bool $forPdf, ?array $settings = null): string
+    public static function html(?object $letter, bool $forPdf, ?array $settings = null, ?array $details = null): string
     {
-        return view('relieving-letters.letter', self::data($letter, $forPdf, $settings))->render();
+        return view('relieving-letters.letter', self::data($letter, $forPdf, $settings, $details))->render();
     }
 
     public static function pdf(object $letter)
@@ -245,7 +347,7 @@ class RelievingLetter
 
     public static function fileName(object $letter): string
     {
-        $name = DB::table('users')->where('id', $letter->user_id)->value('name');
+        $name = $letter->user_id ? DB::table('users')->where('id', $letter->user_id)->value('name') : ($letter->person_name ?? 'Employee');
 
         return 'Relieving Letter - ' . preg_replace('/[^A-Za-z0-9 ._-]+/', '', (string) $name) . '.pdf';
     }
@@ -257,6 +359,11 @@ class RelievingLetter
     public static function keep(object $letter, string $pdfBinary): void
     {
         $name = 'Relieving Letter ' . Carbon::parse($letter->letter_date)->format('d-m-Y') . ' #' . $letter->id;
+
+        // Someone not in the system (an old employee's letter): nothing to file it under.
+        if (!$letter->user_id) {
+            return;
+        }
 
         if (!EmployeeDocument::where('user_id', $letter->user_id)->where('name', $name)->exists()) {
             $temp = tempnam(sys_get_temp_dir(), 'relieve');

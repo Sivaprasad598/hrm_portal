@@ -197,6 +197,8 @@ class Kernel extends ConsoleKernel
         $schedule->command('shifts:extend')->dailyAt('00:30');
         // Asset services / warranties / renewals coming due: bell only, never email.
         $schedule->command('assets:due-reminders')->dailyAt('09:00')->timezone('Asia/Kolkata');
+        // Someone with an offer letter joins today: the bell for HR / admins (never e-mail).
+        $schedule->command('offer-letters:joining-reminders')->dailyAt('09:00')->timezone('Asia/Kolkata');
         // Draft payslips once a pay cycle has ended. attendance:daily also runs
         // this straight after each review; this is the fallback.
         $schedule->command('payroll:generate-due')->dailyAt('13:00')->timezone('Asia/Kolkata');

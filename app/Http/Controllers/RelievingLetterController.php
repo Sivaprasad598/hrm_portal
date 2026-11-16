@@ -74,7 +74,8 @@ class RelievingLetterController extends AccountBaseController
     public function show($id)
     {
         $this->letter = $this->letter($id);
-        $this->employee = DB::table('users')->where('id', $this->letter->user_id)->first(['id', 'name']);
+        $this->employee = ($this->letter->user_id ? DB::table('users')->where('id', $this->letter->user_id)->first(['id', 'name']) : null)
+            ?: (object) ['id' => null, 'name' => $this->letter->person_name];
         $this->pageTitle = 'Relieving Letter - ' . $this->employee->name;
 
         return view('relieving-letters.show', $this->data);

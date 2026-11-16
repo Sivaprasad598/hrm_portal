@@ -284,7 +284,26 @@ Human Resource Department.",
     public static function issue(int $userId, string $reference): array
     {
         $e = self::employee($userId);
-        $settings = self::settings($e?->company_id);
+
+        return self::record((int) $e->company_id, $userId, 'employee', self::detailsFor($userId), $reference, now()->toDateString());
+    }
+
+    /**
+     * A letter from the Letter Generator form: anyone (a candidate, or an
+     * employee with details changed for this letter only).
+     *
+     * @return array{0: ?object, 1: ?string}
+     */
+    public static function issueManual(array $details, string $reference, ?string $letterDate, ?int $userId = null): array
+    {
+        return self::record((int) company()->id, $userId, 'manual', self::cleanDetails($details), $reference,
+            $letterDate ? Carbon::parse($letterDate)->toDateString() : now()->toDateString());
+    }
+
+    /** The letter row: its number checked, and what it prints kept with it. */
+    protected static function record(int $companyId, ?int $userId, string $source, array $details, string $reference, string $letterDate): array
+    {
+        $settings = self::settings($companyId);
         $reference = trim($reference);
         $parsed = self::parseReference($reference, $settings);
 
@@ -292,17 +311,24 @@ Human Resource Department.",
             return [null, 'The reference number should look like ' . self::formatReference(25, (int) now()->format('Y'), $settings) . '.'];
         }
 
-        if (DB::table('offer_letters')->where('company_id', $e->company_id)->where('reference_no', $reference)->exists()) {
-            return [null, 'Reference ' . $reference . ' is already used. The next free one is ' . self::suggestReference($e->company_id) . '.'];
+        if (DB::table('offer_letters')->where('company_id', $companyId)->where('reference_no', $reference)->exists()) {
+            return [null, 'Reference ' . $reference . ' is already used. The next free one is ' . self::suggestReference($companyId) . '.'];
         }
 
         $id = DB::table('offer_letters')->insertGetId([
-            'company_id' => $e->company_id,
+            'company_id' => $companyId,
             'user_id' => $userId,
+            'source' => $source,
+            'person_name' => trim(($details['salutation'] ?? '') . ' ' . ($details['name'] ?? '')),
+            'designation' => $details['designation'] ?? null,
+            'location' => $details['location'] ?? null,
+            'joining_date' => !empty($details['joining_date']) ? Carbon::parse($details['joining_date'])->toDateString() : null,
+            'annual_ctc' => (float) ($details['ctc'] ?? 0) ?: null,
+            'details' => json_encode($details, JSON_UNESCAPED_UNICODE),
             'reference_no' => $reference,
             'seq' => $parsed[0],
             'year' => $parsed[1],
-            'letter_date' => now()->toDateString(),
+            'letter_date' => $letterDate,
             'generated_by' => user()?->id,
             'created_at' => now(),
             'updated_at' => now(),
@@ -311,13 +337,103 @@ Human Resource Department.",
         return [DB::table('offer_letters')->find($id), null];
     }
 
+    /** What an employee's letter prints, as the form holds it: the generator's prefill and the kept copy. */
+    public static function detailsFor(int $userId): array
+    {
+        $e = self::employee($userId);
+        $settings = self::settings($e?->company_id);
+
+        return [
+            'salutation' => self::salutation($e),
+            'name' => (string) $e->name,
+            'address' => trim((string) ($e->address ?: $e->permanent_address)),
+            'designation' => (string) $e->designation,
+            'location' => (string) $e->location,
+            'joining_date' => $e->joining_date ? Carbon::parse($e->joining_date)->toDateString() : '',
+            'ctc' => (float) $e->employee_ctc,
+            'basic_pct' => $e->basic_for_payroll !== null ? (float) $e->basic_for_payroll : null,
+            'probation' => self::probation($e),
+            'notice_probation' => self::period((int) $settings['notice_probation_days'], 'days'),
+            // Not chosen on the employee: left empty, so the generator keeps its default.
+            'notice_confirmed' => $e->notice_period_setting_id ? self::noticeConfirmed($e, $settings) : '',
+        ];
+    }
+
+    /** The form's details, trimmed to what the letter uses. */
+    public static function cleanDetails(array $d): array
+    {
+        $text = fn ($k) => trim((string) ($d[$k] ?? ''));
+
+        return array_filter([
+            'salutation' => $text('salutation'),
+            'name' => $text('name'),
+            'address' => str_replace("\r", '', $text('address')),
+            'designation' => $text('designation'),
+            'location' => $text('location'),
+            'joining_date' => $text('joining_date'),
+            'ctc' => round((float) ($d['ctc'] ?? 0), 2),
+            'basic_pct' => ($d['basic_pct'] ?? '') !== '' && $d['basic_pct'] !== null ? round((float) $d['basic_pct'], 2) : null,
+            'probation' => $text('probation'),
+            'notice_probation' => $text('notice_probation'),
+            'notice_confirmed' => $text('notice_confirmed'),
+            // This letter's own wording, when changed on the form.
+            'paragraphs' => $text('paragraphs') !== '' ? str_replace("\r", '', $text('paragraphs')) : null,
+        ], fn ($v) => $v !== null);
+    }
+
+    /** What is missing on the form, one line each. */
+    public static function formProblems(array $d): array
+    {
+        $problems = [];
+
+        foreach (['name' => 'Name', 'address' => 'Address', 'designation' => 'Designation', 'location' => 'Location (based in)',
+            'joining_date' => 'Joining date', 'probation' => 'Probation', 'notice_probation' => 'Notice during probation',
+            'notice_confirmed' => 'Notice after confirmation'] as $key => $label) {
+            if (trim((string) ($d[$key] ?? '')) === '') {
+                $problems[] = $label . ' is empty.';
+            }
+        }
+
+        if ((float) ($d['ctc'] ?? 0) <= 0) {
+            $problems[] = 'Annual CTC is empty.';
+        }
+
+        if (!empty($d['joining_date']) && !strtotime($d['joining_date'])) {
+            $problems[] = 'Joining date is not a date.';
+        }
+
+        return $problems;
+    }
+
+    /** The details kept with a letter, as the employee-like record the letter is drawn from. */
+    protected static function fromDetails(array $d): object
+    {
+        return (object) [
+            'name' => $d['name'] ?? '', 'salutation' => $d['salutation'] ?? null, 'gender' => null,
+            'employee_ctc' => (float) ($d['ctc'] ?? 0), 'basic_for_payroll' => $d['basic_pct'] ?? null, 'code' => null,
+            'address' => $d['address'] ?? '', 'permanent_address' => null, 'joining_date' => $d['joining_date'] ?? null,
+            'probation_end_date' => null, 'designation' => $d['designation'] ?? '', 'location' => $d['location'] ?? '',
+            'notice_name' => null, 'notice_months' => null,
+            'probation_text' => $d['probation'] ?? '', 'notice_probation_text' => $d['notice_probation'] ?? '',
+            'notice_confirmed_text' => $d['notice_confirmed'] ?? '', 'paragraphs' => $d['paragraphs'] ?? null,
+        ];
+    }
+
     // ------------------------------------------------------------------ the letter
 
     /** Everything the letter shows. $letter: the issued letter (null: a preview with sample data). */
-    public static function data(?object $letter, bool $forPdf, ?array $settings = null, ?int $userId = null): array
+    public static function data(?object $letter, bool $forPdf, ?array $settings = null, ?int $userId = null, ?array $details = null): array
     {
-        $e = $letter ? self::employee((int) $letter->user_id) : ($userId ? self::employee($userId) : null);
-        $settings ??= self::settings($e?->company_id);
+        // What it prints: the copy kept with the letter, the form's details, or the employee as they are.
+        $kept = $letter && !empty($letter->details) ? json_decode($letter->details, true) : null;
+        $e = match (true) {
+            (bool) $kept => self::fromDetails($kept),
+            $details !== null => self::fromDetails(self::cleanDetails($details)),
+            $letter && $letter->user_id => self::employee((int) $letter->user_id),
+            (bool) $userId => self::employee($userId),
+            default => null,
+        };
+        $settings ??= self::settings($letter->company_id ?? null);
 
         // The preview in Settings: a made-up employee, so every placeholder shows.
         if (!$e) {
@@ -349,9 +465,9 @@ Human Resource Department.",
             '{joining_date}' => $joining ? self::ordinalDate($joining) : '',
             '{ctc}' => 'Rs. ' . SalaryRevisionLetter::inr($ctc) . '/-',
             '{ctc_words}' => e(SalaryRevisionLetter::words($ctc) . ' Rupees Only'),
-            '{probation}' => e(self::probation($e)),
-            '{notice_probation}' => e(self::period((int) $settings['notice_probation_days'], 'days')),
-            '{notice_confirmed}' => e(self::noticeConfirmed($e, $settings)),
+            '{probation}' => e(isset($e->probation_text) ? $e->probation_text : self::probation($e)),
+            '{notice_probation}' => e(isset($e->notice_probation_text) ? $e->notice_probation_text : self::period((int) $settings['notice_probation_days'], 'days')),
+            '{notice_confirmed}' => e(isset($e->notice_confirmed_text) ? $e->notice_confirmed_text : self::noticeConfirmed($e, $settings)),
             '{date}' => self::ordinalDate($letterDate),
             '{reference}' => e($reference),
             '{company}' => e($settings['footer_company']),
@@ -369,7 +485,7 @@ Human Resource Department.",
             'address' => trim((string) ($e->address ?: $e->permanent_address)),
             'joiningDate' => $joining ? self::ordinalDate($joining, true) : '',
             'subject' => self::fill($settings['subject'], $values),
-            'paragraphs' => array_map(fn ($p) => self::fill($p, $values), self::blocks($settings['paragraphs'])),
+            'paragraphs' => array_map(fn ($p) => self::fill($p, $values), self::blocks(!empty($e->paragraphs) ? $e->paragraphs : $settings['paragraphs'])),
             'documents' => array_map(fn ($d) => self::fill($d, $values), self::lines($settings['documents'])),
             'note' => self::fill($settings['note'], $values),
             'closing' => self::fill($settings['closing'], $values),
@@ -437,9 +553,9 @@ Human Resource Department.",
         ];
     }
 
-    public static function html(?object $letter, bool $forPdf, ?array $settings = null, ?int $userId = null): string
+    public static function html(?object $letter, bool $forPdf, ?array $settings = null, ?int $userId = null, ?array $details = null): string
     {
-        return view('offer-letters.letter', self::data($letter, $forPdf, $settings, $userId))->render();
+        return view('offer-letters.letter', self::data($letter, $forPdf, $settings, $userId, $details))->render();
     }
 
     public static function pdf(object $letter)
@@ -451,7 +567,7 @@ Human Resource Department.",
 
     public static function fileName(object $letter): string
     {
-        $name = DB::table('users')->where('id', $letter->user_id)->value('name');
+        $name = $letter->user_id ? DB::table('users')->where('id', $letter->user_id)->value('name') : ($letter->person_name ?? 'Candidate');
 
         return 'Offer Letter - ' . preg_replace('/[^A-Za-z0-9 ._-]+/', '', (string) $name) . ' - '
             . str_replace('/', '-', $letter->reference_no) . '.pdf';
@@ -466,7 +582,8 @@ Human Resource Department.",
     {
         $name = 'Offer Letter ' . $letter->reference_no;
 
-        if (EmployeeDocument::where('user_id', $letter->user_id)->where('name', $name)->exists()) {
+        // A candidate's letter (no employee yet) has no documents to go into.
+        if (!$letter->user_id || EmployeeDocument::where('user_id', $letter->user_id)->where('name', $name)->exists()) {
             return;
         }
 

@@ -47,14 +47,26 @@ class OfferLetterController extends AccountBaseController
             ->orderBy('u.name')
             ->get(['u.id', 'u.name', 'ed.employee_id as code', 'd.name as designation']);
 
+        // Letters made from an employee and from the form (a candidate has no employee yet).
         $this->letters = DB::table('offer_letters as o')
-            ->join('users as u', 'u.id', '=', 'o.user_id')
+            ->leftJoin('users as u', 'u.id', '=', 'o.user_id')
             ->leftJoin('employee_details as ed', 'ed.user_id', '=', 'u.id')
             ->leftJoin('users as g', 'g.id', '=', 'o.generated_by')
             ->where('o.company_id', company()->id)
             ->orderByDesc('o.id')
             ->limit(200)
-            ->get(['o.id', 'o.reference_no', 'o.letter_date', 'u.name', 'ed.employee_id as code', 'g.name as generated_by']);
+            ->get(['o.id', 'o.reference_no', 'o.letter_date', 'o.source', 'o.designation', 'o.joining_date', 'o.cancelled_at',
+                DB::raw('COALESCE(u.name, o.person_name) as name'), 'ed.employee_id as code', 'g.name as generated_by']);
+
+        $this->relievingLetters = RelievingLetterController::canUse() ? DB::table('relieving_letters as r')
+            ->leftJoin('users as u', 'u.id', '=', 'r.user_id')
+            ->leftJoin('employee_details as ed', 'ed.user_id', '=', 'u.id')
+            ->leftJoin('users as g', 'g.id', '=', 'r.generated_by')
+            ->where('r.company_id', company()->id)
+            ->orderByDesc('r.id')->limit(200)
+            ->get(['r.id', 'r.letter_date', 'r.source', DB::raw('COALESCE(u.name, r.person_name) as name'), 'ed.employee_id as code', 'g.name as generated_by'])
+            : collect();
+        $this->canRelieve = RelievingLetterController::canUse();
 
         $this->canEditSettings = OfferLetterSettingController::canEdit();
 
@@ -108,8 +120,11 @@ class OfferLetterController extends AccountBaseController
     public function show($id)
     {
         $this->letter = $this->letter($id);
-        $this->employee = DB::table('users')->where('id', $this->letter->user_id)->first(['id', 'name']);
-        $this->problems = OfferLetter::problems((int) $this->letter->user_id);
+        // A letter made from the form may have no employee behind it (a candidate).
+        $this->employee = ($this->letter->user_id ? DB::table('users')->where('id', $this->letter->user_id)->first(['id', 'name']) : null)
+            ?: (object) ['id' => null, 'name' => $this->letter->person_name];
+        // It prints what was kept with it, so the employee's record is only checked for older letters.
+        $this->problems = $this->letter->user_id && empty($this->letter->details) ? OfferLetter::problems((int) $this->letter->user_id) : [];
         $this->pageTitle = 'Offer Letter ' . $this->letter->reference_no;
 
         return view('offer-letters.show', $this->data);
@@ -140,6 +155,15 @@ class OfferLetterController extends AccountBaseController
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => $disposition . '; filename="' . OfferLetter::fileName($letter) . '"',
         ]);
+    }
+
+    /** The offer is withdrawn: off Upcoming Joinings, no joining-day reminder; the letter stays on record. */
+    public function cancel($id)
+    {
+        $letter = $this->letter($id);
+        DB::table('offer_letters')->where('id', $letter->id)->update(['cancelled_at' => now(), 'updated_at' => now()]);
+
+        return Reply::success('Offer ' . $letter->reference_no . ' withdrawn.');
     }
 
     protected function letter($id): object
