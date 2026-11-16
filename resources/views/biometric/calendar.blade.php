@@ -7,10 +7,7 @@
 @push('styles')
     <style>
         /* Fetch attendance: dates, devices and the button on one line */
-        .fa-fetch .fa-devices { display: flex; flex-wrap: wrap; gap: 6px; }
-        .fa-fetch .fa-device { display: inline-flex; align-items: center; gap: 6px; margin: 0; padding: 0 10px; height: 38px;
-            border: 1px solid #d0d5dd; border-radius: 8px; background: #fff; font-size: 13px; color: #344054; cursor: pointer; white-space: nowrap; }
-        .fa-fetch .fa-device:has(input:checked) { border-color: var(--epic-blue, #cb6b4f); background: color-mix(in srgb, var(--epic-blue, #cb6b4f) 8%, #fff); }
+        .fa-fetch .bootstrap-select > .dropdown-toggle { height: 38px; }
         .fa-fetch input[type=date] { height: 38px; }
         .fa-fetch .fa-go { height: 38px; }
         /* Month navigator: arrows hugging the month */
@@ -42,30 +39,30 @@
             </div>
             <div class="card-body p-3">
                 <div class="row align-items-end">
-                    <div class="col-lg-2 col-md-3 col-6 mb-2">
+                    <div class="col-lg-3 col-md-3 col-6 mb-2">
                         <label class="f-12 text-dark-grey mb-1">From</label>
                         <input type="date" class="form-control f-14" id="range-from"
                                min="{{ $earliest->toDateString() }}" max="{{ now()->toDateString() }}"
                                value="{{ $month->copy()->startOfMonth()->toDateString() }}">
                     </div>
-                    <div class="col-lg-2 col-md-3 col-6 mb-2">
+                    <div class="col-lg-3 col-md-3 col-6 mb-2">
                         <label class="f-12 text-dark-grey mb-1">To</label>
                         <input type="date" class="form-control f-14" id="range-to"
                                min="{{ $earliest->toDateString() }}" max="{{ now()->toDateString() }}"
                                value="{{ $month->copy()->endOfMonth()->min(now())->toDateString() }}">
                     </div>
-                    <div class="col-lg-6 col-md-6 col-12 mb-2">
-                        <label class="f-12 text-dark-grey mb-1">From these devices</label>
-                        <div class="fa-devices">
+                    <div class="col-lg-4 col-md-6 col-12 mb-2">
+                        <label class="f-12 text-dark-grey mb-1">Devices</label>
+                        {{-- Searchable multi-select; ticked as on Biometric Settings --}}
+                        <select id="fetch-devices" class="form-control select-picker" multiple data-live-search="true"
+                                data-actions-box="true" data-selected-text-format="count > 2" data-count-selected-text="{0} devices"
+                                title="Choose devices">
                             @foreach ($deviceOptions as $code => $label)
-                                <label class="fa-device" title="{{ $code }}">
-                                    <input type="checkbox" class="resync-device" value="{{ $code }}" @checked(in_array((string) $code, $selectedDevices, true))>
-                                    <span>{{ $label }}</span>
-                                </label>
+                                <option value="{{ $code }}" data-subtext="{{ $code }}" @selected(in_array((string) $code, $selectedDevices, true))>{{ $label }}</option>
                             @endforeach
-                        </div>
+                        </select>
                     </div>
-                    <div class="col-lg-2 col-md-12 col-12 mb-2">
+                    <div class="col-lg-2 col-md-6 col-12 mb-2">
                         <button type="button" class="btn btn-primary f-14 w-100 fa-go" id="sync-range">
                             <i class="fa fa-download mr-1"></i> Fetch
                         </button>
@@ -73,8 +70,8 @@
                 </div>
                 <p class="f-11 text-lightest mb-0">
                     Device history starts {{ $earliest->format('d M Y') }}. Roughly two minutes per day.
-                    Devices are ticked as on <a href="{{ route('biometric-settings.index') }}">Biometric Settings</a>;
-                    tick another to pull its history too (the nightly pull keeps following Settings).
+                    Devices start as chosen on <a href="{{ route('biometric-settings.index') }}">Biometric Settings</a>;
+                    add another to pull its history too (the regular pulls keep following Settings).
                 </p>
             </div>
         </div>
@@ -275,6 +272,9 @@
 
 @push('scripts')
     <script>
+        // The device picker (searchable, several at once)
+        $(function () { $('#fetch-devices').selectpicker({ liveSearch: true, actionsBox: true, width: '100%', container: 'body' }); });
+
         $(function () {
             var token = '{{ csrf_token() }}';
             var routes = {
@@ -414,7 +414,7 @@
 
             function startRun(payload) {
                 payload._token = token;
-                payload.devices = $('.resync-device:checked').map(function () { return this.value; }).get();
+                payload.devices = $('#fetch-devices').val() || [];
 
                 if (!payload.devices.length) {
                     Swal.fire({ icon: 'warning', title: 'Tick at least one device to pull from.' });

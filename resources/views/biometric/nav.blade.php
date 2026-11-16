@@ -34,7 +34,6 @@
         ],
         'Configure' => [
             'settings' => ['biometric-settings.index', __('app.menu.biometricSettings')],
-            'devices' => ['biometric.devices', __('app.menu.biometricDevices')],
             'shifts' => ['biometric.shifts', __('app.menu.biometricShifts')],
         ],
         'History & tools' => [
@@ -49,6 +48,7 @@
     // own for the Super Admin and Admin, so it is not buried in Setup
     if ($bioAccess['fetch']) {
         $flow['calendar'] = ['biometric.calendar', 'Fetch Attendance', 'bi-cloud-download'];
+        $flow['devices'] = ['biometric.devices', 'Devices & Locations', 'bi-hdd-network'];
     }
     // Employee Mapping (link people to their device codes): a tab of its own, for whoever may map
     if ($bioAccess['mapping']) {

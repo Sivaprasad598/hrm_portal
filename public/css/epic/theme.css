@@ -2089,6 +2089,12 @@ body.epic td.att-day .fa-times                 { background: var(--att-absent) !
 body.epic td.att-day .fa-exclamation-triangle  { background: var(--att-lop) !important; }       /* loss of pay */
 body.epic td.att-day .fa-star                  { background: var(--att-holiday) !important; }
 body.epic td.att-day .fa-calendar-week         { background: var(--att-dayoff) !important; }
+/* Salary-month grid (attendances/ajax/cycle_data): its own icons, the same dots */
+body.epic td.att-day .fa-calendar              { background: var(--att-dayoff) !important; }    /* week off */
+body.epic td.att-day .fa-plane-slash           { background: var(--att-lop) !important; }       /* unpaid leave */
+body.epic td.att-day .fa-minus                 { background: transparent !important; box-shadow: inset 0 0 0 1.5px var(--att-dayoff); } /* not employed */
+body.epic .att-dot--lop  { background: var(--att-lop); }
+body.epic .att-dot--none { background: transparent; box-shadow: inset 0 0 0 1.5px var(--att-dayoff); }
 
 /* A filter bar kept to one row (Attendance): the fields share the width */
 body.epic .filter-box .filter-box.filters-one-row { flex-wrap: nowrap !important; }

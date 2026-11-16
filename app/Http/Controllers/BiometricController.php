@@ -77,8 +77,10 @@ class BiometricController extends AccountBaseController
         });
     }
 
-    /** Fetch Attendance: the Sync Calendar page and its range pull (startBackfill writes attendance). */
-    public const FETCH_ACTIONS = ['calendar', 'startBackfill', 'stepBackfill', 'backfillStatus', 'controlBackfill'];
+    /** Super Admin / Admin pages: Fetch Attendance (Sync Calendar and its range pull) and Devices & Locations. */
+    public const FETCH_ACTIONS = ['calendar', 'startBackfill', 'stepBackfill', 'backfillStatus', 'controlBackfill',
+        // Devices & Locations: the device list with its locations, read-only
+        'devices'];
 
     /** Who may fetch a date range: the technical permission, or the Super Admin / Admin role. */
     public static function canFetch(): bool
@@ -1659,7 +1661,7 @@ class BiometricController extends AccountBaseController
      */
     public function devices()
     {
-        $this->pageTitle = 'app.menu.biometricDevices';
+        $this->pageTitle = 'Devices & Locations';
         $this->activeTab = 'devices';
 
         $this->devices = IappDevice::orderBy('location_code')

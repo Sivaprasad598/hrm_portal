@@ -30,7 +30,7 @@ class PageGroups
             'attendances-index' => 'Attendance Register',
             'shifts-index' => 'Shift Roster',
         ]],
-        'exits' => ['Exited Employees', [
+        'exits' => ['Exiting Employees', [
             'resignation-management-index' => 'Resignations',
             'employee-exit-index' => 'Exited Employees',
             'employee-termination-index' => 'Termination',

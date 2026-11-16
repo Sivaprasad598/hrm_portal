@@ -63,9 +63,16 @@ class IappSyncPunches extends Command
             // The scheduler now asks every 5 minutes, so 2 minutes of slack is
             // enough and keeps each setting at its own pace: 5 -> every tick,
             // 10 -> every 10, 15 -> every 15 (a 5-minute slack made 15 pull every 10).
-            $slack = min(2, intdiv($interval, 3));
+            // Measured from the 5-minute tick the last pull belonged to, not from
+            // the second it began: attendance:daily runs first on the quarter
+            // hours and can hold the pull back 2-3 minutes, which made the next
+            // tick look early and skip (15 became 20 minutes between pulls).
+            // started 10:23 (tick 10:20) -> every 5: next at 10:25, every 15: 10:35.
+            $tick = $last?->started_at
+                ? $last->started_at->copy()->second(0)->subMinutes($last->started_at->minute % 5)
+                : null;
 
-            if ($last && $last->started_at && $last->started_at->gt(now()->subMinutes($interval - $slack))) {
+            if ($tick && $tick->gt(now()->subMinutes($interval)->addMinute())) {
                 return self::SUCCESS;
             }
         }

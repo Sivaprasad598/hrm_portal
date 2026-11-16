@@ -11,9 +11,9 @@
         {{ $cycle->start->format('d M Y') }} – {{ $cycle->end->format('d M Y') }} ({{ $cycleDates->count() }} days), counted exactly as payroll counts it.
     </p>
     <div class="f-11 text-dark-grey mb-1">
-        @foreach (['present', 'half_day', 'week_off', 'holiday', 'paid_leave', 'lop_leave', 'absent', 'not_employed'] as $key)
-            @php [$label, $colour, $icon] = $statusMeta[$key]; @endphp
-            <span class="mr-2 text-nowrap"><i class="fa {{ $icon }} text-{{ $colour === 'light' ? 'lightest' : $colour }}"></i> {{ $label }}</span>
+        {{-- The same coloured dots as the calendar month (theme.css .att-dot / td.att-day). --}}
+        @foreach (['present' => 'present', 'half_day' => 'half', 'week_off' => 'dayoff', 'holiday' => 'holiday', 'paid_leave' => 'leave', 'lop_leave' => 'lop', 'absent' => 'absent', 'not_employed' => 'none'] as $key => $dot)
+            <span class="mr-3 text-nowrap"><span class="att-dot att-dot--{{ $dot }} mr-1"></span>{{ $statusMeta[$key][0] }}</span>
         @endforeach
     </div>
 </div>
@@ -61,7 +61,7 @@
                                 . ($day['status'] !== 'upcoming' ? ' · paid ' . $fmt($day['paid']) : '');
                         @endphp
                         @php $attendanceId = $attendanceIds[$employee->id][$day['date']] ?? null; @endphp
-                        <td class="text-center px-1 {{ substr($day['date'], 8, 2) === '01' ? 'cycle-month-start' : '' }}" title="{{ $tip }}{{ $day['status'] !== 'upcoming' ? ' · click for details' : '' }}">
+                        <td class="text-center px-1 att-day {{ substr($day['date'], 8, 2) === '01' ? 'cycle-month-start' : '' }}" title="{{ $tip }}{{ $day['status'] !== 'upcoming' ? ' · click for details' : '' }}">
                             @if ($day['status'] !== 'upcoming')
                                 {{-- Details first: the attendance popup (edit / delete inside), or the day as counted. --}}
                                 <a href="javascript:;" class="cycle-cell d-block {{ $attendanceId ? 'view-attendance' : 'cycle-day' }}"
