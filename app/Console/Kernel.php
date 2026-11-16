@@ -190,7 +190,7 @@ class Kernel extends ConsoleKernel
         // automatically" (whether the days are written into attendance).
         // Checked every 5 minutes; "Pull new punches every" (5 / 10 / 15 / 30 / 60,
         // default 5) decides whether a pull is due, so the setting alone sets the pace.
-        $schedule->command('iapp:sync-punches --scheduled')->everyFiveMinutes()->withoutOverlapping(60)->runInBackground();
+        $schedule->command('iapp:sync-punches --scheduled')->everyFiveMinutes()->withoutOverlapping(15)->runInBackground();
         // Leave approval steps left undecided past the days in Leave Settings move on.
         $schedule->command('leaves:escalate-approvals')->hourly()->withoutOverlapping(30);
         // Employees' own shifts, written into the roster 60 days ahead (ShiftAssignments).
