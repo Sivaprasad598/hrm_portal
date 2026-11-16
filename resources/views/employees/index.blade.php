@@ -353,6 +353,7 @@
 
 @push('scripts')
     @include('sections.datatable_js')
+    @include('offer-letters.partials.generate-script')
 
     <script>
 

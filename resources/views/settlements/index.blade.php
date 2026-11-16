@@ -297,14 +297,18 @@
                     confirmButtonText: confirmText,
                     cancelButtonText: '@lang('app.cancel')',
                     input: data.needsInput ? 'text' : undefined,
-                    inputPlaceholder: data.placeholder || ''
+                    inputPlaceholder: data.placeholder || '',
+                    // A required box (the withdrawal reason) says so; an optional one
+                    // (the payment reference) may be left empty. It used to stop
+                    // silently when empty, so "Mark paid" without a reference did nothing.
+                    inputValidator: data.required ? function (value) {
+                        if (!value || !value.trim()) { return 'Please fill this in.'; }
+                    } : undefined
                 }).then(function (result) {
                     if (!result.isConfirmed) { return; }
 
                     if (data.needsInput) {
-                        if (!result.value) { return; }
-
-                        data.params[data.inputName] = result.value;
+                        data.params[data.inputName] = (result.value || '').trim();
                     }
 
                     $.post(url, $.extend({ _token: csrf }, data.params))
@@ -333,7 +337,7 @@
             $(document).on('click', '.cancel-settlement', function (event) {
                 event.preventDefault();
                 act('{{ route('settlements.cancel') }}',
-                    { params: { id: $(this).data('id') }, needsInput: true,
+                    { params: { id: $(this).data('id') }, needsInput: true, required: true,
                       inputName: 'reason', placeholder: 'Why is it being withdrawn?' },
                     'Withdraw this settlement?', 'Withdraw');
             });

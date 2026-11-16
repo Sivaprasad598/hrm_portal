@@ -43,6 +43,12 @@ class EmployeeExitController extends AccountBaseController
         $this->employee = User::withoutGlobalScope(\App\Scopes\ActiveScope::class)->with('employeeDetail')->findOrFail($userId);
         $this->pageTitle = 'Initiate Exit — ' . $this->employee->name;
 
+        // Already terminated: no second exit (see the Termination tab).
+        if ($termination = EmployeeExit::terminationFor((int) $userId)) {
+            return Reply::error($this->employee->name . ' was terminated on '
+                . Carbon::parse($termination->termination_date)->format(company()->date_format) . ' (Exiting Employees -> Termination). Undo the termination there to start an exit instead.');
+        }
+
         $view = 'employee-exit.ajax.initiate';
 
         if (request()->ajax()) {
@@ -65,6 +71,10 @@ class EmployeeExitController extends AccountBaseController
             'notice_period_days' => 'required|integer|min:0|max:365',
             'last_working_date'  => 'required|date|after_or_equal:resignation_date',
         ]);
+
+        if (EmployeeExit::terminationFor((int) $request->user_id)) {
+            return Reply::error('This employee has already been terminated (Exiting Employees -> Termination). Undo the termination there to start an exit instead.');
+        }
 
         if ($openExit = EmployeeExit::openFor((int) $request->user_id)) {
             return Reply::error('An exit is already in progress for this employee (last working date '

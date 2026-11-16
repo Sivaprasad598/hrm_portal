@@ -101,6 +101,7 @@ class StoreRequest extends CoreRequest
             'emergency_number'    => 'required|array|min:1',
             'emergency_number.*'  => ['required', 'max:20', 'regex:' . \App\Rules\NoEmoji::INDIAN_MOBILE],
             'probation_end_date' => 'nullable|date_format:"' . $setting->date_format . '"|after_or_equal:joining_date',
+            'notice_period_setting_id' => 'nullable|integer|exists:notice_period_settings,id',
             'notice_period_start_date' => 'nullable|required_with:notice_period_end_date|date_format:"' . $setting->date_format . '"',
             'notice_period_end_date' => 'nullable|required_with:notice_period_start_date|date_format:"' . $setting->date_format . '"|after_or_equal:notice_period_start_date',
             'internship_end_date' => 'nullable|date_format:"' . $setting->date_format . '"|after_or_equal:joining_date',

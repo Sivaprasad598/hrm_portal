@@ -842,6 +842,21 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account'], function () {
 
     Route::get('offer-letter', [App\Http\Controllers\LegacyController::class, 'offerLetter'])->name('offer-letter.index');
 
+    // Offer letters for employees (Employees list / profile / Offer Letters page): checked, numbered, printed, kept.
+    Route::get('offer-letters', [App\Http\Controllers\OfferLetterController::class, 'index'])->name('offer-letters.index');
+    Route::get('offer-letters/check/{userId}', [App\Http\Controllers\OfferLetterController::class, 'check'])->name('offer-letters.check');
+    Route::post('offer-letters/issue/{userId}', [App\Http\Controllers\OfferLetterController::class, 'issue'])->name('offer-letters.issue');
+    Route::get('offer-letters/{id}', [App\Http\Controllers\OfferLetterController::class, 'show'])->whereNumber('id')->name('offer-letters.show');
+    Route::get('offer-letters/{id}/view', [App\Http\Controllers\OfferLetterController::class, 'view'])->whereNumber('id')->name('offer-letters.view');
+    Route::get('offer-letters/{id}/pdf', [App\Http\Controllers\OfferLetterController::class, 'pdf'])->whereNumber('id')->name('offer-letters.pdf');
+
+    // Relieving cum experience letters: exited employees only (Exited Employees list), after clearances.
+    Route::get('relieving-letters/check/{userId}', [App\Http\Controllers\RelievingLetterController::class, 'check'])->name('relieving-letters.check');
+    Route::post('relieving-letters/issue/{userId}', [App\Http\Controllers\RelievingLetterController::class, 'issue'])->name('relieving-letters.issue');
+    Route::get('relieving-letters/{id}', [App\Http\Controllers\RelievingLetterController::class, 'show'])->whereNumber('id')->name('relieving-letters.show');
+    Route::get('relieving-letters/{id}/view', [App\Http\Controllers\RelievingLetterController::class, 'view'])->whereNumber('id')->name('relieving-letters.view');
+    Route::get('relieving-letters/{id}/pdf', [App\Http\Controllers\RelievingLetterController::class, 'pdf'])->whereNumber('id')->name('relieving-letters.pdf');
+
     Route::get('probation-period-requests', [App\Http\Controllers\LegacyController::class, 'probationPeriodRequests'])->name('probation-requests.index');
 
     Route::get('employee-termination', [App\Http\Controllers\LegacyController::class, 'employeeTermination'])->name('employee-termination.index');

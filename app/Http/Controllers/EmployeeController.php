@@ -1700,6 +1700,11 @@ class EmployeeController extends AccountBaseController
         $employee->notice_period_start_date = $request->notice_period_start_date ? companyToYmd($request->notice_period_start_date) : null;
         $employee->notice_period_end_date = $request->notice_period_end_date ? companyToYmd($request->notice_period_end_date) : null;
 
+        // The notice period agreed on joining (Notice Period Settings), as the offer letter states it.
+        if ($request->has('notice_period_setting_id') && \Illuminate\Support\Facades\Schema::hasColumn('employee_details', 'notice_period_setting_id')) {
+            $employee->notice_period_setting_id = $request->notice_period_setting_id ?: null;
+        }
+
         if ($request->filled('employment_status')) {
             // Explicit selection from the Employee Exit dropdown wins.
             $employee->employment_status = $request->employment_status;

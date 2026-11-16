@@ -157,6 +157,13 @@
                                  :text="__('app.menu.noticePeriodSettings')"/>
         @endif
 
+        {{-- Offer letters: wording, footer, numbering (OfferLetterSettingController::canEdit) --}}
+        @if (\App\Http\Controllers\OfferLetterSettingController::canEdit())
+            <x-setting-menu-item :active="$activeMenu" menu="offer_letter_settings"
+                                 :href="\App\Support\ModulePresence::href('offer-letter-settings.index')"
+                                 text="Letter Settings"/>
+        @endif
+
         @if (user()->permission('manage_notification_setting') == 'all')
             <x-setting-menu-item :active="$activeMenu" menu="notification_settings" :href="\App\Support\ModulePresence::href('notifications.index')"
                                  :text="__('app.menu.notificationSettings')"/>

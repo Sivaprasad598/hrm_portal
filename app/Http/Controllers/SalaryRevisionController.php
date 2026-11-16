@@ -51,6 +51,11 @@ class SalaryRevisionController extends AccountBaseController
         $sums = DB::table('salary_revisions')->whereIn('batch_id', $this->batches->pluck('id'))->groupBy('batch_id')
             ->selectRaw('batch_id, COUNT(*) AS people, SUM(old_ctc) AS old_total, SUM(new_ctc) AS new_total')->get()->keyBy('batch_id');
         $this->sums = $sums;
+        // Who is in each revision: the name for one, the whole list (in a pop-up) for a cycle.
+        $this->people = DB::table('salary_revisions as r')->join('users as u', 'u.id', '=', 'r.user_id')
+            ->leftJoin('employee_details as ed', 'ed.user_id', '=', 'r.user_id')
+            ->whereIn('r.batch_id', $this->batches->pluck('id'))->orderBy('u.name')
+            ->get(['r.batch_id', 'u.name', 'ed.employee_id as code', 'r.old_ctc', 'r.new_ctc'])->groupBy('batch_id');
         $this->awaitingCount = DB::table('salary_revision_batches')->whereIn('status', $awaiting ?: ['-'])->count();
 
         // This financial year, approved.

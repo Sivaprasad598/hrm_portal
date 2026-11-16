@@ -154,6 +154,13 @@ class EmployeesDataTable extends BaseDataTable
                             </a>';
             }
 
+            // Offer letter: checked, numbered and printed (OfferLetterController).
+            if ($this->editEmployeePermission == 'all' && empty($row->last_date)) {
+                $action .= '<a class="dropdown-item generate-offer-letter" href="javascript:;" data-user-id="' . $row->id . '">
+                                <i class="fa fa-file-signature mr-2"></i>Offer Letter
+                            </a>';
+            }
+
             // Exit: start it here (Exited Employees lists them once they have left).
             // Not for oneself, the Super Admin login, or someone already gone; an
             // exit already under way is opened instead of starting a second one.
@@ -162,13 +169,23 @@ class EmployeesDataTable extends BaseDataTable
             if ($this->editEmployeePermission == 'all' && user()->id !== $row->id && !$hasLeft
                 && !\App\Services\Access\SystemAccounts::is((int) $row->id)) {
                 $openExit = \App\Models\EmployeeExit::openFor((int) $row->id);
-                $action .= $openExit
-                    ? '<a class="dropdown-item openRightModal" href="' . route('employee-exit.show', $openExit->id) . '">
+                // Terminated (Exiting Employees -> Termination): already on the way
+                // out, so no second exit - the termination is shown instead.
+                $terminated = !$openExit ? \App\Models\EmployeeExit::terminationFor((int) $row->id) : null;
+
+                if ($openExit) {
+                    $action .= '<a class="dropdown-item openRightModal" href="' . route('employee-exit.show', $openExit->id) . '">
                                 <i class="fa fa-door-open mr-2"></i>View Exit
-                            </a>'
-                    : '<a class="dropdown-item openRightModal" href="' . route('employee-exit.initiate', $row->id) . '">
+                            </a>';
+                } elseif ($terminated) {
+                    $action .= '<a class="dropdown-item" href="' . route('employee-termination.index') . '">
+                                <i class="fa fa-user-times mr-2"></i>View Termination
+                            </a>';
+                } else {
+                    $action .= '<a class="dropdown-item openRightModal" href="' . route('employee-exit.initiate', $row->id) . '">
                                 <i class="fa fa-sign-out-alt mr-2"></i>Exit Employee
                             </a>';
+                }
             }
 
             // Someone who has left can be brought back as the same employee

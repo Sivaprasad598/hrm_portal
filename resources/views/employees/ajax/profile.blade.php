@@ -15,6 +15,7 @@
     };
 @endphp
 <script src="{{ asset('vendor/jquery/Chart.min.js') }}"></script>
+@include('offer-letters.partials.generate-script')
 <style>
     .card-img {
         width: 120px;
@@ -88,6 +89,9 @@ $viewAppreciationPermission = user()->permission('view_appreciation');
                                                 @if ($employee->status === 'active' && !$employee->employeeDetail?->last_date
                                                     && \App\Services\Access\PayrollAccess::can('prepare'))
                                                     <a class="dropdown-item" href="{{ route('payslips.index', ['generate' => 1, 'card_id' => $employee->employeeDetail?->employee_id ?: $employee->id]) }}">Generate Payslip</a>
+                                                @endif
+                                                @if (!$employee->employeeDetail?->last_date && \App\Http\Controllers\OfferLetterController::canUse())
+                                                    <a class="dropdown-item generate-offer-letter" href="javascript:;" data-user-id="{{ $employee->id }}">Offer Letter</a>
                                                 @endif
                                                 @if ($employee->employeeDetail?->last_date && $employee->employeeDetail->last_date->lt(now()->startOfDay())
                                                     && user()->permission('edit_employees') === 'all')

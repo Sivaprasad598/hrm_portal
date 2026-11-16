@@ -37,6 +37,26 @@ class EmployeeExit extends Model
             ->first();
     }
 
+    /**
+     * The termination recorded for this employment (HR -> Exiting Employees ->
+     * Termination), if any: one dated on or after their (re)joining date, so a
+     * termination from before a rejoin does not count.
+     */
+    public static function terminationFor(int $userId): ?object
+    {
+        if (!\App\Support\SchemaCache::hasTable('terminations')) {
+            return null;
+        }
+
+        $joined = \Illuminate\Support\Facades\DB::table('employee_details')->where('user_id', $userId)->value('joining_date');
+
+        return \Illuminate\Support\Facades\DB::table('terminations')->where('user_id', $userId)
+            ->when($joined, fn ($q) => $q->whereDate('termination_date', '>=', $joined))
+            ->when(\App\Support\SchemaCache::hasColumn('terminations', 'closed_by_rejoin_id'), fn ($q) => $q->whereNull('closed_by_rejoin_id'))
+            ->orderByDesc('id')
+            ->first();
+    }
+
     public function employee()
     {
         // Includes people who have left: an exit is mostly about them.

@@ -260,6 +260,11 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account/settings'], function 
     // Notice Period Settings (embeds the legacy Notice_period_settings.php page)
     Route::get('notice-period-settings', [LegacyController::class, 'noticePeriodSettings'])->name('notice-period-settings.index');
 
+    // Offer Letter Settings: the letter's wording, footer, numbering, notice during probation.
+    Route::get('offer-letter-settings', [App\Http\Controllers\OfferLetterSettingController::class, 'index'])->name('offer-letter-settings.index');
+    Route::post('offer-letter-settings', [App\Http\Controllers\OfferLetterSettingController::class, 'update'])->name('offer-letter-settings.update');
+    Route::post('offer-letter-settings/preview', [App\Http\Controllers\OfferLetterSettingController::class, 'preview'])->name('offer-letter-settings.preview');
+
     // Probation Period Requests — approve/reject actions called (via fetch, XSRF-TOKEN
     // cookie header) from the legacy Probation_period_request.php page's own buttons.
     Route::post('probation-requests/{id}/approve', [ProbationRequestController::class, 'approve'])->name('probation-requests.approve');

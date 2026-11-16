@@ -93,6 +93,12 @@ class LegacyController extends AccountBaseController
 
     public function payslipEntry()
     {
+        // The sidebar's "Offer Letters" entry: the employee offer letters page
+        // (pick, check, number, print), where it used to embed the old picker.
+        if (OfferLetterController::canUse()) {
+            return redirect()->route('offer-letters.index');
+        }
+
         $this->pageTitle = 'app.menu.payslipEntry';
 
         // This browses departments and employees and jumps into any employee's

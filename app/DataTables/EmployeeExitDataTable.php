@@ -102,6 +102,13 @@ class EmployeeExitDataTable extends BaseDataTable
                           </a>';
             }
 
+            // Relieving cum experience letter: once they have left (clearances are checked on click).
+            if ($hasLeft && \App\Http\Controllers\RelievingLetterController::canUse()) {
+                $html .= '<a class="dropdown-item generate-relieving-letter" href="javascript:;" data-user-id="' . $userId . '">
+                            <i class="fa fa-file-signature mr-2"></i> Relieving Letter
+                          </a>';
+            }
+
             $html .= '</div></div></div>';
 
             return $html;

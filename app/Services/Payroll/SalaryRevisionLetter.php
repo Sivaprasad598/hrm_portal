@@ -53,17 +53,115 @@ class SalaryRevisionLetter
         ];
     }
 
-    public function html(array $revisionIds): string
+    /**
+     * The letters, in the company's increment letter format on the shared
+     * letterhead (Settings -> Letter Settings -> Hike Letter), one page each.
+     */
+    public function html(array $revisionIds, bool $forPdf = true): string
     {
-        $pages = array_map(fn ($id) => view('salary-revisions.letter', $this->data((int) $id))->render(), $revisionIds);
+        $s = \App\Services\Employee\OfferLetter::settings();
+        $pages = array_map(fn ($id) => self::hikePage($this->hikeFields($this->data((int) $id)), $s, $forPdf), $revisionIds);
 
-        return view('salary-revisions.letter-document', ['pages' => $pages])->render();
+        return view('salary-revisions.hike-document', ['pages' => $pages, 's' => $s, 'forPdf' => $forPdf])->render();
     }
 
     public function pdf(array $revisionIds)
     {
         return Pdf::loadHTML($this->html($revisionIds))->setPaper('a4')->setOption('dpi', 96)->setOption('isRemoteEnabled', true)
-            ->setOption('chroot', [base_path(), storage_path()]);
+            ->setOption('isFontSubsettingEnabled', true)->setOption('chroot', [base_path(), storage_path()]);
+    }
+
+    /** What the hike letter shows, from one revision's data(). */
+    protected function hikeFields(array $d): array
+    {
+        $r = $d['r'];
+
+        return [
+            'name' => $r->name, 'code' => $r->code, 'gender' => null,
+            // As they were before the revision: the letter is addressed to the person as they are.
+            'designation' => $r->old_designation ?: $r->new_designation, 'department' => $r->old_department ?: $r->new_department,
+            'new_designation' => $d['promoted'] ? $r->new_designation : null,
+            'old_ctc' => (float) $r->old_ctc, 'new_ctc' => (float) $r->new_ctc,
+            'effective' => $d['effective'], 'letter_date' => $d['letterDate'],
+            'arrears' => $r->arrears_amount && abs((float) $r->arrears_amount) >= 1 ? abs((float) $r->arrears_amount) : 0,
+            'arrears_note' => (string) $r->arrears_note,
+            'signatory_name' => $d['settings']->signatory_name ?: 'Authorised Signatory',
+            'signatory_designation' => $d['settings']->signatory_designation ?: '',
+            'draft' => $d['draft'],
+        ];
+    }
+
+    /** One hike letter page. $f: hikeFields(), or the sample in Letter Settings' preview. */
+    public static function hikePage(array $f, array $s, bool $forPdf): string
+    {
+        $O = \App\Services\Employee\OfferLetter::class;
+        $format = $s['hike_date_format'] ?: 'd/m/Y';
+        $values = [
+            '{name}' => e($f['name']),
+            '{employee_id}' => e((string) $f['code']),
+            '{designation}' => e((string) $f['designation']),
+            '{department}' => e((string) $f['department']),
+            '{new_designation}' => e((string) $f['new_designation']),
+            '{effective_date}' => e($f['effective']->format($format)),
+            '{date}' => e($f['letter_date']->format($format)),
+            '{old_ctc}' => self::inr($f['old_ctc']),
+            '{new_ctc}' => self::inr($f['new_ctc']),
+            '{arrears}' => self::inr($f['arrears']),
+            '{arrears_note}' => e($f['arrears_note']),
+            '{signatory_name}' => e($f['signatory_name']),
+            '{signatory_designation}' => e($f['signatory_designation']),
+            '{company}' => e($s['footer_company']),
+        ];
+        $fill = fn ($key) => $O::fill((string) $s[$key], $values);
+
+        return view('salary-revisions.hike-letter', [
+            'forPdf' => $forPdf, 's' => $s, 'draft' => $f['draft'],
+            'logo' => $O::logo($forPdf), 'stamp' => $O::stamp($s, $forPdf),
+            'title' => $fill('hike_title'), 'subject' => $fill('hike_subject'), 'greeting' => $fill('hike_greeting'),
+            'intro' => $fill('hike_intro'),
+            'promotion' => $f['new_designation'] ? $fill('hike_promotion') : '',
+            'arrears' => $f['arrears'] > 0 ? $fill('hike_arrears') : '',
+            'tableIntro' => $fill('hike_table_intro'), 'closing' => $fill('hike_closing'),
+            'signoff' => implode('<br>', array_map(fn ($l) => $O::fill($l, $values), $O::lines($s['hike_signoff']))),
+            'ackTitle' => $fill('hike_ack_title'), 'ackText' => $fill('hike_ack_text'),
+            'letterDate' => $f['letter_date']->format($format),
+            'name' => $f['name'], 'code' => $f['code'], 'designation' => $f['designation'], 'department' => $f['department'],
+            'oldCtc' => $f['old_ctc'], 'newCtc' => $f['new_ctc'],
+            'oldMonthly' => round($f['old_ctc'] / 12), 'newMonthly' => round($f['new_ctc'] / 12),
+            'inr' => fn ($v) => self::inr($v),
+        ])->render();
+    }
+
+    /** What the hike letter's wording can use (Letter Settings -> Hike Letter). */
+    public const HIKE_PLACEHOLDERS = [
+        '{name}' => 'Employee name',
+        '{employee_id}' => 'Employee ID',
+        '{designation}' => 'Designation (before the revision)',
+        '{department}' => 'Department (their Division)',
+        '{new_designation}' => 'New designation, on a promotion',
+        '{effective_date}' => 'Effective date',
+        '{date}' => 'Letter date',
+        '{old_ctc}' => 'Existing annual CTC',
+        '{new_ctc}' => 'Revised annual CTC',
+        '{arrears}' => 'Arrears amount, when months were already paid',
+        '{arrears_note}' => 'e.g. for Oct 2026, will be paid along with your salary for November 2026',
+        '{signatory_name}' => 'Signatory (Salary Revisions -> Settings)',
+        '{signatory_designation}' => 'Signatory\'s designation',
+        '{company}' => 'Company name (footer)',
+    ];
+
+    /** The settings preview: a sample employee, as the company's own letter. */
+    public static function hikePreview(array $s): string
+    {
+        $f = [
+            'name' => 'Gedela Naresh Kumar', 'code' => 'ACPL0367', 'designation' => 'Admin', 'department' => 'IT Department',
+            'new_designation' => null, 'old_ctc' => 360000.0, 'new_ctc' => 420000.0,
+            'effective' => Carbon::parse('2026-04-01'), 'letter_date' => Carbon::parse('2026-04-01'),
+            'arrears' => 0, 'arrears_note' => '',
+            'signatory_name' => 'G. Asha Raj', 'signatory_designation' => 'HR Operations Executive', 'draft' => false,
+        ];
+
+        return view('salary-revisions.hike-document', ['pages' => [self::hikePage($f, $s, false)], 's' => $s, 'forPdf' => false])->render();
     }
 
     /** 1234567.5 -> 12,34,568 (Indian grouping, whole rupees). */

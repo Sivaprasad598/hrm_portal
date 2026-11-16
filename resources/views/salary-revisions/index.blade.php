@@ -50,7 +50,7 @@
         <div class="table-responsive">
             <table class="table table-hover mb-0 f-13">
                 <thead class="bg-light">
-                    <tr><th>Revision</th><th>Effective</th><th>Paid from</th><th class="text-right">Employees</th><th class="text-right">CTC before</th>
+                    <tr><th>Revision</th><th>Effective</th><th>Paid from</th><th>Employees</th><th class="text-right">CTC before</th>
                         <th class="text-right">CTC after</th><th class="text-right">Increase</th><th>Status</th><th>Prepared by</th></tr>
                 </thead>
                 <tbody>
@@ -65,7 +65,23 @@
                             <br><span class="f-11 text-lightest">{{ $b->kind === 'single' ? 'Single employee' : 'Appraisal cycle' }}</span></td>
                         <td class="text-nowrap">{{ \Carbon\Carbon::parse($b->effective_date)->format(company()->date_format) }}</td>
                         <td class="text-nowrap">{{ \App\Services\Payroll\SalaryRevisions::monthLabel(\Carbon\Carbon::parse($b->applies_from)) }}</td>
-                        <td class="text-right">{{ $s->people ?? 0 }}</td>
+                        @php
+                            $who = $people[$b->id] ?? collect();
+                            $whoList = $who->map(fn ($p) => [$p->name, $p->code, $inr($p->old_ctc), $inr($p->new_ctc),
+                                $p->old_ctc > 0 ? number_format(($p->new_ctc - $p->old_ctc) / $p->old_ctc * 100, 2) . '%' : '–'])->values();
+                        @endphp
+                        <td>
+                            @if ($who->count() === 1)
+                                {{ $who[0]->name }}@if ($who[0]->code)<br><span class="f-11 text-lightest">{{ $who[0]->code }}</span>@endif
+                            @elseif ($who->count() > 1)
+                                <a href="javascript:;" class="sr-people text-nowrap" data-title="{{ $b->name }}"
+                                   data-people="{{ json_encode($whoList) }}">
+                                    {{ $who[0]->name }} <span class="badge badge-light">+{{ $who->count() - 1 }}</span>
+                                </a><br><span class="f-11 text-lightest">{{ $who->count() }} employees · view all</span>
+                            @else
+                                <span class="text-lightest">–</span>
+                            @endif
+                        </td>
                         <td class="text-right">{{ $s ? $inr($s->old_total) : '–' }}</td>
                         <td class="text-right">{{ $s ? $inr($s->new_total) : '–' }}</td>
                         <td class="text-right {{ $inc >= 0 ? 'text-success' : 'text-red' }}">{{ $s && $s->old_total > 0 ? number_format($inc / $s->old_total * 100, 2) . '%' : '–' }}
@@ -126,6 +142,26 @@
     $('#sr-settings-save').on('click', function () {
         $.easyAjax({ url: "{{ route('salary-revisions.settings') }}", type: 'POST', container: '#sr-settings-form', blockUI: true,
             data: $('#sr-settings-form').serialize(), success: function (r) { if (r.status === 'success') { $('#sr-settings').modal('hide'); } } });
+    });
+
+    // Everybody in a cycle: name, ID, CTC before / after and the increase.
+    $(document).on('click', '.sr-people', function () {
+        var esc = function (v) { return $('<div>').text(v == null ? '' : v).html(); };
+        var rows = $(this).data('people').map(function (p) {
+            return '<tr><td>' + esc(p[0]) + (p[1] ? '<br><span class="f-11 text-lightest">' + esc(p[1]) + '</span>' : '') + '</td>'
+                + '<td class="text-right">₹' + esc(p[2]) + '</td><td class="text-right">₹' + esc(p[3]) + '</td>'
+                + '<td class="text-right">' + esc(p[4]) + '</td></tr>';
+        }).join('');
+        Swal.fire({
+            title: esc($(this).data('title')),
+            width: 720,
+            html: '<div class="text-left f-13" style="max-height:60vh;overflow:auto">'
+                + '<table class="table table-sm mb-0"><thead class="bg-light"><tr><th>Employee</th><th class="text-right">CTC before</th>'
+                + '<th class="text-right">CTC after</th><th class="text-right">Increase</th></tr></thead><tbody>' + rows + '</tbody></table></div>',
+            confirmButtonText: 'Close',
+            customClass: {confirmButton: 'btn btn-primary'},
+            buttonsStyling: false
+        });
     });
 </script>
 @endpush

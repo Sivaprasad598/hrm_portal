@@ -65,6 +65,7 @@
 @endsection
 
 @push('scripts')
+    @include('relieving-letters.partials.generate-script')
     @include('sections.datatable_js')
 
     <script>
