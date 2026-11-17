@@ -1,8 +1,13 @@
 <?php
-require_once __DIR__ . '/vendor/autoload.php';
-$app = require __DIR__ . '/bootstrap/app.php';
-$kernel = $app->make(\Illuminate\Contracts\Console\Kernel::class);
-$kernel->bootstrap();
+// Shown through LegacyPageController the application is already running: starting
+// a second copy of it here cost every load 0.5-1 s. Started only when this file
+// is run on its own.
+if (!defined('LARAVEL_START') || !function_exists('app') || !app()->bound('db')) {
+    require_once __DIR__ . '/vendor/autoload.php';
+    $app = require __DIR__ . '/bootstrap/app.php';
+    $kernel = $app->make(\Illuminate\Contracts\Console\Kernel::class);
+    $kernel->bootstrap();
+}
 
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
@@ -70,47 +75,59 @@ if ($companyId > 0) {
         $monthEnd = Carbon::createFromDate($year, $month, $daysInMonth, $timezone)->endOfDay();
         $today = Carbon::now($timezone)->startOfDay();
 
-        // Attendance for the month, grouped by user + local calendar day. Worked seconds are
-        // summed across every session that day (mirrors AttendanceController::summaryData()),
-        // and the shift captured is whichever session's — good enough since almost every day
-        // only has one shift in play.
+        // The month's attendance and shift roster as the OLDER reckoning needs them.
+        // That reckoning is only the fallback for a day the rule counter (below) could
+        // not give, so its data is read the first time such a day turns up - not on
+        // every load (it was 0.7-1.3 s of each one, for nothing).
         $workedSecondsByUserDay = [];
         $shiftByUserDay = [];
-
-        Attendance::whereIn('user_id', $employeeIds)
-            ->whereBetween('clock_in_time', [$monthStart->copy()->timezone('UTC'), $monthEnd->copy()->timezone('UTC')])
-            ->with('shift')
-            ->get()
-            ->each(function ($row) use (&$workedSecondsByUserDay, &$shiftByUserDay, $timezone, $year, $month) {
-                $local = $row->clock_in_time->copy()->timezone($timezone);
-
-                if ((int) $local->year !== $year || (int) $local->month !== $month) {
-                    return;
-                }
-
-                $day = (int) $local->day;
-                $shiftByUserDay[$row->user_id][$day] = $row->shift;
-
-                if ($row->clock_out_time) {
-                    $seconds = abs($row->clock_out_time->diffInSeconds($row->clock_in_time));
-                    $workedSecondsByUserDay[$row->user_id][$day] = ($workedSecondsByUserDay[$row->user_id][$day] ?? 0) + $seconds;
-                }
-            });
-
-        // Day Off, from the shift roster
         $dayOffByUserDay = [];
         $rosterShiftByUserDay = [];
-        EmployeeShiftSchedule::whereIn('user_id', $employeeIds)
-            ->whereBetween('date', [$monthStart->toDateString(), $monthEnd->toDateString()])
-            ->with('shift')
-            ->get()
-            ->each(function ($schedule) use (&$dayOffByUserDay, &$rosterShiftByUserDay) {
-                if ($schedule->shift && $schedule->shift->shift_name === 'Day Off') {
-                    $dayOffByUserDay[$schedule->user_id][(int) Carbon::parse($schedule->date)->day] = true;
-                } elseif ($schedule->shift) {
-                    $rosterShiftByUserDay[$schedule->user_id][(int) Carbon::parse($schedule->date)->day] = $schedule->shift;
-                }
-            });
+        $olderDataLoaded = false;
+        $loadOlderData = function () use (&$olderDataLoaded, &$workedSecondsByUserDay, &$shiftByUserDay, &$dayOffByUserDay, &$rosterShiftByUserDay, $employeeIds, $monthStart, $monthEnd, $timezone, $year, $month) {
+            if ($olderDataLoaded) {
+                return;
+            }
+
+            $olderDataLoaded = true;
+
+            // Attendance for the month, grouped by user + local calendar day. Worked seconds are
+            // summed across every session that day (mirrors AttendanceController::summaryData()),
+            // and the shift captured is whichever session's — good enough since almost every day
+            // only has one shift in play.
+            Attendance::whereIn('user_id', $employeeIds)
+                ->whereBetween('clock_in_time', [$monthStart->copy()->timezone('UTC'), $monthEnd->copy()->timezone('UTC')])
+                ->with('shift')
+                ->get()
+                ->each(function ($row) use (&$workedSecondsByUserDay, &$shiftByUserDay, $timezone, $year, $month) {
+                    $local = $row->clock_in_time->copy()->timezone($timezone);
+
+                    if ((int) $local->year !== $year || (int) $local->month !== $month) {
+                        return;
+                    }
+
+                    $day = (int) $local->day;
+                    $shiftByUserDay[$row->user_id][$day] = $row->shift;
+
+                    if ($row->clock_out_time) {
+                        $seconds = abs($row->clock_out_time->diffInSeconds($row->clock_in_time));
+                        $workedSecondsByUserDay[$row->user_id][$day] = ($workedSecondsByUserDay[$row->user_id][$day] ?? 0) + $seconds;
+                    }
+                });
+
+            // Day Off, from the shift roster
+            EmployeeShiftSchedule::whereIn('user_id', $employeeIds)
+                ->whereBetween('date', [$monthStart->toDateString(), $monthEnd->toDateString()])
+                ->with('shift')
+                ->get()
+                ->each(function ($schedule) use (&$dayOffByUserDay, &$rosterShiftByUserDay) {
+                    if ($schedule->shift && $schedule->shift->shift_name === 'Day Off') {
+                        $dayOffByUserDay[$schedule->user_id][(int) Carbon::parse($schedule->date)->day] = true;
+                    } elseif ($schedule->shift) {
+                        $rosterShiftByUserDay[$schedule->user_id][(int) Carbon::parse($schedule->date)->day] = $schedule->shift;
+                    }
+                });
+        };
 
         // Working days follow the shift: a day the person's shift (rostered, else the
         // company's default shift) is not open is a Day Off; Sundays always are.
@@ -168,6 +185,12 @@ if ($companyId > 0) {
             $ruleCounter = null;
         }
 
+        // The month's dates, made once (they were made again for every employee)
+        $monthDates = [];
+        for ($day = 1; $day <= $daysInMonth; $day++) {
+            $monthDates[$day] = Carbon::createFromDate($year, $month, $day, $timezone)->startOfDay();
+        }
+
         foreach ($employees as $employee) {
             $branchName = $deptLabel[$employee->department_id] ?? ($departments[$employee->department_id] ?? '—');
 
@@ -179,7 +202,7 @@ if ($companyId > 0) {
             }
 
             for ($day = 1; $day <= $daysInMonth; $day++) {
-                $date = Carbon::createFromDate($year, $month, $day, $timezone)->startOfDay();
+                $date = $monthDates[$day];
 
                 if ($date->greaterThan($today)) {
                     continue;
@@ -205,6 +228,7 @@ if ($companyId > 0) {
                     continue;
                 }
 
+                $loadOlderData();
                 $dayShift = $rosterShiftByUserDay[$employee->id][$day] ?? $defaultShift;
                 $open = $openDays($dayShift);
                 $notOpen = $date->dayOfWeek === Carbon::SUNDAY || ($open !== null && !in_array($date->dayOfWeek, $open, true));

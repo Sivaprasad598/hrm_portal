@@ -138,6 +138,12 @@ class RecruitInterviewController extends RecruitBaseController
         $this->needManage();
         $interview = RecruitInterview::with('application')->findOrFail($id);
 
+        // One click confirms the time as suggested; a time already gone is set again with
+        // Change slot (which may also record a round that has taken place)
+        if ($interview->confirmBlocker() === 'time passed') {
+            return Reply::error('The suggested time (' . $interview->whenText() . ') has passed. Choose the time with Change slot; saving it confirms the round.');
+        }
+
         try {
             $scheduler->confirm($interview, $request->boolean('email_candidate'));
         } catch (\RuntimeException $e) {

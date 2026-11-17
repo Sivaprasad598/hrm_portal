@@ -105,6 +105,23 @@ class RecruitInterview extends BaseModel
         return $this->starts_at->copy()->addMinutes($this->duration);
     }
 
+    /**
+     * Why a suggested slot cannot be confirmed as it is (null: it can). Confirming
+     * sends the panel an invite, so the slot needs a panel and a time still ahead.
+     */
+    public function confirmBlocker(): ?string
+    {
+        if ($this->status !== 'proposed') {
+            return null;
+        }
+
+        if (!$this->interviewer_ids) {
+            return 'no panel';
+        }
+
+        return $this->starts_at && $this->starts_at->isPast() ? 'time passed' : null;
+    }
+
     public function isInterviewer(?int $userId): bool
     {
         return $userId && in_array($userId, array_map('intval', $this->interviewer_ids ?: []), true);

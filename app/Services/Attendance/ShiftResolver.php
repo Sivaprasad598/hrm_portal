@@ -86,10 +86,22 @@ class ShiftResolver
      */
     public function shiftOn(int $userId, string $date): ?object
     {
+        $shift = $this->baseShiftOn($userId, $date);
+
+        return $shift ? $this->withHours($shift, $date) : null;
+    }
+
+    /**
+     * The same shift as shiftOn(), without that date's ->day_start / ->day_end /
+     * ->overnight worked out: for a caller that only needs to know which shift it
+     * is (its name, its times), asked thousands of times a page.
+     */
+    protected function baseShiftOn(int $userId, string $date): ?object
+    {
         $this->load($userId);
 
         if (isset($this->roster[$userId][$date])) {
-            return $this->withHours($this->roster[$userId][$date], $date);
+            return $this->roster[$userId][$date];
         }
 
         foreach ($this->assignments[$userId] as $assignment) {
@@ -97,12 +109,48 @@ class ShiftResolver
                 $shift = $this->shifts[$assignment->employee_shift_id] ?? null;
 
                 if ($shift) {
-                    return $this->withHours($this->decorate($shift, 'assignment'), $date);
+                    return $this->decorate($shift, 'assignment');
                 }
             }
         }
 
-        return $this->defaultShift ? $this->withHours($this->defaultShift, $date) : null;
+        return $this->defaultShift;
+    }
+
+    /**
+     * Facts about a date or a pair of clock times, worked out once per request:
+     * the same few dates and shift times are asked about for every employee and
+     * every day (tens of thousands of date objects for one month's page).
+     */
+    protected static array $isoWeekday = [];
+    protected static array $dayBefore = [];
+    protected static array $dayAfter = [];
+    protected static array $overnightTimes = [];
+    protected static array $openDays = [];
+    protected static array $zones = [];
+
+    /** 1 (Monday) to 7 (Sunday). */
+    protected static function isoWeekday(string $date): int
+    {
+        return self::$isoWeekday[$date] ??= (int) Carbon::parse($date)->format('N');
+    }
+
+    protected static function dayBefore(string $date): string
+    {
+        return self::$dayBefore[$date] ??= Carbon::parse($date)->subDay()->toDateString();
+    }
+
+    protected static function dayAfter(string $date): string
+    {
+        return self::$dayAfter[$date] ??= Carbon::parse($date)->addDay()->toDateString();
+    }
+
+    /** The local calendar date of a moment (unix seconds). */
+    public static function localDate(int $timestamp, string $tz): string
+    {
+        $zone = self::$zones[$tz] ??= new \DateTimeZone($tz);
+
+        return (new \DateTime('@' . $timestamp))->setTimezone($zone)->format('Y-m-d');
     }
 
     public function defaultShift(): ?object
@@ -117,7 +165,9 @@ class ShiftResolver
             return false;
         }
 
-        return strtotime($shift->office_end_time) <= strtotime($shift->office_start_time);
+        // the answer for a pair of clock times does not change: asked once
+        return self::$overnightTimes[$shift->office_end_time . '|' . $shift->office_start_time]
+            ??= strtotime($shift->office_end_time) <= strtotime($shift->office_start_time);
     }
 
     public static function isDayOff(?object $shift): bool
@@ -141,9 +191,10 @@ class ShiftResolver
             return false;
         }
 
-        $days = array_map('intval', json_decode((string) ($shift->office_open_days ?? ''), true) ?: []);
+        $json = (string) ($shift->office_open_days ?? '');
+        $days = self::$openDays[$json] ??= array_map('intval', json_decode($json, true) ?: []);
 
-        return in_array((int) Carbon::parse($date)->format('N'), $days, true);
+        return in_array(self::isoWeekday($date), $days, true);
     }
 
     /**
@@ -188,14 +239,30 @@ class ShiftResolver
     {
         $local = $moment->copy()->setTimezone($tz);
         $date = $local->toDateString();
-        $previous = Carbon::parse($date)->subDay()->toDateString();
+        $previous = self::dayBefore($date);
 
-        if (self::isOvernight($this->shiftOn($userId, $previous))) {
+        if (self::isOvernight($this->baseShiftOn($userId, $previous))) {
             [, $end] = $this->dayWindow($userId, $previous, $tz);
 
             if ($local->lessThanOrEqualTo($end)) {
                 return $previous;
             }
+        }
+
+        return $date;
+    }
+
+    /**
+     * shiftDayOf() for a moment given in unix seconds. The usual case - the day
+     * before was not an overnight shift - is answered without building date
+     * objects; an overnight one goes through shiftDayOf() itself.
+     */
+    public function shiftDayOfTimestamp(int $userId, int $timestamp, string $tz): string
+    {
+        $date = self::localDate($timestamp, $tz);
+
+        if (self::isOvernight($this->baseShiftOn($userId, self::dayBefore($date)))) {
+            return $this->shiftDayOf($userId, Carbon::createFromTimestampUTC($timestamp), $tz);
         }
 
         return $date;
@@ -328,7 +395,7 @@ class ShiftResolver
         $copy->overnight = self::isOvernight($shift);
         $copy->day_start = $shift->office_start_time ? $date . ' ' . $shift->office_start_time : $date . ' 00:00:00';
         $copy->day_end = $shift->office_end_time
-            ? ($copy->overnight ? Carbon::parse($date)->addDay()->toDateString() : $date) . ' ' . $shift->office_end_time
+            ? ($copy->overnight ? self::dayAfter($date) : $date) . ' ' . $shift->office_end_time
             : $date . ' 23:59:59';
 
         return $copy;

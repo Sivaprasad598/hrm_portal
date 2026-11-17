@@ -68,11 +68,22 @@
                         <div class="mr-2">
                             <a href="{{ route('candidates.show', $slot->application->candidate_id) }}" class="font-weight-600 text-darkest-grey">{{ $slot->application->candidate->name }}</a>
                             <span class="text-dark-grey">· {{ $slot->application->positionLabel() }} · <strong>{{ $slot->round }}</strong></span>
-                            <div class="text-dark-grey">{{ $slot->whenText() }} · {{ $slot->interviewers()->pluck('name')->implode(', ') ?: 'no panel yet' }}</div>
+                            @php $blocker = $slot->confirmBlocker(); @endphp
+                            <div class="text-dark-grey">{{ $slot->whenText() }} · {{ $slot->interviewers()->pluck('name')->implode(', ') ?: 'no panel yet' }}
+                                @if ($blocker === 'time passed')
+                                    <span class="badge badge-warning ml-1">time passed — pick a new time</span>
+                                @elseif ($blocker === 'no panel')
+                                    <span class="badge badge-warning ml-1">choose the panel</span>
+                                @endif
+                            </div>
                         </div>
                         <div class="text-nowrap">
-                            <a href="javascript:;" class="btn btn-sm btn-primary confirm-slot" data-id="{{ $slot->id }}"><i class="fa fa-check mr-1"></i>Confirm</a>
-                            <a href="{{ route('recruit-interviews.edit', $slot->id) }}" class="btn btn-sm btn-outline-secondary openRightModal">Change</a>
+                            @if ($blocker)
+                                <a href="{{ route('recruit-interviews.edit', $slot->id) }}" class="btn btn-sm btn-primary openRightModal"><i class="fa fa-calendar-alt mr-1"></i>Set &amp; confirm</a>
+                            @else
+                                <a href="javascript:;" class="btn btn-sm btn-primary confirm-slot" data-id="{{ $slot->id }}"><i class="fa fa-check mr-1"></i>Confirm</a>
+                                <a href="{{ route('recruit-interviews.edit', $slot->id) }}" class="btn btn-sm btn-outline-secondary openRightModal">Change</a>
+                            @endif
                         </div>
                     </div>
                 @endforeach

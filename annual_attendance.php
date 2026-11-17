@@ -1,8 +1,13 @@
 <?php
-require_once __DIR__ . '/vendor/autoload.php';
-$app = require __DIR__ . '/bootstrap/app.php';
-$kernel = $app->make(\Illuminate\Contracts\Console\Kernel::class);
-$kernel->bootstrap();
+// Shown through LegacyPageController the application is already running: starting
+// a second copy of it here cost every load 0.5-1 s. Started only when this file
+// is run on its own.
+if (!defined('LARAVEL_START') || !function_exists('app') || !app()->bound('db')) {
+    require_once __DIR__ . '/vendor/autoload.php';
+    $app = require __DIR__ . '/bootstrap/app.php';
+    $kernel = $app->make(\Illuminate\Contracts\Console\Kernel::class);
+    $kernel->bootstrap();
+}
 
 // A month (or year) for every employee takes a while; past PHP's 30s default the frame came back empty
 @set_time_limit(180);
@@ -83,42 +88,12 @@ function aaMonthStatusCounts(array $employeeIds, int $year, int $month, string $
     $firstClockInByUserDay = [];
     $firstSessionWfhByUserDay = [];
 
-    Attendance::whereIn('user_id', $employeeIds)
-        ->whereBetween('clock_in_time', [$monthStart->copy()->timezone('UTC'), $monthEnd->copy()->timezone('UTC')])
-        ->with('shift')
-        ->orderBy('clock_in_time')
-        ->get()
-        ->each(function ($row) use (&$workedSecondsByUserDay, &$shiftByUserDay, &$firstClockInByUserDay, &$firstSessionWfhByUserDay, $timezone, $year, $month) {
-            $local = $row->clock_in_time->copy()->timezone($timezone);
-
-            if ((int) $local->year !== $year || (int) $local->month !== $month) {
-                return;
-            }
-
-            $day = (int) $local->day;
-            $shiftByUserDay[$row->user_id][$day] = $row->shift;
-
-            if (!isset($firstClockInByUserDay[$row->user_id][$day])) {
-                $firstClockInByUserDay[$row->user_id][$day] = $local;
-                $firstSessionWfhByUserDay[$row->user_id][$day] = $row->work_from_type === 'home';
-            }
-
-            if ($row->clock_out_time) {
-                $seconds = abs($row->clock_out_time->diffInSeconds($row->clock_in_time));
-                $workedSecondsByUserDay[$row->user_id][$day] = ($workedSecondsByUserDay[$row->user_id][$day] ?? 0) + $seconds;
-            }
-        });
+    // (plain rows instead of a model and date objects per punch: see MonthPunches)
+    [$workedSecondsByUserDay, $shiftByUserDay, $firstClockInByUserDay, $firstSessionWfhByUserDay]
+        = \App\Services\Attendance\MonthPunches::load($employeeIds, $monthStart, $monthEnd, $timezone, $year, $month, true);
 
     $dayOffByUserDay = [];
-    EmployeeShiftSchedule::whereIn('user_id', $employeeIds)
-        ->whereBetween('date', [$monthStart->toDateString(), $monthEnd->toDateString()])
-        ->with('shift')
-        ->get()
-        ->each(function ($schedule) use (&$dayOffByUserDay) {
-            if ($schedule->shift && $schedule->shift->shift_name === 'Day Off') {
-                $dayOffByUserDay[$schedule->user_id][(int) Carbon::parse($schedule->date)->day] = true;
-            }
-        });
+    $dayOffByUserDay = \App\Services\Attendance\MonthPunches::dayOffs($employeeIds, $monthStart, $monthEnd);
 
     $leaveByUserDay = [];
     Leave::whereIn('user_id', $employeeIds)
@@ -142,11 +117,20 @@ function aaMonthStatusCounts(array $employeeIds, int $year, int $month, string $
 
     $counts = [];
 
+    // The month's dates and the shift lengths, made once (they were made again for every employee and day)
+    $monthDates = [];
+    $shiftSecondsByTimes = [];
+    for ($day = 1; $day <= $daysInMonth; $day++) {
+        $monthDates[$day] = Carbon::createFromDate($year, $month, $day, $timezone)->startOfDay();
+    }
+
+    $allowedClockInAt = [];
+
     foreach ($employeeIds as $userId) {
         $c = $emptyCounts;
 
         for ($day = 1; $day <= $daysInMonth; $day++) {
-            $date = Carbon::createFromDate($year, $month, $day, $timezone)->startOfDay();
+            $date = $monthDates[$day];
 
             if ($date->greaterThan($today)) {
                 continue;
@@ -197,11 +181,15 @@ function aaMonthStatusCounts(array $employeeIds, int $year, int $month, string $
                     $fullDaySeconds = ($shift->min_working_hours_full_day * 3600) - (($shift->min_working_hours_full_day_grace ?? 0) * 60);
                     $halfDaySeconds = ($shift->min_working_hours_half_day * 3600) - (($shift->min_working_hours_half_day_grace ?? 0) * 60);
                 } elseif ($shift) {
-                    $shiftStart = Carbon::parse($shift->office_start_time);
-                    $shiftEnd = Carbon::parse($shift->office_end_time);
-                    $shiftSeconds = $shiftEnd->lessThanOrEqualTo($shiftStart)
-                        ? abs($shiftEnd->copy()->addDay()->diffInSeconds($shiftStart))
-                        : abs($shiftEnd->diffInSeconds($shiftStart));
+                    // the same for everyone on that shift: worked out once
+                    $shiftSeconds = $shiftSecondsByTimes[$shift->office_start_time . '|' . $shift->office_end_time] ??= (function () use ($shift) {
+                        $shiftStart = Carbon::parse($shift->office_start_time);
+                        $shiftEnd = Carbon::parse($shift->office_end_time);
+
+                        return $shiftEnd->lessThanOrEqualTo($shiftStart)
+                            ? abs($shiftEnd->copy()->addDay()->diffInSeconds($shiftStart))
+                            : abs($shiftEnd->diffInSeconds($shiftStart));
+                    })();
                     $fullDaySeconds = $shiftSeconds * 0.5;
                     $halfDaySeconds = $shiftSeconds * 0.25;
                 }
@@ -211,9 +199,11 @@ function aaMonthStatusCounts(array $employeeIds, int $year, int $month, string $
                     $isLate = false;
 
                     if (!$isWfh && $shift && ($shift->shift_type ?? null) === 'strict' && !empty($shift->office_start_time)) {
-                        $allowedClockIn = Carbon::parse($date->format('Y-m-d') . ' ' . $shift->office_start_time, $timezone)
-                            ->addMinutes((int) ($shift->late_mark_duration ?? 0));
-                        $isLate = ($firstClockInByUserDay[$userId][$day] ?? $date)->greaterThan($allowedClockIn);
+                        // the latest on-time clock-in for that shift and day (unix seconds), worked out once
+                        $allowedClockIn = $allowedClockInAt[$day . '|' . $shift->office_start_time . '|' . (int) ($shift->late_mark_duration ?? 0)]
+                            ??= Carbon::parse($date->format('Y-m-d') . ' ' . $shift->office_start_time, $timezone)
+                                ->addMinutes((int) ($shift->late_mark_duration ?? 0))->getTimestamp();
+                        $isLate = ($firstClockInByUserDay[$userId][$day] ?? $date->getTimestamp()) > $allowedClockIn;
                     }
 
                     if ($isWfh) {

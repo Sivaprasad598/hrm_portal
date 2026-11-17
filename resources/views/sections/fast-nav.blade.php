@@ -17,7 +17,7 @@
         "where": {
             "and": [
                 { "href_matches": "/*" },
-                { "not": { "selector_matches": "[target], [download], [data-method], [data-toggle], .openRightModal, .no-prerender, [href^='javascript'], [href^='#'], [href*='logout'], [href*='login'], [href*='delete'], [href*='destroy'], [href*='download'], [href*='export'], [href*='pdf'], [href*='print'], [href*='/legacy/'], [href*='probation'], [href*='payroll-run'], [href*='data-clean'], [href*='notifications'], [href*='mark'], [href*='clock'], [href*='/api/'], [href*='impersonate'], [href*='generate'], [href*='apply'], [href*='approve'], [href*='reject']" } }
+                { "not": { "selector_matches": "aside a, #epic-strip a, .page-tabs > a, #settingsMenu a, [target], [download], [data-method], [data-toggle], .openRightModal, .no-prerender, [href^='javascript'], [href^='#'], [href*='logout'], [href*='login'], [href*='delete'], [href*='destroy'], [href*='download'], [href*='export'], [href*='pdf'], [href*='print'], [href*='/legacy/'], [href*='probation'], [href*='payroll-run'], [href*='data-clean'], [href*='notifications'], [href*='mark'], [href*='clock'], [href*='/api/'], [href*='impersonate'], [href*='generate'], [href*='apply'], [href*='approve'], [href*='reject']" } }
             ]
         },
         "eagerness": "moderate"
@@ -29,11 +29,18 @@
     /* 2. the page content fades across; the frame of the app stays put */
     @view-transition { navigation: auto; }
     @media (min-width: 992px) {
-        aside { view-transition-name: app-sidebar; }
+        /* the white menu itself: <aside> around it has no height (the menu is position: fixed),
+           so a picture of <aside> came out empty and the menu blanked out on every click */
+        #mobile_menu_collapse { view-transition-name: app-sidebar; }
         #header { view-transition-name: app-topbar; }
         #epic-strip { view-transition-name: app-strip; }
     }
     ::view-transition-old(root), ::view-transition-new(root) { animation-duration: .16s; }
+    /* the frame does not fade: by default the browser cross-fades a picture of the old sidebar
+       into the new one, so the menu looked as if it reloaded on every click. The new one shows at once. */
+    ::view-transition-group(app-sidebar), ::view-transition-group(app-topbar), ::view-transition-group(app-strip),
+    ::view-transition-new(app-sidebar), ::view-transition-new(app-topbar), ::view-transition-new(app-strip) { animation: none; }
+    ::view-transition-old(app-sidebar), ::view-transition-old(app-topbar), ::view-transition-old(app-strip) { display: none; }
     @media (prefers-reduced-motion: reduce) {
         ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
     }

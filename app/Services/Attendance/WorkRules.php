@@ -50,6 +50,24 @@ class WorkRules
         $this->breaks = collect($breaks ?? []);
     }
 
+    /**
+     * Worked out once per request each: the same shift start, shift end and break
+     * times are asked about for every employee and every day, and each answer
+     * built several date objects (tens of thousands for one month's page).
+     */
+    protected array $atMemo = [];
+    protected array $breaksMemo = [];
+    protected array $breakWindowMemo = [];
+    protected array $lateMarkMemo = [];
+    protected array $halfMarkMemo = [];
+    protected ?bool $wholeMinuteZone = null;
+
+    /** A local 'Y-m-d H:i:s' in this company's time zone, as unix seconds. */
+    protected function at(string $local): int
+    {
+        return $this->atMemo[$local] ??= Carbon::parse($local, $this->tz)->getTimestamp();
+    }
+
     public static function forCompany(?int $companyId, ?string $tz = null): ?self
     {
         $key = (int) $companyId;
@@ -96,7 +114,8 @@ class WorkRules
             ? (is_array($shift->break_ids) ? $shift->break_ids : json_decode((string) $shift->break_ids, true))
             : null;
 
-        return is_array($ids)
+        // the same list for the same choice of breaks: filtered once
+        return $this->breaksMemo[is_array($ids) ? 'ids:' . json_encode($ids) : 'default'] ??= is_array($ids)
             ? $this->breaks->whereIn('id', array_map('intval', $ids))->values()
             : $this->breaks->where('is_default', 1)->values();
     }
@@ -133,15 +152,25 @@ class WorkRules
         $total = 0;
 
         foreach ($this->breaksFor($shift) as $b) {
-            $start = Carbon::parse($day . ' ' . $b->start_time, $this->tz);
-
             // On a shift past midnight a break before its start time is the next morning's.
-            if ($shiftStart !== null && ShiftResolver::isOvernight($shift) && strtotime($b->start_time) < $shiftStart) {
-                $start->addDay();
-            }
+            $nextDay = $shiftStart !== null && ShiftResolver::isOvernight($shift) && strtotime($b->start_time) < $shiftStart;
 
-            $end = $start->copy()->addSeconds(self::duration($b));
-            $total += max(0, min($to, $end->getTimestamp()) - max($from, $start->getTimestamp()));
+            // The break's start and end on that day (unix seconds): the same for
+            // everyone on that day, so worked out once.
+            [$breakStart, $breakEnd] = $this->breakWindowMemo[$day . '|' . $b->start_time . '|' . $b->end_time . '|' . ($nextDay ? 1 : 0)]
+                ??= (function () use ($day, $b, $nextDay) {
+                    $start = Carbon::parse($day . ' ' . $b->start_time, $this->tz);
+
+                    if ($nextDay) {
+                        $start->addDay();
+                    }
+
+                    $end = $start->copy()->addSeconds(self::duration($b));
+
+                    return [$start->getTimestamp(), $end->getTimestamp()];
+                })();
+
+            $total += max(0, min($to, $breakEnd) - max($from, $breakStart));
         }
 
         return $total;
@@ -178,8 +207,8 @@ class WorkRules
     public function window(int $first, int $last, ?object $shift): array
     {
         if ($this->withinShiftOnly() && $this->hasTimes($shift) && !self::isFlexible($shift)) {
-            $first = max($first, Carbon::parse($shift->day_start, $this->tz)->getTimestamp());
-            $last = min($last, Carbon::parse($shift->day_end, $this->tz)->getTimestamp());
+            $first = max($first, $this->at($shift->day_start));
+            $last = min($last, $this->at($shift->day_end));
         }
 
         return [$first, max($first, $last)];
@@ -231,7 +260,7 @@ class WorkRules
         }
 
         $grace = (int) $this->s->wh_grace_minutes * 60;
-        $end = Carbon::parse($shift->day_end, $this->tz)->getTimestamp();
+        $end = $this->at($shift->day_end);
 
         if ($last >= $end - $grace && !$this->isLate($first, $shift, $date)) {
             return 1.0;
@@ -280,16 +309,27 @@ class WorkRules
             return false;
         }
 
+        // The late mark as unix seconds: the same for everyone on that shift and day.
         if ($this->s->wh_late_basis === 'global' && $this->s->wh_late_time) {
-            $mark = Carbon::parse($date . ' ' . $this->s->wh_late_time, $this->tz);
+            $mark = $this->lateMarkMemo['g|' . $date . ' ' . $this->s->wh_late_time]
+                ??= Carbon::parse($date . ' ' . $this->s->wh_late_time, $this->tz)->getTimestamp();
         } elseif ($this->hasTimes($shift) && $shift->late_mark_duration !== null) {
-            $mark = Carbon::parse($shift->day_start, $this->tz)->addMinutes((int) $shift->late_mark_duration);
+            $mark = $this->lateMarkMemo['s|' . $shift->day_start . '|' . (int) $shift->late_mark_duration]
+                ??= Carbon::parse($shift->day_start, $this->tz)->addMinutes((int) $shift->late_mark_duration)->getTimestamp();
         } else {
             return false;
         }
 
-        // To the minute, like the daily review.
-        return Carbon::createFromTimestamp($first, $this->tz)->startOfMinute()->gt($mark);
+        // To the minute, like the daily review. Where the zone's offset is a whole
+        // number of minutes (every zone in use today) the start of the punch's
+        // minute is plain arithmetic; otherwise it is asked of the calendar as before.
+        $this->wholeMinuteZone ??= ((new \DateTimeZone($this->tz))->getOffset(new \DateTime('@' . $first)) % 60 === 0);
+
+        if ($this->wholeMinuteZone) {
+            return ($first - ($first % 60)) > $mark;
+        }
+
+        return Carbon::createFromTimestamp($first, $this->tz)->startOfMinute()->getTimestamp() > $mark;
     }
 
     /** Arrived after the shift's half-day mark: a half day at most. */
@@ -301,14 +341,19 @@ class WorkRules
             return false;
         }
 
-        $at = Carbon::parse(substr((string) $shift->day_start, 0, 10) . ' ' . $mark, $this->tz);
+        // The mark as unix seconds: the same for everyone on that shift and day.
+        $at = $this->halfMarkMemo[$shift->day_start . '|' . $mark] ??= (function () use ($shift, $mark) {
+            $at = Carbon::parse(substr((string) $shift->day_start, 0, 10) . ' ' . $mark, $this->tz);
 
-        // An overnight shift's mark can fall on the next calendar day.
-        if ($at->lt(Carbon::parse($shift->day_start, $this->tz))) {
-            $at->addDay();
-        }
+            // An overnight shift's mark can fall on the next calendar day.
+            if ($at->lt(Carbon::parse($shift->day_start, $this->tz))) {
+                $at->addDay();
+            }
 
-        return Carbon::createFromTimestamp($first, $this->tz)->gt($at);
+            return $at->getTimestamp();
+        })();
+
+        return $first > $at;
     }
 
     /**
@@ -324,7 +369,7 @@ class WorkRules
 
         if ($type === 'weekday') {
             if ($this->withinShiftOnly() && $this->hasTimes($shift) && !self::isFlexible($shift)) {
-                $extra = $last - Carbon::parse($shift->day_end, $this->tz)->getTimestamp();
+                $extra = $last - $this->at($shift->day_end);
             } else {
                 $extra = ($last - $first) - ($this->workSeconds($shift) + $this->breakSeconds($shift));
             }

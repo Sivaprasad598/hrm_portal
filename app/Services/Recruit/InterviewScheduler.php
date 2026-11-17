@@ -84,7 +84,6 @@ class InterviewScheduler
         if (!$interview->interviewer_ids) {
             throw new \RuntimeException('Choose who takes this round first (Change slot), then confirm.');
         }
-
         if (!in_array($interview->application->stage, ['new', 'shortlisted', 'interview'], true)) {
             throw new \RuntimeException('The application is ' . strtolower($interview->application->stageLabel()) . ' now; this slot is not needed.');
         }

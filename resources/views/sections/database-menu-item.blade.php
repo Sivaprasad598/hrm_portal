@@ -94,9 +94,16 @@
     $currentRouteName = request()->route() ? request()->route()->getName() : null;
     $currentUrl = url()->current();
 
-    $isItemActive = function ($item) use ($resolveUrl, $currentRouteName, $currentUrl, $parseRoute) {
+    $menusForMatch = $databaseMenus ?? null;   // the whole sidebar (sections/menu), to know whether this page has its own entry
+    $isItemActive = function ($item) use ($resolveUrl, $currentRouteName, $currentUrl, $parseRoute, $menusForMatch) {
         // A group's entry stands for all its pages (App\Services\Access\PageGroups).
         if ($item->group_routes) {
+            // ...unless another entry is exactly this page (My Overtime is also an
+            // employee's profile page, which the Employees group covers)
+            if (\App\Support\MenuMatch::pageHasOwnEntry($menusForMatch)) {
+                return false;
+            }
+
             return \App\Services\Access\PageGroups::routeIsWithin($item->group_routes);
         }
 

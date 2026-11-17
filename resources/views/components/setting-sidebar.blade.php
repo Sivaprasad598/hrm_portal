@@ -301,6 +301,8 @@
         }).hide();
     });
 
-    document.querySelector('#settingsMenu .active').scrollIntoView()
+    // the open page's entry in view (none is lit on a page that is not in this menu)
+    var settingsActive = document.querySelector('#settingsMenu .active');
+    if (settingsActive) { settingsActive.scrollIntoView({ block: 'nearest' }); }
 
 </script>

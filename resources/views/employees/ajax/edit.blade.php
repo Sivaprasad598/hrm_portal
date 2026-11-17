@@ -723,48 +723,7 @@ $probationMonths = (int) (\Illuminate\Support\Facades\DB::table('probation_perio
                         </div>
                     </div>
                     <div class="row">
-                        <div class="col-lg-12 col-md-12">
-                            <p class="text-dark-grey f-14 mb-3">@lang('modules.employees.reportedToDutyOn')</p>
-                            <div class="row">
-                                <div class="col-lg-2 col-md-6">
-                                    <x-forms.text fieldId="reported_duty_day" :fieldLabel="__('modules.employees.day')"
-                                        fieldName="reported_duty_day" :fieldValue="$finalDeclaration->reported_duty_day ?? ''"
-                                        :fieldPlaceholder="__('placeholders.day')">
-                                    </x-forms.text>
-                                </div>
-                                <div class="col-lg-4 col-md-6">
-                                    <x-forms.text fieldId="reported_duty_month" :fieldLabel="__('modules.employees.month')"
-                                        fieldName="reported_duty_month" :fieldValue="$finalDeclaration->reported_duty_month ?? ''"
-                                        :fieldPlaceholder="__('placeholders.month')">
-                                    </x-forms.text>
-                                </div>
-                                <div class="col-lg-2 col-md-6">
-                                    <x-forms.text fieldId="reported_duty_year" :fieldLabel="__('modules.employees.year')"
-                                        fieldName="reported_duty_year" :fieldValue="$finalDeclaration->reported_duty_year ?? ''"
-                                        :fieldPlaceholder="__('placeholders.year')">
-                                    </x-forms.text>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-lg-6 col-md-12">
-                            <x-forms.text fieldId="candidate_signature" :fieldLabel="__('modules.employees.signatureOfCandidate')"
-                                fieldName="candidate_signature" :fieldValue="$finalDeclaration->candidate_signature ?? ''"
-                                :fieldPlaceholder="__('placeholders.signature')">
-                            </x-forms.text>
-                        </div>
-                        <div class="col-lg-6 col-md-12">
-                            <x-forms.text fieldId="hr_signature" :fieldLabel="__('modules.employees.signatureOfHR')"
-                                fieldName="hr_signature" :fieldValue="$finalDeclaration->hr_signature ?? ''"
-                                :fieldPlaceholder="__('placeholders.signature')">
-                            </x-forms.text>
-                        </div>
-                        <div class="col-lg-12 col-md-12">
-                            <x-forms.textarea fieldId="hr_comments" :fieldLabel="__('modules.employees.hrComments')"
-                                fieldName="hr_comments" :fieldValue="$finalDeclaration->hr_comments ?? ''"
-                                :fieldPlaceholder="__('placeholders.comments')">
-                            </x-forms.textarea>
-                        </div>
-                        @include('employees.ajax.partials.onboarding-declaration-files', ['onboardingDocs' => $onboardingDocs])
+                        @include('employees.ajax.partials.final-declaration', ['required' => false, 'declaration' => $finalDeclaration ?? null, 'onboardingDocs' => $onboardingDocs])
                     </div>
 
                     <div class="wizard-nav-bar">
@@ -1555,28 +1514,15 @@ $probationMonths = (int) (\Illuminate\Support\Facades\DB::table('probation_perio
             const hrSignatureValue = hrSignature.value.trim();
             const hrCommentsValue = hrComments.value.trim();
 
-            if (dayValue && (!/^[0-9]+$/.test(dayValue) || Number(dayValue) < 1 || Number(dayValue) > 31)) {
-                setFieldState(reportedDutyDay, false, 'Day must be between 1 and 31.');
+            // the date is picked once (optional here); day / month / year are filled from it
+            const dutyDate = document.getElementById('reported_duty_date');
+            const someDate = dayValue || monthValue || yearValue;
+            if (someDate && (!/^[0-9]+$/.test(dayValue) || !monthRegex.test(monthValue) || !/^[0-9]{4}$/.test(yearValue))) {
+                setFieldState(dutyDate, false, 'Pick the date again from the calendar.');
                 isValid = false;
             }
             else {
-                setFieldState(reportedDutyDay, true);
-            }
-
-            if (monthValue && !monthRegex.test(monthValue)) {
-                setFieldState(reportedDutyMonth, false, 'Month must be a valid month name (January to December) or month number (1 to 12).');
-                isValid = false;
-            }
-            else {
-                setFieldState(reportedDutyMonth, true);
-            }
-
-            if (yearValue && (!/^[0-9]{4}$/.test(yearValue) || Number(yearValue) < 1900 || Number(yearValue) > 2100)) {
-                setFieldState(reportedDutyYear, false, 'Year must be a valid 4-digit year.');
-                isValid = false;
-            }
-            else {
-                setFieldState(reportedDutyYear, true);
+                clearFieldState(dutyDate);
             }
 
             if (candidateSignatureValue && !signatureRegex.test(candidateSignatureValue)) {

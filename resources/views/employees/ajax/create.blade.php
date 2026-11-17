@@ -671,67 +671,7 @@ $addDepartmentPermission = user()->permission('add_department');
                         </div>
                     </div>
                     <div class="row">
-                        <div class="col-lg-12">
-                            <p class="text-dark-grey f-14 mb-3">@lang('modules.employees.reportedToDutyOn')</p>
-                            <div class="row">
-                                <div class="col-lg-2 col-md-6">
-                                    <x-forms.select fieldId="reported_duty_day"
-                                        :fieldLabel="__('modules.employees.day')"
-                                        fieldName="reported_duty_day" fieldRequired="true" search="false">
-                                        <option value="">--</option>
-                                        @for ($day = 1; $day <= 31; $day++)
-                                            <option value="{{ $day }}">{{ $day }}</option>
-                                        @endfor
-                                    </x-forms.select>
-                                </div>
-                                <div class="col-lg-4 col-md-6">
-                                    <x-forms.select fieldId="reported_duty_month"
-                                        :fieldLabel="__('modules.employees.month')"
-                                        fieldName="reported_duty_month" fieldRequired="true" search="false">
-                                        <option value="">--</option>
-                                        @foreach (['January','February','March','April','May','June','July','August','September','October','November','December'] as $month)
-                                            <option value="{{ $month }}">{{ $month }}</option>
-                                        @endforeach
-                                    </x-forms.select>
-                                </div>
-                                <div class="col-lg-2 col-md-6">
-                                    <x-forms.text fieldId="reported_duty_year"
-                                        :fieldLabel="__('modules.employees.year')"
-                                        fieldName="reported_duty_year" fieldRequired="true" required
-                                        inputmode="numeric" maxlength="4" pattern="[0-9]{4}"
-                                        oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 4);"
-                                        :fieldPlaceholder="__('placeholders.year')">
-                                    </x-forms.text>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-lg-6 col-md-12">
-                            <x-forms.text fieldId="candidate_signature"
-                                :fieldLabel="__('modules.employees.signatureOfCandidate')"
-                                fieldName="candidate_signature" fieldRequired="true" required maxlength="100"
-                                pattern="[A-Za-z\s]+"
-                                oninput="this.value = this.value.replace(/[^A-Za-z\s]/g, '');"
-                                :fieldPlaceholder="__('placeholders.signature')">
-                            </x-forms.text>
-                        </div>
-                        <div class="col-lg-6 col-md-12">
-                            <x-forms.text fieldId="hr_signature"
-                                :fieldLabel="__('modules.employees.signatureOfHR')"
-                                fieldName="hr_signature" fieldRequired="true" required maxlength="100"
-                                pattern="[A-Za-z\s]+"
-                                oninput="this.value = this.value.replace(/[^A-Za-z\s]/g, '');"
-                                :fieldPlaceholder="__('placeholders.signature')">
-                            </x-forms.text>
-                        </div>
-                        <div class="col-lg-12 col-md-12">
-                            <x-forms.textarea fieldId="hr_comments"
-                                :fieldLabel="__('modules.employees.hrComments')"
-                                fieldName="hr_comments" :fieldPlaceholder="__('placeholders.comments')"
-                                maxlength="500"
-                                oninput="this.value = this.value.replace(/[^A-Za-z0-9 ,.\-()\r\n]/g, '').slice(0, 500);">
-                            </x-forms.textarea>
-                        </div>
-                        @include('employees.ajax.partials.onboarding-declaration-files', ['onboardingDocs' => null])
+                        @include('employees.ajax.partials.final-declaration', ['required' => true, 'declaration' => null, 'onboardingDocs' => null])
                     </div>
 
                     <div class="wizard-nav-bar">
@@ -1265,11 +1205,11 @@ $(document).ready(function () {
         var cmpRe  = /^[A-Za-z0-9 ,.\-()\r\n]*$/;
         var isValid = true;
 
-        if (!day.value)                                                              { setFieldState(day, false, 'Day is required.');    isValid = false; } else { setFieldState(day, true); }
-        if (!month.value)                                                            { setFieldState(month, false, 'Month is required.'); isValid = false; } else { setFieldState(month, true); }
-        if (!year.value || !/^[0-9]{4}$/.test(year.value))                          { setFieldState(year, false, 'Enter a valid 4-digit year.'); isValid = false; } else { setFieldState(year, true); }
-        if (!candSig.value.trim() || !sigRe.test(candSig.value.trim()))              { setFieldState(candSig, false, 'Candidate Signature: alphabets and spaces only.'); isValid = false; } else { setFieldState(candSig, true); }
-        if (!hrSig.value.trim() || !sigRe.test(hrSig.value.trim()))                 { setFieldState(hrSig, false, 'HR Signature: alphabets and spaces only.');          isValid = false; } else { setFieldState(hrSig, true); }
+        // the date is picked once; day / month / year are filled from it
+        var dutyDate = document.getElementById('reported_duty_date');
+        if (!day.value || !month.value || !/^[0-9]{4}$/.test(year.value)) { setFieldState(dutyDate, false, 'Pick the date the employee reported to duty.'); isValid = false; } else { setFieldState(dutyDate, true); }
+        if (!candSig.value.trim() || !sigRe.test(candSig.value.trim()))              { setFieldState(candSig, false, candSig.value.trim() ? 'Letters and spaces only.' : "Type the employee's full name as signed."); isValid = false; } else { setFieldState(candSig, true); }
+        if (!hrSig.value.trim() || !sigRe.test(hrSig.value.trim()))                 { setFieldState(hrSig, false, hrSig.value.trim() ? 'Letters and spaces only.' : "Type the HR representative's full name as signed."); isValid = false; } else { setFieldState(hrSig, true); }
         if (hrCmt.value && (!cmpRe.test(hrCmt.value) || hrCmt.value.length > 500)) { setFieldState(hrCmt, false, 'HR Comments: invalid characters or over 500 chars.'); isValid = false; } else { setFieldState(hrCmt, true); }
 
         return isValid;
@@ -1330,7 +1270,7 @@ $(document).ready(function () {
         el.addEventListener('blur', function () { validatePassportSection(); });
     });
 
-    ['reported_duty_day','reported_duty_month','reported_duty_year',
+    ['reported_duty_day',
      'candidate_signature','hr_signature','hr_comments'
     ].forEach(function (id) {
         var el = document.getElementById(id);

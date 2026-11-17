@@ -77,6 +77,12 @@ return [
     */
     'scheduler_enabled' => (bool) env('SCHEDULER_ENABLED', true),
 
+    /*
+    | Sidebar / tab links change only the page content (resources/views/sections/page-swap);
+    | PAGE_SWAP_ENABLED=false makes every link a full page load again.
+    */
+    'page_swap' => (bool) env('PAGE_SWAP_ENABLED', true),
+
     'currency_converter_key' => env('CURRENCY_CONVERTER_KEY'),
 
     /*

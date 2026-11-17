@@ -180,7 +180,10 @@
                                     </div>
                                     @if ($canManage && $iv && !in_array($application->stage, ['offered', 'offer_accepted', 'joined']))
                                         <div class="text-right">
-                                            @if ($state === 'proposed')
+                                            @if ($state === 'proposed' && ($blocker = $iv->confirmBlocker()))
+                                                <span class="badge badge-warning mr-1">{{ $blocker === 'time passed' ? 'suggested time has passed' : 'no panel chosen' }}</span>
+                                                <a href="{{ route('recruit-interviews.edit', $iv->id) }}" class="btn btn-sm btn-primary openRightModal"><i class="fa fa-calendar-alt mr-1"></i>Set &amp; confirm</a>
+                                            @elseif ($state === 'proposed')
                                                 <label class="f-12 text-dark-grey mr-1 mb-0"><input type="checkbox" class="mr-1 confirm-email" data-id="{{ $iv->id }}" @checked($candidate->email)>email candidate</label>
                                                 <a href="javascript:;" class="btn btn-sm btn-primary confirm-slot" data-id="{{ $iv->id }}"><i class="fa fa-check mr-1"></i>Confirm</a>
                                                 <a href="{{ route('recruit-interviews.edit', $iv->id) }}" class="btn btn-sm btn-outline-secondary openRightModal">Change slot</a>

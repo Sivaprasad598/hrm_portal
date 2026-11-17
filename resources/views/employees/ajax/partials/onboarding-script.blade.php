@@ -663,12 +663,14 @@
 
         $('.declaration-file').each(function () {
             var onFile = $(this).data('on-file') === 1 || $(this).data('on-file') === '1';
+            // Add Employee needs both copies; on Edit they are optional
+            var required = !($(this).data('required') === 0 || $(this).data('required') === '0');
 
             if (this.files.length) {
                 var problem = obFileProblem(this.files[0]);
                 if (problem) { setFieldState(this, false, problem); ok = false; return; }
                 setFieldState(this, true);
-            } else if (!onFile) {
+            } else if (!onFile && required) {
                 setFieldState(this, false, this.id === 'declaration_hr_copy'
                     ? 'Upload the declaration signed by HR.' : 'Upload the declaration signed by the employee.');
                 ok = false;

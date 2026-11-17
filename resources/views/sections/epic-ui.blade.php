@@ -9,16 +9,41 @@
         var $ = window.jQuery;
 
         // main.js also lights every menu link of the same /account/<section> (so on
-        // Attendance Dashboard, Attendance Register lit up too); the server already
-        // marked the one page being viewed, so only that one stays lit
-        $(window).on('load', function () {
-            setTimeout(function () {
-                var $mine = $('#sideMenuScroll a[data-server-active]');
-                if ($mine.length) {
-                    $('#sideMenuScroll li li a.active, #sideMenuScroll .accordionItemContent a.active').not($mine).removeClass('active');
+        // Attendance Dashboard, Attendance Register lit up too) and opens the groups
+        // they sit in (HR opened on My Overtime, an /account/employees/... page). The
+        // server already marked the one page being viewed: only that entry stays lit,
+        // and only the group it sits in stays open. (Also after a content swap.)
+        window.epicMenuTrustServer = function () {
+            var $mine = $('#sideMenuScroll a[data-server-active]');
+            if (!$mine.length) { return; }
+
+            $('#sideMenuScroll li li a.active, #sideMenuScroll .accordionItemContent a.active').not($mine).removeClass('active');
+
+            var $home = $mine.closest('li.accordionItem');
+            $('#sideMenuScroll li.accordionItem').not($home).each(function () {
+                if (this.className.indexOf('openIt') > -1 && !$(this).find('[data-server-active]').length) {
+                    this.className = 'accordionItem closeIt';   // exactly what main.js's toggle expects
+                    $(this).children('a.accordionItemHeading').removeClass('active');
                 }
-            }, 0);
-        });
+            });
+            $home.removeClass('closeIt').addClass('openIt').children('a.accordionItemHeading').addClass('active');
+            window.epicStripSections();
+        };
+
+        // The icon strip's section icons (epic-strip): lit for the section that is open
+        window.epicStripSections = function () {
+            var sections = document.getElementById('epic-strip-sections');
+            if (!sections) { return; }
+            var k = 0;
+            Array.prototype.forEach.call(document.querySelectorAll('#sideMenuScroll li.accordionItem'), function (li) {
+                var head = li.querySelector(':scope > a.nav-item');
+                if (!head || /^settings$/i.test((head.getAttribute('title') || head.textContent || '').trim())) { return; }
+                var icon = sections.children[k++];
+                if (icon) { icon.classList.toggle('active', li.classList.contains('openIt') || head.classList.contains('active')); }
+            });
+        };
+
+        $(window).on('load', function () { setTimeout(window.epicMenuTrustServer, 0); });
 
         // Ticking a table row ran main.js's dataTableRowCheck / selectAllTable, which
         // refresh every dropdown on the page (filters with hundreds of names) - per
@@ -145,7 +170,8 @@
         function later() {
             if (!queued) {
                 queued = true;
-                setTimeout(function () { queued = false; tagCounts(document.body); cardOptions(); }, 50);
+                // (the notices' close buttons too: content that arrives without a page load - a content swap - gets them)
+                setTimeout(function () { queued = false; tagCounts(document.body); cardOptions(); closableAlerts(document.body); }, 50);
             }
         }
 

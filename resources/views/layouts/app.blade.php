@@ -1,3 +1,9 @@
+{{-- A content swap (sections/page-swap: only the page's content changes, the sidebar
+     and top bar stay) is answered with layouts.swap; everything else with the
+     full page below. --}}
+@if (request()->header('X-Page-Swap') === '1')
+@include('layouts.swap')
+@else
 <!doctype html>
 <html lang="en">
 
@@ -26,7 +32,9 @@
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="{{ asset('vendor/css/bootstrap-icons.css') }}" defer="defer">
 
+    <meta name="page-styles-early">
     @stack('datatable-styles')
+    <meta name="page-styles-early-end">
 
     <!-- Template CSS -->
     <link type="text/css" rel="stylesheet" media="all" href="{{ asset('css/main.css') }}?v={{ filemtime(public_path('css/main.css')) }}">
@@ -36,6 +44,7 @@
     <meta name="msapplication-TileImage" content="{{ companyOrGlobalSetting()->favicon_url }}">
     <meta name="theme-color" content="#ffffff">
     <meta name="csrf-token" content="{{ csrf_token() }}"/>
+    <meta name="page-styles">
     @isset($activeSettingMenu)
         <style>
             .preloader-container {
@@ -60,6 +69,7 @@
     @endisset
 
     @stack('styles')
+    <meta name="page-styles-end">
 
     @includeIf('aitools::includes.quill-rephrase-styles')
 
@@ -139,6 +149,8 @@
     @include('sections.fast-nav')
 
     <script src="{{ asset('vendor/jquery/jquery.min.js') }}"></script>
+    {{-- notes what each page's scripts attach outside its content, to take it off again on a content swap --}}
+    @include('sections.page-swap-track')
     <script src="{{ asset('vendor/jquery/modernizr.min.js') }}"></script>
     <script src="{{ asset('vendor/jquery/bootstrap-colorpicker.js') }}"></script>
 
@@ -160,6 +172,7 @@
 <body id="body" class="{{ user()->dark_theme ? 'dark-theme' : 'epic' }} {{ \App\Services\Access\AssignedModules::plainEmployee() ? 'epic-solo' : '' }} {{ isRtl('rtl') }}">
 <div class="nav-progress" aria-hidden="true"></div>
 <script>
+    PageSwap.bodyClass = document.body.className;   // before any page adds its own
     if (checkMiniSidebar == "yes" || checkMiniSidebar == "") {
         $('body').addClass('sidebar-toggled');
     }
@@ -187,18 +200,10 @@
         </div>
 
 
-        {{-- Tabs between related pages, shown as one entry in the sidebar --}}
-        @include('sections.page-tabs')
-
-        @yield('filter-section')
-
-        <x-app-title class="d-block d-lg-none" :pageTitle="$pageTitle"></x-app-title>
-
-        @yield('content')
-
-        {{-- Assets and Work: "Coming soon" over the page for now --}}
-        @include('sections.coming-soon')
-        @include('sections.hr-filter-layout')
+        {{-- the tab row, the page's filters and its content (also what a content swap replaces) --}}
+        <script>PageSwap.scope(true);</script>
+        @include('layouts.page-body')
+        <script>PageSwap.scope(false);</script>
 
     </section>
     <!-- MAIN CONTAINER END -->
@@ -225,6 +230,10 @@
 
 <!-- Global Required Javascript -->
 <script src="{{ asset('js/main.js') }}?v={{ filemtime(public_path('js/main.js')) }}"></script>
+{{-- pop-ups and the side panel come in complete, with one loader meanwhile --}}
+@include('sections.modal-loading')
+{{-- sidebar / tab links change only the page content (the rest of the page stays) --}}
+@include('sections.page-swap')
 <script>
     // Row action menus near the bottom of a list opened downwards and were cut
     // off by the table's scroll box (QA TC-0043/0044): while a menu is open the
@@ -389,7 +398,9 @@
 ]) !!};
 </script>
 
-@stack('scripts')
+<script>PageSwap.scope(true);</script>
+{!! \App\Support\PageScripts::globalize($__env->yieldPushContent('scripts')) !!}
+<script>PageSwap.scope(false);</script>
 
 @if (user() && in_array('tasks', user_modules()))
     @include('task-blockers.scripts')
@@ -640,3 +651,4 @@
 </body>
 
 </html>
+@endif

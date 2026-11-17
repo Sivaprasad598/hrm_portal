@@ -481,7 +481,14 @@ class EventServiceProvider extends ServiceProvider
         ResignationEvent::class => [ResignationListener::class],
     ];
 
-    protected $observers = [
+    /**
+     * Model => its observers. Not the framework's $observers: that list is attached
+     * to every model while the application starts, loading and booting all 120
+     * model classes on each request (about a quarter of a second) whether the
+     * request touches them or not. These are attached the moment a model class is
+     * first loaded instead (see boot()) - same observers, same order.
+     */
+    protected $lazyObservers = [
         Attendance::class => [AttendanceObserver::class, \App\Observers\AttendanceReviewRefresher::class],
         ClientContact::class => [ClientContactObserver::class],
         ClientDetails::class => [ClientDetailsObserver::class],
@@ -604,5 +611,46 @@ class EventServiceProvider extends ServiceProvider
         AttendanceRegularisation::class => [AttendanceRegularisationObserver::class],
 
     ];
+
+    public function boot()
+    {
+        parent::boot();
+
+        $pending = $this->lazyObservers;
+
+        // A model that is already loaded gets its observers now.
+        foreach ($pending as $model => $observers) {
+            if (class_exists($model, false)) {
+                unset($pending[$model]);
+                $model::observe($observers);
+            }
+        }
+
+        if ($pending === []) {
+            return;
+        }
+
+        // The rest: when PHP first asks for the class. This runs ahead of
+        // Composer's loader, lets it load the class file, then attaches the
+        // observers - before the code that asked for the model gets it back.
+        spl_autoload_register(function ($class) use (&$pending) {
+            if (!isset($pending[$class])) {
+                return;
+            }
+
+            $observers = $pending[$class];
+            unset($pending[$class]);
+
+            foreach (\Composer\Autoload\ClassLoader::getRegisteredLoaders() as $loader) {
+                if ($loader->loadClass($class)) {
+                    break;
+                }
+            }
+
+            if (class_exists($class, false)) {
+                $class::observe($observers);
+            }
+        }, true, true);
+    }
 
 }

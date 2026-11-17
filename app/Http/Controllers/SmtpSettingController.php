@@ -26,6 +26,14 @@ class SmtpSettingController extends AccountBaseController
     }
 
     /**
+     * The menu entry "Mail (SMTP) Settings": the form is the first tab of Notification Settings.
+     */
+    public function index()
+    {
+        return redirect()->route('notifications.index', ['tab' => 'email-setting']);
+    }
+
+    /**
      * XXXXXXXXXXX
      *
      * @return array

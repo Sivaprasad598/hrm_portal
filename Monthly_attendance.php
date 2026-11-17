@@ -1,8 +1,13 @@
 <?php
-require_once __DIR__ . '/vendor/autoload.php';
-$app = require __DIR__ . '/bootstrap/app.php';
-$kernel = $app->make(\Illuminate\Contracts\Console\Kernel::class);
-$kernel->bootstrap();
+// Shown through LegacyPageController the application is already running: starting
+// a second copy of it here cost every load 0.5-1 s. Started only when this file
+// is run on its own.
+if (!defined('LARAVEL_START') || !function_exists('app') || !app()->bound('db')) {
+    require_once __DIR__ . '/vendor/autoload.php';
+    $app = require __DIR__ . '/bootstrap/app.php';
+    $kernel = $app->make(\Illuminate\Contracts\Console\Kernel::class);
+    $kernel->bootstrap();
+}
 
 // A month (or year) for every employee takes a while; past PHP's 30s default the frame came back empty
 @set_time_limit(180);
@@ -118,37 +123,12 @@ if ($companyId > 0) {
         $workedSecondsByUserDay = [];
         $shiftByUserDay = [];
 
-        Attendance::whereIn('user_id', $employeeIds)
-            ->whereBetween('clock_in_time', [$monthStart->copy()->timezone('UTC'), $monthEnd->copy()->timezone('UTC')])
-            ->with('shift')
-            ->get()
-            ->each(function ($row) use (&$workedSecondsByUserDay, &$shiftByUserDay, $timezone, $year, $month) {
-                $local = $row->clock_in_time->copy()->timezone($timezone);
-
-                if ((int) $local->year !== $year || (int) $local->month !== $month) {
-                    return;
-                }
-
-                $day = (int) $local->day;
-                $shiftByUserDay[$row->user_id][$day] = $row->shift;
-
-                if ($row->clock_out_time) {
-                    $seconds = abs($row->clock_out_time->diffInSeconds($row->clock_in_time));
-                    $workedSecondsByUserDay[$row->user_id][$day] = ($workedSecondsByUserDay[$row->user_id][$day] ?? 0) + $seconds;
-                }
-            });
+        // (plain rows instead of a model and date objects per punch: see MonthPunches)
+        [$workedSecondsByUserDay, $shiftByUserDay] = \App\Services\Attendance\MonthPunches::load($employeeIds, $monthStart, $monthEnd, $timezone, $year, $month);
 
         // Day Off, from the shift roster.
         $dayOffByUserDay = [];
-        EmployeeShiftSchedule::whereIn('user_id', $employeeIds)
-            ->whereBetween('date', [$monthStart->toDateString(), $monthEnd->toDateString()])
-            ->with('shift')
-            ->get()
-            ->each(function ($schedule) use (&$dayOffByUserDay) {
-                if ($schedule->shift && $schedule->shift->shift_name === 'Day Off') {
-                    $dayOffByUserDay[$schedule->user_id][(int) Carbon::parse($schedule->date)->day] = true;
-                }
-            });
+        $dayOffByUserDay = \App\Services\Attendance\MonthPunches::dayOffs($employeeIds, $monthStart, $monthEnd);
 
         // Approved leave, keyed by user/day, keeping the leave_type_id for CL/SL/LOP classification.
         $leaveByUserDay = [];
@@ -169,13 +149,20 @@ if ($companyId > 0) {
                 $holidaysByDay[(int) Carbon::parse($holiday->date)->day] = true;
             });
 
+        // The month's dates and the shift lengths, made once (they were made again for every employee and day)
+        $monthDates = [];
+        $shiftSecondsByTimes = [];
+        for ($day = 1; $day <= $daysInMonth; $day++) {
+            $monthDates[$day] = Carbon::createFromDate($year, $month, $day, $timezone)->startOfDay();
+        }
+
         foreach ($employees as $employee) {
             $days = [];
             $cl = $sl = $lop = $halfDayCount = $totalLeave = 0;
             $presentCount = $holidayCount = $dayOffCount = 0;
 
             for ($day = 1; $day <= $daysInMonth; $day++) {
-                $date = Carbon::createFromDate($year, $month, $day, $timezone)->startOfDay();
+                $date = $monthDates[$day];
 
                 if ($date->greaterThan($today)) {
                     $days[$day] = ['code' => '', 'class' => ''];
@@ -224,11 +211,15 @@ if ($companyId > 0) {
                         $fullDaySeconds = ($shift->min_working_hours_full_day * 3600) - (($shift->min_working_hours_full_day_grace ?? 0) * 60);
                         $halfDaySeconds = ($shift->min_working_hours_half_day * 3600) - (($shift->min_working_hours_half_day_grace ?? 0) * 60);
                     } elseif ($shift) {
-                        $shiftStart = Carbon::parse($shift->office_start_time);
-                        $shiftEnd = Carbon::parse($shift->office_end_time);
-                        $shiftSeconds = $shiftEnd->lessThanOrEqualTo($shiftStart)
-                            ? abs($shiftEnd->copy()->addDay()->diffInSeconds($shiftStart))
-                            : abs($shiftEnd->diffInSeconds($shiftStart));
+                        // the same for everyone on that shift: worked out once
+                        $shiftSeconds = $shiftSecondsByTimes[$shift->office_start_time . '|' . $shift->office_end_time] ??= (function () use ($shift) {
+                            $shiftStart = Carbon::parse($shift->office_start_time);
+                            $shiftEnd = Carbon::parse($shift->office_end_time);
+
+                            return $shiftEnd->lessThanOrEqualTo($shiftStart)
+                                ? abs($shiftEnd->copy()->addDay()->diffInSeconds($shiftStart))
+                                : abs($shiftEnd->diffInSeconds($shiftStart));
+                        })();
                         $fullDaySeconds = $shiftSeconds * 0.5;
                         $halfDaySeconds = $shiftSeconds * 0.25;
                     }

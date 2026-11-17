@@ -191,6 +191,11 @@ class Kernel extends ConsoleKernel
         // Checked every 5 minutes; "Pull new punches every" (5 / 10 / 15 / 30 / 60,
         // default 5) decides whether a pull is due, so the setting alone sets the pace.
         $schedule->command('iapp:sync-punches --scheduled')->everyFiveMinutes()->withoutOverlapping(15)->runInBackground();
+
+        // The route cache (0.2 s off every request): rebuilt when missing - after an
+        // update the stale one is discarded on the first request (RouteCacheGuard).
+        $schedule->command('routes:keep-cached')->everyFiveMinutes()->withoutOverlapping(10);
+
         // Leave approval steps left undecided past the days in Leave Settings move on.
         $schedule->command('leaves:escalate-approvals')->hourly()->withoutOverlapping(30);
         // Employees' own shifts, written into the roster 60 days ahead (ShiftAssignments).

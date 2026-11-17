@@ -28,6 +28,10 @@ class AppServiceProvider extends ServiceProvider
 
     public function register()
     {
+        // A route cache from before an update is dropped before it can be used
+        // (App\Support\RouteCacheGuard); routes then come from the route files.
+        \App\Support\RouteCacheGuard::check($this->app->getCachedRoutesPath());
+
 //        Cashier::ignoreMigrations();
 //        Sanctum::ignoreMigrations();
 

@@ -84,8 +84,13 @@
                     <td class="text-right pr-4 text-nowrap">
                         @if ($interview->status === 'proposed')
                             @if ($canManage)
-                                <a href="javascript:;" class="btn btn-sm btn-primary confirm-slot" data-id="{{ $interview->id }}"><i class="fa fa-check mr-1"></i>Confirm</a>
-                                <a href="{{ route('recruit-interviews.edit', $interview->id) }}" class="btn btn-sm btn-outline-secondary openRightModal">Change</a>
+                                @if ($blocker = $interview->confirmBlocker())
+                                    <span class="badge badge-warning mr-1">{{ $blocker === 'time passed' ? 'time passed' : 'no panel' }}</span>
+                                    <a href="{{ route('recruit-interviews.edit', $interview->id) }}" class="btn btn-sm btn-primary openRightModal"><i class="fa fa-calendar-alt mr-1"></i>Set &amp; confirm</a>
+                                @else
+                                    <a href="javascript:;" class="btn btn-sm btn-primary confirm-slot" data-id="{{ $interview->id }}"><i class="fa fa-check mr-1"></i>Confirm</a>
+                                    <a href="{{ route('recruit-interviews.edit', $interview->id) }}" class="btn btn-sm btn-outline-secondary openRightModal">Change</a>
+                                @endif
                             @endif
                         @else
                             <a href="{{ route('recruit-interviews.feedback', $interview->id) }}" class="btn btn-sm btn-outline-primary">{{ $interview->isInterviewer(user()->id) && !$interview->feedback->contains('user_id', user()->id) && !$interview->isTest() ? 'Give scorecard' : ($interview->isTest() && $interview->marks === null ? 'Enter marks' : 'Open') }}</a>

@@ -111,7 +111,11 @@ class AttendanceDays
         $tz = $this->timezone;
         $from = $from->copy()->setTimezone($tz)->startOfDay();
         $to = $to->copy()->setTimezone($tz)->startOfDay();
-        $today = Carbon::now($tz)->startOfDay();
+        // Dates as 'Y-m-d' keys ('Y-m-d' strings compare like the dates): the list for
+        // a range is made once and used for every employee, instead of walking the
+        // range with date objects twice per employee.
+        $todayKey = Carbon::now($tz)->toDateString();
+        $dateKeys = $this->dateKeys($from, $to);
 
         $employee = $this->preloaded('employees', $userId, $from, $to);
         $employee = $employee === null
@@ -128,12 +132,9 @@ class AttendanceDays
         $holidays = $this->holidays($employee?->company_id, $from, $to, $employee);
         $leaveByDay = $this->leave($userId, $from, $to);
         $shiftByDay = [];
-        $cursor = $from->copy();
 
-        while ($cursor->lte($to)) {
-            $key = $cursor->toDateString();
+        foreach ($dateKeys as $key) {
             $shiftByDay[$key] = $resolver->shiftOn($userId, $key);
-            $cursor->addDay();
         }
 
         $worked = $this->workedSeconds($userId, $from, $to, $tz, $shiftByDay, $resolver);
@@ -180,21 +181,20 @@ class AttendanceDays
                 'shift' => $shift->shift_name ?? null,
                 'shift_hours' => $shift && $shift->office_start_time
                     ? substr((string) $shift->office_start_time, 0, 5) . '–' . substr((string) $shift->office_end_time, 0, 5) : null,
-                'first_in' => $edge ? Carbon::createFromTimestamp($edge['first'], 'UTC')->setTimezone($this->timezone)->format('Y-m-d H:i') : null,
-                'last_out' => $edge && $edge['last'] > $edge['first'] ? Carbon::createFromTimestamp($edge['last'], 'UTC')->setTimezone($this->timezone)->format('Y-m-d H:i') : null,
+                'first_in' => $edge ? $this->localMinute($edge['first']) : null,
+                'last_out' => $edge && $edge['last'] > $edge['first'] ? $this->localMinute($edge['last']) : null,
                 'seconds' => (int) ($worked[$key] ?? 0),
             ];
         };
 
-        for ($date = $from->copy(); $date->lte($to); $date->addDay()) {
-            if ($date->gt($today)) {
-                $day($date->toDateString(), 'upcoming', 0.0, $shiftByDay[$date->toDateString()] ?? null);
+        foreach ($dateKeys as $key) {
+            if ($key > $todayKey) {
+                $day($key, 'upcoming', 0.0, $shiftByDay[$key] ?? null);
 
                 continue;   // A day that has not happened yet is not paid for.
             }
 
             $workingDays++;
-            $key = $date->toDateString();
             $shift = $shiftByDay[$key];
 
             $outside = $payable !== null
@@ -330,6 +330,50 @@ class AttendanceDays
 
         return ['working_days' => $workingDays, 'days_present' => $daysPresent, 'breakdown' => $breakdown, 'days' => $days,
             'basis' => $ruleDays ? $basis : 'standard'];
+    }
+
+    /** The 'Y-m-d' of every day from $from to $to, made once per range. */
+    protected array $dateKeysMemo = [];
+
+    protected function dateKeys(Carbon $from, Carbon $to): array
+    {
+        $range = $from->toDateString() . '|' . $to->toDateString();
+
+        if (!isset($this->dateKeysMemo[$range])) {
+            $keys = [];
+
+            for ($cursor = $from->copy(); $cursor->lte($to); $cursor->addDay()) {
+                $keys[] = $cursor->toDateString();
+            }
+
+            $this->dateKeysMemo = [$range => $keys];   // one range at a time is enough
+        }
+
+        return $this->dateKeysMemo[$range];
+    }
+
+    protected ?\DateTimeZone $zone = null;
+
+    protected static ?\DateTimeZone $utc = null;
+
+    /** A moment (unix seconds) as local 'Y-m-d H:i'. */
+    protected function localMinute(int $timestamp): string
+    {
+        $this->zone ??= new \DateTimeZone($this->timezone);
+
+        return (new \DateTime('@' . $timestamp))->setTimezone($this->zone)->format('Y-m-d H:i');
+    }
+
+    /** A UTC 'Y-m-d H:i:s' from the database as unix seconds. */
+    protected static function utcSeconds($value): int
+    {
+        if (!is_string($value)) {
+            return Carbon::parse($value, 'UTC')->getTimestamp();
+        }
+
+        self::$utc ??= new \DateTimeZone('UTC');
+
+        return (new \DateTime($value, self::$utc))->getTimestamp();
     }
 
     /** Credit for the time worked on a day: 1, 0.5 or nothing, by the shift's thresholds. */
@@ -492,9 +536,12 @@ class AttendanceDays
                 ->get(['clock_in_time', 'clock_out_time']);
 
         foreach ($sessions as $row) {
-            $in = Carbon::parse($row->clock_in_time, 'UTC');
+            // (as unix seconds: a date object per punch was most of this page's time)
+            $in = self::utcSeconds($row->clock_in_time);
             // The day the session belongs to: its shift's day, not just its calendar date.
-            $key = $resolver ? $resolver->shiftDayOf($userId, $in, $tz) : $in->copy()->setTimezone($tz)->toDateString();
+            $key = $resolver
+                ? $resolver->shiftDayOfTimestamp($userId, $in, $tz)
+                : \App\Services\Attendance\ShiftResolver::localDate($in, $tz);
 
             if (!isset($shifts[$key]) && $resolver) {
                 continue;   // outside the range asked for
@@ -502,13 +549,13 @@ class AttendanceDays
 
             // An open session still proves arrival, so it sets the start even
             // though it cannot set the end.
-            $out = $row->clock_out_time ? Carbon::parse($row->clock_out_time, 'UTC') : null;
+            $out = $row->clock_out_time ? self::utcSeconds($row->clock_out_time) : null;
 
             $bounds[$key]['first'] = isset($bounds[$key]['first'])
-                ? min($bounds[$key]['first'], $in->getTimestamp())
-                : $in->getTimestamp();
+                ? min($bounds[$key]['first'], $in)
+                : $in;
 
-            $last = max($in->getTimestamp(), $out?->getTimestamp() ?? $in->getTimestamp());
+            $last = max($in, $out ?? $in);
             $bounds[$key]['last'] = isset($bounds[$key]['last'])
                 ? max($bounds[$key]['last'], $last)
                 : $last;
