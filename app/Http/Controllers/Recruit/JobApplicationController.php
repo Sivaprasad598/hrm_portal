@@ -216,28 +216,47 @@ class JobApplicationController extends RecruitBaseController
 
         $messages = [];
 
-        if ($request->filled('job_position_id') && (int) $request->job_position_id !== (int) $application->job_position_id
-            && !in_array($application->stage, ['offered', 'offer_accepted', 'joined'], true)) {
-            $position = JobPosition::findOrFail($request->job_position_id);
-            $from = $application->positionLabel();
-            $application->job_position_id = $position->id;
-            $application->save();
-            $application->setRelation('position', $position);
-            $pipeline->log($application->candidate_id, $application->id, 'applied', 'Position: ' . $from . ' → ' . $position->label());
-            $messages[] = 'Position set to ' . $position->title;
-        }
+        try {
+            // Position and stage together, or neither (a refused stage move leaves the position as it was)
+            \Illuminate\Support\Facades\DB::transaction(function () use ($request, $application, $pipeline, &$messages) {
+                if ($request->filled('job_position_id') && (int) $request->job_position_id !== (int) $application->job_position_id
+                    && !in_array($application->stage, ['offered', 'offer_accepted', 'joined'], true)) {
+                    $position = JobPosition::findOrFail($request->job_position_id);
 
-        if ($request->filled('stage') && $request->stage !== $application->stage) {
-            try {
-                $pipeline->move($application, $request->stage, $request->reason, $request->notes);
-            } catch (RuntimeException $e) {
-                return Reply::error($e->getMessage());
-            }
+                    // Rounds already held belong to the old position's plan
+                    if (\App\Models\RecruitInterview::where('job_application_id', $application->id)->whereNotNull('recruit_round_id')
+                        ->whereNotIn('status', ['proposed', 'cancelled'])->exists()) {
+                        throw new RuntimeException('Rounds have been held for ' . $application->positionLabel() . ', so the position cannot change. '
+                            . 'Close this application and add the candidate to ' . $position->title . ' from their profile.');
+                    }
 
-            $messages[] = 'Moved to ' . JobApplication::STAGES[$request->stage][0];
-        } elseif ($request->filled('notes')) {
-            $pipeline->log($application->candidate_id, $application->id, 'note', trim($request->notes));
-            $messages[] = 'Note added';
+                    if (JobApplication::where('candidate_id', $application->candidate_id)->where('job_position_id', $position->id)
+                        ->where('id', '<>', $application->id)->whereIn('stage', JobApplication::ACTIVE)->exists()) {
+                        throw new RuntimeException($application->candidate->name . ' is already being considered for ' . $position->title . '.');
+                    }
+
+                    // Slots suggested for the old position's rounds are dropped
+                    \App\Models\RecruitInterview::where('job_application_id', $application->id)->where('status', 'proposed')
+                        ->update(['status' => 'cancelled', 'status_note' => 'Slot dropped: position changed', 'updated_at' => now()]);
+
+                    $from = $application->positionLabel();
+                    $application->job_position_id = $position->id;
+                    $application->save();
+                    $application->setRelation('position', $position);
+                    $pipeline->log($application->candidate_id, $application->id, 'applied', 'Position: ' . $from . ' → ' . $position->label());
+                    $messages[] = 'Position set to ' . $position->title;
+                }
+
+                if ($request->filled('stage') && $request->stage !== $application->stage) {
+                    $pipeline->move($application, $request->stage, $request->reason, $request->notes);
+                    $messages[] = 'Moved to ' . JobApplication::STAGES[$request->stage][0];
+                } elseif ($request->filled('notes')) {
+                    $pipeline->log($application->candidate_id, $application->id, 'note', trim($request->notes));
+                    $messages[] = 'Note added';
+                }
+            });
+        } catch (RuntimeException $e) {
+            return Reply::error($e->getMessage());
         }
 
         if (!$messages) {

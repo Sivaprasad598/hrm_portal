@@ -74,6 +74,7 @@ class RecruitSettingController extends RecruitBaseController
         $setting = RecruitSetting::forCompany(company()->id);
 
         if ($request->section === 'mailbox') {
+            $oldServer = [strtolower((string) $setting->imap_host), strtolower((string) $setting->imap_username)];
             $setting->fill([
                 'mailbox_enabled' => $request->boolean('mailbox_enabled'),
                 'imap_host' => trim((string) $request->imap_host) ?: null,
@@ -88,8 +89,14 @@ class RecruitSettingController extends RecruitBaseController
                 'ai_autofill' => $request->boolean('ai_autofill'),
             ]);
 
+            // The saved password is never sent to a different server or for a different mailbox
+            $serverChanged = $setting->exists && $setting->imap_password
+                && $oldServer !== [strtolower((string) $setting->imap_host), strtolower((string) $setting->imap_username)];
+
             if ($request->boolean('remove_password')) {
                 $setting->setPassword(null);
+            } elseif ($serverChanged && !$request->filled('imap_password')) {
+                return Reply::error('You changed the mail server or the mailbox address: enter its password again.');
             } elseif ($request->filled('imap_password')) {
                 // Gmail shows app passwords in groups of four; the spaces are not part of it.
                 $setting->setPassword(str_replace(' ', '', trim($request->imap_password)));

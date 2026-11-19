@@ -276,8 +276,9 @@ class RecruitAutomation
         $this->pipeline->log($application->candidate_id, $application->id, 'round',
             $interview->round . ': ' . ucfirst($result) . ' by HR' . ($was && $was !== $result ? ' (was ' . $was . ')' : '') . ' — ' . $note);
 
-        // A candidate the system rejected on this round comes back when HR passes it
-        if ($application->stage === 'rejected' && in_array($result, ['passed', 'waived'], true)) {
+        // A candidate the system rejected on this round comes back when HR passes it - not one
+        // HR (or another round) rejected for something else
+        if ($application->stage === 'rejected' && in_array($result, ['passed', 'waived'], true) && $this->rejectedOn($application, $interview)) {
             $this->pipeline->move($application, 'interview', null, 'Back in after HR decided ' . $interview->round, false);
         }
 
@@ -299,6 +300,23 @@ class RecruitAutomation
         }
 
         $this->advance($application);
+    }
+
+    /** Whether the application's last rejection was the system's, on this round (its score or two no-shows). */
+    protected function rejectedOn(JobApplication $application, RecruitInterview $interview): bool
+    {
+        $last = \App\Models\RecruitLog::withoutGlobalScopes()->where('job_application_id', $application->id)
+            ->where('action', 'stage')->where('to_stage', 'rejected')->orderByDesc('id')->first();
+
+        // (done_by is not a guide: the system's rejection can follow a person's action, e.g. marks entered)
+        if (!$last) {
+            return false;
+        }
+
+        $notes = (string) $last->notes;
+        $round = mb_substr($interview->round, 0, 100);
+
+        return str_starts_with($notes, 'Did not clear ' . $round) || str_contains($notes, $interview->round . ': no-show twice');
     }
 
     protected function reject(JobApplication $application, RecruitInterview $interview): void
@@ -380,7 +398,7 @@ class RecruitAutomation
 
             $open = Carbon::parse($date->toDateString() . ' ' . $dayStart, $tz);
             $close = Carbon::parse($date->toDateString() . ' ' . $dayEnd, $tz);
-            $busy = $this->busy($userIds, $date, $tz, $open, $close, Carbon::parse($date->toDateString() . ' ' . $halfMark, $tz));
+            $busy = $this->busy($userIds, $date, $tz, $open, $close, Carbon::parse($date->toDateString() . ' ' . $halfMark, $tz), $companyId);
 
             if ($busy === null) {
                 continue;   // someone is on leave all day
@@ -404,7 +422,7 @@ class RecruitAutomation
     }
 
     /** The panel's busy times that day, or null when one of them is away all day. */
-    protected function busy(array $userIds, Carbon $date, string $tz, Carbon $open, Carbon $close, Carbon $halfMark): ?array
+    protected function busy(array $userIds, Carbon $date, string $tz, Carbon $open, Carbon $close, Carbon $halfMark, ?int $companyId = null): ?array
     {
         if (!$userIds) {
             return [];
@@ -433,7 +451,7 @@ class RecruitAutomation
         }
 
         // Slots already suggested (not yet events) count as taken too
-        foreach (RecruitInterview::withoutGlobalScopes()->where('status', 'proposed')
+        foreach (RecruitInterview::withoutGlobalScopes()->where('status', 'proposed')->where('company_id', $companyId)
             ->whereBetween('starts_at', [$dayFromUtc, $dayToUtc])->get(['starts_at', 'duration', 'interviewer_ids']) as $other) {
             if (array_intersect(array_map('intval', $other->interviewer_ids ?: []), $userIds)) {
                 $busy[] = [$other->starts_at->copy()->tz($tz), $other->starts_at->copy()->addMinutes($other->duration)->tz($tz)];
@@ -499,9 +517,17 @@ class RecruitAutomation
             }
         }
 
-        // 2. Offers sent and not answered by their "valid until" date
+        // 2. Offers sent and not answered by their "valid until" date - the end of that day where the company is
+        $todayIn = [];
+
         foreach (JobOffer::withoutGlobalScopes()->with('application')->where('status', 'sent')->whereNotNull('valid_until')
-            ->whereDate('valid_until', '<', now()->toDateString())->get() as $offer) {
+            ->whereDate('valid_until', '<=', now()->toDateString())->get() as $offer) {
+            $today = $todayIn[$offer->company_id] ??= now()->tz(Company::find($offer->company_id)?->timezone ?: config('app.timezone'))->toDateString();
+
+            if ($offer->valid_until->toDateString() >= $today) {
+                continue;   // still the last day there
+            }
+
             $offer->status = 'expired';
             $offer->responded_at = now();
             $offer->save();

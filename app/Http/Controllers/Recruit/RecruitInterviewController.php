@@ -78,6 +78,12 @@ class RecruitInterviewController extends RecruitBaseController
     {
         $this->needManage();
         $application = JobApplication::with('candidate')->findOrFail($request->job_application_id);
+
+        if (!in_array($application->stage, ['new', 'shortlisted', 'interview', 'on_hold'], true)) {
+            return Reply::error('Interviews can be scheduled while the application is New, Shortlisted, at Interview or On Hold (now: '
+                . $application->stageLabel() . ').');
+        }
+
         $details = $this->validated($request);
 
         try {

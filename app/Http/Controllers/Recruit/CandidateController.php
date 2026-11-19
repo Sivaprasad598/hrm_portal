@@ -258,11 +258,18 @@ class CandidateController extends RecruitBaseController
         $path = $file->localPath();
         abort_unless(is_file($path), 404);
 
-        $name = str_replace(['"', "\r", "\n"], '', $file->filename ?: basename($path));
+        $name = str_replace(['"', "\r", "\n", '\\'], '', $file->filename ?: basename($path));
+
+        // The type comes from the extension, never from what was stored with the file: an email
+        // attachment or a website upload could have said "text/html" and run as a page here.
+        // PDFs and images open in the browser; Word files and anything else download.
+        $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+        $type = CandidateIntake::MIME_BY_EXTENSION[$ext] ?? 'application/octet-stream';
+        $inline = in_array($ext, ['pdf', 'jpg', 'jpeg', 'png'], true);
 
         return response()->file($path, [
-            'Content-Type' => $file->mime ?: (mime_content_type($path) ?: 'application/octet-stream'),
-            'Content-Disposition' => 'inline; filename="' . $name . '"',
+            'Content-Type' => $type,
+            'Content-Disposition' => ($inline ? 'inline' : 'attachment') . '; filename="' . $name . '"',
             'Cache-Control' => 'private, no-store',
             'X-Content-Type-Options' => 'nosniff',
         ]);

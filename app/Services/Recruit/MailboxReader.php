@@ -23,6 +23,9 @@ use Webklex\PHPIMAP\Message;
  *   - the subject, the body or an attachment name has one of the keywords
  *     (application, resume, CV, job ...);
  *   - when "needs an attachment" is on, a PDF / Word file is attached.
+ *
+ * A forwarded email (HR or a colleague passing a resume on) is the original
+ * sender's application, not the forwarder's.
  */
 class MailboxReader
 {
@@ -82,9 +85,11 @@ class MailboxReader
             }
 
             $messages = $folder->query()->since($since->startOfDay())->leaveUnread()->setFetchBody(true)->softFail()->get();
+            $full = false;
 
             foreach ($messages as $message) {
                 if ($result['read'] >= self::BATCH) {
+                    $full = true;   // more left: the next run starts from the same point
                     break;
                 }
 
@@ -103,8 +108,13 @@ class MailboxReader
             $client->disconnect();
         }
 
-        $setting->mail_last_fetched_at = now();
-        $setting->mail_last_result = $this->summary($result);
+        // Moved on only when everything since was looked at; with a batch cut short the next run
+        // reads from the same day again (the emails done are skipped by their Message-ID).
+        if (!$full) {
+            $setting->mail_last_fetched_at = now();
+        }
+
+        $setting->mail_last_result = $this->summary($result) . ($full ? ' More to read: the next run continues.' : '');
         $setting->save();
 
         return $result;
@@ -122,10 +132,11 @@ class MailboxReader
 
         foreach ($message->getAttachments() as $attachment) {
             $name = (string) ($attachment->getName() ?: $attachment->filename ?: 'attachment');
-            $attachments[] = ['name' => $name, 'content' => (string) $attachment->getContent(), 'mime' => $attachment->getMimeType()];
+            // The type the email claims is not used: files are kept by their extension and content
+            $attachments[] = ['name' => $name, 'content' => (string) $attachment->getContent()];
         }
 
-        $record = new RecruitInbound([
+        $record = RecruitInbound::claim([
             'company_id' => $setting->company_id,
             'channel' => 'email',
             'external_id' => $externalId,
@@ -137,7 +148,22 @@ class MailboxReader
             'received_at' => $this->date($message),
         ]);
 
+        if (!$record) {
+            return 'seen';   // another run (Fetch now / the 15-minute run) has this email
+        }
+
         $why = $this->notAnApplication($setting, $fromEmail, $subject, $body, $attachments);
+
+        // Forwarded to the careers mailbox (by HR, a colleague, a referral): the applicant is the
+        // original sender in the forwarded part, not the person who forwarded it
+        $forwardedBy = null;
+
+        if ($why === null && ($original = $this->forwarded($body))) {
+            if (strcasecmp($original['email'], (string) $setting->imap_username) !== 0 && strcasecmp($original['email'], $fromEmail) !== 0) {
+                $forwardedBy = $fromName ?: $fromEmail;
+                [$fromEmail, $fromName, $body] = [$original['email'], $original['name'], $original['body']];
+            }
+        }
 
         if ($why !== null) {
             $record->status = 'skipped';
@@ -153,16 +179,21 @@ class MailboxReader
                 'email' => $fromEmail,
                 'mobile' => $this->mobileIn($body),
                 'message' => $this->coverNote($subject, $body),
-                'source_detail' => 'Email: ' . mb_substr($subject ?: '(no subject)', 0, 150),
+                'source_detail' => mb_substr(($forwardedBy ? 'Email forwarded by ' . $forwardedBy . ': ' : 'Email: ') . ($subject ?: '(no subject)'), 0, 191),
             ], $attachments, 'email', $setting->company_id, $subject . "\n" . mb_substr($body, 0, 3000));
 
             $record->status = $outcome['status'];
             $record->candidate_id = $outcome['candidate']->id;
             $record->job_application_id = $outcome['application']->id;
-            $record->reason = $outcome['position_matched'] ? null : 'No open position named - waiting under Unassigned.';
+            $record->reason = trim(($forwardedBy ? 'Forwarded by ' . $forwardedBy . '; applicant ' . $fromEmail . '. ' : '')
+                . ($outcome['position_matched'] ? '' : 'No open position named - waiting under Unassigned.')) ?: null;
             $record->save();
 
-            $this->intake->aiFill($outcome['candidate']);
+            // AI reading takes a while per resume: inline only in the scheduled run, never while
+            // HR waits on "Fetch now" (aiPending() picks those up on the next run)
+            if (app()->runningInConsole()) {
+                $this->intake->aiFill($outcome['candidate']);
+            }
 
             return $outcome['status'];
         } catch (\Throwable $e) {
@@ -264,6 +295,38 @@ class MailboxReader
         } catch (\Throwable) {
             return now();
         }
+    }
+
+    /**
+     * The original sender of a forwarded email (Gmail's "Forwarded message",
+     * Outlook's "Original Message" / a From: line after a rule) and the text
+     * from there on. null when the email was not forwarded.
+     *
+     * @return array{email: string, name: ?string, body: string}|null
+     */
+    public function forwarded(string $body): ?array
+    {
+        if (!preg_match('/^[ >]*(?:-{3,}\s*(?:Forwarded message|Original Message)\s*-{3,}|_{10,})\s*$/mi', $body, $marker, PREG_OFFSET_CAPTURE)) {
+            return null;
+        }
+
+        $rest = substr($body, $marker[0][1] + strlen($marker[0][0]));
+
+        // The first From: line of the forwarded part: "Name <mail>", "mail", or "Name [mailto:mail]"
+        if (!preg_match('/^[ >*]*From:\s*\**\s*(.*?)\s*[<\[](?:mailto:)?([^\s<>\[\]]+@[^\s<>\[\]]+)[>\]]|^[ >*]*From:\s*\**\s*([^\s<>]+@[^\s<>]+)/mi', substr($rest, 0, 2000), $from)) {
+            return null;
+        }
+
+        $email = strtolower(trim($from[2] ?? '') ?: trim($from[3] ?? ''));
+
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return null;
+        }
+
+        $name = trim(trim((string) ($from[1] ?? '')), " \"'*");
+
+        return ['email' => $email, 'name' => $name !== '' && !str_contains($name, '@') ? mb_substr($name, 0, 191) : null,
+            'body' => trim(preg_replace('/^[ >]+/m', '', $rest))];
     }
 
     /** A phone number in the email text, when there is one (without AI this is how the mobile is found). */

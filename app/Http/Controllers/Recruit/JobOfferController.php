@@ -144,12 +144,13 @@ class JobOfferController extends RecruitBaseController
         }
 
         $application = $offer->application;
+        $stored = null;
 
         try {
-            DB::transaction(function () use ($offer, $to, $request, $application, $pipeline, $intake) {
+            DB::transaction(function () use ($offer, $to, $request, $application, $pipeline, $intake, &$stored) {
                 if ($to === 'accepted' && $request->hasFile('signed_file')) {
-                    $file = $intake->storeUploaded($application->candidate, $request->file('signed_file'), 'signed_offer', 'Signed offer ' . ($offer->reference_no ?: ''));
-                    $offer->signed_file_id = $file->id;
+                    $stored = $intake->storeUploaded($application->candidate, $request->file('signed_file'), 'signed_offer', 'Signed offer ' . ($offer->reference_no ?: ''));
+                    $offer->signed_file_id = $stored->id;
                 }
 
                 $offer->status = $to;
@@ -177,6 +178,11 @@ class JobOfferController extends RecruitBaseController
                 };
             });
         } catch (RuntimeException $e) {
+            // The row went with the rollback; the file written to disk goes too
+            if ($stored) {
+                \App\Helper\Files::deleteFile($stored->hashname, \App\Models\CandidateFile::FILE_PATH . '/' . $stored->candidate_id);
+            }
+
             return Reply::error($e->getMessage());
         }
 

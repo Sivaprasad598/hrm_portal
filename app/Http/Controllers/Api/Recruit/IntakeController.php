@@ -20,7 +20,10 @@ use Illuminate\Support\Facades\Validator;
  *
  * Authenticated by RecruitApiKey. Every submission is kept in recruit_inbound
  * as it arrived; the same submission sent twice on one day is answered with
- * the first one's reference and not imported again.
+ * the first one's reference and not imported again - unless the first try
+ * failed, when it is tried again. A resume must really be a PDF / Word file.
+ * Optional "external_ref": the sender's own id for the submission; with it a
+ * resend is recognised on any day, not only the same one.
  */
 class IntakeController extends Controller
 {
@@ -48,6 +51,7 @@ class IntakeController extends Controller
             'resume' => 'nullable|file|mimes:pdf,doc,docx|max:5120',
             'resume_base64' => 'nullable|string|max:7500000',
             'resume_name' => 'nullable|required_with:resume_base64|string|max:150',
+            'external_ref' => 'nullable|string|max:150',
         ], [
             'resume.mimes' => 'The resume must be a PDF or Word file.',
             'resume.max' => 'The resume can be at most 5 MB.',
@@ -59,21 +63,17 @@ class IntakeController extends Controller
 
         $fields = $request->only(['name', 'email', 'mobile', 'position', 'qualification', 'total_experience', 'current_location',
             'current_company', 'current_designation', 'current_ctc', 'expected_ctc', 'notice_period_days', 'skills', 'message']);
-        $externalId = sha1(json_encode([strtolower((string) $request->email), $request->mobile, $request->position, $request->message, now()->toDateString()]));
-
-        $earlier = RecruitInbound::withoutGlobalScopes()->where('company_id', $setting->company_id)->where('channel', 'api')
-            ->where('external_id', $externalId)->first();
-
-        if ($earlier) {
-            return response()->json(['status' => 'success', 'reference' => $this->reference($earlier), 'duplicate' => true,
-                'message' => 'This application was already received today.']);
-        }
+        // The website's own reference for the submission (e.g. "arowanasoft.com:WEB-000123") when it sends one:
+        // a resend on any later day is then still the same submission. Without it, the same details on the same day.
+        $externalId = $request->filled('external_ref')
+            ? 'ref:' . sha1(trim((string) $request->external_ref))
+            : sha1(json_encode([strtolower((string) $request->email), $request->mobile, $request->position, $request->message, now()->toDateString()]));
 
         $files = [];
 
         if ($request->hasFile('resume')) {
             $file = $request->file('resume');
-            $files[] = ['name' => $file->getClientOriginalName(), 'content' => (string) file_get_contents($file->getRealPath()), 'mime' => $file->getMimeType()];
+            $files[] = ['name' => $file->getClientOriginalName(), 'content' => (string) file_get_contents($file->getRealPath())];
         } elseif ($request->filled('resume_base64')) {
             $content = base64_decode(preg_replace('/^data:[^,]+,/', '', (string) $request->resume_base64), true);
             $ext = strtolower(pathinfo((string) $request->resume_name, PATHINFO_EXTENSION));
@@ -82,10 +82,17 @@ class IntakeController extends Controller
                 return response()->json(['status' => 'error', 'message' => 'resume_base64 must be a PDF or Word file (named in resume_name) of at most 5 MB.'], 422);
             }
 
-            $files[] = ['name' => $request->resume_name, 'content' => $content, 'mime' => null];
+            $files[] = ['name' => $request->resume_name, 'content' => $content];
         }
 
-        $record = new RecruitInbound([
+        // The file must really be what its name says (a web page renamed to .pdf is refused)
+        foreach ($files as $file) {
+            if (!CandidateIntake::contentMatches(pathinfo((string) $file['name'], PATHINFO_EXTENSION), $file['content'])) {
+                return response()->json(['status' => 'error', 'message' => 'The resume is not a readable PDF or Word file. Please attach the file again.'], 422);
+            }
+        }
+
+        $record = RecruitInbound::claim([
             'company_id' => $setting->company_id,
             'channel' => 'api',
             'external_id' => $externalId,
@@ -93,16 +100,24 @@ class IntakeController extends Controller
             'from_name' => mb_substr((string) $request->name, 0, 191),
             'subject' => mb_substr('Website application' . ($request->position ? ': ' . $request->position : ''), 0, 500),
             'body' => $request->message,
-            'payload' => $fields + ['resume' => $files ? $files[0]['name'] : null],
+            'payload' => $fields + ['resume' => $files ? $files[0]['name'] : null, 'external_ref' => $request->external_ref ?: null],
             'ip' => $request->ip(),
             'received_at' => now(),
         ]);
+
+        // Sent before (or being saved right now from a double click): the first one's reference
+        if (!$record) {
+            $earlier = RecruitInbound::earlier($setting->company_id, 'api', $externalId);
+
+            return response()->json(['status' => 'success', 'reference' => $earlier ? $this->reference($earlier) : null, 'duplicate' => true,
+                'message' => 'This application was already received today.']);
+        }
 
         try {
             $outcome = $intake->receive($fields + ['source_detail' => 'Website form'], $files, 'website', $setting->company_id);
         } catch (\Throwable $e) {
             logger()->error('Website application import failed', ['error' => $e->getMessage()]);
-            $record->status = 'failed';
+            $record->status = 'failed';   // the same submission sent again is tried again
             $record->reason = mb_substr($e->getMessage(), 0, 500);
             $record->save();
 
@@ -115,13 +130,16 @@ class IntakeController extends Controller
         $record->reason = $outcome['position_matched'] ? null : ($request->position ? 'Position "' . $request->position . '" not found among the open ones - waiting under Unassigned.' : null);
         $record->save();
 
-        // Reading the resume with AI can take a minute: after the website has its answer.
-        $candidateId = $outcome['candidate']->id;
-        dispatch(function () use ($candidateId) {
-            if ($candidate = Candidate::withoutGlobalScopes()->find($candidateId)) {
-                app(CandidateIntake::class)->aiFill($candidate);
-            }
-        })->afterResponse();
+        // Reading the resume with AI can take a minute. Only where PHP can answer the website
+        // first (PHP-FPM); otherwise the 15-minute mailbox run reads it (CandidateIntake::aiPending).
+        if (function_exists('fastcgi_finish_request')) {
+            $candidateId = $outcome['candidate']->id;
+            dispatch(function () use ($candidateId) {
+                if ($candidate = Candidate::withoutGlobalScopes()->find($candidateId)) {
+                    app(CandidateIntake::class)->aiFill($candidate);
+                }
+            })->afterResponse();
+        }
 
         return response()->json([
             'status' => 'success',

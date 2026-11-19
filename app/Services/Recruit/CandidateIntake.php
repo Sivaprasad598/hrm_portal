@@ -19,11 +19,13 @@ use Illuminate\Support\Str;
  * Where every candidate comes in - the careers mailbox, the website's intake
  * API and HR's own upload all go through receive():
  *
- *  - the same person is never entered twice: matched on email, then on the
- *    mobile number's last ten digits; a known person gets the new details
- *    only where theirs are empty, and the new files;
+ *  - the same person is never entered twice: matched on email, else on the
+ *    mobile number's last ten digits when one side has no email (samePerson);
+ *    a known person gets the new details only where theirs are empty, and
+ *    the new files;
  *  - files: the resume (a PDF or Word file, preferring one named resume / CV),
- *    other documents alongside;
+ *    other documents alongside; a file is kept only when its bytes match its
+ *    extension, and is stored with the type of that extension;
  *  - the position is found from what was sent (an id, code or title), or the
  *    application waits as "Unassigned" for HR;
  *  - with AI on (Settings -> AI, and "Read resumes with AI" here) aiFill()
@@ -40,8 +42,38 @@ class CandidateIntake
 
     public const MAX_FILES = 6;
 
+    /**
+     * The type every kept file is stored and served with, from its extension.
+     * Never the type the sender claimed: an email attachment or a website
+     * upload can say "text/html" and would then run as a web page.
+     */
+    public const MIME_BY_EXTENSION = [
+        'pdf' => 'application/pdf',
+        'doc' => 'application/msword',
+        'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'jpg' => 'image/jpeg',
+        'jpeg' => 'image/jpeg',
+        'png' => 'image/png',
+    ];
+
     public function __construct(protected Pipeline $pipeline)
     {
+    }
+
+    /** Whether the bytes really are what the extension says (a "resume.pdf" that is a web page is not kept). */
+    public static function contentMatches(string $extension, string $content): bool
+    {
+        $head = substr($content, 0, 8);
+
+        return match (strtolower($extension)) {
+            'pdf' => str_contains(substr($content, 0, 1024), '%PDF-'),
+            // Word 97-2003, or an RTF saved as .doc
+            'doc' => str_starts_with($head, "\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1") || str_starts_with($head, '{\\rtf'),
+            'docx' => str_starts_with($head, "PK\x03\x04"),
+            'jpg', 'jpeg' => str_starts_with($head, "\xFF\xD8\xFF"),
+            'png' => str_starts_with($head, "\x89PNG\r\n\x1A\n"),
+            default => false,
+        };
     }
 
     /**
@@ -53,9 +85,15 @@ class CandidateIntake
      */
     public function receive(array $data, array $files, string $source, ?int $companyId, ?string $positionText = null): array
     {
+        // All or nothing: a failure half-way leaves no candidate without its application.
+        return \Illuminate\Support\Facades\DB::transaction(fn () => $this->receiveNow($data, $files, $source, $companyId, $positionText));
+    }
+
+    protected function receiveNow(array $data, array $files, string $source, ?int $companyId, ?string $positionText): array
+    {
         $email = $this->email($data['email'] ?? null);
         $mobile = $this->mobile($data['mobile'] ?? null);
-        $candidate = $this->findExisting($email, $mobile, $companyId);
+        $candidate = $this->samePerson($email, $mobile, $companyId);
         $status = $candidate ? 'updated' : 'imported';
 
         $fields = array_filter([
@@ -194,11 +232,21 @@ class CandidateIntake
      */
     public function storeFiles(Candidate $candidate, array $files, ?string $category = null): int
     {
-        $files = array_values(array_filter($files, function ($file) {
+        $files = array_values(array_filter($files, function ($file) use ($candidate) {
             $ext = strtolower(pathinfo((string) ($file['name'] ?? ''), PATHINFO_EXTENSION));
+            $content = (string) ($file['content'] ?? '');
 
-            return in_array($ext, self::FILE_EXTENSIONS, true)
-                && strlen((string) ($file['content'] ?? '')) > 0 && strlen($file['content']) <= self::MAX_FILE_BYTES;
+            if (!in_array($ext, self::FILE_EXTENSIONS, true) || $content === '' || strlen($content) > self::MAX_FILE_BYTES) {
+                return false;
+            }
+
+            if (!self::contentMatches($ext, $content)) {
+                logger()->info('Candidate file not kept: not really a .' . $ext, ['candidate' => $candidate->id, 'file' => $file['name'] ?? '']);
+
+                return false;
+            }
+
+            return true;
         }));
 
         if (!$files) {
@@ -234,6 +282,12 @@ class CandidateIntake
     protected function storeOne(Candidate $candidate, string $filename, string $content, ?string $mime, string $category, ?string $name): CandidateFile
     {
         $filename = $this->safeFilename($filename);
+        $mime = self::MIME_BY_EXTENSION[strtolower(pathinfo($filename, PATHINFO_EXTENSION))] ?? null;
+
+        if (!$mime) {
+            throw new \RuntimeException('Only PDF, Word, JPG and PNG files are kept.');
+        }
+
         $temp = tempnam(sys_get_temp_dir(), 'cand');
         file_put_contents($temp, $content);
 
@@ -252,7 +306,7 @@ class CandidateIntake
             'filename' => $filename,
             'hashname' => $hashname,
             'size' => strlen($content),
-            'mime' => $mime ?: (new \finfo(FILEINFO_MIME_TYPE))->buffer($content),
+            'mime' => $mime,
             'added_by' => user()?->id,
         ]);
 
@@ -272,6 +326,60 @@ class CandidateIntake
         }
 
         return null;
+    }
+
+    /**
+     * The candidate an incoming application belongs to - stricter than
+     * findExisting() (HR's duplicate warning): the same email is the same
+     * person; the same mobile only when one side has no email. Two different
+     * emails with one number (a number picked from a signature, a shared
+     * phone) are two people, and are not merged.
+     */
+    public function samePerson(?string $email, ?string $mobile, ?int $companyId): ?Candidate
+    {
+        $query = fn () => Candidate::withoutGlobalScopes()->where('company_id', $companyId);
+
+        if ($email && ($found = $query()->where('email', $email)->orderBy('id')->first())) {
+            return $found;
+        }
+
+        if (!$mobile || strlen($digits = substr(preg_replace('/\D/', '', $mobile), -10)) !== 10) {
+            return null;
+        }
+
+        return $query()->where('mobile', 'like', '%' . $digits)
+            ->when($email, fn ($q) => $q->where(fn ($w) => $w->whereNull('email')->orWhere('email', '')))
+            ->orderBy('id')->first();
+    }
+
+    /**
+     * Read with AI the resumes that came in by email or from the website and
+     * were not read yet (the 15-minute mailbox run calls this, so neither the
+     * website nor "Fetch now" waits on AI). Each candidate is tried once: a
+     * failure is on their timeline, and HR can press "Read with AI" again.
+     *
+     * @return int how many were read
+     */
+    public function aiPending(int $limit = 10): int
+    {
+        $tried = \App\Models\RecruitLog::withoutGlobalScopes()->where('action', 'ai')->select('candidate_id');
+
+        $candidates = Candidate::withoutGlobalScopes()->whereNull('ai_filled_at')
+            ->whereIn('source', ['email', 'website'])
+            ->where('created_at', '>=', now()->subDays(3))
+            ->whereNotIn('id', $tried)
+            ->whereHas('files', fn ($q) => $q->withoutGlobalScopes()->where('category', 'resume')->where('mime', 'application/pdf'))
+            ->orderBy('id')->limit($limit)->get();
+
+        $read = 0;
+
+        foreach ($candidates as $candidate) {
+            if ($this->aiFill($candidate) !== null) {
+                $read++;
+            }
+        }
+
+        return $read;
     }
 
     /**
@@ -302,15 +410,18 @@ class CandidateIntake
             return null;
         }
 
+        // As whole words: "Java Developer" is not found inside "JavaScript Developer", nor JOB-001 inside JOB-0012.
+        $has = fn (string $needle) => (bool) preg_match('/(?<![\p{L}\p{N}])' . preg_quote(mb_strtolower($needle), '/') . '(?![\p{L}\p{N}])/u', $text);
+
         // The code first (JOB-0004), then the longest title found in the text.
         foreach ($positions as $p) {
-            if (str_contains($text, mb_strtolower($p->code))) {
+            if ($p->code && $has($p->code)) {
                 return $p;
             }
         }
 
         return $positions->sortByDesc(fn ($p) => mb_strlen($p->title))
-            ->first(fn ($p) => mb_strlen($p->title) >= 3 && str_contains($text, mb_strtolower($p->title)));
+            ->first(fn ($p) => mb_strlen($p->title) >= 3 && $has($p->title));
     }
 
     protected function application(Candidate $candidate, ?JobPosition $position, string $source, ?string $note, ?int $companyId): JobApplication

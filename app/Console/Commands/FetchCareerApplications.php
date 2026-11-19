@@ -38,6 +38,17 @@ class FetchCareerApplications extends Command
             }
         }
 
+        // Resumes not read with AI yet (website applications, "Fetch now"): read here, so no one waits on it
+        try {
+            $read = app(\App\Services\Recruit\CandidateIntake::class)->aiPending();
+
+            if ($read) {
+                $this->info('Resumes read with AI: ' . $read);
+            }
+        } catch (\Throwable $e) {
+            logger()->warning('Reading pending resumes with AI failed', ['error' => $e->getMessage()]);
+        }
+
         return self::SUCCESS;
     }
 
