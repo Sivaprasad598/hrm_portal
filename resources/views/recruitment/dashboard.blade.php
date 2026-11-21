@@ -6,7 +6,7 @@
     $fmt = company()->date_format;
     $tz = company()->timezone;
 @endphp
-<div class="content-wrapper rd">
+<div class="content-wrapper rd" data-swap-links>
 
     {{-- (no in-page title: the top bar has it) --}}
     <div class="d-flex flex-wrap justify-content-end align-items-center mb-3">
@@ -245,6 +245,25 @@
                         <p class="f-13 text-dark-grey">Nothing received in the last 30 days.</p>
                     @endif
 
+                    @if ($topReferrers->isNotEmpty())
+                        <div class="border-top pt-3 mt-3">
+                            <h6 class="f-14 font-weight-600 mb-2"><i class="fa fa-user-friends mr-1 text-dark-grey"></i>Top referrers <span class="f-12 text-dark-grey font-weight-normal">(90 days)</span></h6>
+                            <table class="table table-sm f-13 mb-0">
+                                <thead><tr class="text-dark-grey"><th class="border-0 pl-0">Employee</th><th class="border-0 text-right">Referred</th><th class="border-0 text-right">In process</th><th class="border-0 text-right pr-0">Joined</th></tr></thead>
+                                <tbody>
+                                    @foreach ($topReferrers as $r)
+                                        <tr>
+                                            <td class="pl-0"><a href="{{ route('candidates.index', ['referred_by' => $r->id]) }}">{{ $r->label ?? '--' }}</a></td>
+                                            <td class="text-right">{{ $r->referred }}</td>
+                                            <td class="text-right">{{ $r->moving }}</td>
+                                            <td class="text-right pr-0">{{ $r->joined }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @endif
+
                     @if ($setting)
                         <div class="border-top pt-3 mt-3 f-13">
                             <p class="mb-1"><i class="fa fa-envelope mr-1 text-dark-grey"></i><strong>Careers mailbox:</strong>
@@ -328,7 +347,7 @@
         $.easyAjax({
             url: '{{ route('recruit-interviews.confirm', ':id') }}'.replace(':id', $(this).data('id')), type: 'POST', blockUI: true,
             data: {_token: '{{ csrf_token() }}', email_candidate: 1},
-            success: function (response) { if (response.status === 'success') { window.location.reload(); } }
+            success: function (response) { if (response.status === 'success') { PageSwap.reload(); } }
         });
     });
 </script>

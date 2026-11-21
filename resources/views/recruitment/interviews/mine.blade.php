@@ -24,7 +24,7 @@
     body.epic .mi-std .ms-item .btn-sm { height: 38px; border-radius: 8px !important; padding: 0 14px !important; display: inline-flex; align-items: center; font-size: 14px; }
 </style>
 {{-- (no heading or intro text: the top bar names the page) --}}
-<div class="content-wrapper mi-std">
+<div class="content-wrapper mi-std" data-swap-links>
     <div>
         <div>
             <div class="ms-stats">

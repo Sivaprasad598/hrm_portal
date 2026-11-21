@@ -19,8 +19,9 @@
     (function ($) {
         if (!window.fetch || !window.DOMParser || !history.pushState || !window.PageSwap) { return; }
 
-        // Links that take part: the app's own navigation.
-        var AREAS = 'aside a[href], #epic-strip a[href], .page-tabs > a[href], #settingsMenu a[href]';
+        // Links that take part: the app's own navigation, and the links inside any part of a page
+        // marked data-swap-links (a page that follows docs/PAGE_RULES.md).
+        var AREAS = 'aside a[href], #epic-strip a[href], .page-tabs > a[href], #settingsMenu a[href], #fullscreen [data-swap-links] a[href]';
         // Pages that are always opened in full: they print markup outside the layout's
         // sections, write to the document as they load, or are not pages of this layout.
         var NEVER = [/\/logout/i, /\/login/i, /\/attendances\/by-request/i, /\/departments-hierarchy/i, /\/designations-hierarchy/i,
@@ -83,7 +84,9 @@
             go(url.href);
         });
 
-        function go(url) {
+        // opts: replace (no new history entry), keepScroll (stay where the reader was), focus (a field name to type on in)
+        function go(url, opts) {
+            opts = opts || {};
             if (current) { current.abort(); }
 
             var request = current = new AbortController();
@@ -105,7 +108,7 @@
 
                     if (!root) { throw new Error('not a swap answer'); }
 
-                    show(page, root, answer[1]);
+                    show(page, root, answer[1], opts);
                 })
                 .catch(function (err) {
                     if (err && err.name === 'AbortError') { return; }
@@ -308,7 +311,9 @@
             })();
         }
 
-        function show(page, root, url) {
+        function show(page, root, url, opts) {
+            opts = opts || {};
+            var scrolled = { page: window.pageYOffset, box: box ? box.scrollTop : 0 };
             var incoming = root.querySelector('#ps-content');
             var scriptBox = root.querySelector('#ps-scripts');
 
@@ -341,7 +346,7 @@
                     document.body.classList.toggle('sidebar-toggled', toggled);
 
                     // 2. the address, the title, the content
-                    history.pushState({ pageSwap: true }, '', url);
+                    history[opts.replace ? 'replaceState' : 'pushState']({ pageSwap: true }, '', url);
                     document.title = page.title;
 
                     var title = root.querySelector('#ps-title .page-title'), titleHere = document.querySelector('#header .page-title');
@@ -352,8 +357,8 @@
                     oldStyles.forEach(function (nodes) { (nodes || []).forEach(function (n) { n.parentNode && n.parentNode.removeChild(n); }); });
 
                     menuHighlights(root);
-                    window.scrollTo(0, 0);
-                    box.scrollTop = 0;
+                    window.scrollTo(0, opts.keepScroll ? scrolled.page : 0);
+                    box.scrollTop = opts.keepScroll ? scrolled.box : 0;
                 };
 
                 var after = function () {
@@ -386,6 +391,15 @@
                                 var el = document.getElementById(pair[0]);
                                 if (el && box.contains(el) && typeof window[pair[1]] === 'function') { el.addEventListener('click', window[pair[1]]); }
                             });
+
+                            // a filter applied while typing: carry on typing in the same box
+                            if (opts.focus) {
+                                var field = box.querySelector('[name="' + String(opts.focus).replace(/["\\]/g, '') + '"]');
+                                if (field && field.focus) {
+                                    field.focus();
+                                    try { var end = (field.value || '').length; field.setSelectionRange(end, end); } catch (e) {}
+                                }
+                            }
 
                             document.body.classList.remove('nav-loading');
                             current = null;

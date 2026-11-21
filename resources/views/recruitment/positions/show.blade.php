@@ -3,7 +3,7 @@
 @section('content')
 @include('recruitment.partials.styles')
 @php $fmt = company()->date_format; @endphp
-<div class="content-wrapper">
+<div class="content-wrapper" data-swap-links>
 
     <div class="bg-white rounded b-shadow-4 p-20 mb-3">
         <div class="d-flex flex-wrap justify-content-between align-items-start">
@@ -90,7 +90,7 @@
                     <div class="rc-card">
                         <a href="{{ route('candidates.show', $application->candidate_id) }}" class="rc-name">{{ $application->candidate->name }}</a>
                         <div class="rc-meta">{{ $application->candidate->experienceText() }}{{ $application->candidate->current_location ? ' · ' . $application->candidate->current_location : '' }}</div>
-                        <div class="rc-meta">{{ $application->candidate->sourceLabel() }} · {{ $application->created_at->format($fmt) }}</div>
+                        <div class="rc-meta">{{ $application->candidate->sourceText() }} · {{ $application->created_at->format($fmt) }}</div>
                         @if ($application->stage_reason)
                             <div class="rc-meta text-danger">{{ $application->stage_reason }}</div>
                         @endif

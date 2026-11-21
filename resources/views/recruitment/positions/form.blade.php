@@ -157,7 +157,7 @@
                     $.easyAjax({
                         url: '{{ route('job-positions.destroy', $position->id) }}', type: 'POST', blockUI: true,
                         data: {_token: '{{ csrf_token() }}', _method: 'DELETE'},
-                        success: function (response) { if (response.status === 'success') { window.location.href = response.redirectUrl; } }
+                        success: function (response) { if (response.status === 'success') { PageSwap.open(response.redirectUrl); } }
                     });
                 }
             });

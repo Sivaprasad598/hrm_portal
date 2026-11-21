@@ -5,7 +5,7 @@
     $fmt = company()->date_format;
     $tz = company()->timezone;
 @endphp
-<div class="content-wrapper">
+<div class="content-wrapper" data-swap-links>
 
     <form method="GET" action="{{ route('recruitment-settings.inbox') }}" class="bg-white rounded b-shadow-4 p-3 mb-3">
         <div class="row align-items-end">

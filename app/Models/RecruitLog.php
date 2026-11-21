@@ -31,6 +31,7 @@ class RecruitLog extends BaseModel
         'note' => ['Note', 'fa-sticky-note', 'text-warning'],
         'file' => ['File added', 'fa-paperclip', 'text-dark-grey'],
         'ai' => ['Read with AI', 'fa-magic', 'text-info'],
+        'referral' => ['Referral', 'fa-user-friends', 'text-success'],
         'interview' => ['Interview scheduled', 'fa-calendar-plus', 'text-primary'],
         'slot' => ['Slot suggested', 'fa-clock', 'text-info'],
         'round' => ['Round result', 'fa-award', 'text-success'],

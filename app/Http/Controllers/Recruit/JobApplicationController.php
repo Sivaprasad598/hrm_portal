@@ -24,11 +24,12 @@ class JobApplicationController extends RecruitBaseController
         $this->pageTitle = 'Applicants';
         $this->board = $request->get('view', 'board') !== 'list';
 
-        $query = JobApplication::with(['candidate.resume', 'position', 'offer'])
+        $query = JobApplication::with(['candidate.resume', 'candidate.referrer', 'position', 'offer'])
             ->withCount(['interviews as interviews_done' => fn ($q) => $q->where('status', 'completed')])
             ->when($request->position_id === 'unassigned', fn ($q) => $q->whereNull('job_position_id'))
             ->when($request->position_id && $request->position_id !== 'unassigned', fn ($q) => $q->where('job_position_id', $request->position_id))
             ->when($request->source, fn ($q, $s) => $q->where('source', $s))
+            ->when($request->referred_by, fn ($q, $r) => $q->whereHas('candidate', fn ($c) => $c->where('referred_by', (int) $r)))
             ->when($request->search, fn ($q, $s) => $q->whereHas('candidate', fn ($c) => $c->where('name', 'like', "%$s%")
                 ->orWhere('email', 'like', "%$s%")->orWhere('mobile', 'like', "%$s%")->orWhere('skills', 'like', "%$s%")));
 
@@ -162,7 +163,7 @@ class JobApplicationController extends RecruitBaseController
     public function quick($id)
     {
         $this->needView();
-        $this->application = JobApplication::with('candidate.resume', 'position')->findOrFail($id);
+        $this->application = JobApplication::with('candidate.resume', 'candidate.referrer', 'position')->findOrFail($id);
         $this->candidate = $this->application->candidate;
         $this->progress = $this->roundProgress([$this->application])[$this->application->id] ?? null;
         $this->choices = Pipeline::choices($this->application);

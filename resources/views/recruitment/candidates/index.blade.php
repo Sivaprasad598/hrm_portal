@@ -3,7 +3,7 @@
 @section('content')
 @include('recruitment.partials.styles')
 @php $fmt = company()->date_format; @endphp
-<div class="content-wrapper">
+<div class="content-wrapper" data-swap-links>
 
     <form method="GET" action="{{ route('candidates.index') }}" id="rc-filter-form" class="bg-white rounded b-shadow-4 p-3 mb-3">
         <div class="row align-items-end">
@@ -29,6 +29,7 @@
                     @endforeach
                 </select>
             </div>
+            @include('recruitment.partials.referrer-filter', ['col' => 'col-lg-2 col-md-3 col-6'])
             <div class="col-lg-2 col-md-6 mb-2">
                 <label class="f-13 text-dark-grey mb-1">Position applied</label>
                 <select name="position_id" class="form-control select-picker" data-live-search="true">
@@ -134,7 +135,7 @@
                     @if (!is_array($value))<input type="hidden" name="{{ $key }}" value="{{ $value }}">@endif
                 @endforeach
                 <label for="per_page" class="mb-0 mr-2">Show</label>
-                <select id="per_page" name="per_page" class="form-control form-control-sm" style="width: 72px" onchange="this.form.submit()">
+                <select id="per_page" name="per_page" class="form-control form-control-sm" style="width: 72px" onchange="PageSwap.submit(this.form)">
                     @foreach ([10, 25, 50] as $size)
                         <option value="{{ $size }}" @selected($candidates->perPage() === $size)>{{ $size }}</option>
                     @endforeach
@@ -144,7 +145,7 @@
         </div>
     @endif
 </div>
-@include('recruitment.partials.standard-bar', ['form' => '#rc-filter-form', 'active' => request()->anyFilled(['search', 'status', 'source', 'position_id', 'exp_min', 'exp_max'])])
+@include('recruitment.partials.standard-bar', ['form' => '#rc-filter-form', 'active' => request()->anyFilled(['search', 'status', 'source', 'referred_by', 'position_id', 'exp_min', 'exp_max'])])
 @endsection
 
 @push('scripts')

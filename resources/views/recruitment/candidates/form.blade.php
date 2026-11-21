@@ -109,7 +109,18 @@
                         </div>
                         <div class="col-md-{{ $editing ? '8' : '3' }}">
                             <x-forms.text fieldId="source_detail" fieldLabel="Source Detail" fieldName="source_detail" :fieldValue="$candidate->source_detail"
-                                fieldPlaceholder="e.g. referred by Ravi (EMP-0042), Naukri, walk-in" />
+                                fieldPlaceholder="e.g. Naukri, LinkedIn, walk-in, campus drive" />
+                        </div>
+                        {{-- Referral: the employee who referred them, from the employee list --}}
+                        <div class="col-md-6 rc-referrer" @if ($candidate->source !== 'referral') style="display: none" @endif>
+                            <x-forms.select fieldId="referred_by" fieldLabel="Referred By" fieldName="referred_by" search="true" fieldRequired="true">
+                                <option value="">Choose the employee</option>
+                                @foreach ($referrers as $emp)
+                                    <option value="{{ $emp->id }}" @selected((int) $candidate->referred_by === (int) $emp->id)>
+                                        {{ $emp->name }}{{ $emp->employee_id ? ' (' . $emp->employee_id . ')' : '' }}{{ $emp->status !== 'active' ? ' (left)' : '' }}
+                                    </option>
+                                @endforeach
+                            </x-forms.select>
                         </div>
                         @if (!$editing)
                             <div class="col-12">
@@ -250,6 +261,16 @@
 <script>
     $(function () {
         datepicker('#date_of_birth', {position: 'bl', ...datepickerConfig});
+
+        // "Referred By" only for a referral
+        $('#source').on('change', function () {
+            var referral = $(this).val() === 'referral';
+            $('.rc-referrer').toggle(referral);
+            if (!referral) {
+                $('#referred_by').val('');
+                if ($.fn.selectpicker) { $('#referred_by').selectpicker('refresh'); }
+            }
+        });
 
         var rowTemplate = $('#exp-rows .exp-row').first().clone();
         rowTemplate.find('input').val('');

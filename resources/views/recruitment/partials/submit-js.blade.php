@@ -21,9 +21,9 @@
                 }
 
                 if (response.redirectUrl) {
-                    window.location.href = response.redirectUrl;
+                    PageSwap.open(response.redirectUrl);
                 } else {
-                    window.location.reload();
+                    PageSwap.reload();
                 }
             }
         });
@@ -33,7 +33,7 @@
         if ($(RIGHT_MODAL).hasClass('in') && typeof closeTaskDetail === 'function') {
             closeTaskDetail();
         } else {
-            window.location.href = fallback;
+            PageSwap.open(fallback);
         }
     };
 </script>

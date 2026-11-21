@@ -288,7 +288,13 @@ $viewAppreciationPermission = user()->permission('view_appreciation');
                                 <x-cards.data-row :label="__('modules.employees.joiningDate')"
                                 :value="(!is_null($employee->employeeDetail) && !is_null($employee->employeeDetail->joining_date)) ? $employee->employeeDetail->joining_date->translatedFormat(company()->date_format) : '--'" />
 
-                                @php $resume = \App\Services\Employee\DocumentTypes::latestResume($employee->id); @endphp
+                                {{-- Hired through Recruitment on an employee's referral --}}
+                                @php $hiredFrom = \App\Models\Candidate::with('referrer')->where('user_id', $employee->id)->whereNotNull('referred_by')->latest('id')->first(); @endphp
+                                @if ($hiredFrom && ($referrerName = $hiredFrom->referrerLabel()))
+                                    <x-cards.data-row label="Referred By" :value="$referrerName" />
+                                @endif
+
+                                @php $resume =\App\Services\Employee\DocumentTypes::latestResume($employee->id); @endphp
                                 <div class="col-12 px-0 pb-3 d-lg-flex d-md-flex d-block">
                                     <p class="mb-0 text-lightest f-14 w-30 d-inline-block text-capitalize">Resume</p>
                                     <p class="mb-0 text-dark-grey f-14 w-70 text-wrap">

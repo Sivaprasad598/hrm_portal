@@ -36,6 +36,18 @@ class RecruitDashboardController extends RecruitBaseController
         $this->sources = JobApplication::where('created_at', '>=', now()->subDays(30))
             ->selectRaw('source, count(*) as n')->groupBy('source')->pluck('n', 'source');
 
+        // Top referrers (90 days): referred, still in the process, joined
+        $referred = Candidate::with('referrer')->whereNotNull('referred_by')->where('created_at', '>=', now()->subDays(90))
+            ->withCount(['applications as moving_count' => fn ($q) => $q->whereIn('stage', ['shortlisted', 'interview', 'selected', 'offered', 'offer_accepted'])])
+            ->get(['id', 'referred_by', 'user_id']);
+        $this->topReferrers = $referred->groupBy('referred_by')->map(fn ($group) => (object) [
+            'id' => (int) $group->first()->referred_by,
+            'label' => $group->first()->referrerLabel(),
+            'referred' => $group->count(),
+            'moving' => $group->where('moving_count', '>', 0)->count(),
+            'joined' => $group->whereNotNull('user_id')->count(),
+        ])->sortByDesc(fn ($r) => [$r->joined, $r->referred])->take(5)->values();
+
         $tz = company()->timezone;
         $this->upcoming = RecruitInterview::with('application.candidate', 'application.position')
             ->where('status', 'scheduled')

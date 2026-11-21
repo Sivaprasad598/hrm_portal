@@ -6,7 +6,7 @@
     $fmt = company()->date_format;
     $query = request()->except(['view', 'page']);
 @endphp
-<div class="content-wrapper">
+<div class="content-wrapper" data-swap-links>
 
     <form method="GET" action="{{ route('job-applications.index') }}" id="rc-filter-form" class="bg-white rounded b-shadow-4 p-3 mb-3">
         <input type="hidden" name="view" value="{{ $board ? 'board' : 'list' }}">
@@ -40,6 +40,7 @@
                     @endforeach
                 </select>
             </div>
+            @include('recruitment.partials.referrer-filter', ['col' => 'col-md-2 col-6'])
             <div class="col-md-3 mb-2">
                 <label class="f-13 text-dark-grey mb-1">Search</label>
                 <input type="text" name="search" value="{{ request('search') }}" class="form-control f-14" placeholder="Name, email, mobile, skill">
@@ -135,6 +136,9 @@
                                     <a href="{{ $application->candidate->resume->url }}" target="_blank" title="Resume"><i class="fa fa-file-alt"></i></a>
                                 @endif
                             </div>
+                            @if ($ref = $application->candidate->referrerLabel(false))
+                                <div class="rc-meta rc-referred mt-1" title="Referred by {{ $application->candidate->referrerLabel() }}"><i class="fa fa-user-friends mr-1"></i>Referred by {{ $ref }}</div>
+                            @endif
                         </div>
                     @empty
                         <p class="f-12 text-dark-grey text-center my-3">None</p>
@@ -158,7 +162,8 @@
                         <td class="f-13">{!! $application->position ? e($application->position->title) : '<span class="text-warning">Unassigned</span>' !!}</td>
                         <td>{!! $application->stageBadge() !!}
                             @if ($application->stage_reason)<div class="f-12 text-dark-grey">{{ $application->stage_reason }}</div>@endif</td>
-                        <td class="f-13">{{ \App\Models\Candidate::SOURCES[$application->source][0] ?? $application->source }}</td>
+                        <td class="f-13">{{ \App\Models\Candidate::SOURCES[$application->source][0] ?? $application->source }}
+                            @if ($ref = $application->candidate->referrerLabel())<div class="f-12 text-dark-grey"><i class="fa fa-user-friends mr-1"></i>{{ $ref }}</div>@endif</td>
                         <td class="f-13">{{ $application->created_at->format($fmt) }}</td>
                         <td class="f-12">
                             @if ($p = $progress[$application->id] ?? null)
@@ -262,7 +267,7 @@
             $.easyAjax({
                 url: moveUrl.replace(':id', id), type: 'POST', blockUI: true,
                 data: { _token: '{{ csrf_token() }}', stage: to },
-                success: function (r) { if (r.status === 'success') { window.location.reload(); } }
+                success: function (r) { if (r.status === 'success') { PageSwap.reload(); } }
             });
         });
     });
@@ -273,7 +278,7 @@
     .rc-col.rc-drop { outline: 2px dashed var(--epic-blue, #cb6b4f); outline-offset: -4px; background: color-mix(in srgb, var(--epic-blue, #cb6b4f) 6%, #f4f6f9); }
 </style>
 @endpush
-@include('recruitment.partials.standard-bar', ['form' => '#rc-filter-form', 'active' => request()->anyFilled(['stage', 'source', 'search'])])
+@include('recruitment.partials.standard-bar', ['form' => '#rc-filter-form', 'active' => request()->anyFilled(['stage', 'source', 'referred_by', 'search'])])
 @endsection
 
 @push('scripts')
@@ -295,7 +300,7 @@
         $.easyAjax({
             url: '{{ route('job-applications.move', ':id') }}'.replace(':id', $(this).data('id')), type: 'POST', blockUI: true,
             data: {_token: '{{ csrf_token() }}', stage: 'shortlisted'},
-            success: function (response) { if (response.status === 'success') { window.location.reload(); } }
+            success: function (response) { if (response.status === 'success') { PageSwap.reload(); } }
         });
     });
 </script>

@@ -148,6 +148,36 @@
                 S.handlers = []; S.listeners = []; S.timers = []; S.onReady = [];
             },
 
+            // ---- for page scripts: move between pages the same way the menu does (docs/PAGE_RULES.md) ----
+            // sections/page-swap adds go() and wanted() when the content swap is on; without them these
+            // are ordinary page loads, so a page can always call them.
+
+            /** Open a page: in place when it can be, else a normal page load. */
+            open: function (url, opts) {
+                var P = window.PageSwap, here = false;
+                try { here = new URL(url, location.href).href.split('#')[0] === location.href.split('#')[0]; } catch (e) {}
+                // the page in view again (a save that answers with its own address): a refresh, not a new step back
+                opts = opts || (here ? { replace: true, keepScroll: true } : {});
+                if (P.go && P.wanted && P.wanted(url)) { P.go(url, opts); } else { window.location.href = url; }
+            },
+
+            /** Show the page in view again after a save: same address, same scroll, no new history entry. */
+            reload: function () {
+                if (window.PageSwap.go && window.PageSwap.wanted && window.PageSwap.wanted(location.href)) { window.PageSwap.go(location.href, { replace: true, keepScroll: true }); } else { window.location.reload(); }
+            },
+
+            /** Apply a GET filter form (its values become the address); any other form is submitted as before. */
+            submit: function (form) {
+                if ((form.getAttribute('method') || 'get').toLowerCase() !== 'get' || !window.PageSwap.go || !window.URLSearchParams || !window.FormData) {
+                    return form.submit();
+                }
+
+                var url = new URL(form.getAttribute('action') || location.href, location.href);
+                url.search = new URLSearchParams(new FormData(form)).toString();
+                var typing = document.activeElement && form.contains(document.activeElement) && document.activeElement.name;
+                window.PageSwap.open(url.href, { keepScroll: true, focus: typing || null });
+            },
+
             /** After a swapped page's scripts: the "page is ready" callbacks they asked for, in order. */
             ready: function () {
                 var list = S.onReady.sort(function (a, b) { return a[0] - b[0]; });

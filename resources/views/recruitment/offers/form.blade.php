@@ -19,6 +19,7 @@
                     <div class="col-12 f-14 mb-2">
                         <strong>{{ $candidate->name }}</strong> for {{ $application->positionLabel() }}
                         @if ($candidate->expected_ctc)<span class="text-dark-grey"> · expects {{ number_format($candidate->expected_ctc) }} / year</span>@endif
+                        @if ($ref = $candidate->referrerLabel())<div class="f-13 text-dark-grey mt-1"><i class="fa fa-user-friends mr-1"></i>Referred by {{ $ref }}</div>@endif
                         @if ($candidate->current_ctc)<span class="text-dark-grey"> · now {{ number_format($candidate->current_ctc) }} / year</span>@endif
                     </div>
 

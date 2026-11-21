@@ -14,7 +14,8 @@
                 <h4 class="mb-0 p-20 f-21 font-weight-normal border-bottom-grey">Offer {{ $offer->reference_no }}</h4>
                 <div class="p-20">
                     <p class="f-14">{{ $offer->application->candidate->name }} · {{ $offer->designation?->name }} · CTC {{ number_format($offer->annual_ctc) }} / year
-                        · joining {{ $offer->joining_date->format($fmt) }} {!! $offer->statusBadge() !!}</p>
+                        · joining {{ $offer->joining_date->format($fmt) }} {!! $offer->statusBadge() !!}
+                        @if ($ref = $offer->application->candidate->referrerLabel())<br><span class="f-13 text-dark-grey"><i class="fa fa-user-friends mr-1"></i>Referred by {{ $ref }}</span>@endif</p>
 
                     <x-forms.select fieldId="status" fieldLabel="The offer is now" fieldName="status" :fieldRequired="true">
                         @foreach ($choices as $choice)

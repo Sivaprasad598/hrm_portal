@@ -47,7 +47,7 @@
             var col = b.closest('[class*="col-"]');
             (col && col.parentNode === form.querySelector('.row') ? col : b).remove();
         });
-        var send = function () { form.submit(); };
+        var send = function () { PageSwap.submit(form); };
         form.querySelectorAll('select, input[type="checkbox"]').forEach(function (s) {
             if (!s.getAttribute('onchange')) { s.addEventListener('change', send); }
         });

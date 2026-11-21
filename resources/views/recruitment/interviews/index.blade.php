@@ -6,7 +6,7 @@
     $fmt = company()->date_format;
     $tz = company()->timezone;
 @endphp
-<div class="content-wrapper">
+<div class="content-wrapper" data-swap-links>
 
     {{-- Which interviews (tabs) on the left, the filters on the right, one bar --}}
     <div class="rc-toolbar mb-3">
@@ -21,20 +21,20 @@
         </nav>
         <form method="GET" action="{{ route('recruit-interviews.index') }}" class="rc-filters">
             <input type="hidden" name="when" value="{{ $when }}">
-            <select name="position_id" class="form-control f-13" onchange="this.form.submit()" aria-label="Position">
+            <select name="position_id" class="form-control f-13" onchange="PageSwap.submit(this.form)" aria-label="Position">
                 <option value="">All positions</option>
                 @foreach ($positions as $position)
                     <option value="{{ $position->id }}" @selected(request('position_id') == $position->id)>{{ $position->title }}</option>
                 @endforeach
             </select>
-            <select name="status" class="form-control f-13" onchange="this.form.submit()" aria-label="Status">
+            <select name="status" class="form-control f-13" onchange="PageSwap.submit(this.form)" aria-label="Status">
                 <option value="">Any status</option>
                 @foreach (\App\Models\RecruitInterview::STATUSES as $key => [$label])
                     <option value="{{ $key }}" @selected(request('status') === $key)>{{ $label }}</option>
                 @endforeach
             </select>
             <label class="rc-check mb-0">
-                <input type="checkbox" name="mine" value="1" @checked(request('mine')) onchange="this.form.submit()">
+                <input type="checkbox" name="mine" value="1" @checked(request('mine')) onchange="PageSwap.submit(this.form)">
                 <span>I am on the panel</span>
             </label>
         </form>
@@ -119,7 +119,7 @@
         $.easyAjax({
             url: '{{ route('recruit-interviews.confirm', ':id') }}'.replace(':id', $(this).data('id')), type: 'POST', blockUI: true,
             data: {_token: '{{ csrf_token() }}', email_candidate: 1},
-            success: function (response) { if (response.status === 'success') { window.location.reload(); } }
+            success: function (response) { if (response.status === 'success') { PageSwap.reload(); } }
         });
     });
 </script>

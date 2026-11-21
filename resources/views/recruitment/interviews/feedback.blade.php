@@ -8,7 +8,7 @@
     $tz = company()->timezone;
     $fmt = company()->date_format;
 @endphp
-<div class="content-wrapper">
+<div class="content-wrapper" data-swap-links>
     <div class="row">
         <div class="col-lg-5 mb-3">
             <div class="bg-white rounded b-shadow-4 p-20">
@@ -16,7 +16,9 @@
                     <a href="{{ route('candidates.show', $candidate->id) }}" class="f-13 text-dark-grey"><i class="fa fa-arrow-left mr-1"></i>Candidate</a>
                 @endif
                 <h4 class="f-21 font-weight-normal mt-2 mb-1">{{ $candidate->name }}</h4>
-                <div class="f-13 text-dark-grey mb-3">{{ $application->positionLabel() }}</div>
+                <div class="f-13 text-dark-grey mb-3">{{ $application->positionLabel() }}
+                    @if ($ref = $candidate->referrerLabel())<div class="mt-1"><i class="fa fa-user-friends mr-1"></i>Referred by {{ $ref }}</div>@endif
+                </div>
 
                 <div class="f-13">
                     <div class="mb-1"><strong>{{ $interview->round }}</strong> {!! $interview->statusBadge() !!} {!! $interview->resultBadge() !!}</div>
@@ -167,7 +169,7 @@
         $.easyAjax({
             url: '{{ route('recruit-interviews.marks', $interview->id) }}', container: '#marks-form', type: 'POST', blockUI: true,
             disableButton: true, buttonSelector: '#save-marks', data: $('#marks-form').serialize(),
-            success: function (response) { if (response.status === 'success') { window.location.href = response.redirectUrl; } }
+            success: function (response) { if (response.status === 'success') { PageSwap.open(response.redirectUrl); } }
         });
     });
 
@@ -175,7 +177,7 @@
         $.easyAjax({
             url: '{{ route('recruit-interviews.feedback.store', $interview->id) }}', container: '#feedback-form', type: 'POST', blockUI: true,
             disableButton: true, buttonSelector: '#save-feedback', data: $('#feedback-form').serialize(),
-            success: function (response) { if (response.status === 'success') { window.location.href = response.redirectUrl; } }
+            success: function (response) { if (response.status === 'success') { PageSwap.open(response.redirectUrl); } }
         });
     });
 </script>

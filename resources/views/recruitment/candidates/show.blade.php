@@ -8,7 +8,7 @@
     $flow = ['new', 'shortlisted', 'interview', 'selected', 'offered', 'offer_accepted', 'joined'];
     $canConvert = $canManage && !$candidate->user_id && $applications->contains('stage', 'offer_accepted');
 @endphp
-<div class="content-wrapper">
+<div class="content-wrapper" data-swap-links>
 
     @if (session('recruit_error'))
         <div class="alert alert-danger f-14">{{ session('recruit_error') }}</div>
@@ -30,6 +30,9 @@
                         @if ($candidate->email) <span class="mr-3"><i class="fa fa-envelope mr-1"></i><a href="mailto:{{ $candidate->email }}">{{ $candidate->email }}</a></span> @endif
                         @if ($candidate->mobile) <span class="mr-3"><i class="fa fa-phone mr-1"></i><a href="tel:{{ $candidate->mobile }}">{{ $candidate->mobile }}</a></span> @endif
                         <span class="mr-3"><i class="fa {{ \App\Models\Candidate::SOURCES[$candidate->source][1] ?? 'fa-circle' }} mr-1"></i>{{ $candidate->sourceLabel() }}{{ $candidate->source_detail ? ' — ' . $candidate->source_detail : '' }}</span>
+                        @if ($ref = $candidate->referrerLabel())
+                            <span class="mr-3"><i class="fa fa-user-friends mr-1"></i>Referred by <a href="{{ route('employees.show', $candidate->referred_by) }}" class="no-swap">{{ $ref }}</a></span>
+                        @endif
                         <span>Added {{ $candidate->created_at->tz($tz)->format($fmt) }}</span>
                     </div>
                 </div>
@@ -424,7 +427,7 @@
             $.easyAjax({
                 url: '{{ route('job-applications.move', ':id') }}'.replace(':id', id), type: 'POST', blockUI: true,
                 data: {_token: '{{ csrf_token() }}', stage: 'shortlisted'},
-                success: function (response) { if (response.status === 'success') { window.location.reload(); } }
+                success: function (response) { if (response.status === 'success') { PageSwap.reload(); } }
             });
         });
 
@@ -435,7 +438,7 @@
             $.easyAjax({
                 url: '{{ route('recruit-interviews.confirm', ':id') }}'.replace(':id', id), type: 'POST', blockUI: true,
                 data: {_token: '{{ csrf_token() }}', email_candidate: email},
-                success: function (response) { if (response.status === 'success') { window.location.reload(); } }
+                success: function (response) { if (response.status === 'success') { PageSwap.reload(); } }
             });
         });
 
@@ -443,7 +446,7 @@
             $.easyAjax({
                 url: '{{ route('candidates.note', $candidate->id) }}', container: '#note-form', type: 'POST', blockUI: true,
                 disableButton: true, buttonSelector: '#add-note', data: $('#note-form').serialize(),
-                success: function (response) { if (response.status === 'success') { window.location.reload(); } }
+                success: function (response) { if (response.status === 'success') { PageSwap.reload(); } }
             });
         });
 
@@ -451,14 +454,14 @@
             $.easyAjax({
                 url: '{{ route('candidates.files.store', $candidate->id) }}', container: '#upload-form', type: 'POST', blockUI: true, file: true,
                 disableButton: true, buttonSelector: '#upload-file', data: $('#upload-form').serialize(),
-                success: function (response) { if (response.status === 'success') { window.location.reload(); } }
+                success: function (response) { if (response.status === 'success') { PageSwap.reload(); } }
             });
         });
 
         $('#ai-fill').on('click', function () {
             $.easyAjax({
                 url: '{{ route('candidates.ai', $candidate->id) }}', type: 'POST', blockUI: true, data: {_token: '{{ csrf_token() }}'},
-                success: function (response) { if (response.status === 'success') { window.location.reload(); } }
+                success: function (response) { if (response.status === 'success') { PageSwap.reload(); } }
             });
         });
 
@@ -473,7 +476,7 @@
                     $.easyAjax({
                         url: '{{ route('candidates.files.destroy', ':id') }}'.replace(':id', id), type: 'POST', blockUI: true,
                         data: {_token: '{{ csrf_token() }}', _method: 'DELETE'},
-                        success: function (response) { if (response.status === 'success') { window.location.reload(); } }
+                        success: function (response) { if (response.status === 'success') { PageSwap.reload(); } }
                     });
                 }
             });
@@ -490,7 +493,7 @@
                     $.easyAjax({
                         url: '{{ route('candidates.destroy', $candidate->id) }}', type: 'POST', blockUI: true,
                         data: {_token: '{{ csrf_token() }}', _method: 'DELETE'},
-                        success: function (response) { if (response.status === 'success') { window.location.href = response.redirectUrl; } }
+                        success: function (response) { if (response.status === 'success') { PageSwap.open(response.redirectUrl); } }
                     });
                 }
             });

@@ -3,7 +3,7 @@
 @section('content')
 @include('recruitment.partials.styles')
 @php $fmt = company()->date_format; @endphp
-<div class="content-wrapper">
+<div class="content-wrapper" data-swap-links>
 
     <form method="GET" action="{{ route('job-positions.index') }}" id="rc-filter-form" class="bg-white rounded b-shadow-4 p-3 mb-3">
         <div class="row align-items-end">

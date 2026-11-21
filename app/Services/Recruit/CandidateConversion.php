@@ -128,8 +128,12 @@ class CandidateConversion
         }
 
         $this->pipeline->log($candidate->id, $application?->id, 'converted',
-            'Added as an employee by ' . (user()?->name ?? 'the system') . ($copied ? ' · ' . $copied . ' file(s) copied to their documents' : ''),
+            'Added as an employee by ' . (user()?->name ?? 'the system') . ($copied ? ' · ' . $copied . ' file(s) copied to their documents' : '')
+            . ($candidate->referred_by ? ' · referred by ' . $candidate->referrerLabel() : ''),
             null, null, $candidate->company_id);
+
+        // The referrer is told their referral joined
+        app(Referral::class)->joined($candidate, $application?->position?->title);
     }
 
     /** The resume, the signed offer and the other documents go into the employee's documents. @return int */

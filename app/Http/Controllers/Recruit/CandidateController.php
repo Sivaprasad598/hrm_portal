@@ -38,6 +38,7 @@ class CandidateController extends RecruitBaseController
                 ->orWhere('qualification', 'like', "%$s%")->orWhere('current_company', 'like', "%$s%")
                 ->orWhere('current_designation', 'like', "%$s%")->orWhere('current_location', 'like', "%$s%")))
             ->when($request->source, fn ($q, $s) => $q->where('source', $s))
+            ->when($request->referred_by, fn ($q, $r) => $q->where('referred_by', (int) $r))
             ->when($request->filled('exp_min'), fn ($q) => $q->where('total_experience', '>=', (float) $request->exp_min))
             ->when($request->filled('exp_max'), fn ($q) => $q->where('total_experience', '<=', (float) $request->exp_max))
             ->when($request->position_id, fn ($q, $p) => $q->whereHas('applications', fn ($a) => $a->where('job_position_id', $p)))
@@ -57,6 +58,7 @@ class CandidateController extends RecruitBaseController
     {
         $this->needManage();
         $this->candidate = new Candidate(['source' => 'manual']);
+        $this->referrers = \App\Services\Recruit\Referral::employees();
         $this->positions = JobPosition::whereIn('status', ['open', 'on_hold'])->orderBy('title')->get();
         $this->positionId = (int) $request->position_id;
         $this->aiReady = AiSetting::forCompany(company()->id)->ready();
@@ -64,7 +66,7 @@ class CandidateController extends RecruitBaseController
         return $this->panel('recruitment.candidates.form', 'Add Candidate');
     }
 
-    public function store(Request $request, CandidateIntake $intake)
+    public function store(Request $request, CandidateIntake $intake, \App\Services\Recruit\Referral $referral)
     {
         $this->needManage();
         $data = $this->validated($request);
@@ -93,13 +95,17 @@ class CandidateController extends RecruitBaseController
             $candidate->save();
         }
 
+        if ($candidate->source === 'referral') {
+            $referral->set($candidate, $data['referred_by'], $outcome['application']->id);
+        }
+
         return Reply::successWithData('Candidate added.', ['redirectUrl' => route('candidates.show', $candidate->id)]);
     }
 
     public function show($id)
     {
         $this->needView();
-        $this->candidate = Candidate::with(['files', 'employee', 'logs.doneBy', 'logs.application.position'])->findOrFail($id);
+        $this->candidate = Candidate::with(['files', 'employee', 'referrer', 'logs.doneBy', 'logs.application.position'])->findOrFail($id);
         $this->pageTitle = $this->candidate->name;
 
         $this->applications = $this->candidate->applications()->with(['position', 'offers.designation', 'offers.signedFile',
@@ -120,6 +126,7 @@ class CandidateController extends RecruitBaseController
     {
         $this->needManage();
         $this->candidate = Candidate::findOrFail($id);
+        $this->referrers = \App\Services\Recruit\Referral::employees($this->candidate->referred_by ? (int) $this->candidate->referred_by : null);
         $this->positions = collect();
         $this->positionId = 0;
         $this->aiReady = AiSetting::forCompany(company()->id)->ready();
@@ -127,7 +134,7 @@ class CandidateController extends RecruitBaseController
         return $this->panel('recruitment.candidates.form', 'Edit Candidate — ' . $this->candidate->name);
     }
 
-    public function update(Request $request, $id, CandidateIntake $intake, Pipeline $pipeline)
+    public function update(Request $request, $id, CandidateIntake $intake, Pipeline $pipeline, \App\Services\Recruit\Referral $referral)
     {
         $this->needManage();
         $candidate = Candidate::findOrFail($id);
@@ -145,6 +152,8 @@ class CandidateController extends RecruitBaseController
         $data['mobile'] = $mobile;
         $data['skills'] = $intake->skills($request->skills);
         $data['work_experience'] = $this->workExperience($request);
+        $referredBy = $data['source'] === 'referral' ? $data['referred_by'] : null;
+        unset($data['referred_by']);
         $candidate->fill($data);
         $changed = array_keys($candidate->getDirty());
         $candidate->save();
@@ -157,6 +166,9 @@ class CandidateController extends RecruitBaseController
         if ($changed) {
             $pipeline->log($candidate->id, null, 'updated', 'Changed: ' . str_replace('_', ' ', implode(', ', $changed)));
         }
+
+        // the referrer has its own timeline line (and a newly named referrer is told)
+        $referral->set($candidate, $referredBy);
 
         return Reply::successWithData('Candidate updated.', ['redirectUrl' => route('candidates.show', $candidate->id)]);
     }
@@ -335,6 +347,7 @@ class CandidateController extends RecruitBaseController
             'notice_period_days' => 'nullable|integer|min:0|max:365',
             'source' => ['nullable', Rule::in(array_keys(Candidate::SOURCES))],
             'source_detail' => 'nullable|string|max:191',
+            'referred_by' => 'nullable|integer|required_if:source,referral',
             'notes' => 'nullable|string|max:5000',
             'resume_file' => 'nullable|file|mimes:pdf,doc,docx|max:5120',
             'job_position_id' => 'nullable|integer',
@@ -342,7 +355,14 @@ class CandidateController extends RecruitBaseController
             'email.required_without' => 'Give an email or a mobile number.',
             'mobile.required_without' => 'Give an email or a mobile number.',
             'resume_file.mimes' => 'The resume must be a PDF or Word file.',
+            'referred_by.required_if' => 'Choose the employee who referred the candidate.',
         ]);
+
+        $referredBy = $request->source === 'referral' ? (int) $request->referred_by : null;
+
+        if ($referredBy && !\App\Services\Recruit\Referral::allowed($referredBy, $candidate?->referred_by ? (int) $candidate->referred_by : null)) {
+            $this->fail('Choose the referrer from the employee list.');
+        }
 
         $data = $request->only(['name', 'email', 'mobile', 'gender', 'address', 'current_location', 'qualification', 'total_experience',
             'current_company', 'current_designation', 'current_ctc', 'expected_ctc', 'notice_period_days', 'source_detail', 'notes']);
@@ -358,6 +378,7 @@ class CandidateController extends RecruitBaseController
         }
 
         $data['skills'] = $request->skills;
+        $data['referred_by'] = $referredBy;
 
         return $data;
     }

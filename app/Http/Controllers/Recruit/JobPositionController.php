@@ -72,7 +72,7 @@ class JobPositionController extends RecruitBaseController
         $this->position = JobPosition::with('department', 'designation', 'branch', 'createdBy')->findOrFail($id);
         $this->pageTitle = $this->position->title;
 
-        $this->applications = $this->position->applications()->with('candidate', 'offer')
+        $this->applications = $this->position->applications()->with('candidate.referrer', 'offer')
             ->orderByRaw("FIELD(stage, '" . implode("','", array_keys(JobApplication::STAGES)) . "')")
             ->orderByDesc('id')->get();
         $this->stageCounts = $this->applications->countBy('stage');

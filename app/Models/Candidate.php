@@ -65,9 +65,41 @@ class Candidate extends BaseModel
         return $this->belongsTo(User::class, 'user_id');
     }
 
+    /** The employee who referred them (Source = Referral). Kept when that employee leaves. */
+    public function referrer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'referred_by')->withoutGlobalScopes()
+            ->leftJoin('employee_details as ref_ed', 'ref_ed.user_id', '=', 'users.id')
+            ->select('users.id', 'users.name', 'users.status', 'ref_ed.employee_id');
+    }
+
+    /** "Ravi Kumar (EMP-0042)", "(left)" added once they are no longer active; null when nobody is set. */
+    public function referrerLabel(bool $withId = true): ?string
+    {
+        $r = $this->referred_by ? $this->referrer : null;
+
+        if (!$r) {
+            return null;
+        }
+
+        return $r->name . ($withId && $r->employee_id ? ' (' . $r->employee_id . ')' : '') . ($r->status !== 'active' ? ' (left)' : '');
+    }
+
     public function sourceLabel(): string
     {
         return self::SOURCES[$this->source][0] ?? ucfirst((string) $this->source);
+    }
+
+    /** "Referral · Ravi Kumar" for a linked referral, else the source; with the free-text detail when $detail. */
+    public function sourceText(bool $detail = false): string
+    {
+        $text = $this->sourceLabel();
+
+        if ($ref = $this->referrerLabel(false)) {
+            $text .= ' · ' . $ref;
+        }
+
+        return $detail && $this->source_detail ? $text . ' · ' . $this->source_detail : $text;
     }
 
     public function initials(): string

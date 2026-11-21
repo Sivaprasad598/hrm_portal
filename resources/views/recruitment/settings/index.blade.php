@@ -270,7 +270,7 @@ $answer = json_decode(curl_exec($ch), true);   // ['status' => 'success', 'refer
             $.easyAjax({
                 url: '{{ route('recruitment-settings.update') }}', container: '#' + form, type: 'POST', blockUI: true,
                 disableButton: true, buttonSelector: '#' + button, data: $('#' + form).serialize(),
-                success: function (response) { if (response.status === 'success') { window.location.reload(); } }
+                success: function (response) { if (response.status === 'success') { PageSwap.reload(); } }
             });
         }
 
@@ -287,7 +287,7 @@ $answer = json_decode(curl_exec($ch), true);   // ['status' => 'success', 'refer
         $('#fetch-mailbox').on('click', function () {
             $.easyAjax({ url: '{{ route('recruitment-settings.fetch') }}', type: 'POST', blockUI: true, disableButton: true,
                 buttonSelector: '#fetch-mailbox', data: {_token: '{{ csrf_token() }}'},
-                success: function (response) { if (response.status === 'success') { setTimeout(function () { window.location.reload(); }, 1500); } } });
+                success: function (response) { if (response.status === 'success') { setTimeout(function () { PageSwap.reload(); }, 1500); } } });
         });
 
         $('#new-api-key').on('click', function () {

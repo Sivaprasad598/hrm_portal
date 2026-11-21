@@ -37,6 +37,7 @@
             </div>
             <div class="qv-sub mt-1">
                 Applied {{ $application->created_at->format($fmt) }} · {{ $c->sourceLabel() }}{{ $c->source_detail ? ' · ' . $c->source_detail : '' }}
+                @if ($ref = $c->referrerLabel())<div class="mt-1"><i class="fa fa-user-friends mr-1"></i>Referred by <strong>{{ $ref }}</strong></div>@endif
             </div>
         </div>
     </div>
@@ -159,7 +160,7 @@
         $.easyAjax({
             url: '{{ route('job-applications.move', ':id') }}'.replace(':id', $(this).data('id')), type: 'POST', blockUI: true,
             data: {_token: '{{ csrf_token() }}', stage: 'shortlisted'},
-            success: function (response) { if (response.status === 'success') { window.location.reload(); } }
+            success: function (response) { if (response.status === 'success') { PageSwap.reload(); } }
         });
     });
 </script>
