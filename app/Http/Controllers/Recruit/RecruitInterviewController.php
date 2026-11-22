@@ -32,7 +32,7 @@ class RecruitInterviewController extends RecruitBaseController
         $this->needView();
         $this->pageTitle = 'Interviews';
         $tz = company()->timezone;
-        $when = $request->get('when', 'upcoming');
+        $when = $request->input('when', 'upcoming');
 
         $this->interviews = RecruitInterview::with(['application.candidate', 'application.position', 'feedback'])
             ->when($when === 'today', fn ($q) => $q->whereBetween('starts_at', [now()->tz($tz)->startOfDay()->utc(), now()->tz($tz)->endOfDay()->utc()]))
@@ -45,9 +45,22 @@ class RecruitInterviewController extends RecruitBaseController
             ->when($request->mine, fn ($q) => $q->whereJsonContains('interviewer_ids', (int) user()->id))
             ->when($request->position_id, fn ($q, $p) => $q->whereHas('application', fn ($a) => $a->where('job_position_id', $p)))
             ->orderBy('starts_at', in_array($when, ['past', 'feedback'], true) ? 'desc' : 'asc')
-            ->paginate(40)->withQueryString();
+            ->paginate(in_array((int) $request->per_page, [10, 25, 50, 100], true) ? (int) $request->per_page : 25)->withQueryString();
 
         $this->when = $when;
+
+        // How many each tab holds (with the same position / "I am on the panel" filters)
+        $base = fn () => RecruitInterview::query()
+            ->when($request->mine, fn ($q) => $q->whereJsonContains('interviewer_ids', (int) user()->id))
+            ->when($request->position_id, fn ($q, $p) => $q->whereHas('application', fn ($a) => $a->where('job_position_id', $p)));
+        $dayStart = now()->tz($tz)->startOfDay()->utc();
+        $this->tabCounts = [
+            'confirm' => $base()->where('status', 'proposed')->count(),
+            'upcoming' => $base()->where('status', '<>', 'proposed')->where('starts_at', '>=', $dayStart)->count(),
+            'today' => $base()->where('status', '<>', 'proposed')->whereBetween('starts_at', [$dayStart, now()->tz($tz)->endOfDay()->utc()])->count(),
+            'past' => null,
+            'feedback' => $base()->whereIn('id', $this->awaitingIds())->count(),
+        ];
         $this->positions = JobPosition::orderBy('title')->get(['id', 'title', 'code']);
         $this->interviewerNames = \App\Models\User::withoutGlobalScopes()
             ->whereIn('id', $this->interviews->getCollection()->pluck('interviewer_ids')->flatten()->unique()->filter())->pluck('name', 'id');
@@ -127,9 +140,12 @@ class RecruitInterviewController extends RecruitBaseController
         }
 
         $wasProposed = $interview->status === 'proposed';
+        // Checked before the try: its own refusals ("Choose at least one interviewer ...") are
+        // HTTP responses, which the catch below would turn into an empty message
+        $details = $this->validated($request);
 
         try {
-            $scheduler->reschedule($interview, $this->validated($request), $request->boolean('email_candidate'));
+            $scheduler->reschedule($interview, $details, $request->boolean('email_candidate'));
         } catch (\RuntimeException $e) {
             return Reply::error($e->getMessage());
         }
@@ -259,6 +275,14 @@ class RecruitInterviewController extends RecruitBaseController
         $this->done = $all->reject($mineToDo)->reject(fn ($i) => $i->status === 'scheduled' && $i->starts_at->isFuture())
             ->sortByDesc('starts_at')->take(50)->values();
         $this->automation = app(RecruitAutomation::class);
+
+        // HR confirms the slots the system suggested: shown here too, not only on the Interviews page
+        $this->toConfirm = RecruitAccess::can('manage')
+            ? RecruitInterview::withoutGlobalScopes()->with(['application.candidate', 'application.position'])
+                ->where('company_id', company()->id)->where('status', 'proposed')
+                ->whereHas('application', fn ($q) => $q->withoutGlobalScopes()->whereIn('stage', \App\Models\JobApplication::ACTIVE))
+                ->orderBy('starts_at')->get()
+            : collect();
 
         return view('recruitment.interviews.mine', $this->data);
     }

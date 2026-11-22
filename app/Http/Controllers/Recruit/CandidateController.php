@@ -47,7 +47,7 @@ class CandidateController extends RecruitBaseController
             ->when($request->status === 'joined', fn ($q) => $q->whereNotNull('user_id'))
             ->orderByDesc('id')
             // 10 a page by default; Show 10 / 25 / 50 at the foot of the list
-            ->paginate(in_array((int) $request->per_page, [10, 25, 50], true) ? (int) $request->per_page : 10)->withQueryString();
+            ->paginate(in_array((int) $request->per_page, [10, 25, 50, 100], true) ? (int) $request->per_page : 10)->withQueryString();
 
         $this->positions = JobPosition::orderByDesc('id')->get(['id', 'title', 'code', 'status']);
 
@@ -333,8 +333,9 @@ class CandidateController extends RecruitBaseController
     {
         $request->validate([
             'name' => 'required|string|max:191',
-            'email' => 'nullable|email|max:191|required_without:mobile',
-            'mobile' => 'nullable|string|max:20|required_without:email',
+            'email' => 'required|email|max:191',
+            'mobile' => ['required', 'string', 'regex:/^[0-9 ]{6,15}$/'],
+            'mobile_code' => ['nullable', 'regex:/^[0-9]{1,5}$/'],
             'gender' => 'nullable|in:male,female,others',
             'address' => 'nullable|string|max:1000',
             'current_location' => 'nullable|string|max:191',
@@ -352,8 +353,10 @@ class CandidateController extends RecruitBaseController
             'resume_file' => 'nullable|file|mimes:pdf,doc,docx|max:5120',
             'job_position_id' => 'nullable|integer',
         ], [
-            'email.required_without' => 'Give an email or a mobile number.',
-            'mobile.required_without' => 'Give an email or a mobile number.',
+            'email.required' => 'Enter the candidate\'s email.',
+            'email.email' => 'Enter a valid email address.',
+            'mobile.required' => 'Enter the candidate\'s mobile number.',
+            'mobile.regex' => 'Enter the mobile number in digits only (6 to 15), without the country code.',
             'resume_file.mimes' => 'The resume must be a PDF or Word file.',
             'referred_by.required_if' => 'Choose the employee who referred the candidate.',
         ]);
@@ -369,6 +372,15 @@ class CandidateController extends RecruitBaseController
 
         foreach (['total_experience', 'current_ctc', 'expected_ctc', 'notice_period_days', 'gender'] as $key) {
             $data[$key] = $request->filled($key) ? $request->input($key) : null;
+        }
+
+        // An Indian number is kept as its digits; any other with + and its country code
+        $code = $request->filled('mobile_code') ? (string) $request->mobile_code : '91';
+        $digits = preg_replace('/\D/', '', (string) $request->mobile);
+        $data['mobile'] = $code === '91' ? $digits : '+' . $code . $digits;
+
+        if ($code === '91' && !preg_match('/^[6-9][0-9]{9}$/', $digits)) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['mobile' => 'An Indian mobile number has 10 digits and starts with 6, 7, 8 or 9.']);
         }
 
         $data['date_of_birth'] = $this->date($request->date_of_birth, 'date of birth', false);

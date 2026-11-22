@@ -118,6 +118,40 @@
 
         // (for a script that wants to move to a page the same way: PageSwap.go(url))
         PageSwap.go = go;
+
+        // Back / Forward: the page at that address, in place. (js/main.js reloaded the whole page,
+        // and after a side panel had been closed it did nothing at all - the address changed and
+        // the page stayed.) The step back that closing the side panel makes lands on the page in
+        // view, so it changes nothing here; Back while the panel is open closes the panel.
+        PageSwap.shownUrl = location.href;
+        // the addresses the side panel has put in the bar: going back or forward onto one is not a page to open
+        var panelUrls = {};
+        $(document).on('click', '.openRightModal', function () {
+            try { panelUrls[new URL(this.getAttribute('href'), location.href).href.split('#')[0]] = true; } catch (e) {}
+        });
+        $(function () { try { sessionStorage.setItem('RIGHT_MODAL', 'opened'); } catch (e) {} });   // main.js: no full reload
+        window.addEventListener('popstate', function () {
+            try { sessionStorage.setItem('RIGHT_MODAL', 'opened'); } catch (e) {}
+            var here = location.href.split('#')[0];
+            var panel = document.getElementById('task-detail-1');
+
+            // Back with the side panel (or a panel opened inside it) open: the panel closes and the
+            // page under it stays, its address back in the bar
+            if (panel && panel.classList.contains('in')) {
+                ['task-detail-1', 'close-task-detail-overlay', 'close-task-detail'].forEach(function (id) {
+                    var el = document.getElementById(id);
+                    if (el) { el.classList.remove('in'); }
+                });
+                if (here !== String(PageSwap.shownUrl || '').split('#')[0]) { history.replaceState({ pageSwap: true }, '', PageSwap.shownUrl); }
+                return;
+            }
+            if (document.querySelector('.modal.show') && $.fn.modal) { $('.modal.show').modal('hide'); }
+
+            if (here === String(PageSwap.shownUrl || '').split('#')[0]) { return; }
+            if (panelUrls[here]) { history.replaceState({ pageSwap: true }, '', PageSwap.shownUrl); return; }
+
+            if (PageSwap.wanted(here)) { go(here, { fromHistory: true }); } else { window.location.reload(); }
+        });
         PageSwap.wanted = function (url) { try { var u = new URL(url, location.href); return !failed[u.pathname] && !NEVER.some(function (re) { return re.test(u.pathname + u.search); }); } catch (e) { return false; } };
 
         // ---- putting the new page in ------------------------------------------------
@@ -341,12 +375,18 @@
                         Array.prototype.push.apply($.fn.dataTable.settings, kept);
                     }
 
+                    // The page's own body classes, keeping the open sidebar and a message on screen:
+                    // SweetAlert marks a toast on <body> (swal2-toast-shown) - without it the toast turns
+                    // into a full-screen dimmed layer and fails to close, so nothing could be clicked.
                     var toggled = document.body.classList.contains('sidebar-toggled');
+                    var swal = Array.prototype.filter.call(document.body.classList, function (c) { return c.indexOf('swal2-') === 0; });
                     document.body.className = PageSwap.bodyClass;
                     document.body.classList.toggle('sidebar-toggled', toggled);
+                    swal.forEach(function (c) { document.body.classList.add(c); });
 
                     // 2. the address, the title, the content
-                    history[opts.replace ? 'replaceState' : 'pushState']({ pageSwap: true }, '', url);
+                    if (!opts.fromHistory) { history[opts.replace ? 'replaceState' : 'pushState']({ pageSwap: true }, '', url); }
+                    PageSwap.shownUrl = url;
                     document.title = page.title;
 
                     var title = root.querySelector('#ps-title .page-title'), titleHere = document.querySelector('#header .page-title');

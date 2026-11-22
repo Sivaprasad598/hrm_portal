@@ -4,7 +4,7 @@
 <div class="row">
     <div class="col-sm-12">
         <x-form id="move-form" method="POST">
-            <div class="add-client bg-white rounded">
+            <div class="add-client bg-white rounded rc-form">
                 <h4 class="mb-0 p-20 f-21 font-weight-normal border-bottom-grey">{{ $application->candidate->name }}</h4>
                 <div class="p-20">
                     <p class="f-14 mb-3">Now: {!! $application->stageBadge() !!} for <strong>{{ $application->positionLabel() }}</strong></p>
@@ -41,7 +41,7 @@
 
                     <p class="f-12 text-dark-grey mb-0">
                         <strong>Selected</strong> needs a completed interview with every scorecard in. Offered and Offer Accepted follow the offer;
-                        Joined follows "Convert to Employee". Rejected, On Hold and Withdrawn need a reason.
+                        Joined follows "Register as Employee". Rejected, On Hold and Withdrawn need a reason.
                     </p>
                 </div>
                 <x-form-actions>

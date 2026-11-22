@@ -53,20 +53,15 @@
         </div>
     </form>
 
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <span class="f-15 font-weight-600 text-dark">{{ $candidates->total() }} candidate(s)
-            @if (request()->hasAny(['search', 'status', 'source', 'position_id', 'exp_min', 'exp_max']))
-                <a href="{{ route('candidates.index') }}" class="f-13 font-weight-normal ml-2">Clear filters</a>
-            @endif
-        </span>
-        @if ($canManage)
-            <a href="{{ route('candidates.create') }}" class="btn btn-primary rounded f-14 openRightModal"><i class="fa fa-user-plus mr-1"></i>Add Candidate</a>
-        @endif
-    </div>
+    @if ($canManage)
+        <a href="{{ route('candidates.create') }}" class="btn btn-primary rounded f-14 openRightModal"><i class="fa fa-user-plus mr-1"></i>Add Candidate</a>
+    @endif
 
-    <div class="bg-white rounded b-shadow-4 table-responsive">
-        <table class="table table-hover mb-0 f-14">
-            <thead class="bg-light">
+    {{-- The list and its foot in one card, as the app's tables (Employees) --}}
+    <div class="rc-list-card">
+        <div class="table-responsive">
+        <table class="table mb-0 f-14 rc-list">
+            <thead>
                 <tr>
                     <th>Candidate</th>
                     <th>Experience</th>
@@ -124,26 +119,9 @@
             @endforelse
             </tbody>
         </table>
-    </div>
-
-    {{-- Where you are in the list, how many per page, and the pages --}}
-    @if ($candidates->total() > 0)
-        <div class="rc-pager">
-            <span class="text-dark-grey f-13">Showing <strong>{{ $candidates->firstItem() }}–{{ $candidates->lastItem() }}</strong> of <strong>{{ $candidates->total() }}</strong></span>
-            <form method="GET" class="d-inline-flex align-items-center f-13 text-dark-grey mb-0">
-                @foreach (request()->except(['per_page', 'page']) as $key => $value)
-                    @if (!is_array($value))<input type="hidden" name="{{ $key }}" value="{{ $value }}">@endif
-                @endforeach
-                <label for="per_page" class="mb-0 mr-2">Show</label>
-                <select id="per_page" name="per_page" class="form-control form-control-sm" style="width: 72px" onchange="PageSwap.submit(this.form)">
-                    @foreach ([10, 25, 50] as $size)
-                        <option value="{{ $size }}" @selected($candidates->perPage() === $size)>{{ $size }}</option>
-                    @endforeach
-                </select>
-            </form>
-            <div class="ml-md-auto">{{ $candidates->onEachSide(1)->links() }}</div>
         </div>
-    @endif
+        @include('recruitment.partials.list-footer', ['paginator' => $candidates])
+    </div>
 </div>
 @include('recruitment.partials.standard-bar', ['form' => '#rc-filter-form', 'active' => request()->anyFilled(['search', 'status', 'source', 'referred_by', 'position_id', 'exp_min', 'exp_max'])])
 @endsection

@@ -70,11 +70,15 @@ class Candidate extends BaseModel
     {
         return $this->belongsTo(User::class, 'referred_by')->withoutGlobalScopes()
             ->leftJoin('employee_details as ref_ed', 'ref_ed.user_id', '=', 'users.id')
-            ->select('users.id', 'users.name', 'users.status', 'ref_ed.employee_id');
+            ->leftJoin('teams as ref_team', 'ref_team.id', '=', 'ref_ed.department_id')
+            ->select('users.id', 'users.name', 'users.status', 'ref_ed.employee_id', 'ref_team.team_name as division');
     }
 
-    /** "Ravi Kumar (EMP-0042)", "(left)" added once they are no longer active; null when nobody is set. */
-    public function referrerLabel(bool $withId = true): ?string
+    /**
+     * "Ravi Kumar (EMP-0042) · Engineering": the referrer with their employee id and
+     * Division, "(left)" once they are no longer active; null when nobody is set.
+     */
+    public function referrerLabel(bool $withId = true, bool $withDivision = true): ?string
     {
         $r = $this->referred_by ? $this->referrer : null;
 
@@ -82,7 +86,8 @@ class Candidate extends BaseModel
             return null;
         }
 
-        return $r->name . ($withId && $r->employee_id ? ' (' . $r->employee_id . ')' : '') . ($r->status !== 'active' ? ' (left)' : '');
+        return $r->name . ($withId && $r->employee_id ? ' (' . $r->employee_id . ')' : '') . ($r->status !== 'active' ? ' (left)' : '')
+            . ($withDivision && $r->division ? ' · ' . $r->division : '');
     }
 
     public function sourceLabel(): string

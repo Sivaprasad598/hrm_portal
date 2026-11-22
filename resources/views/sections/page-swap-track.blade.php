@@ -152,18 +152,46 @@
             // sections/page-swap adds go() and wanted() when the content swap is on; without them these
             // are ordinary page loads, so a page can always call them.
 
+            /** The address of the page whose content is on screen. While the side panel is open the
+                address bar shows the panel's own address, so this - not location - is "the page". */
+            shownUrl: location.href,
+
             /** Open a page: in place when it can be, else a normal page load. */
             open: function (url, opts) {
                 var P = window.PageSwap, here = false;
-                try { here = new URL(url, location.href).href.split('#')[0] === location.href.split('#')[0]; } catch (e) {}
+                try { here = new URL(url, location.href).href.split('#')[0] === String(P.shownUrl || location.href).split('#')[0]; } catch (e) {}
                 // the page in view again (a save that answers with its own address): a refresh, not a new step back
                 opts = opts || (here ? { replace: true, keepScroll: true } : {});
-                if (P.go && P.wanted && P.wanted(url)) { P.go(url, opts); } else { window.location.href = url; }
+                P.closePanel(function () {
+                    if (P.go && P.wanted && P.wanted(url)) { P.go(url, opts); } else { window.location.href = url; }
+                });
             },
 
-            /** Show the page in view again after a save: same address, same scroll, no new history entry. */
+            /** Show the page in view again after a save: same address, same scroll, no new history
+                entry - the page under the side panel, the panel closed first. */
             reload: function () {
-                if (window.PageSwap.go && window.PageSwap.wanted && window.PageSwap.wanted(location.href)) { window.PageSwap.go(location.href, { replace: true, keepScroll: true }); } else { window.location.reload(); }
+                var P = window.PageSwap;
+                P.closePanel(function () {
+                    var url = P.shownUrl || location.href;
+                    if (P.go && P.wanted && P.wanted(url)) { P.go(url, { replace: true, keepScroll: true }); } else { window.location.href = url; }
+                });
+            },
+
+            /** Close the side panel if it is open, then go on (after its step back in the history is done,
+                so the next move does not race it). */
+            closePanel: function (then) {
+                var panel = document.getElementById('task-detail-1');
+                if (!panel || !panel.classList.contains('in') || typeof window.closeTaskDetail !== 'function') { if (then) { then(); } return; }
+                var done = false;
+                var finish = function () {
+                    if (done) { return; }
+                    done = true;
+                    window.removeEventListener('popstate', finish);
+                    if (then) { then(); }
+                };
+                window.addEventListener('popstate', finish);
+                window.closeTaskDetail();
+                setTimeout(finish, 600);
             },
 
             /** Apply a GET filter form (its values become the address); any other form is submitted as before. */

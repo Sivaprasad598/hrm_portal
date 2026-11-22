@@ -12,7 +12,7 @@
                 <input type="hidden" name="job_application_id" value="{{ $application->id }}">
             @endif
 
-            <div class="add-client bg-white rounded">
+            <div class="add-client bg-white rounded rc-form">
                 <h4 class="mb-0 p-20 f-21 font-weight-normal border-bottom-grey">{{ $editing ? 'Edit Offer' : 'Make Offer' }}</h4>
 
                 <div class="row p-20">

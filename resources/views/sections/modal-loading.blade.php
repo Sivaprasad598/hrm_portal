@@ -75,6 +75,21 @@
             if ($(this).hasClass('inModal')) { return; }   // a step inside the open panel keeps what is there
             $(RIGHT_MODAL_TITLE).html('');
             $(RIGHT_MODAL_CONTENT).html('<div class="right-modal-wait"></div>');
+
+            // Refused (e.g. "There is already an offer"): the message is shown as a toast, so the
+            // empty panel closes instead of staying open with nothing in it.
+            var asked = (this.getAttribute('href') || '').split('#')[0];
+            $(document).off('ajaxComplete.panelRefused');
+            if (!asked) { return; }
+            $(document).on('ajaxComplete.panelRefused', function (event, xhr, settings) {
+                if ((settings.url || '').indexOf(asked) !== 0) { return; }   // another request: keep waiting
+                $(document).off('ajaxComplete.panelRefused');
+                var body = xhr && xhr.responseJSON;
+                if (body && body.status === 'fail' && $(RIGHT_MODAL).hasClass('in')
+                    && $(RIGHT_MODAL_CONTENT).children('.right-modal-wait').length && typeof closeTaskDetail === 'function') {
+                    closeTaskDetail();
+                }
+            });
         });
     })(jQuery);
 </script>

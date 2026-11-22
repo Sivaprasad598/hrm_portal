@@ -35,7 +35,7 @@ class JobPositionController extends RecruitBaseController
             ->when($request->search, fn ($q, $s) => $q->where(fn ($w) => $w->where('title', 'like', "%$s%")
                 ->orWhere('code', 'like', "%$s%")->orWhere('location', 'like', "%$s%")->orWhere('skills', 'like', "%$s%")))
             ->orderByRaw("FIELD(status, 'open', 'on_hold', 'draft', 'closed')")->orderByDesc('id')
-            ->paginate(24)->withQueryString();
+            ->paginate(48)->withQueryString();
 
         $this->departments = Team::orderBy('team_name')->get();
         $this->statusCounts = JobPosition::selectRaw('status, count(*) as n')->groupBy('status')->pluck('n', 'status');

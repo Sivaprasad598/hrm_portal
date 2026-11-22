@@ -952,6 +952,26 @@ body.epic .swal2-icon.swal2-success [class^="swal2-success-line"] { background-c
 /* Toasts */
 body.epic .swal2-toast { border-radius: 2px !important; box-shadow: 0 6px 18px rgba(15, 34, 58, .18) !important; }
 
+/* Toasts: a compact card at the top right - not the dialog's size - with a coloured edge for
+   its kind; the page behind stays usable (the layer itself never takes the clicks) */
+.swal2-container.swal2-top-end:has(> .swal2-toast),
+.swal2-container.swal2-top-right:has(> .swal2-toast),
+.swal2-container.swal2-top:has(> .swal2-toast) { pointer-events: none !important; background: transparent !important; inset: 0 0 auto auto !important; width: auto !important; padding: 14px !important; }
+.swal2-container:has(> .swal2-toast) > .swal2-toast { pointer-events: auto; }
+body.epic .swal2-popup.swal2-toast {
+    width: auto !important; max-width: min(420px, calc(100vw - 28px)) !important; min-width: 260px;
+    padding: 10px 14px !important; border-radius: 8px !important; border-left: 4px solid var(--epic-green, #12b76a) !important;
+    box-shadow: 0 8px 24px rgba(15, 34, 58, .16) !important; align-items: center !important;
+    display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important;
+}
+body.epic .swal2-popup.swal2-toast.swal2-icon-error   { border-left-color: #d92d20 !important; }
+body.epic .swal2-popup.swal2-toast.swal2-icon-warning { border-left-color: #f0b144 !important; }
+body.epic .swal2-popup.swal2-toast.swal2-icon-info    { border-left-color: var(--epic-blue) !important; }
+body.epic .swal2-toast .swal2-icon { margin: 0 10px 0 0 !important; }
+body.epic .swal2-toast .swal2-html-container { margin: 0 !important; padding: 0 !important; font-size: 13.5px !important; line-height: 1.4; text-align: left !important; color: var(--epic-text) !important; }
+body.epic .swal2-toast .swal2-title { margin: 0 !important; font-size: 14px !important; }
+body.epic .swal2-toast .swal2-timer-progress-bar { height: 2px; background: color-mix(in srgb, var(--epic-blue) 45%, transparent); }
+
 /* Dropdowns: notifications, quick add, row menus, pickers */
 body.epic .dropdown-menu {
     border: 0 !important;
@@ -1110,6 +1130,9 @@ body.epic .task-detail-panel.in {
 }
 
 body.epic .task-detail-panel .t-d-inner-panel { padding: 0 !important; }
+/* A form's outer .row inside the pop-up: no negative margins past its edge (they gave the box a sideways scrollbar) */
+body.epic .task-detail-panel #right-modal-content > .row,
+body.epic .task-detail-panel #right-modal-content > div > .row:first-child { margin-left: 0; margin-right: 0; }
 
 /* Header: the title, a line under it, the x on the right */
 body.epic .task-detail-panel #right-modal-title {

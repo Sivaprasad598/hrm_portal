@@ -2,7 +2,7 @@
     <div class="col-sm-12">
         <x-form id="application-form" method="POST">
             <input type="hidden" name="candidate_id" value="{{ $candidate->id }}">
-            <div class="add-client bg-white rounded">
+            <div class="add-client bg-white rounded rc-form">
                 <h4 class="mb-0 p-20 f-21 font-weight-normal border-bottom-grey">Add {{ $candidate->name }} to a Position</h4>
                 <div class="p-20">
                     @if ($positions->isEmpty())

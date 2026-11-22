@@ -186,10 +186,37 @@ class JobOfferController extends RecruitBaseController
             return Reply::error($e->getMessage());
         }
 
-        $message = ['sent' => 'Offer marked as sent.', 'accepted' => 'Offer accepted. The candidate can now be converted to an employee.',
+        // Sent: emailed to the candidate with the link to accept or decline online, when HR ticked it
+        $emailed = '';
+
+        if ($to === 'sent' && $request->boolean('email_offer')) {
+            try {
+                app(\App\Services\Recruit\OfferReply::class)->send($offer->fresh());
+                $emailed = ' and emailed to ' . $application->candidate->email . ' with the link to accept or decline online';
+            } catch (\Throwable $e) {
+                $emailed = '. It could not be emailed (' . $e->getMessage() . ')';
+            }
+        }
+
+        $message = ['sent' => 'Offer marked as sent' . $emailed . '.', 'accepted' => 'Offer accepted. The candidate can now be converted to an employee.',
             'declined' => 'Offer declined; the application is closed.', 'withdrawn' => 'Offer withdrawn.'][$to];
 
         return Reply::successWithData($message, ['redirectUrl' => route('candidates.show', $application->candidate_id)]);
+    }
+
+    /** Email a sent offer (again) with the link for the candidate to accept or decline it online. */
+    public function email($id, \App\Services\Recruit\OfferReply $reply)
+    {
+        $this->needManage();
+        $offer = JobOffer::with('application.candidate')->findOrFail($id);
+
+        try {
+            $reply->send($offer);
+        } catch (RuntimeException $e) {
+            return Reply::error($e->getMessage());
+        }
+
+        return Reply::success('Offer emailed to ' . $offer->application->candidate->email . '. They can accept or decline it from the link.');
     }
 
     /** The printable letter: the company's offer letter, filled from this offer. */

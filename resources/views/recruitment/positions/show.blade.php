@@ -94,6 +94,9 @@
                         @if ($application->stage_reason)
                             <div class="rc-meta text-danger">{{ $application->stage_reason }}</div>
                         @endif
+                        @if ($application->stage === 'offer_accepted')
+                            <div class="mt-2">@include('recruitment.partials.register-button', ['candidate' => $application->candidate])</div>
+                        @endif
                     </div>
                 @endforeach
             </div>

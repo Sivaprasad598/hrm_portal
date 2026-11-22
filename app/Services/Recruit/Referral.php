@@ -28,10 +28,11 @@ class Referral
     public static function employees(?int $keep = null): Collection
     {
         return User::join('employee_details', 'employee_details.user_id', '=', 'users.id')
+            ->leftJoin('teams', 'teams.id', '=', 'employee_details.department_id')
             ->whereNotIn('users.id', SystemAccounts::ids())
             ->where(fn ($q) => $q->where('users.status', 'active')->when($keep, fn ($k) => $k->orWhere('users.id', $keep)))
             ->orderBy('users.name')
-            ->get(['users.id', 'users.name', 'users.status', 'employee_details.employee_id']);
+            ->get(['users.id', 'users.name', 'users.status', 'employee_details.employee_id', 'teams.team_name as division']);
     }
 
     /** For the "Referred by" filter: id => "Name (EMP-0042)" of everyone who has referred a candidate. */
@@ -44,9 +45,11 @@ class Referral
         }
 
         return User::withoutGlobalScopes()->leftJoin('employee_details', 'employee_details.user_id', '=', 'users.id')
+            ->leftJoin('teams', 'teams.id', '=', 'employee_details.department_id')
             ->whereIn('users.id', $ids)->orderBy('users.name')
-            ->get(['users.id', 'users.name', 'users.status', 'employee_details.employee_id'])
-            ->mapWithKeys(fn ($u) => [$u->id => $u->name . ($u->employee_id ? ' (' . $u->employee_id . ')' : '') . ($u->status !== 'active' ? ' (left)' : '')]);
+            ->get(['users.id', 'users.name', 'users.status', 'employee_details.employee_id', 'teams.team_name as division'])
+            ->mapWithKeys(fn ($u) => [$u->id => $u->name . ($u->employee_id ? ' (' . $u->employee_id . ')' : '') . ($u->status !== 'active' ? ' (left)' : '')
+                . ($u->division ? ' · ' . $u->division : '')]);
     }
 
     /** Whether $userId may be chosen as the referrer ($current: the one already set, which stays allowed). */

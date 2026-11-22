@@ -22,7 +22,7 @@ class JobApplicationController extends RecruitBaseController
     {
         $this->needView();
         $this->pageTitle = 'Applicants';
-        $this->board = $request->get('view', 'board') !== 'list';
+        $this->board = $request->input('view', 'board') !== 'list';
 
         $query = JobApplication::with(['candidate.resume', 'candidate.referrer', 'position', 'offer'])
             ->withCount(['interviews as interviews_done' => fn ($q) => $q->where('status', 'completed')])
@@ -33,7 +33,7 @@ class JobApplicationController extends RecruitBaseController
             ->when($request->search, fn ($q, $s) => $q->whereHas('candidate', fn ($c) => $c->where('name', 'like', "%$s%")
                 ->orWhere('email', 'like', "%$s%")->orWhere('mobile', 'like', "%$s%")->orWhere('skills', 'like', "%$s%")));
 
-        $stage = $request->get('stage', 'active');
+        $stage = $request->input('stage', 'active');
 
         if ($this->board) {
             // The board shows the stages still moving; a closed stage asked for is shown on its own.

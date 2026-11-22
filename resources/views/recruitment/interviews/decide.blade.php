@@ -4,7 +4,7 @@
 <div class="row">
     <div class="col-sm-12">
         <x-form id="decide-form" method="POST">
-            <div class="add-client bg-white rounded">
+            <div class="add-client bg-white rounded rc-form">
                 <h4 class="mb-0 p-20 f-21 font-weight-normal border-bottom-grey">Decide Round</h4>
                 <div class="p-20">
                     <p class="f-14 mb-1">{{ $candidate->name }} · <strong>{{ $interview->round }}</strong> {!! $interview->resultBadge() !!}</p>

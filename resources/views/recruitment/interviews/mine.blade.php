@@ -20,6 +20,9 @@
     .mi-std .mi-count { background: #f3f4f6; color: #4b5563; border-radius: 10px; font-size: 12px; padding: 1px 8px; }
     .mi-std .ms-item { border: 1px solid #eef0f3; border-radius: 10px; padding: 12px 16px; margin-bottom: 8px; background: #fff; }
     .mi-std .ms-item:last-child { margin-bottom: 0; }
+    .mi-std .mi-card--confirm { border-left: 4px solid #0ba5ec; }
+    .mi-std .ms-stats:has(> :nth-child(4)) { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    @media (max-width: 991.98px) { .mi-std .ms-stats:has(> :nth-child(4)) { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     .mi-std .ms-empty { border: 1px dashed #e5e7eb; border-radius: 10px; text-align: center; color: #9ca3af; }
     body.epic .mi-std .ms-item .btn-sm { height: 38px; border-radius: 8px !important; padding: 0 14px !important; display: inline-flex; align-items: center; font-size: 14px; }
 </style>
@@ -33,6 +36,13 @@
                     <div class="val">{{ $toDo->count() }}</div>
                     <div class="sub">{{ $toDo->isNotEmpty() ? 'waiting for your scorecard / marks' : 'nothing waiting on you' }}</div>
                 </div>
+                @if ($toConfirm->isNotEmpty())
+                    <div class="ms-stat is-warn">
+                        <div class="lbl"><span class="ic" style="--ic-bg:#e0f2fe;--ic-fg:#0369a1"><i class="fa fa-hourglass-half"></i></span>Slots to confirm</div>
+                        <div class="val">{{ $toConfirm->count() }}</div>
+                        <div class="sub">suggested by the system, waiting for HR</div>
+                    </div>
+                @endif
                 <div class="ms-stat">
                     <div class="lbl"><span class="ic" style="--ic-bg:#e0f2fe;--ic-fg:#0369a1"><i class="fa fa-calendar-alt"></i></span>Upcoming</div>
                     <div class="val">{{ $upcoming->count() }}</div>
@@ -44,6 +54,27 @@
                     <div class="sub">your recent rounds</div>
                 </div>
             </div>
+
+            {{-- HR: the slots the system suggested, confirmed (or changed) from here --}}
+            @if ($toConfirm->isNotEmpty())
+                <div class="mi-card mi-card--confirm">
+                    <div class="mi-card-head"><h5>Slots to confirm</h5><span class="mi-count">{{ $toConfirm->count() }}</span></div>
+                    @foreach ($toConfirm as $i)
+                        <div class="ms-item d-flex flex-wrap justify-content-between align-items-center f-13" style="gap: 10px">
+                            <div class="mr-2">
+                                <a href="{{ route('candidates.show', $i->application?->candidate_id) }}" class="f-14 font-weight-600 text-dark">{{ $i->application?->candidate?->name }}</a>
+                                <span class="ms-muted">· {{ $i->application?->positionLabel() }}</span>
+                                <div class="text-dark-grey mt-1">
+                                    <b>{{ $i->round }}</b> ({{ $i->isTest() ? 'Test' : 'Interview' }}) ·
+                                    <i class="fa {{ \App\Models\RecruitInterview::MODES[$i->mode][1] ?? 'fa-circle' }} mx-1"></i>{{ $i->modeLabel() }} · {{ $i->whenText() }}
+                                    @if ($i->interviewer_ids) · <i class="fa fa-users mx-1"></i>{{ $i->interviewers()->pluck('name')->implode(', ') }}@endif
+                                </div>
+                            </div>
+                            @include('recruitment.partials.confirm-slot', ['interview' => $i])
+                        </div>
+                    @endforeach
+                </div>
+            @endif
 
             @foreach ($sections as $section)
                 @php

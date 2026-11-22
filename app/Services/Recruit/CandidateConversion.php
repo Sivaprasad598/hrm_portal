@@ -73,9 +73,35 @@ class CandidateConversion
         $first = array_shift($parts) ?? '';
         $last = count($parts) ? array_pop($parts) : '';
 
+        // What is on file, shown at the top of Add Employee so HR sees what came over
+        $designationId = $offer?->designation_id ?? $position?->designation_id;
+        $divisionId = $offer?->department_id ?? $position?->department_id;
+        $branchId = $offer?->branch_id ?? $position?->branch_id;
+        $summary = array_filter([
+            'Name' => $candidate->name,
+            'Email' => $candidate->email,
+            'Mobile' => $candidate->mobile,
+            'Position' => $application?->positionLabel(),
+            'Designation' => $designationId ? \App\Models\Designation::find($designationId)?->name : null,
+            'Division' => $divisionId ? \App\Models\Team::find($divisionId)?->team_name : null,
+            'Branch' => $branchId ? \App\Models\Branch::find($branchId)?->branch_name : null,
+            'Joining date' => $offer?->joining_date?->format($format),
+            'Annual CTC' => $offer?->annual_ctc ? number_format($offer->annual_ctc) : null,
+            'Offer' => $offer ? trim(($offer->reference_no ?: '') . ' · accepted' . ($offer->responded_at ? ' ' . $offer->responded_at->format($format) : ''), ' ·') : null,
+            'Qualification' => $candidate->qualification,
+            'Experience' => $candidate->total_experience !== null ? $candidate->experienceText() : null,
+            'Current company' => trim(($candidate->current_designation ? $candidate->current_designation . ', ' : '') . (string) $candidate->current_company, ', ') ?: null,
+            'Location' => $candidate->current_location,
+            'Source' => $candidate->sourceLabel() . ($candidate->source_detail ? ' · ' . $candidate->source_detail : ''),
+            'Referred by' => $candidate->referrerLabel(),
+            'Resume' => $candidate->resume?->filename,
+        ], fn ($v) => $v !== null && $v !== '');
+
         return [
             'candidate_id' => $candidate->id,
             'candidate_name' => $candidate->name,
+            'candidate_url' => route('candidates.show', $candidate->id),
+            'summary' => $summary,
             'position' => $application?->positionLabel(),
             'resume' => $candidate->resume?->filename,
             'resume_data' => [

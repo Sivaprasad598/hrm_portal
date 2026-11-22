@@ -2,6 +2,22 @@
     $editing = $candidate->exists;
     $fmt = company()->date_format;
     $jobs = $candidate->work_experience ?: [];
+
+    // Mobile: the country code apart from the number (stored as 10 digits for India, else +code number)
+    $phoneCodes = countries()->filter(fn ($c) => $c->phonecode && !is_null($c->numcode))->sortBy('nicename')->values();
+    $mobileCode = '91';
+    $mobileIso = 'IN';
+    $mobileNumber = (string) $candidate->mobile;
+    if (str_starts_with($mobileNumber, '+')) {
+        $digits = substr($mobileNumber, 1);
+        $match = $phoneCodes->filter(fn ($c) => str_starts_with($digits, (string) $c->phonecode))
+            ->sortByDesc(fn ($c) => strlen((string) $c->phonecode) * 10 + (in_array($c->iso, ['US', 'IN', 'GB', 'RU'], true) ? 1 : 0))->first();
+        if ($match) {
+            $mobileCode = (string) $match->phonecode;
+            $mobileIso = $match->iso;
+            $mobileNumber = substr($digits, strlen($mobileCode));
+        }
+    }
 @endphp
 
 <div class="row">
@@ -12,7 +28,7 @@
             @endif
             <input type="hidden" name="ai_filled" id="ai_filled" value="0">
 
-            <div class="add-client bg-white rounded cand-form">
+            <div class="add-client bg-white rounded rc-form cand-form">
                 <h4 class="mb-0 p-20 f-21 font-weight-normal border-bottom-grey">{{ $editing ? 'Edit Candidate' : 'Add Candidate' }}</h4>
 
                 {{-- 1. Resume: upload it first, and AI can fill the rest --}}
@@ -57,10 +73,26 @@
                             <x-forms.text fieldId="name" fieldLabel="Full Name" fieldName="name" :fieldRequired="true" :fieldValue="$candidate->name" />
                         </div>
                         <div class="col-md-6">
-                            <x-forms.text fieldId="email" fieldLabel="Email" fieldName="email" :fieldValue="$candidate->email" />
+                            <x-forms.email fieldId="email" fieldLabel="Email" fieldName="email" :fieldRequired="true" :fieldValue="$candidate->email"
+                                fieldPlaceholder="name@example.com" />
                         </div>
+                        {{-- Mobile with its country code, India unless the number on file says otherwise
+                             (an Indian number is kept as its 10 digits, any other with + and its code) --}}
                         <div class="col-md-4">
-                            <x-forms.text fieldId="mobile" fieldLabel="Mobile" fieldName="mobile" :fieldValue="$candidate->mobile" />
+                            <div class="form-group my-3">
+                                <x-forms.label fieldId="mobile" fieldLabel="Mobile" :fieldRequired="true" />
+                                <div class="input-group rc-phone">
+                                    <select class="form-control select-picker" name="mobile_code" id="mobile_code" data-live-search="true" data-size="8">
+                                        @foreach ($phoneCodes as $code)
+                                            <option value="{{ $code->phonecode }}" data-tokens="{{ $code->nicename }} {{ $code->iso }}"
+                                                data-content="<span class='flag-icon flag-icon-{{ strtolower($code->iso) }} flag-icon-squared mr-1'></span>+{{ $code->phonecode }}"
+                                                @selected((string) $code->phonecode === (string) $mobileCode && ($code->iso === $mobileIso))>+{{ $code->phonecode }}</option>
+                                        @endforeach
+                                    </select>
+                                    <input type="tel" class="form-control f-14" name="mobile" id="mobile" value="{{ $mobileNumber }}" placeholder="10-digit mobile number"
+                                        inputmode="tel" autocomplete="off">
+                                </div>
+                            </div>
                         </div>
                         <div class="col-md-4">
                             <x-forms.select fieldId="gender" fieldLabel="Gender" fieldName="gender">
@@ -117,7 +149,7 @@
                                 <option value="">Choose the employee</option>
                                 @foreach ($referrers as $emp)
                                     <option value="{{ $emp->id }}" @selected((int) $candidate->referred_by === (int) $emp->id)>
-                                        {{ $emp->name }}{{ $emp->employee_id ? ' (' . $emp->employee_id . ')' : '' }}{{ $emp->status !== 'active' ? ' (left)' : '' }}
+                                        {{ $emp->name }}{{ $emp->employee_id ? ' (' . $emp->employee_id . ')' : '' }}{{ $emp->status !== 'active' ? ' (left)' : '' }}{{ $emp->division ? ' · ' . $emp->division : '' }}
                                     </option>
                                 @endforeach
                             </x-forms.select>
@@ -244,6 +276,12 @@
     .cand-form .cand-section .bootstrap-select > .btn.dropdown-toggle { display: flex; align-items: center; height: 40px !important; min-height: 40px !important; box-sizing: border-box; }
     .cand-form .cand-section .bootstrap-select { width: 100% !important; }
     .cand-form .cand-section textarea.form-control { min-height: 84px; }
+    /* Mobile: the country code and the number as one field */
+    .cand-form .rc-phone { flex-wrap: nowrap; }
+    .cand-form .rc-phone .bootstrap-select { width: 118px !important; flex: 0 0 118px; }
+    .cand-form .rc-phone .bootstrap-select > .dropdown-toggle { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+    .cand-form .rc-phone > .form-control { border-top-left-radius: 0; border-bottom-left-radius: 0; margin-left: -1px; }
+    .cand-form #date_of_birth[readonly] { cursor: pointer; }
     .cand-form .cand-section .form-control-file { margin-top: 2px; }
 
     /* Work history: headings and inputs on the same columns */
@@ -260,7 +298,16 @@
 
 <script>
     $(function () {
-        datepicker('#date_of_birth', {position: 'bl', ...datepickerConfig});
+        // Date of birth from the calendar (opens on a working-age year; the year can be picked from the header)
+        var dobPicker = datepicker('#date_of_birth', {
+            position: 'bl', ...datepickerConfig,
+            maxDate: moment().subtract(14, 'years').toDate(),
+            startDate: $('#date_of_birth').val() ? moment($('#date_of_birth').val(), '{{ company()->moment_date_format }}').toDate() : moment().subtract(25, 'years').startOf('year').toDate()
+        });
+        $('#date_of_birth').attr('readonly', true).css('background-color', '#fff').on('click', function () { dobPicker.show(); });
+
+        // Mobile: only digits in the number; the code is picked beside it
+        $('#mobile').on('input', function () { this.value = this.value.replace(/[^0-9]/g, '').slice(0, 15); });
 
         // "Referred By" only for a referral
         $('#source').on('change', function () {
@@ -295,7 +342,7 @@
 
             put('name', [data.first_name, data.middle_name, data.last_name].filter(Boolean).join(' '), 'name');
             put('email', data.email, 'email');
-            put('mobile', data.mobile, 'mobile');
+            put('mobile', data.mobile ? String(data.mobile).replace(/[^0-9+]/g, '').replace(/^(\+91|0091|0(?=\d{10}$))/, '').replace(/\D/g, '') : null, 'mobile');
             put('gender', data.gender, 'gender');
             put('date_of_birth', data.date_of_birth, 'date of birth');
             put('address', data.address, 'address');

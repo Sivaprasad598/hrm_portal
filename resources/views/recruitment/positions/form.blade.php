@@ -10,7 +10,7 @@
                 <input type="hidden" name="_method" value="PUT">
             @endif
 
-            <div class="add-client bg-white rounded">
+            <div class="add-client bg-white rounded rc-form">
                 <h4 class="mb-0 p-20 f-21 font-weight-normal border-bottom-grey">{{ $editing ? 'Edit Position' : 'Add Position' }}</h4>
 
                 <div class="row p-20">

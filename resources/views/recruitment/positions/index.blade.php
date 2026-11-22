@@ -43,59 +43,58 @@
         </div>
     </form>
 
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <span class="f-15 font-weight-600 text-dark">{{ $positions->total() }} position(s)</span>
-        @if ($canManage)
-            <a href="{{ route('job-positions.create') }}" class="btn btn-primary rounded f-14 openRightModal"><i class="fa fa-plus mr-1"></i>Add Position</a>
-        @endif
-    </div>
+    @if ($canManage)
+        <a href="{{ route('job-positions.create') }}" class="btn btn-primary rounded f-14 openRightModal"><i class="fa fa-plus mr-1"></i>Add Position</a>
+    @endif
 
     <div class="row">
         @forelse ($positions as $position)
+            @php
+                $applicants = route('job-applications.index', ['position_id' => $position->id]);
+                $filled = min((int) $position->joined_count, max(1, (int) $position->openings));
+                $late = $position->closing_date && $position->closing_date->isPast() && $position->status === 'open';
+            @endphp
             <div class="col-xl-4 col-md-6 mb-3">
-                <div class="card border-0 shadow-sm h-100 rc-position-card">
-                    <div class="card-body d-flex flex-column">
-                        <div class="d-flex justify-content-between align-items-start mb-1">
-                            <div>
-                                <a href="{{ route('job-positions.show', $position->id) }}" class="f-16 font-weight-600 text-darkest-grey">{{ $position->title }}</a>
-                                <div class="f-12 text-dark-grey">{{ $position->code }}{{ $position->department ? ' · ' . $position->department->team_name : '' }}</div>
-                            </div>
-                            {!! $position->statusBadge() !!}
+                <div class="rc-pos">
+                    <div class="rc-pos-head">
+                        <div style="min-width: 0">
+                            <a href="{{ route('job-positions.show', $position->id) }}" class="rc-pos-title">{{ $position->title }}</a>
+                            <div class="rc-pos-sub">{{ $position->code }}{{ $position->department ? ' · ' . $position->department->team_name : '' }}</div>
                         </div>
+                        {!! $position->statusBadge() !!}
+                    </div>
 
-                        <div class="f-13 text-dark-grey my-2">
-                            <span class="mr-3"><i class="fa fa-clock mr-1"></i>{{ \App\Models\JobPosition::TYPES[$position->employment_type] ?? $position->employment_type }}</span>
-                            <span class="mr-3"><i class="fa fa-user-tie mr-1"></i>{{ $position->experienceText() }}</span>
-                            @if ($position->location || $position->branch)
-                                <span><i class="fa fa-map-marker-alt mr-1"></i>{{ $position->location ?: $position->branch->branch_name }}</span>
+                    <div class="rc-pos-meta">
+                        <span><i class="fa fa-clock"></i>{{ \App\Models\JobPosition::TYPES[$position->employment_type] ?? $position->employment_type }}</span>
+                        <span><i class="fa fa-user-tie"></i>{{ $position->experienceText() }}</span>
+                        @if ($position->location || $position->branch)
+                            <span><i class="fa fa-map-marker-alt"></i>{{ $position->location ?: $position->branch->branch_name }}</span>
+                        @endif
+                        @if ($position->salaryText())
+                            <span><i class="fa fa-rupee-sign"></i>{{ $position->salaryText() }}</span>
+                        @endif
+                    </div>
+
+                    <div class="rc-pos-stats">
+                        <div><b>{{ $position->openings }}</b>Openings</div>
+                        <a href="{{ $applicants }}" class="{{ $position->new_count ? 'is-hot' : '' }}"><b>{{ $position->new_count }}</b>New</a>
+                        <a href="{{ $applicants }}"><b>{{ $position->interview_count }}</b>Interview</a>
+                        <a href="{{ $applicants }}"><b>{{ $position->joined_count }}</b>Joined</a>
+                    </div>
+
+                    <div class="rc-pos-fill">
+                        <div class="rc-pos-fill-bar"><span style="width: {{ $position->openings ? round($filled / max(1, $position->openings) * 100) : 0 }}%"></span></div>
+                        <div class="rc-pos-fill-text"><span>{{ (int) $position->joined_count }} of {{ $position->openings }} filled</span><span>{{ $position->applications_count }} applicant(s)</span></div>
+                    </div>
+
+                    <div class="rc-pos-foot">
+                        <span class="rc-pos-close {{ $late ? 'is-late' : '' }}"><i class="fa fa-calendar-alt mr-1"></i>{{ $position->closing_date ? ($late ? 'Closed for applications ' : 'Closes ') . $position->closing_date->format($fmt) : 'No closing date' }}</span>
+                        <span class="d-inline-flex" style="gap: 6px">
+                            @if ($canManage)
+                                <a href="{{ route('job-positions.edit', $position->id) }}" class="btn btn-outline-secondary openRightModal" title="Edit the position"><i class="fa fa-edit"></i></a>
                             @endif
-                            @if ($position->salaryText())
-                                <div class="mt-1"><i class="fa fa-rupee-sign mr-1"></i>{{ $position->salaryText() }}</div>
-                            @endif
-                        </div>
-
-                        <div class="d-flex text-center border rounded py-2 my-2 f-12">
-                            <div class="flex-fill"><div class="f-16 font-weight-700">{{ $position->openings }}</div>Openings</div>
-                            <div class="flex-fill border-left"><div class="f-16 font-weight-700">{{ $position->new_count }}</div>New</div>
-                            <div class="flex-fill border-left"><div class="f-16 font-weight-700">{{ $position->interview_count }}</div>Interview</div>
-                            <div class="flex-fill border-left"><div class="f-16 font-weight-700">{{ $position->joined_count }}</div>Joined</div>
-                        </div>
-
-                        <div class="mt-auto d-flex justify-content-between align-items-center f-12 text-dark-grey">
-                            <span>
-                                @if ($position->closing_date)
-                                    <span class="{{ $position->closing_date->isPast() && $position->status === 'open' ? 'text-danger' : '' }}">Closes {{ $position->closing_date->format($fmt) }}</span>
-                                @else
-                                    No closing date
-                                @endif
-                            </span>
-                            <span>
-                                <a href="{{ route('job-applications.index', ['position_id' => $position->id]) }}" class="mr-2">Applicants ({{ $position->applications_count }})</a>
-                                @if ($canManage)
-                                    <a href="{{ route('job-positions.edit', $position->id) }}" class="openRightModal"><i class="fa fa-edit"></i></a>
-                                @endif
-                            </span>
-                        </div>
+                            <a href="{{ $applicants }}" class="btn btn-outline-primary">Applicants <i class="fa fa-arrow-right ml-1"></i></a>
+                        </span>
                     </div>
                 </div>
             </div>
@@ -108,7 +107,10 @@
         @endforelse
     </div>
 
-    <div class="mt-2">{{ $positions->links() }}</div>
+    {{-- Only when the positions run past one page: the pages, nothing else --}}
+    @if ($positions->hasPages())
+        <div class="mt-2">{{ $positions->onEachSide(1)->links() }}</div>
+    @endif
 </div>
 @include('recruitment.partials.standard-bar', ['form' => '#rc-filter-form', 'active' => request()->hasAny(['status', 'type', 'department_id', 'search']) && request()->anyFilled(['status', 'type', 'department_id', 'search'])])
 @endsection

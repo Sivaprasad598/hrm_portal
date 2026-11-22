@@ -24,6 +24,26 @@
     .qv-chip { display: inline-block; padding: 2px 10px; margin: 0 6px 6px 0; border-radius: 999px; background: #f1f3f6; font-size: 12.5px; }
     .qv-job { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px dashed var(--epic-line, #e8eef3); }
     .qv-job:last-child { border-bottom: 0; }
+    .qv-next { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 14px; margin-bottom: 12px;
+        border-radius: 8px; background: #f9fafb; border: 1px solid #eaecf0; color: #475467; }
+    .qv-next--warn { background: #fffaeb; border-color: #fedf89; color: #93370d; }
+    .qv-next--ok { background: #ecfdf3; border-color: #abefc6; color: #067647; }
+    .qv-round { position: relative; display: flex; gap: 12px; padding: 12px 14px; margin-bottom: 8px; border: 1px solid #eaecf0; border-radius: 10px; }
+    .qv-round.is-done { background: #fbfefc; }
+    .qv-round.is-failed { background: #fffbfa; border-color: #fecdca; }
+    .qv-round.is-wait { border-color: #fedf89; background: #fffcf5; }
+    .qv-round--extra { border-style: dashed; }
+    .qv-round-no { flex: 0 0 26px; width: 26px; height: 26px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+        font-size: 12px; font-weight: 700; background: #f2f4f7; color: #344054; }
+    .qv-round.is-done .qv-round-no { background: #dcfae6; color: #067647; }
+    .qv-round.is-failed .qv-round-no { background: #fee4e2; color: #b42318; }
+    .qv-round-body { flex: 1; min-width: 0; }
+    .qv-round-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+    .qv-round-meta { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 6px; font-size: 13px; color: #475467; }
+    .qv-round-meta i { margin-right: 5px; color: #98a2b3; }
+    .qv-round-score { margin-top: 6px; font-weight: 600; }
+    .qv-round-card { margin-top: 6px; padding: 8px 10px; background: #f9fafb; border-radius: 6px; font-size: 13px; }
+    .qv-round-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 </style>
 
 <div class="qv bg-white">
@@ -45,6 +65,20 @@
     {{-- What HR does next, right here --}}
     <div class="qv-actions">
         @if ($canManage)
+            @if ($application->stage === 'offer_accepted')
+                @include('recruitment.partials.register-button', ['candidate' => $application->candidate])
+            @endif
+            @if ($application->stage === 'selected' && $application->offer?->status === 'draft')
+                {{-- drafted, not sent: it becomes Offered when sent --}}
+                <a href="{{ route('job-offers.respond-form', [$application->offer->id, 'to' => 'sent']) }}" class="btn btn-primary btn-sm openRightModal inModal"><i class="fa fa-paper-plane mr-1"></i>Mark offer sent</a>
+                <a href="{{ route('job-offers.edit', $application->offer->id) }}" class="btn btn-outline-secondary btn-sm openRightModal inModal">Edit offer {{ $application->offer->reference_no }}</a>
+            @elseif ($application->stage === 'offered' && $application->offer?->status === 'sent')
+                {{-- the candidate's answer, recorded with its proof (signed copy or how they replied) --}}
+                <a href="{{ route('job-offers.respond-form', [$application->offer->id, 'to' => 'accepted']) }}" class="btn btn-success btn-sm openRightModal inModal"><i class="fa fa-check mr-1"></i>Offer accepted</a>
+                <a href="{{ route('job-offers.respond-form', [$application->offer->id, 'to' => 'declined']) }}" class="btn btn-outline-danger btn-sm openRightModal inModal">Declined</a>
+            @elseif ($application->stage === 'selected' && !$application->offer)
+                <a href="{{ route('job-offers.create', ['application' => $application->id]) }}" class="btn btn-primary btn-sm openRightModal inModal"><i class="fa fa-file-signature mr-1"></i>Make offer</a>
+            @endif
             @if ($application->stage === 'new' && $application->job_position_id)
                 <button type="button" class="btn btn-primary btn-sm shortlist-app" data-id="{{ $application->id }}"><i class="fa fa-star mr-1"></i>Shortlist</button>
             @endif
@@ -119,13 +153,7 @@
         </div>
     @endif
 
-    @if ($p && in_array($application->stage, ['shortlisted', 'interview', 'selected', 'offered', 'offer_accepted', 'rejected', 'on_hold'], true) && ($p['at'] || $p['scores']))
-        <div class="qv-sec">
-            <h6>Rounds</h6>
-            @if ($p['at'])<div class="mb-1"><strong>Round {{ $p['at'] }} of {{ $p['of'] }}</strong>@if ($p['proposed']) · <span class="text-info">slot suggested, waiting for HR to confirm</span>@endif</div>@endif
-            @if ($p['scores'])<div class="text-dark-grey">{{ implode(' · ', $p['scores']) }}</div>@endif
-        </div>
-    @endif
+    @include('recruitment.partials.quick-rounds', ['application' => $application, 'canManage' => $canManage])
 
     <div class="qv-sec">
         <h6>Resume</h6>

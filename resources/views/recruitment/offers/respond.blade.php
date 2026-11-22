@@ -10,7 +10,7 @@
 <div class="row">
     <div class="col-sm-12">
         <x-form id="respond-form" method="POST">
-            <div class="add-client bg-white rounded">
+            <div class="add-client bg-white rounded rc-form">
                 <h4 class="mb-0 p-20 f-21 font-weight-normal border-bottom-grey">Offer {{ $offer->reference_no }}</h4>
                 <div class="p-20">
                     <p class="f-14">{{ $offer->application->candidate->name }} · {{ $offer->designation?->name }} · CTC {{ number_format($offer->annual_ctc) }} / year
@@ -32,6 +32,19 @@
                         </div>
                     </div>
 
+                    {{-- Sent: the candidate can be emailed the offer with a link to accept or decline it online --}}
+                    <div id="email-box" class="d-none">
+                        @if ($offer->application->candidate->email)
+                            <div class="rc-form-intro mt-3 mb-0">
+                                <x-forms.checkbox fieldId="email_offer" fieldName="email_offer" fieldValue="1" :checked="true"
+                                    :fieldLabel="'Email the offer to ' . $offer->application->candidate->email . ' with a link to accept or decline it online'" />
+                                <small class="rc-help">Their answer is recorded on its own (with the time and their typed name as proof), the card moves, and you are notified.</small>
+                            </div>
+                        @else
+                            <small class="text-warning d-block mt-3">No email on file: the candidate cannot answer online. Record their answer here when it comes.</small>
+                        @endif
+                    </div>
+
                     <x-forms.textarea fieldId="response_note" fieldLabel="Note" fieldName="response_note"
                         fieldPlaceholder="e.g. Sent by email on 3 Nov · Accepted by reply email · Declined: took another offer" />
                 </div>
@@ -48,7 +61,10 @@
 
 <script>
     $(function () {
-        function sync() { $('#proof-box').toggleClass('d-none', $('#status').val() !== 'accepted'); }
+        function sync() {
+            $('#proof-box').toggleClass('d-none', $('#status').val() !== 'accepted');
+            $('#email-box').toggleClass('d-none', $('#status').val() !== 'sent');
+        }
         $('#status').on('change', sync);
         sync();
 

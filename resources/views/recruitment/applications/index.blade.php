@@ -21,13 +21,20 @@
                     @endforeach
                 </select>
             </div>
-            <div class="col-md-2 col-6 mb-2">
+            <div class="col-md-2 col-6 mb-2 rc-col-wide">
                 <label class="f-13 text-dark-grey mb-1">Stage</label>
-                <select name="stage" class="form-control select-picker">
-                    <option value="active" @selected($stage === 'active')>Still moving</option>
-                    @unless ($board)<option value="all" @selected($stage === 'all')>All</option>@endunless
-                    @foreach (\App\Models\JobApplication::STAGES as $key => [$label])
-                        <option value="{{ $key }}" @selected($stage === $key)>{{ $label }}</option>
+                {{-- Active = still in the hiring process (New … Offer Accepted); Closed = out of it --}}
+                <select name="stage" class="form-control select-picker" data-size="12">
+                    <option value="active" @selected($stage === 'active') data-content="<span class='rc-stage-opt'><i class='fa fa-stream mr-2'></i>Active stages</span>">Active stages</option>
+                    @unless ($board)<option value="all" @selected($stage === 'all') data-content="<span class='rc-stage-opt'><i class='fa fa-layer-group mr-2'></i>All stages</span>">All stages</option>@endunless
+                    @foreach (['Active' => array_merge(\App\Models\JobApplication::ACTIVE, ['joined']), 'Closed' => \App\Models\JobApplication::CLOSING] as $group => $keys)
+                        <optgroup label="{{ $group }}">
+                            @foreach (\App\Models\JobApplication::STAGES as $key => [$label, $class, $icon])
+                                @continue(!in_array($key, $keys, true))
+                                <option value="{{ $key }}" @selected($stage === $key)
+                                    data-content="<span class='rc-stage-opt'><i class='fa {{ $icon }} text-{{ $class }} mr-2'></i>{{ $label }}</span>">{{ $label }}</option>
+                            @endforeach
+                        </optgroup>
                     @endforeach
                 </select>
             </div>
@@ -82,11 +89,13 @@
                 @php $cards = $applications->get($column, collect()); @endphp
                 <div class="rc-col {{ $cards->isEmpty() ? 'rc-col--empty' : '' }}" data-stage="{{ $column }}">
                     <div class="rc-col-head"><span>{!! \App\Models\JobApplication::badge($column) !!}</span><span class="text-dark-grey">{{ $cards->count() }}</span></div>
+                    <div class="rc-col-body">
                     @forelse ($cards as $application)
                         {{-- Click a card for the applicant's details and actions in a side panel --}}
                         <div class="rc-card rc-card--quick" title="Click for details, or drag to another stage"
                              @if ($canManage) draggable="true" @endif data-id="{{ $application->id }}" data-stage="{{ $application->stage }}"
-                             data-choices='@json(\App\Services\Recruit\Pipeline::choices($application))'>
+                             data-choices='@json(\App\Services\Recruit\Pipeline::choices($application))'
+                             @if ($application->offer) data-offer-id="{{ $application->offer->id }}" data-offer-status="{{ $application->offer->status }}" @endif>
                             <a href="{{ route('job-applications.quick', $application->id) }}" class="openRightModal rc-quick-link d-none" aria-hidden="true"></a>
                             <div class="d-flex justify-content-between">
                                 <a href="{{ route('candidates.show', $application->candidate_id) }}" class="rc-name">{{ $application->candidate->name }}</a>
@@ -105,11 +114,14 @@
                                                 <div class="dropdown-divider"></div>
                                                 <a class="dropdown-item openRightModal" href="{{ route('recruit-interviews.create', ['application' => $application->id]) }}">Schedule interview</a>
                                             @endif
-                                            @if ($application->stage === 'selected')
+                                            @if ($application->stage === 'selected' && $application->offer?->status === 'draft')
+                                                <a class="dropdown-item openRightModal" href="{{ route('job-offers.respond-form', [$application->offer->id, 'to' => 'sent']) }}">Mark offer sent</a>
+                                                <a class="dropdown-item openRightModal" href="{{ route('job-offers.edit', $application->offer->id) }}">Edit offer</a>
+                                            @elseif ($application->stage === 'selected' && !$application->offer)
                                                 <a class="dropdown-item openRightModal" href="{{ route('job-offers.create', ['application' => $application->id]) }}">Make offer</a>
                                             @endif
                                             @if ($application->stage === 'offer_accepted')
-                                                <a class="dropdown-item" href="{{ route('candidates.convert', $application->candidate_id) }}">Convert to employee</a>
+                                                <a class="dropdown-item no-swap" href="{{ route('candidates.convert', $application->candidate_id) }}">Register as Employee</a>
                                             @endif
                                         </div>
                                     </div>
@@ -130,6 +142,34 @@
                                     <a href="{{ route('job-applications.move-form', [$application->id, 'to' => 'rejected']) }}" class="btn btn-outline-danger openRightModal"><i class="fa fa-times mr-1"></i>Reject</a>
                                 </div>
                             @endif
+                            {{-- Selected with an offer drafted: it is Offered once it is sent --}}
+                            @if ($application->stage === 'selected' && $application->offer?->status === 'draft')
+                                <div class="rc-offer-draft"><i class="fa fa-file-signature mr-1"></i>Offer drafted{{ $application->offer->reference_no ? ' · ' . $application->offer->reference_no : '' }} · not sent yet</div>
+                                @if ($canManage)
+                                    <div class="rc-quick-actions">
+                                        <a href="{{ route('job-offers.respond-form', [$application->offer->id, 'to' => 'sent']) }}" class="btn btn-primary openRightModal"><i class="fa fa-paper-plane mr-1"></i>Mark sent</a>
+                                        <a href="{{ route('job-offers.edit', $application->offer->id) }}" class="btn btn-outline-secondary openRightModal">Edit offer</a>
+                                    </div>
+                                @endif
+                            @endif
+                            {{-- Offered: waiting for the candidate's answer, which HR records with its proof --}}
+                            @if ($application->stage === 'offered' && $application->offer?->status === 'sent')
+                                @php $sentDays = $application->offer->sent_at ? (int) $application->offer->sent_at->diffInDays(now()) : null; @endphp
+                                <div class="rc-offer-draft rc-offer-sent"><i class="fa fa-paper-plane mr-1"></i>Offer sent{{ $application->offer->sent_at ? ' ' . $application->offer->sent_at->format(company()->date_format) : '' }}{{ $sentDays ? ' · ' . $sentDays . ' day' . ($sentDays > 1 ? 's' : '') . ' ago' : '' }} · waiting for the reply{{ $application->offer->emailed_at ? ' · emailed, they can answer online' : '' }}</div>
+                                @if ($canManage)
+                                    <div class="rc-quick-actions">
+                                        <a href="{{ route('job-offers.respond-form', [$application->offer->id, 'to' => 'accepted']) }}" class="btn btn-success openRightModal"><i class="fa fa-check mr-1"></i>Accepted</a>
+                                        <a href="{{ route('job-offers.respond-form', [$application->offer->id, 'to' => 'declined']) }}" class="btn btn-outline-danger openRightModal">Declined</a>
+                                        @if ($application->candidate->email)
+                                            <button type="button" class="btn btn-outline-secondary rc-email-offer" data-id="{{ $application->offer->id }}"
+                                                title="Email the offer with a link to accept or decline online"><i class="fa fa-envelope mr-1"></i>{{ $application->offer->emailed_at ? 'Resend' : 'Email offer' }}</button>
+                                        @endif
+                                    </div>
+                                @endif
+                            @endif
+                            @if ($application->stage === 'offer_accepted')
+                                <div class="rc-quick-actions">@include('recruitment.partials.register-button', ['candidate' => $application->candidate, 'regButtonClass' => 'btn btn-success'])</div>
+                            @endif
                             <div class="rc-meta d-flex justify-content-between mt-1">
                                 <span><i class="fa {{ \App\Models\Candidate::SOURCES[$application->source][1] ?? 'fa-circle' }} mr-1"></i>{{ ($application->stage_changed_at ?? $application->created_at)->diffForHumans(null, true) }}</span>
                                 @if ($application->candidate->resume)
@@ -141,8 +181,9 @@
                             @endif
                         </div>
                     @empty
-                        <p class="f-12 text-dark-grey text-center my-3">None</p>
+                        <div class="rc-empty">No one here yet{{ $canManage ? ' — drag a card in' : '' }}</div>
                     @endforelse
+                    </div>
                 </div>
             @endforeach
         </div>
@@ -177,6 +218,9 @@
                             @if ($canManage && $application->stage !== 'joined')
                                 <a href="{{ route('job-applications.move-form', $application->id) }}" class="btn btn-sm btn-outline-secondary openRightModal">{{ $application->position ? 'Move' : 'Assign' }}</a>
                             @endif
+                            @if ($application->stage === 'offer_accepted')
+                                @include('recruitment.partials.register-button', ['candidate' => $application->candidate])
+                            @endif
                             <a href="{{ route('candidates.show', $application->candidate_id) }}" class="btn btn-sm btn-outline-primary">Open</a>
                         </td>
                     </tr>
@@ -199,9 +243,14 @@
         if (!board) { return; }
         board.scrollLeft = 0;
         var names = @json(collect(\App\Models\JobApplication::STAGES)->map(fn ($s) => $s[0]));
-        var moveForm = "{{ route('job-applications.move-form', [':id', 'to' => ':to']) }}";
+        // Placeholders only in the path: in the query string route() encodes them (":id" -> "%3Aid"),
+        // so the query is added here with the real values
+        var moveFormBase = "{{ route('job-applications.move-form', ':id') }}";
         var moveUrl = "{{ route('job-applications.move', ':id') }}";
-        var offerUrl = "{{ route('job-offers.create', ['application' => ':id']) }}";
+        var offerBase = "{{ route('job-offers.create') }}";
+        var offerSentUrl = "{{ route('job-offers.respond-form', ':id') }}?to=sent";
+        function moveFormUrl(id, to) { return moveFormBase.replace(':id', encodeURIComponent(id)) + '?to=' + encodeURIComponent(to); }
+        function offerUrlFor(id) { return offerBase + '?application=' + encodeURIComponent(id); }
         var needsForm = ['rejected', 'on_hold', 'withdrawn'];
         var dragged = null;
 
@@ -246,8 +295,14 @@
             if (to === from) { return; }
 
             if (to === 'offered') {
-                if (from === 'selected') { openPanel(offerUrl.replace(':id', id)); }
+                // an offer already drafted: dropping it on Offered is sending it
+                if (from === 'selected' && dragged.dataset.offerStatus === 'draft') { openPanel(offerSentUrl.replace(':id', dragged.dataset.offerId)); }
+                else if (from === 'selected') { openPanel(offerUrlFor(id)); }
                 else { refuse('Only a Selected applicant can be offered. Move them to Selected first.'); }
+                return;
+            }
+            if (to === 'offer_accepted' && from === 'offered' && dragged.dataset.offerStatus === 'sent') {
+                openPanel(offerSentUrl.replace(':id', dragged.dataset.offerId).replace('to=sent', 'to=accepted'));   // record the acceptance and its proof
                 return;
             }
             if (to === 'offer_accepted' || to === 'joined') {
@@ -261,7 +316,7 @@
             }
             if (needsForm.indexOf(to) !== -1) {
                 // a reason is needed: fill the form, it moves when saved
-                openPanel(moveForm.replace(':id', id).replace(':to', to));
+                openPanel(moveFormUrl(id, to));
                 return;
             }
             $.easyAjax({
@@ -274,11 +329,13 @@
 </script>
 <style>
     .rc-card[draggable="true"] { cursor: grab; }
+    .rc-offer-draft { margin-top: 6px; padding: 5px 8px; border-radius: 6px; background: #fffaeb; color: #93370d; font-size: 12px; }
+    .rc-offer-sent { background: #eff8ff; color: #175cd3; }
     .rc-card.rc-dragging { opacity: .45; }
     .rc-col.rc-drop { outline: 2px dashed var(--epic-blue, #cb6b4f); outline-offset: -4px; background: color-mix(in srgb, var(--epic-blue, #cb6b4f) 6%, #f4f6f9); }
 </style>
 @endpush
-@include('recruitment.partials.standard-bar', ['form' => '#rc-filter-form', 'active' => request()->anyFilled(['stage', 'source', 'referred_by', 'search'])])
+@include('recruitment.partials.standard-bar', ['searchLabel' => $board ? 'Search in the board' : 'Search in the list', 'form' => '#rc-filter-form', 'active' => request()->anyFilled(['stage', 'source', 'referred_by', 'search'])])
 @endsection
 
 @push('scripts')
@@ -300,6 +357,15 @@
         $.easyAjax({
             url: '{{ route('job-applications.move', ':id') }}'.replace(':id', $(this).data('id')), type: 'POST', blockUI: true,
             data: {_token: '{{ csrf_token() }}', stage: 'shortlisted'},
+            success: function (response) { if (response.status === 'success') { PageSwap.reload(); } }
+        });
+    });
+
+    // Email a sent offer with the link for the candidate to accept or decline it online
+    $('body').on('click', '.rc-card .rc-email-offer', function () {
+        $.easyAjax({
+            url: '{{ route('job-offers.email', ':id') }}'.replace(':id', $(this).data('id')), type: 'POST', blockUI: true,
+            data: {_token: '{{ csrf_token() }}'},
             success: function (response) { if (response.status === 'success') { PageSwap.reload(); } }
         });
     });

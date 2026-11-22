@@ -86,6 +86,13 @@ use App\Http\Controllers\Auth\LogoutController;
 Route::get('attendance-photo', [\App\Http\Controllers\AttendancePhotoController::class, 'show'])
     ->middleware('signed:relative')->name('attendance.photo');
 
+// A candidate's answer to an offer, from the link in the offer email (App\Services\Recruit\OfferReply):
+// no login, a signed and expiring link
+Route::get('offer-reply/{offer}', [\App\Http\Controllers\OfferReplyController::class, 'show'])
+    ->middleware(['signed:relative', 'throttle:30,1'])->name('offer-reply.show');
+Route::post('offer-reply/{offer}', [\App\Http\Controllers\OfferReplyController::class, 'answer'])
+    ->middleware(['signed:relative', 'throttle:10,1'])->name('offer-reply.answer');
+
 Route::group(['middleware' => 'auth', 'prefix' => 'account'], function () {
     // Its own name: "logout" is Fortify's /logout, which every sign-out button uses,
     // and two routes with one name stop the route cache from being built.
@@ -235,6 +242,7 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account'], function () {
     Route::put('job-offers/{offer}', [App\Http\Controllers\Recruit\JobOfferController::class, 'update'])->name('job-offers.update');
     Route::get('job-offers/{offer}/respond', [App\Http\Controllers\Recruit\JobOfferController::class, 'respondForm'])->name('job-offers.respond-form');
     Route::post('job-offers/{offer}/respond', [App\Http\Controllers\Recruit\JobOfferController::class, 'respond'])->name('job-offers.respond');
+    Route::post('job-offers/{offer}/email', [App\Http\Controllers\Recruit\JobOfferController::class, 'email'])->name('job-offers.email');
     Route::get('job-offers/{offer}/letter', [App\Http\Controllers\Recruit\JobOfferController::class, 'letter'])->name('job-offers.letter');
 
     // Employee Exit Management

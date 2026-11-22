@@ -12,23 +12,29 @@
                 <input type="hidden" name="job_application_id" value="{{ $application->id }}">
             @endif
 
-            <div class="add-client bg-white rounded">
+            <div class="add-client bg-white rounded rc-form">
                 <h4 class="mb-0 p-20 f-21 font-weight-normal border-bottom-grey">{{ $interview->status === 'proposed' ? 'Change Slot & Confirm' : ($editing ? 'Reschedule Interview' : 'Schedule Interview') }}</h4>
 
                 <div class="row p-20">
-                    <div class="col-12 f-14 mb-2">
-                        <strong>{{ $application->candidate->name }}</strong> for {{ $application->positionLabel() }}
-                        <span class="text-dark-grey">· {{ $application->candidate->email ?: 'no email on file' }}</span>
+                    <div class="col-12">
+                        <div class="rc-form-intro">
+                            <i class="fa fa-user mr-1 text-lightest"></i><strong>{{ $application->candidate->name }}</strong> for {{ $application->positionLabel() }}
+                            <span class="text-dark-grey">· {{ $application->candidate->email ?: 'no email on file' }}</span>
+                        </div>
                     </div>
 
+                    {{-- Round: one of the usual rounds, or typed --}}
                     <div class="col-md-6">
-                        <x-forms.label fieldId="round" fieldLabel="Round" :fieldRequired="true" />
-                        <input type="text" class="form-control height-35 f-14" name="round" id="round" list="round-list" value="{{ $interview->round }}">
-                        <datalist id="round-list">
-                            @foreach ($rounds as $round)
-                                <option value="{{ $round }}">
-                            @endforeach
-                        </datalist>
+                        <div class="form-group">
+                            <x-forms.label fieldId="round" fieldLabel="Round" :fieldRequired="true" />
+                            <input type="text" class="form-control f-14" name="round" id="round" list="round-list" value="{{ $interview->round }}"
+                                placeholder="Pick a round or type one" autocomplete="off">
+                            <datalist id="round-list">
+                                @foreach ($rounds as $round)
+                                    <option value="{{ $round }}">
+                                @endforeach
+                            </datalist>
+                        </div>
                     </div>
                     <div class="col-md-6">
                         <x-forms.select fieldId="mode" fieldLabel="Mode" fieldName="mode" :fieldRequired="true">
@@ -62,7 +68,7 @@
                                 <option value="{{ $employee->id }}" @selected(in_array($employee->id, $selected, true))>{{ $employee->name }}{{ $employee->employee_id ? ' (' . $employee->employee_id . ')' : '' }}</option>
                             @endforeach
                         </x-forms.select>
-                        <small class="text-muted">Each interviewer gets it in their calendar and by email, and is asked for a scorecard afterwards.</small>
+                        <small class="rc-help" style="margin: -10px 0 16px">Each interviewer gets it in their calendar and by email, and is asked for a scorecard afterwards.</small>
                     </div>
 
                     <div class="col-md-6" id="link-box">

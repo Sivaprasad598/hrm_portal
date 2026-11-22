@@ -40,13 +40,7 @@
 
             @if ($canManage)
                 <div class="mb-2">
-                    @if ($canConvert)
-                        @if ($conversionProblem)
-                            <span class="d-inline-block" title="{{ $conversionProblem }}"><button class="btn btn-success rounded f-14" disabled><i class="fa fa-user-plus mr-1"></i>Convert to Employee</button></span>
-                        @else
-                            <a href="{{ route('candidates.convert', $candidate->id) }}" class="btn btn-success rounded f-14"><i class="fa fa-user-plus mr-1"></i>Convert to Employee</a>
-                        @endif
-                    @endif
+                    @include('recruitment.partials.register-button', ['candidate' => $candidate, 'regButtonClass' => 'btn btn-success rounded f-14'])
                     <a href="{{ route('candidates.edit', $candidate->id) }}" class="btn btn-secondary rounded f-14 openRightModal ml-1"><i class="fa fa-edit mr-1"></i>Edit</a>
                     <div class="btn-group ml-1">
                         <button type="button" class="btn btn-secondary rounded f-14 dropdown-toggle" data-toggle="dropdown">More</button>
@@ -282,8 +276,8 @@
 
                     @if ($application->stage === 'offer_accepted' && $canConvert && !$conversionProblem)
                         <div class="alert alert-success f-13 mb-0 mt-2 d-flex justify-content-between align-items-center">
-                            <span><i class="fa fa-handshake mr-1"></i>Offer accepted. Add {{ $candidate->name }} as an employee — the form opens filled from this record.</span>
-                            <a href="{{ route('candidates.convert', $candidate->id) }}" class="btn btn-sm btn-success">Convert to Employee</a>
+                            <span><i class="fa fa-handshake mr-1"></i>Offer accepted. Register {{ $candidate->name }} as an employee — Add Employee opens with their details and the offer filled in.</span>
+                            @include('recruitment.partials.register-button', ['candidate' => $candidate])
                         </div>
                     @endif
                 </div>
@@ -317,23 +311,71 @@
                         </div>
                     </x-form>
                 @endif
-                <ul class="list-unstyled rc-timeline mb-0">
-                    @foreach ($candidate->logs as $log)
-                        @php [$label, $icon, $colour] = \App\Models\RecruitLog::ACTIONS[$log->action] ?? [ucfirst($log->action), 'fa-circle', 'text-dark-grey']; @endphp
-                        <li>
-                            <i class="fa {{ $icon }} {{ $colour }} rc-dot"></i>
-                            <span class="font-weight-600">{{ $label }}</span>
-                            @if ($log->action === 'stage')
-                                {!! \App\Models\JobApplication::badge($log->from_stage) !!} → {!! \App\Models\JobApplication::badge($log->to_stage) !!}
+                {{-- Day by day, latest first: a line joins the events; an email shows its subject and opens
+                     on a click; the chips show one kind of event only --}}
+                @php
+                    $kinds = ['note' => 'note', 'email' => 'email', 'interview' => 'interview', 'slot' => 'interview', 'round' => 'interview',
+                        'interview_status' => 'interview', 'feedback' => 'interview', 'stage' => 'stage', 'offer' => 'stage', 'converted' => 'stage'];
+                    $today = now($tz)->toDateString();
+                    $yesterday = now($tz)->subDay()->toDateString();
+                    $days = $candidate->logs->groupBy(fn ($log) => \Carbon\Carbon::parse($log->created_at)->tz($tz)->toDateString());
+                    $present = $candidate->logs->map(fn ($log) => $kinds[$log->action] ?? 'other')->unique();
+                @endphp
+                @if ($candidate->logs->count() > 3)
+                    <div class="rc-tl-filter mb-3" role="tablist">
+                        <button type="button" class="rc-tl-chip active" data-kind="">All <span>{{ $candidate->logs->count() }}</span></button>
+                        @foreach (['note' => 'Notes', 'interview' => 'Interviews', 'email' => 'Emails', 'stage' => 'Stages & offers'] as $kind => $kindLabel)
+                            @if ($present->contains($kind))
+                                <button type="button" class="rc-tl-chip" data-kind="{{ $kind }}">{{ $kindLabel }}</button>
                             @endif
-                            @if ($log->application && $applications->count() > 1)
-                                <span class="text-dark-grey">({{ $log->application->positionLabel() }})</span>
-                            @endif
-                            @if ($log->notes)<div class="rc-pre text-dark-grey">{{ $log->notes }}</div>@endif
-                            <div class="f-11 text-lightest">{{ \Carbon\Carbon::parse($log->created_at)->tz($tz)->format($fmt . ' h:i A') }}{{ $log->doneBy ? ' · ' . $log->doneBy->name : ' · system' }}</div>
-                        </li>
-                    @endforeach
-                </ul>
+                        @endforeach
+                    </div>
+                @endif
+                <div class="rc-tl">
+                    @forelse ($days as $day => $logs)
+                        <div class="rc-tl-day" data-day>
+                            <div class="rc-tl-date">{{ $day === $today ? 'Today' : ($day === $yesterday ? 'Yesterday' : \Carbon\Carbon::parse($day)->format($fmt)) }}</div>
+                            <ul class="list-unstyled mb-0">
+                                @foreach ($logs as $log)
+                                    @php
+                                        [$label, $icon, $colour] = \App\Models\RecruitLog::ACTIONS[$log->action] ?? [ucfirst($log->action), 'fa-circle', 'text-dark-grey'];
+                                        $tone = ['text-primary' => 'blue', 'text-success' => 'green', 'text-warning' => 'amber', 'text-info' => 'teal'][$colour] ?? 'grey';
+                                        $notes = trim((string) $log->notes);
+                                        $first = strtok($notes, "\n");
+                                        $rest = $notes !== '' && $first !== false ? trim(substr($notes, strlen($first))) : '';
+                                    @endphp
+                                    <li class="rc-tl-item" data-kind="{{ $kinds[$log->action] ?? 'other' }}">
+                                        <span class="rc-tl-icon rc-tl-icon--{{ $tone }}"><i class="fa {{ $icon }}"></i></span>
+                                        <div class="rc-tl-body">
+                                            <div class="rc-tl-head">
+                                                <span class="rc-tl-title">{{ $label }}</span>
+                                                @if ($log->action === 'stage')
+                                                    {!! \App\Models\JobApplication::badge($log->from_stage) !!} <i class="fa fa-arrow-right f-10 text-lightest mx-1"></i> {!! \App\Models\JobApplication::badge($log->to_stage) !!}
+                                                @endif
+                                                @if ($log->application && $applications->count() > 1)
+                                                    <span class="rc-tl-tag">{{ $log->application->positionLabel() }}</span>
+                                                @endif
+                                                <span class="rc-tl-time" title="{{ \Carbon\Carbon::parse($log->created_at)->tz($tz)->format($fmt . ' h:i A') }}">{{ \Carbon\Carbon::parse($log->created_at)->tz($tz)->format('h:i A') }}</span>
+                                            </div>
+                                            @if ($notes !== '')
+                                                @if ($rest !== '')
+                                                    <div class="rc-tl-text">{{ $first }}</div>
+                                                    <div class="rc-tl-more rc-pre" style="display: none">{{ $rest }}</div>
+                                                    <a href="javascript:;" class="rc-tl-toggle" data-open="{{ $log->action === 'email' ? 'Show email' : 'Show more' }}">{{ $log->action === 'email' ? 'Show email' : 'Show more' }}</a>
+                                                @else
+                                                    <div class="rc-tl-text rc-pre">{{ $notes }}</div>
+                                                @endif
+                                            @endif
+                                            <div class="rc-tl-by">{{ $log->doneBy ? $log->doneBy->name : 'System' }}</div>
+                                        </div>
+                                    </li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @empty
+                        <p class="f-13 text-dark-grey mb-0">Nothing yet.</p>
+                    @endforelse
+                </div>
             </div>
         </div>
 
@@ -448,6 +490,21 @@
                 disableButton: true, buttonSelector: '#add-note', data: $('#note-form').serialize(),
                 success: function (response) { if (response.status === 'success') { PageSwap.reload(); } }
             });
+        });
+        // Enter adds the note too (never a plain form post)
+        $('#note-form').on('submit', function (e) { e.preventDefault(); $('#add-note').trigger('click'); });
+
+        // Timeline: one kind of event at a time; a long entry or an email opens on a click
+        $('.rc-tl-filter').on('click', '.rc-tl-chip', function () {
+            var kind = $(this).data('kind');
+            $(this).addClass('active').siblings().removeClass('active');
+            $('.rc-tl-item').each(function () { $(this).toggle(!kind || $(this).data('kind') === kind); });
+            $('.rc-tl-day').each(function () { $(this).toggle($(this).find('.rc-tl-item').filter(function () { return this.style.display !== 'none'; }).length > 0); });
+        });
+        $('.rc-tl').on('click', '.rc-tl-toggle', function () {
+            var more = $(this).prev('.rc-tl-more'), open = !more.is(':visible');
+            more.slideToggle(150);
+            $(this).text(open ? 'Hide' : $(this).data('open'));
         });
 
         $('#upload-file').on('click', function () {
