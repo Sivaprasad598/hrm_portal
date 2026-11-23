@@ -189,6 +189,11 @@
                                  :text="__('app.menu.projectSettings')"/>
         @endif
 
+        @if (\App\Services\Tracker\TrackerAccess::settings() && in_array('projects', user_modules()))
+            <x-setting-menu-item :active="$activeMenu" menu="project_tracker_settings" :href="route('project-tracker-settings.index')"
+                                 text="Project Tracker"/>
+        @endif
+
         @if (user()->permission('manage_role_permission_setting') == 'all')
             {{-- Access: pages and actions per role. Roles & Permissions and
                  Assign Menus are linked from it under "Advanced". --}}

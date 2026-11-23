@@ -39,6 +39,11 @@ $projectArchived = $project->trashed();
                         <x-tab :href="route('projects.show', $project->id)" :text="__('modules.projects.overview')" class="overview" />
                     </li>
 
+                    {{-- Project tracker: the project's type, steps, structure and progress --}}
+                    <li>
+                        <x-tab :href="route('projects.show', $project->id).'?tab=tracker'" text="Tracker" class="tracker" ajax="false" />
+                    </li>
+
                     @if (
                         !$project->public && $viewProjectMemberPermission == 'all'
                     )

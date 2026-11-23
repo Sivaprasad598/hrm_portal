@@ -467,12 +467,14 @@ var ganttData = @json($ganttData);
     };
 
     var dateToStr = gantt.date.date_to_str(gantt.config.task_date);
-    var markerId = gantt.addMarker({
+    // "Today" line: the marker add-on is not in every build of the library ("edge" on the CDN dropped
+    // addMarker) - without the guard the error stopped the rest of the chart from being set up
+    var markerId = typeof gantt.addMarker === 'function' ? gantt.addMarker({
         start_date: new Date(), //a Date object that sets the marker's date
         css: "today", //a CSS class applied to the marker
         text: "@lang('app.today')", //the marker title
         title: dateToStr( new Date()) // the marker's tooltip
-    });
+    }) : null;
 
     gantt.templates.task_text = function(start, end, task){
         return task.text;

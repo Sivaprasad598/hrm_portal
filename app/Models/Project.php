@@ -166,6 +166,12 @@ class Project extends BaseModel
         return $this->belongsTo(ProjectCategory::class, 'category_id');
     }
 
+    /** Project tracker: the kind of project (its unit of work, steps and rates). */
+    public function projectType(): BelongsTo
+    {
+        return $this->belongsTo(ProjectType::class, 'project_type_id');
+    }
+
     public function projectAdmin()
     {
         return $this->belongsTo(User::class, 'project_admin');

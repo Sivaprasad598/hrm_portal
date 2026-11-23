@@ -196,6 +196,23 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account'], function () {
     Route::resource('assets', App\Http\Controllers\AssetController::class);
     Route::resource('asset-types', App\Http\Controllers\AssetTypeController::class)->only(['index', 'store', 'update', 'destroy']);
 
+    // Project tracker (on the Projects module): Settings -> Project Tracker, and each project's Tracker tab
+    Route::get('project-tracker/settings', [App\Http\Controllers\Tracker\TrackerSettingController::class, 'index'])->name('project-tracker-settings.index');
+    Route::post('project-tracker/settings/hours', [App\Http\Controllers\Tracker\TrackerSettingController::class, 'hours'])->name('project-tracker-settings.hours');
+    Route::get('project-tracker/types/create', [App\Http\Controllers\Tracker\TrackerSettingController::class, 'create'])->name('project-types.create');
+    Route::post('project-tracker/types', [App\Http\Controllers\Tracker\TrackerSettingController::class, 'store'])->name('project-types.store');
+    Route::get('project-tracker/types/{type}/edit', [App\Http\Controllers\Tracker\TrackerSettingController::class, 'edit'])->name('project-types.edit');
+    Route::put('project-tracker/types/{type}', [App\Http\Controllers\Tracker\TrackerSettingController::class, 'update'])->name('project-types.update');
+    Route::delete('project-tracker/types/{type}', [App\Http\Controllers\Tracker\TrackerSettingController::class, 'destroy'])->name('project-types.destroy');
+    Route::get('projects/{project}/tracker/setup', [App\Http\Controllers\Tracker\ProjectTrackerController::class, 'setupForm'])->name('project-tracker.setup-form');
+    Route::post('projects/{project}/tracker/setup', [App\Http\Controllers\Tracker\ProjectTrackerController::class, 'setup'])->name('project-tracker.setup');
+    Route::get('projects/{project}/tracker/items/create', [App\Http\Controllers\Tracker\ProjectTrackerController::class, 'itemForm'])->name('project-tracker.items.create');
+    Route::post('projects/{project}/tracker/items', [App\Http\Controllers\Tracker\ProjectTrackerController::class, 'storeItem'])->name('project-tracker.items.store');
+    Route::get('projects/{project}/tracker/items/{task}/edit', [App\Http\Controllers\Tracker\ProjectTrackerController::class, 'itemForm'])->name('project-tracker.items.edit');
+    Route::put('projects/{project}/tracker/items/{task}', [App\Http\Controllers\Tracker\ProjectTrackerController::class, 'updateItem'])->name('project-tracker.items.update');
+    Route::post('projects/{project}/tracker/items/{task}/stage', [App\Http\Controllers\Tracker\ProjectTrackerController::class, 'stage'])->name('project-tracker.items.stage');
+    Route::post('projects/{project}/tracker/items/{task}/progress', [App\Http\Controllers\Tracker\ProjectTrackerController::class, 'progress'])->name('project-tracker.items.progress');
+
     // Recruitment: positions, candidates (careers mailbox, website, HR), interviews, offers, joining.
     Route::get('recruitment', [App\Http\Controllers\Recruit\RecruitDashboardController::class, 'index'])->name('recruitment.dashboard');
     Route::get('recruitment/settings', [App\Http\Controllers\Recruit\RecruitSettingController::class, 'index'])->name('recruitment-settings.index');

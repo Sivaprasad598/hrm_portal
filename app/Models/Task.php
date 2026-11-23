@@ -322,6 +322,24 @@ class Task extends BaseModel
         return $this->hasMany(Task::class, 'recurring_task_id');
     }
 
+    /** Project tracker: the step of the project type's work this task is at. */
+    public function trackerStage(): BelongsTo
+    {
+        return $this->belongsTo(ProjectTypeStage::class, 'project_stage_id');
+    }
+
+    /** Project tracker: the Epic or Work item this sits under. */
+    public function trackerParent(): BelongsTo
+    {
+        return $this->belongsTo(Task::class, 'parent_id');
+    }
+
+    /** Project tracker: the Work items under an Epic, the Tasks under a Work item. */
+    public function trackerChildren(): HasMany
+    {
+        return $this->hasMany(Task::class, 'parent_id');
+    }
+
     public function milestone(): BelongsTo
     {
         return $this->belongsTo(ProjectMilestone::class, 'milestone_id');

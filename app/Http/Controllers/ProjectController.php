@@ -936,6 +936,12 @@ class ProjectController extends AccountBaseController
         $tab = request('tab');
 
         switch ($tab) {
+        case 'tracker':
+            // Project tracker: type, steps, Epic -> Work item -> Task, progress (App\Services\Tracker)
+            $this->tracker = app(\App\Services\Tracker\ProjectTracker::class)->forProject($this->project);
+            $this->canTrack = \App\Services\Tracker\TrackerAccess::manage($this->project);
+            $this->view = 'projects.ajax.tracker';
+            break;
         case 'members':
             abort_403(!(
                 $this->viewProjectMemberPermission == 'all'

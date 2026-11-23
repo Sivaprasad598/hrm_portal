@@ -1,16 +1,14 @@
-{{-- "Coming soon": a grey overlay over the page content of modules not open yet
-     (Assets, Work). The sidebar stays usable so people can leave. To open a
-     module again, take its routes out of the list below. --}}
+{{-- "Coming soon": a grey overlay over the page content of modules not open yet.
+     The sidebar stays usable so people can leave. To open a module, take its
+     routes out of the list below.
+     Open since 2026-11-23: Assets (with My Assets) and Projects (with Tasks, Task
+     Board, Timesheet, Weekly Timesheets - the project tracker builds on them). --}}
 @php
     $comingSoonRoutes = [
-        // Assets
-        'assets.*', 'asset-types.*',
         // Work
-        'contracts.*', 'projects.*', 'tasks.*', 'timelogs.*', 'weekly-timesheets.*', 'taskboards.*',
+        'contracts.*',
     ];
-    // My Space -> My Assets (and an employee's Assets tab opened by its link):
-    // the profile page with ?tab=assets. Take this out with 'assets.*' above.
-    $comingSoonTab = request()->routeIs('employees.show') && request('tab') === 'assets';
+    $comingSoonTab = false;
 @endphp
 
 @if (request()->routeIs(...$comingSoonRoutes) || $comingSoonTab)
