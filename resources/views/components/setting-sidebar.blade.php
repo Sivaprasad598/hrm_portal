@@ -203,6 +203,9 @@
             <x-setting-menu-item :active="$activeMenu" menu="menu_management"
                                  :href="\App\Support\ModulePresence::href('menu-management.index')"
                                  text="Add Menu"/>
+        @elseif (\App\Http\Controllers\AssignMenuController::canManage())
+            {{-- the Admin: gives other roles the menus their own role has (2026-11-23) --}}
+            <x-setting-menu-item :active="$activeMenu" menu="role_management" :href="route('assign-menus.index')" text="Menu Access"/>
         @endif
 
         <x-setting-menu-item :active="$activeMenu" menu="security_settings" :href="\App\Support\ModulePresence::href('security-settings.index')"

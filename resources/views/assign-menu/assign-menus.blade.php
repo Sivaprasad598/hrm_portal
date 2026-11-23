@@ -12,22 +12,27 @@
                 <div class="s-b-n-header assign-menus-page-header" id="tabs">
                     <div class="assign-menus-title-row">
                         <h2 class="mb-0 p-20 f-21 font-weight-normal">
-                            Assign Menus
+                            Menu Access
                         </h2>
                         <div class="assign-menus-tabs" role="tablist" aria-label="Menu management">
                             <button type="button" class="assign-menus-tab active" data-menu-tab="assign" role="tab" aria-selected="true">
-                                Assign Menu
+                                Roles
                             </button>
-                            <button type="button" class="assign-menus-tab" data-menu-tab="modules" role="tab" aria-selected="false">
-                                Modules
-                            </button>
-                            <a href="{{ route('menu-management.index') }}" class="assign-menus-tab-link">
-                                <i class="fa fa-plus mr-1"></i> Add Menu
-                            </a>
+                            @if ($unlimited)
+                                <button type="button" class="assign-menus-tab" data-menu-tab="modules" role="tab" aria-selected="false">
+                                    Modules
+                                </button>
+                                <a href="{{ route('menu-management.index') }}" class="assign-menus-tab-link">
+                                    <i class="fa fa-plus mr-1"></i> Add Menu
+                                </a>
+                            @endif
                         </div>
                     </div>
                     <p class="mb-0 px-4 pt-2 text-muted f-13">
                         Control which main menus, submenus and child menus each role can access.
+                        @unless ($unlimited)
+                            As Admin you can give other roles any menu your own role has; the Super Admin role and your own role are changed by the Super Admin.
+                        @endunless
                     </p>
                 </div>
             </x-slot>
@@ -51,11 +56,14 @@
                             <tbody>
                                 @foreach ($roles as $role)
                                     <tr>
-                                        <td class="font-weight-bold text-muted">{{ $role->id }}</td>
+                                        <td class="font-weight-bold text-muted">{{ $loop->iteration }}</td>
 
                                         <td>
-                                            <span class="badge badge-secondary text-capitalize px-3 py-1">
-                                                {{ $role->name }}
+                                            {{-- the role as people call it: the system names stay "admin" (the Super Admin)
+                                                 and "manager_admin" (the Admin), which the code checks --}}
+                                            <span class="badge badge-secondary px-3 py-1" title="System name: {{ $role->name }}">
+                                                {{ ['admin' => 'Super Admin', 'manager_admin' => 'Admin'][$role->name]
+                                                    ?? collect(explode('_', $role->name))->map(fn ($w) => in_array($w, ['hr', 'ceo', 'cfo', 'cto', 'coo', 'gis', 'it'], true) ? strtoupper($w) : ucfirst($w))->implode(' ') }}
                                             </span>
                                         </td>
 
@@ -95,6 +103,11 @@
                                                         title="Admin role always has full access">
                                                     <i class="fa fa-lock"></i> Full Access
                                                 </button>
+                                            @elseif (!in_array($role->id, $editable))
+                                                <button type="button" class="btn btn-secondary btn-sm" disabled
+                                                        title="Your own role: changed by the Super Admin">
+                                                    <i class="fa fa-lock"></i> Your role
+                                                </button>
                                             @else
                                                 <button type="button" class="btn btn-primary btn-sm assign-menus-btn"
                                                         data-role-id="{{ $role->id }}"
@@ -123,7 +136,8 @@
             {{-- Modules: one still being built is marked Coming soon. Its menu stays (tagged "Soon");
                  its pages show a Coming soon page to everyone but the Super Admin (ComingSoon). --}}
             <div id="modulesTabContent" class="col-lg-12 col-md-12 w-100 p-4 d-none">
-                @if (!$comingSoonReady)
+                @if (!$unlimited)
+                @elseif (!$comingSoonReady)
                     <div class="alert alert-warning mb-0">Run the database migrations to use this (sidebar_menus.coming_soon is missing).</div>
                 @else
                     <p class="text-muted f-13 mb-3">

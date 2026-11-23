@@ -61,11 +61,11 @@
                     <input type="checkbox" class="custom-control-input main-checkbox"
                            id="menu_{{ $mainMenu->id }}" name="menu_ids[]" value="{{ $mainMenu->id }}"
                            {{ $role->id == 1 || in_array($mainMenu->id, $assignedMenus) ? 'checked' : '' }}
-                           {{ $role->id == 1 ? 'disabled' : '' }}>
+                           {{ $role->id == 1 || in_array($mainMenu->id, $lockedMenus ?? []) ? 'disabled' : '' }}>
                     <label class="custom-control-label font-weight-bold text-dark"
                            for="menu_{{ $mainMenu->id }}" style="cursor: pointer; font-size: 15px;">
                         <i class="fa fa-folder{{ $mainMenu->children->count() > 0 ? '-open' : '' }} text-warning mr-1"></i>
-                        {{ $mainMenu->name }}{!! $needBadge($mainMenu->id) !!}
+                        {{ $mainMenu->name }}{!! $needBadge($mainMenu->id) !!}@if (in_array($mainMenu->id, $lockedMenus ?? []))<span class="badge badge-light border ml-2 f-10 font-weight-normal" title="Your role does not have this menu: only the Super Admin can give it"><i class="fa fa-lock mr-1"></i>Super Admin</span>@endif
                     </label>
                 </div>
 
@@ -78,11 +78,11 @@
                                     <input type="checkbox" class="custom-control-input sub-checkbox"
                                            id="menu_{{ $subMenu->id }}" name="menu_ids[]" value="{{ $subMenu->id }}"
                                            {{ $role->id == 1 || in_array($subMenu->id, $assignedMenus) ? 'checked' : '' }}
-                                           {{ $role->id == 1 ? 'disabled' : '' }}>
+                                           {{ $role->id == 1 || in_array($subMenu->id, $lockedMenus ?? []) ? 'disabled' : '' }}>
                                     <label class="custom-control-label text-secondary"
                                            for="menu_{{ $subMenu->id }}" style="cursor: pointer;">
                                         <i class="fa fa-level-up-alt fa-rotate-90 text-info mr-1"></i>
-                                        {{ $subMenu->name }}{!! $needBadge($subMenu->id) !!}
+                                        {{ $subMenu->name }}{!! $needBadge($subMenu->id) !!}@if (in_array($subMenu->id, $lockedMenus ?? []))<span class="badge badge-light border ml-2 f-10 font-weight-normal" title="Your role does not have this menu: only the Super Admin can give it"><i class="fa fa-lock mr-1"></i>Super Admin</span>@endif
                                     </label>
                                 </div>
 
@@ -95,11 +95,11 @@
                                                     <input type="checkbox" class="custom-control-input child-checkbox"
                                                            id="menu_{{ $childMenu->id }}" name="menu_ids[]" value="{{ $childMenu->id }}"
                                                            {{ $role->id == 1 || in_array($childMenu->id, $assignedMenus) ? 'checked' : '' }}
-                                                           {{ $role->id == 1 ? 'disabled' : '' }}>
+                                                           {{ $role->id == 1 || in_array($childMenu->id, $lockedMenus ?? []) ? 'disabled' : '' }}>
                                                     <label class="custom-control-label text-muted"
                                                            for="menu_{{ $childMenu->id }}" style="cursor: pointer;">
                                                         <i class="fa fa-circle-notch text-muted mr-1" style="font-size: 10px;"></i>
-                                                        {{ $childMenu->name }}{!! $needBadge($childMenu->id) !!}
+                                                        {{ $childMenu->name }}{!! $needBadge($childMenu->id) !!}@if (in_array($childMenu->id, $lockedMenus ?? []))<span class="badge badge-light border ml-2 f-10 font-weight-normal" title="Your role does not have this menu: only the Super Admin can give it"><i class="fa fa-lock mr-1"></i>Super Admin</span>@endif
                                                     </label>
                                                 </div>
                                             </div>
@@ -149,13 +149,13 @@
         // --------------------------------------------------
         $(document).off('change', '.main-checkbox').on('change', '.main-checkbox', function () {
             var isChecked = $(this).prop('checked');
-            $(this).closest('.main-menu-item').find('.sub-checkbox, .child-checkbox').prop('checked', isChecked);
+            $(this).closest('.main-menu-item').find('.sub-checkbox, .child-checkbox').not(':disabled').prop('checked', isChecked);
             updateSelectedCountBadge();
         });
 
         $(document).off('change', '.sub-checkbox').on('change', '.sub-checkbox', function () {
             var isChecked = $(this).prop('checked');
-            $(this).closest('.sub-menu-item').find('.child-checkbox').prop('checked', isChecked);
+            $(this).closest('.sub-menu-item').find('.child-checkbox').not(':disabled').prop('checked', isChecked);
             if (isChecked) {
                 $(this).closest('.main-menu-item').find('.main-checkbox').prop('checked', true);
             }

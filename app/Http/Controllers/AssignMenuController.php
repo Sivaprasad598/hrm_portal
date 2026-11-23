@@ -25,15 +25,63 @@ class AssignMenuController extends AccountBaseController
     public function __construct()
     {
         parent::__construct();
-        $this->pageTitle = 'Assign Menus';
+        $this->pageTitle = 'Menu Access';
         $this->activeSettingMenu = 'role_management';
+    }
+
+    /**
+     * Who may use this page: whoever holds Roles & Permissions (the Super Admin), and the Admin role
+     * (manager_admin, added 2026-11-23), who gives other roles the menus their own role has.
+     */
+    public static function canManage(): bool
+    {
+        return user() && (user()->permission('manage_role_permission_setting') === 'all'
+            || in_array('manager_admin', user_roles(), true));
+    }
+
+    /** The Super Admin (or whoever holds Roles & Permissions) has no limits here. */
+    private function unlimited(): bool
+    {
+        return user()->permission('manage_role_permission_setting') === 'all';
+    }
+
+    /**
+     * For the Admin: the menus they may give (those their own roles have) - null when unlimited.
+     * @return array<int, int>|null
+     */
+    private function givable(): ?array
+    {
+        if ($this->unlimited()) {
+            return null;
+        }
+
+        $roles = Role::whereIn('name', user_roles())->pluck('id');
+
+        return \Illuminate\Support\Facades\DB::table('role_menus')->whereIn('role_id', $roles)->pluck('menu_id')->map(fn ($id) => (int) $id)->unique()->values()->all();
+    }
+
+    /**
+     * The Admin cannot change the Super Admin role or their own Admin role. Employee is the base role
+     * everybody holds (the Admin too), so the Admin may change it like any other.
+     */
+    private function mayEdit(Role $role): bool
+    {
+        return $this->unlimited() || ($role->name !== 'admin' && ($role->name === 'employee' || !in_array($role->name, user_roles(), true)));
     }
 
     public function index()
     {
-        abort_403(user()->permission('manage_role_permission_setting') != 'all');
+        abort_403(!self::canManage());
 
-        $this->roles = Role::withCount('menus')->orderBy('id', 'asc')->get();
+        // by seniority; any other role after the named ones, Employee and Client last
+        $order = ['admin', 'manager_admin', 'ceo', 'cfo', 'hr', 'manager', 'team_lead', 'developer', 'gis_engineer'];
+        $last = ['employee', 'client'];
+        $this->roles = Role::withCount('menus')->orderBy('id', 'asc')->get()
+            ->sortBy(fn ($r) => in_array($r->name, $order, true) ? array_search($r->name, $order, true)
+                : (in_array($r->name, $last, true) ? 1000 + array_search($r->name, $last, true) : 500 + $r->id))
+            ->values();
+        $this->unlimited = $this->unlimited();
+        $this->editable = $this->roles->filter(fn ($r) => $this->mayEdit($r))->pluck('id')->all();
         $this->menuParents = $this->menuTree();
         $this->comingSoonReady = \Illuminate\Support\Facades\Schema::hasColumn('sidebar_menus', 'coming_soon');
 
@@ -45,10 +93,15 @@ class AssignMenuController extends AccountBaseController
      */
     public function getRoleAccess($roleId)
     {
-        abort_403(user()->permission('manage_role_permission_setting') != 'all');
+        abort_403(!self::canManage());
 
         $this->role = Role::with('menus')->findOrFail($roleId);
+        abort_403(!$this->mayEdit($this->role));
         $this->menus = $this->menuTree();
+        // entries the Admin cannot give (their own roles do not have them): shown, not changeable
+        $givable = $this->givable();
+        $this->lockedMenus = $givable === null ? [] : SidebarMenu::forCompany(company()?->id)->where('is_active', 1)
+            ->whereNotIn('id', $givable)->pluck('id')->map(fn ($id) => (int) $id)->all();
         $this->assignedMenus = $this->role->menus->pluck('id')->toArray();
         $this->isAdminRole = $this->role->name === 'admin';
         // Each linked entry's permission and whether this role holds it.
@@ -62,9 +115,10 @@ class AssignMenuController extends AccountBaseController
 
     public function updateRoleAccess(Request $request, $roleId)
     {
-        abort_403(user()->permission('manage_role_permission_setting') != 'all');
+        abort_403(!self::canManage());
 
         $role = Role::findOrFail($roleId);
+        abort_403(!$this->mayEdit($role));
 
         // The administrator role always holds every menu. Matched by name, not
         // by id: id 1 is only the admin role on a single-company install, and
@@ -72,10 +126,12 @@ class AssignMenuController extends AccountBaseController
         if ($role->name === 'admin') {
             $role->menus()->sync($this->activeMenuIds());
         } else {
-            $ids = $this->sanitiseMenuIds($request->menu_ids);
+            $ids = $this->limitToGivable($role, $this->sanitiseMenuIds($request->menu_ids));
             $role->menus()->sync($ids);
-            // A ticked entry the role could not open gets the permission it needs.
-            $granted = \App\Services\Access\MenuPermissions::grantForMenus($role, $ids);
+            // A ticked entry the role could not open gets the permission it needs (for the Admin,
+            // only on the menus they may give: the others are kept as the Super Admin left them).
+            $givable = $this->givable();
+            $granted = \App\Services\Access\MenuPermissions::grantForMenus($role, $givable === null ? $ids : array_values(array_intersect($ids, $givable)));
         }
 
         $this->forgetRoleCaches($role);
@@ -116,18 +172,36 @@ class AssignMenuController extends AccountBaseController
 
     public function assignAllMenus($roleId)
     {
-        abort_403(user()->permission('manage_role_permission_setting') != 'all');
+        abort_403(!self::canManage());
 
         $role = Role::findOrFail($roleId);
-        $role->menus()->sync($this->activeMenuIds());
+        abort_403(!$this->mayEdit($role));
+        $role->menus()->sync($this->limitToGivable($role, $this->activeMenuIds()));
         $this->forgetRoleCaches($role);
 
-        return Reply::success('All menus assigned to this role.');
+        return Reply::success($this->unlimited() ? 'All menus assigned to this role.' : 'Every menu you can give was assigned to this role.');
+    }
+
+    /**
+     * For the Admin: of what was asked, keep only the menus they may give; and leave the role's
+     * other menus (given by the Super Admin) exactly as they are.
+     */
+    private function limitToGivable(Role $role, array $ids): array
+    {
+        $givable = $this->givable();
+
+        if ($givable === null) {
+            return $ids;
+        }
+
+        $kept = $role->menus()->pluck('sidebar_menus.id')->map(fn ($id) => (int) $id)->diff($givable);
+
+        return collect($ids)->map(fn ($id) => (int) $id)->intersect($givable)->merge($kept)->unique()->values()->all();
     }
 
     public function revokeAllMenus($roleId)
     {
-        abort_403(user()->permission('manage_role_permission_setting') != 'all');
+        abort_403(!self::canManage());
 
         $role = Role::findOrFail($roleId);
 
@@ -137,7 +211,8 @@ class AssignMenuController extends AccountBaseController
             return Reply::error('The administrator role keeps every menu and cannot be emptied.');
         }
 
-        $role->menus()->sync([]);
+        abort_403(!$this->mayEdit($role));
+        $role->menus()->sync($this->limitToGivable($role, []));
         $this->forgetRoleCaches($role);
 
         return Reply::success('All menus revoked from this role.');

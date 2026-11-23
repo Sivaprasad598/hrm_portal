@@ -26,7 +26,8 @@ class EmployeeImportController extends AccountBaseController
 
         $this->middleware(function ($request, $next) {
             // Salary data for the whole company.
-            abort_403(!in_array('admin', user_roles()));
+            // Super Admin and Admin (Admin added 2026-11-23: Admin has every module's pages)
+            abort_403(!array_intersect(['admin', 'manager_admin'], user_roles()));
 
             return $next($request);
         });

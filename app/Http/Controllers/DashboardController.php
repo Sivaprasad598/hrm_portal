@@ -62,6 +62,14 @@ class DashboardController extends AccountBaseController
             return $this->clientPanelDashboard();
         }
 
+        // The CEO and CFO land on the Executive Dashboard; their own dashboard is a
+        // button on it (?mine=1). (Not the Super Admin or Admin, who also hold it.)
+        $roles = user_roles();
+        if (array_intersect(['ceo', 'cfo'], $roles) && !array_intersect(['admin', 'manager_admin'], $roles)
+            && !request()->boolean('mine') && \Illuminate\Support\Facades\Route::has('executive-dashboard.index')) {
+            return redirect()->route('executive-dashboard.index');
+        }
+
         // Everybody else lands on their private dashboard after login - the
         // Super Admin too, who is not an employee (it came back empty for them).
         $this->viewOverviewDashboard = user()->permission('view_overview_dashboard');
@@ -126,9 +134,10 @@ class DashboardController extends AccountBaseController
 
     public function advancedDashboard()
     {
-        // The company-wide dashboard is the Super Admin's only; everyone else has
+        // The company-wide dashboard is the Super Admin's and the Admin's (Admin added
+        // 2026-11-23); the CEO and CFO have the Executive Dashboard, everyone else
         // their own private dashboard.
-        abort_403(!in_array('admin', user_roles()));
+        abort_403(!array_intersect(['admin', 'manager_admin'], user_roles()));
 
 
         if (in_array('admin', user_roles()) || $this->sidebarUserPermissions['view_overview_dashboard'] == 4

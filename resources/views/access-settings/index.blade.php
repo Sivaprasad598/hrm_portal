@@ -46,7 +46,7 @@
                         <div class="f-13 mt-2 mt-md-0">
                             <span class="text-lightest mr-1">Advanced:</span>
                             <a href="{{ route('role-permissions.index') }}" class="mr-2">Roles &amp; Permissions</a>
-                            <a href="{{ route('assign-menus.index') }}">Assign Menus</a>
+                            <a href="{{ route('assign-menus.index') }}">Menu Access</a>
                         </div>
                     </div>
                 </div>

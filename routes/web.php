@@ -105,6 +105,8 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account'], function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('dashboard/universal-bundle-alert-dismiss', [DashboardController::class, 'dismissUniversalBundleAlert'])->name('dashboard.universal_bundle_alert_dismiss');
     Route::get('dashboard-advanced', [DashboardController::class, 'advancedDashboard'])->name('dashboard.advanced');
+    // the company on one page for Super Admin, Admin, CEO and CFO (Company and Finance views)
+    Route::get('executive-dashboard', [App\Http\Controllers\ExecutiveDashboardController::class, 'index'])->name('executive-dashboard.index');
     Route::post('dashboard/widget/{dashboardType}', [DashboardController::class, 'widget'])->name('dashboard.widget');
     Route::post('dashboard/week-timelog', [DashboardController::class, 'weekTimelog'])->name('dashboard.week_timelog');
     Route::get('dashboard/lead-data/{id}', [DashboardController  ::class, 'getLeadStage'])->name('dashboard.deal-stage-data');

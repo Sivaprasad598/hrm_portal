@@ -168,13 +168,26 @@
     $isActive = $isItemActive($menu);
     $isOpen = $isTreeActive($menu);
 
-    // Dashboard is one link to the private dashboard; only the Super Admin also
-    // has the Advanced Dashboard, so only they get the two as a sub-menu.
-    if ($level === 0 && $menu->slug === 'dashboard' && !in_array('admin', user_roles())) {
-        $menuUrl = route('dashboard');
-        $isActive = request()->routeIs('dashboard');
-        $isOpen = $isActive;
-        $children = collect();
+    // Dashboard (2026-11-23):
+    //  - Super Admin and Admin: a sub-menu - Private, Advanced and Executive Dashboard;
+    //  - CEO and CFO: one link to the Executive Dashboard (their own one is a button on it);
+    //  - everybody else: one link to their private dashboard.
+    if ($level === 0 && $menu->slug === 'dashboard') {
+        $dashboardRoles = user_roles();
+
+        if (array_intersect(['admin', 'manager_admin'], $dashboardRoles)) {
+            // (the sub-menu as it is)
+        } elseif (array_intersect(['ceo', 'cfo'], $dashboardRoles) && \Illuminate\Support\Facades\Route::has('executive-dashboard.index')) {
+            $menuUrl = route('executive-dashboard.index');
+            $isActive = request()->routeIs('executive-dashboard.*', 'dashboard');
+            $isOpen = $isActive;
+            $children = collect();
+        } else {
+            $menuUrl = route('dashboard');
+            $isActive = request()->routeIs('dashboard');
+            $isOpen = $isActive;
+            $children = collect();
+        }
     }
 
     // Settings is a single link: its pages are listed in the settings page's own sidebar

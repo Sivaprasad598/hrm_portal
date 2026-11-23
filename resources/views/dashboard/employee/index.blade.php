@@ -270,6 +270,34 @@
             @include('dashboard.employee.me')
          @endunless
          <!-- EMPLOYEE DASHBOARD DETAIL START -->
+         {{-- Lighter cards on this dashboard: a compact "who I am" card, slim empty states,
+              the same corners and spacing everywhere (2026-11-23) --}}
+         <style>
+             .emp-dash-detail .card, .emp-dash-detail .b-shadow-4 { border-radius: 12px !important; box-shadow: 0 1px 3px rgba(16, 24, 40, .06) !important; }
+             .emp-dash-detail .card .card-header { background: #fff; border-bottom: 1px solid #f2f4f7; padding: 14px 18px !important; border-radius: 12px 12px 0 0 !important; }
+             .emp-dash-detail .card .card-header h4, .emp-dash-detail .card .card-header .f-18 { font-size: 15px !important; font-weight: 600 !important; color: #101828; }
+             /* empty lists: one slim line, not a tall block */
+             .emp-dash-detail .h-200 { height: auto !important; max-height: 260px; overflow-y: auto; }
+             .emp-dash-detail .card .align-items-center.d-flex.flex-column.text-lightest.p-20 { flex-direction: row !important; justify-content: center; gap: 10px; padding: 16px !important; }
+             .emp-dash-detail .card .align-items-center.d-flex.flex-column.text-lightest.p-20 > i { width: auto !important; font-size: 15px !important; color: #d0d5dd; }
+             .emp-dash-detail .card .align-items-center.d-flex.flex-column.text-lightest.p-20 > .f-15 { margin: 0 !important; font-size: 13px !important; color: #98a2b3; }
+             /* a "today" list with nothing in it (On Leave Today, Work From Home, Joinings...): just its title, "none today" */
+             .emp-dash-detail .e-d-info-notices .card:has(.align-items-center.d-flex.flex-column.text-lightest.p-20) > .card-body { display: none !important; }
+             .emp-dash-detail .e-d-info-notices .card:has(.align-items-center.d-flex.flex-column.text-lightest.p-20) > .card-header { border-bottom: 0; border-radius: 12px !important; }
+             .emp-dash-detail .e-d-info-notices .card:has(.align-items-center.d-flex.flex-column.text-lightest.p-20) > .card-header h4::after {
+                 content: '· none today'; margin-left: 8px; font-size: 12.5px; font-weight: 400; color: #98a2b3; }
+             .emp-dash-detail .e-d-info-notices .card:has(.align-items-center.d-flex.flex-column.text-lightest.p-20) > .card-header > :not(h4) { display: none !important; }
+             .ed-me { display: flex; align-items: center; gap: 16px; background: #fff; border-radius: 12px; padding: 16px 18px; box-shadow: 0 1px 3px rgba(16, 24, 40, .06);
+                 color: inherit; border-left: 3px solid var(--epic-blue, #cb6b4f); }
+             a.ed-me:hover { text-decoration: none; color: inherit; box-shadow: 0 6px 16px rgba(16, 24, 40, .08); }
+             .ed-me img { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; flex: none; border: 2px solid #f2f4f7; }
+             .ed-me-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+             .ed-me-text b { font-size: 16px; color: #101828; font-weight: 600; }
+             .ed-me-text span { font-size: 13px; color: #475467; }
+             .ed-me-text small { font-size: 12px; color: #98a2b3; margin-top: 2px; }
+             .ed-me-go { font-size: 12.5px; color: var(--epic-blue, #cb6b4f); white-space: nowrap; }
+             @media (max-width: 575px) { .ed-me-go { display: none; } }
+         </style>
          <div class="row emp-dash-detail">
             <!-- EMP DASHBOARD INFO NOTICES START -->
             @if(count(array_intersect(['profile', 'shift_schedule', 'birthday', 'notices'], $activeWidgets)) > 0)
@@ -278,60 +306,25 @@
                         {{-- Not for the Super Admin login: no employee profile to open --}}
                         @if (in_array('profile', $activeWidgets) && !\App\Services\Access\SystemAccounts::is(user()->id))
                         <!-- EMP DASHBOARD INFO START -->
+                        {{-- Who they are, compact: the Tasks and Projects cards beside it carry the counts --}}
+                        @php
+                            $edDetail = $user->employeeDetail;
+                            $edJoined = $edDetail?->joining_date ? \Carbon\Carbon::parse($edDetail->joining_date) : null;
+                        @endphp
                         <div class="col-md-12">
-                            <div class="card border-0 b-shadow-4 mb-3 e-d-info">
-                                <a @if(!in_array('client', user_roles())) href="{{ route('employees.show', user()->id) }}" @endif >
-                                    <div class="card-horizontal align-items-center">
-                                        <div class="card-img">
-                                            <img class="" src=" {{ $user->image_url }}" alt="Card image">
-                                        </div>
-                                        <div class="card-body border-0 pl-0">
-                                            <h4 class="card-title text-dark f-18 f-w-500 mb-0">{{ $user->name }}</h4>
-                                            <p class="f-14 font-weight-normal text-dark-grey mb-2">
-                                                {{ $user->employeeDetail->designation->name ?? '--' }}</p>
-                                            <p class="card-text f-12 text-lightest"> @lang('app.employeeId') :
-                                                {{ $user->employeeDetail->employee_id }}</p>
-                                        </div>
-                                    </div>
-                                </a>
-
-                                <div class="card-footer bg-white border-top-grey py-3">
-                                    <div class="d-flex flex-wrap justify-content-between">
-                                        @if(in_array('tasks', dashboard_modules()))
-                                            <span>
-                                                <label class="f-12 text-dark-grey mb-12 " for="usr">
-                                                    @lang('app.openTasks') </label>
-                                                <p class="mb-0 f-18 f-w-500">
-                                                    <a href="{{ route('tasks.index') . '?assignee=me' }}"
-                                                        class="text-dark">
-                                                        {{ $inProcessTasks }}
-                                                    </a>
-                                                </p>
-                                            </span>
-                                        @endif
-                                        @if(in_array('projects', dashboard_modules()))
-                                            <span>
-                                                <label class="f-12 text-dark-grey mb-12 " for="usr">
-                                                    @lang('app.menu.projects') </label>
-                                                <p class="mb-0 f-18 f-w-500">
-                                                    <a href="{{ route('projects.index') . '?assignee=me&status=all' }}"
-                                                        class="text-dark">{{ $totalProjects }}</a>
-                                                </p>
-                                            </span>
-                                        @endif
-                                        @if (isset($totalOpenTickets) && in_array('tickets', dashboard_modules()))
-                                            <span>
-                                                <label class="f-12 text-dark-grey mb-12 " for="usr">
-                                                    @lang('modules.dashboard.totalOpenTickets') </label>
-                                                <p class="mb-0 f-18 f-w-500">
-                                                    <a href="{{ \App\Support\ModulePresence::url('tickets.index') . '?agent=me&status=open' }}"
-                                                        class="text-dark">{{ $totalOpenTickets }}</a>
-                                                </p>
-                                            </span>
-                                        @endif
-                                    </div>
+                            <a class="ed-me mb-3" @if(!in_array('client', user_roles())) href="{{ route('employees.show', user()->id) }}" @endif>
+                                <img src="{{ $user->image_url }}" alt="{{ $user->name }}">
+                                <div class="ed-me-text">
+                                    <b>{{ $user->name }}</b>
+                                    <span>{{ collect([$edDetail?->designation?->name, $edDetail?->department?->team_name])->filter()->implode(' · ') ?: 'Designation not set' }}</span>
+                                    <small>
+                                        @if ($edDetail?->employee_id)<i class="fa fa-id-badge mr-1"></i>{{ $edDetail->employee_id }}@endif
+                                        @if ($edJoined)<i class="fa fa-calendar-alt ml-2 mr-1"></i>Joined {{ $edJoined->format('d M Y') }} · {{ $edJoined->diffForHumans(['parts' => 1, 'syntax' => \Carbon\CarbonInterface::DIFF_ABSOLUTE]) }}@endif
+                                        @if (isset($totalOpenTickets) && in_array('tickets', dashboard_modules()))<i class="fa fa-ticket-alt ml-2 mr-1"></i>{{ $totalOpenTickets }} open tickets @endif
+                                    </small>
                                 </div>
-                            </div>
+                                <span class="ed-me-go">View profile <i class="fa fa-arrow-right ml-1"></i></span>
+                            </a>
                         </div>
                         <!-- EMP DASHBOARD INFO END -->
                         @endif
