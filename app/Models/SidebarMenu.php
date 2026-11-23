@@ -26,6 +26,7 @@ class SidebarMenu extends Model
 
     protected $casts = [
         'is_active' => 'boolean',
+        'coming_soon' => 'boolean',
         'level' => 'integer',
         'sort_order' => 'integer',
     ];

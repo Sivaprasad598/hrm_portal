@@ -37,6 +37,52 @@
                 </form>
             </div>
 
+            {{-- Project money (Profitability tab, Project Dashboard money card) --}}
+            <div class="pt-card mb-4" id="money-form">
+                <div class="pt-money-row">
+                    <div class="pt-hours-text">
+                        <h5><i class="fa fa-rupee-sign mr-1"></i>Revenue to date</h5>
+                        <p>What a project has earned so far. Each project's Profitability tab can still switch between them.</p>
+                    </div>
+                    <div class="pt-seg" role="radiogroup" aria-label="Revenue to date">
+                        @foreach (['earned' => 'Budget × % done', 'billed' => 'Invoiced', 'received' => 'Received'] as $value => $label)
+                            <label class="{{ ($setting->revenue_method ?: 'earned') === $value ? 'active' : '' }}"><input type="radio" name="revenue_method" value="{{ $value }}" @checked(($setting->revenue_method ?: 'earned') === $value)>{{ $label }}</label>
+                        @endforeach
+                    </div>
+                </div>
+                <div class="pt-money-row">
+                    <div class="pt-hours-text">
+                        <h5><i class="fa fa-building mr-1"></i>Shared costs</h5>
+                        <p>Rent, power, internet and the like, split across the projects each month.</p>
+                    </div>
+                    <div class="pt-seg" role="radiogroup" aria-label="Shared costs">
+                        @foreach (['hours' => 'By hours worked', 'headcount' => 'By people', 'none' => 'Leave out'] as $value => $label)
+                            <label class="{{ ($setting->overhead_method ?: 'hours') === $value ? 'active' : '' }}"><input type="radio" name="overhead_method" value="{{ $value }}" @checked(($setting->overhead_method ?: 'hours') === $value)>{{ $label }}</label>
+                        @endforeach
+                    </div>
+                </div>
+                @if ($categories->isNotEmpty())
+                    <div class="pt-money-cats">
+                        <div class="pt-hours-text mb-2">
+                            <h5><i class="fa fa-tags mr-1"></i>Expense categories</h5>
+                            <p><b>Direct</b>: spent for the project it is booked to (equipment, travel, field). <b>Shared</b>: spent for the office, split across all projects.</p>
+                        </div>
+                        <div class="pt-cats">
+                            @foreach ($categories as $category)
+                                <div class="pt-cat">
+                                    <span>{{ $category->category_name }}</span>
+                                    <div class="pt-seg pt-seg--sm" data-category="{{ $category->id }}">
+                                        @foreach (['direct' => 'Direct', 'shared' => 'Shared'] as $value => $label)
+                                            <label class="{{ ($category->cost_type ?: 'direct') === $value ? 'active' : '' }}"><input type="radio" name="cost_type_{{ $category->id }}" value="{{ $value }}" @checked(($category->cost_type ?: 'direct') === $value)>{{ $label }}</label>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
+            </div>
+
             {{-- Project types: one per production Division --}}
             <div class="pt-section-head">
                 <h5>Project types <span class="pt-count">{{ $types->count() }}</span></h5>
@@ -96,6 +142,12 @@
     .pt-seg label.active { background: #fff; color: var(--epic-blue, #cb6b4f); box-shadow: 0 1px 3px rgba(16, 24, 40, .12); }
     .pt-hours-other { width: 90px; height: 38px; margin-left: 8px; }
     .pt-section-head { margin: 0 0 14px; }
+    .pt-money-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; padding: 4px 0 14px; }
+    .pt-money-row + .pt-money-row, .pt-money-cats { border-top: 1px solid #f2f4f7; padding-top: 14px; }
+    .pt-cats { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px 16px; }
+    .pt-cat { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; font-size: 13.5px; color: #344054; }
+    .pt-seg--sm label { padding: 4px 12px; font-size: 12.5px; }
+    @media (max-width: 575px) { .pt-seg { flex-wrap: wrap; } .pt-seg label { padding: 7px 10px; } }
     .pt-count { font-size: 12px; background: #f2f4f7; color: #475467; border-radius: 10px; padding: 1px 8px; margin-left: 4px; font-weight: 600; }
     .pt-type { height: 100%; background: #fff; border: 1px solid #eaecf0; border-top: 3px solid var(--tc); border-radius: 12px; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
     .pt-type.is-off { opacity: .6; }
@@ -124,17 +176,30 @@
             });
         };
         $('#hours-form').on('change', 'input[name=workday_hours]', function () {
-            $('.pt-seg label').removeClass('active');
+            $('#hours-form .pt-seg label').removeClass('active');
             $(this).closest('label').addClass('active');
             $('#hours-other').val('');
             save(this.value);
+        });
+        // Project money and expense categories: saved the moment one is chosen
+        $('#money-form').on('change', 'input[type=radio]', function () {
+            var seg = $(this).closest('.pt-seg');
+            seg.find('label').removeClass('active');
+            $(this).closest('label').addClass('active');
+            var category = seg.data('category');
+            var data = {_token: '{{ csrf_token() }}'};
+            data[category ? 'cost_type' : this.name] = this.value;
+            $.easyAjax({
+                url: category ? '{{ route('project-tracker-settings.category', '__id__') }}'.replace('__id__', category) : '{{ route('project-tracker-settings.money') }}',
+                type: 'POST', container: '#money-form', data: data
+            });
         });
         var t;
         $('#hours-other').on('input', function () {
             var v = this.value;
             clearTimeout(t);
             if (!v) { return; }
-            t = setTimeout(function () { $('.pt-seg label').removeClass('active').find('input').prop('checked', false); save(v); }, 700);
+            t = setTimeout(function () { $('#hours-form .pt-seg label').removeClass('active').find('input').prop('checked', false); save(v); }, 700);
         });
     })();
 </script>

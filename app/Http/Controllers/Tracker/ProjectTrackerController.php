@@ -8,6 +8,7 @@ use App\Models\ProjectType;
 use App\Models\ProjectTypeStage;
 use App\Models\Task;
 use App\Models\TaskboardColumn;
+use App\Services\Tracker\ProgressLog;
 use App\Services\Tracker\ProjectTracker;
 use App\Services\Tracker\TrackerAccess;
 use Carbon\Carbon;
@@ -101,11 +102,18 @@ class ProjectTrackerController extends TrackerBaseController
         $project = $this->project($projectId, true);
         $task = Task::where('project_id', $project->id)->findOrFail($taskId);
         $stage = ProjectTypeStage::where('project_type_id', $project->project_type_id)->findOrFail($request->stage_id);
+        $before = ProgressLog::snapshot($task);
+        $back = ProgressLog::isBack($before['stage'], $stage->id);
+
+        if ($back && !trim((string) $request->reason)) {
+            $this->fail('Say why it goes back to ' . $stage->name . ' (what needs fixing).');
+        }
 
         $this->moveTo($task, $stage);
         $task->save();
+        ProgressLog::record($task, $before, null, $back ? trim(mb_substr((string) $request->reason, 0, 1000)) : null);
 
-        return Reply::success($task->heading . ' moved to ' . $stage->name . '.');
+        return Reply::success($task->heading . ($back ? ' sent back to ' : ' moved to ') . $stage->name . '.');
     }
 
     /** Units done on an item (e.g. 18 of 26 masts digitised). */
@@ -115,8 +123,10 @@ class ProjectTrackerController extends TrackerBaseController
         $task = Task::where('project_id', $project->id)->findOrFail($taskId);
         $request->validate(['done_units' => 'required|numeric|min:0'], ['done_units.*' => 'Enter how many are done.']);
 
+        $before = ProgressLog::snapshot($task);
         $task->done_units = min((float) $request->done_units, (float) ($task->planned_units ?: $request->done_units));
         $task->save();
+        ProgressLog::record($task, $before);
 
         return Reply::success('Progress saved: ' . rtrim(rtrim(number_format($task->done_units, 2), '0'), '.')
             . ($task->planned_units ? ' of ' . rtrim(rtrim(number_format($task->planned_units, 2), '0'), '.') : '') . '.');
@@ -159,6 +169,13 @@ class ProjectTrackerController extends TrackerBaseController
         $users = array_values(array_intersect(array_map('intval', (array) $request->user_id), $memberIds));
         $hours = (float) $request->estimate_hours;
 
+        $before = $task->exists ? ProgressLog::snapshot($task) : ['stage' => null, 'units' => 0.0];
+        $back = $stage && $request->work_type !== 'epic' && ProgressLog::isBack($before['stage'], $stage->id);
+
+        if ($back && !trim((string) $request->rework_reason)) {
+            $this->fail('It goes back to ' . $stage->name . ': say what needs fixing.');
+        }
+
         DB::transaction(function () use ($request, $project, $task, $parent, $stage, $users, $hours, $start, $due) {
             $task->fill([
                 'heading' => trim($request->heading),
@@ -193,6 +210,10 @@ class ProjectTrackerController extends TrackerBaseController
             $task->users()->sync($request->work_type === 'epic' ? [] : $users);
         });
 
+        if ($task->work_type !== 'epic') {
+            ProgressLog::record($task, $before, null, $back ? trim(mb_substr((string) $request->rework_reason, 0, 1000)) : null);
+        }
+
         $level = ProjectTracker::LEVELS[$task->work_type][0];
 
         return Reply::successWithData($level . ' ' . $verb . '.', ['redirectUrl' => route('projects.show', $project->id) . '?tab=tracker']);
@@ -201,20 +222,7 @@ class ProjectTrackerController extends TrackerBaseController
     /** The step, and the board status that goes with it (the last step = completed). */
     private function moveTo(Task $task, ProjectTypeStage $stage): void
     {
-        $task->project_stage_id = $stage->id;
-        $completed = TaskboardColumn::completeColumn();
-
-        if ($stage->is_done && $completed) {
-            $task->board_column_id = $completed->id;
-            $task->completed_on = $task->completed_on ?: now();
-
-            if ($task->planned_units) {
-                $task->done_units = $task->planned_units;
-            }
-        } elseif ($completed && (int) $task->board_column_id === (int) $completed->id) {
-            $task->board_column_id = TaskboardColumn::where('slug', 'doing')->value('id') ?? $task->board_column_id;
-            $task->completed_on = null;
-        }
+        ProjectTracker::moveTo($task, $stage);
     }
 
     private function project($id, bool $manage = false): Project

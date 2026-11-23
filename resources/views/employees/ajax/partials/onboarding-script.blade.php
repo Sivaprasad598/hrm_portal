@@ -15,7 +15,7 @@
        - resume upload and "Extract with AI"
        - CTC -> monthly salary and its breakdown
        - IFSC lookup and the re-entered account number
-       - a document behind every ticked checklist item, both declaration copies
+       - a document behind every ticked checklist item
        - the documents in the Review step --}}
 
     var onboardingMode = @json($onboardingMode);
@@ -734,8 +734,6 @@
 
             h += row(obEscape(label), value);
         });
-
-        h += row('Declaration copies', '<span class="text-lightest">Uploaded on the next step (Declaration)</span>');
 
         return h;
     }

@@ -15,6 +15,13 @@
         @foreach (['present' => 'present', 'half_day' => 'half', 'week_off' => 'dayoff', 'holiday' => 'holiday', 'paid_leave' => 'leave', 'lop_leave' => 'lop', 'absent' => 'absent', 'not_employed' => 'none'] as $key => $dot)
             <span class="mr-3 text-nowrap"><span class="att-dot att-dot--{{ $dot }} mr-1"></span>{{ $statusMeta[$key][0] }}</span>
         @endforeach
+        {{-- where the day's attendance came from (AttendanceSource): the small letter on a day --}}
+        <div class="mt-1">
+            <span class="mr-2 text-lightest">Source:</span>
+            @foreach ($sourceMeta ?? [] as $key => [$label, $icon, $colour, $letter])
+                <span class="mr-3 text-nowrap"><span class="cycle-src" style="color: {{ $colour }}">{{ $letter }}</span> {{ $label }}</span>
+            @endforeach
+        </div>
     </div>
 </div>
 
@@ -60,13 +67,20 @@
                                 . ($day['first_in'] ? ' · in ' . $time($day['first_in']) . ', out ' . $time($day['last_out']) : '')
                                 . ($day['status'] !== 'upcoming' ? ' · paid ' . $fmt($day['paid']) : '');
                         @endphp
-                        @php $attendanceId = $attendanceIds[$employee->id][$day['date']] ?? null; @endphp
+                        @php
+                            $attendanceId = $attendanceIds[$employee->id][$day['date']] ?? null;
+                            $sourceKeys = array_keys($daySources[$employee->id][$day['date']] ?? []);
+                            $tip .= $sourceKeys ? ' · ' . implode(' + ', array_map(fn ($k) => $sourceMeta[$k][0] ?? $k, $sourceKeys)) : '';
+                        @endphp
                         <td class="text-center px-1 att-day {{ substr($day['date'], 8, 2) === '01' ? 'cycle-month-start' : '' }}" title="{{ $tip }}{{ $day['status'] !== 'upcoming' ? ' · click for details' : '' }}">
                             @if ($day['status'] !== 'upcoming')
                                 {{-- Details first: the attendance popup (edit / delete inside), or the day as counted. --}}
                                 <a href="javascript:;" class="cycle-cell d-block {{ $attendanceId ? 'view-attendance' : 'cycle-day' }}"
                                    @if ($attendanceId) data-attendance-id="{{ $attendanceId }}" @else data-user-id="{{ $employee->id }}" data-date="{{ $day['date'] }}" @endif>
                                     <i class="fa {{ $icon }} text-{{ $colour === 'light' ? 'lightest' : $colour }}"></i>
+                                    @foreach ($sourceKeys as $k)
+                                        <span class="cycle-src" style="color: {{ $sourceMeta[$k][2] ?? '#667085' }}">{{ $sourceMeta[$k][3] ?? '?' }}</span>
+                                    @endforeach
                                 </a>
                             @endif
                         </td>
@@ -96,4 +110,6 @@
     .cycle-grid .cycle-cell:hover { background: #e7ebf0; }
     .cycle-grid .cycle-month-start { border-left: 2px solid #99a5b5 !important; }
     .cycle-grid td, .cycle-grid th { vertical-align: middle; }
+    .cycle-src { display: block; font-size: 9px; font-weight: 700; line-height: 1; margin-top: 1px; }
+    .f-11 > div > span > .cycle-src { display: inline; font-size: 11px; }
 </style>

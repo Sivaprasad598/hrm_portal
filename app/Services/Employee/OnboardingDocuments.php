@@ -104,18 +104,8 @@ class OnboardingDocuments
             }
         }
 
-        // The signed declarations are part of taking someone on, so they are
-        // required when the employee is added. On an edit they are not: none of
-        // the employees from before this existed had them on file, and every
-        // edit of theirs - a changed password included - was refused.
-        foreach ($userId ? [] : [
-            'declaration_candidate_copy' => [self::CATEGORY_DECLARATION_CANDIDATE, 'Upload the declaration signed by the employee.'],
-            'declaration_hr_copy' => [self::CATEGORY_DECLARATION_HR, 'Upload the declaration signed by HR.'],
-        ] as $field => [$category, $message]) {
-            if (!$request->hasFile($field) && $kept->where('category', $category)->isEmpty()) {
-                $errors[$field] = $message;
-            }
-        }
+        // Signed declaration copies are no longer asked for (Add / Edit Employee): the typed
+        // signatures on the declaration are enough. Copies already on file are kept.
 
         return $errors;
     }

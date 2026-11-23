@@ -35,6 +35,7 @@ class AssignMenuController extends AccountBaseController
 
         $this->roles = Role::withCount('menus')->orderBy('id', 'asc')->get();
         $this->menuParents = $this->menuTree();
+        $this->comingSoonReady = \Illuminate\Support\Facades\Schema::hasColumn('sidebar_menus', 'coming_soon');
 
         return view('assign-menu.assign-menus', $this->data);
     }
@@ -86,6 +87,31 @@ class AssignMenuController extends AccountBaseController
         }
 
         return Reply::success(__('messages.updateSuccess'));
+    }
+
+    /**
+     * Modules tab: mark a module (a top-level menu) Coming soon, or open it again. Everyone but the
+     * Super Admin then sees a Coming soon page on its pages (App\Services\Access\ComingSoon).
+     */
+    public function toggleComingSoon(Request $request, $menuId)
+    {
+        abort_403(user()->permission('manage_role_permission_setting') != 'all');
+
+        $menu = SidebarMenu::forCompany(company()?->id)->whereNull('parent_id')->findOrFail($menuId);
+
+        if ($menu->slug === 'settings') {
+            return Reply::error('Settings cannot be marked Coming soon: this page lives there.');
+        }
+
+        $menu->coming_soon = $request->boolean('coming_soon');
+        $menu->save();
+
+        \App\Services\Access\ComingSoon::forget();
+        \App\Models\User::forgetAllMenuCaches();
+
+        return Reply::success($menu->coming_soon
+            ? $menu->name . ' now shows Coming soon to everyone except the Super Admin.'
+            : $menu->name . ' is open again.');
     }
 
     public function assignAllMenus($roleId)

@@ -199,6 +199,8 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account'], function () {
     // Project tracker (on the Projects module): Settings -> Project Tracker, and each project's Tracker tab
     Route::get('project-tracker/settings', [App\Http\Controllers\Tracker\TrackerSettingController::class, 'index'])->name('project-tracker-settings.index');
     Route::post('project-tracker/settings/hours', [App\Http\Controllers\Tracker\TrackerSettingController::class, 'hours'])->name('project-tracker-settings.hours');
+    Route::post('project-tracker/settings/money', [App\Http\Controllers\Tracker\TrackerSettingController::class, 'money'])->name('project-tracker-settings.money');
+    Route::post('project-tracker/settings/categories/{category}', [App\Http\Controllers\Tracker\TrackerSettingController::class, 'category'])->name('project-tracker-settings.category');
     Route::get('project-tracker/types/create', [App\Http\Controllers\Tracker\TrackerSettingController::class, 'create'])->name('project-types.create');
     Route::post('project-tracker/types', [App\Http\Controllers\Tracker\TrackerSettingController::class, 'store'])->name('project-types.store');
     Route::get('project-tracker/types/{type}/edit', [App\Http\Controllers\Tracker\TrackerSettingController::class, 'edit'])->name('project-types.edit');
@@ -212,6 +214,16 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account'], function () {
     Route::put('projects/{project}/tracker/items/{task}', [App\Http\Controllers\Tracker\ProjectTrackerController::class, 'updateItem'])->name('project-tracker.items.update');
     Route::post('projects/{project}/tracker/items/{task}/stage', [App\Http\Controllers\Tracker\ProjectTrackerController::class, 'stage'])->name('project-tracker.items.stage');
     Route::post('projects/{project}/tracker/items/{task}/progress', [App\Http\Controllers\Tracker\ProjectTrackerController::class, 'progress'])->name('project-tracker.items.progress');
+
+    Route::get('project-tracker/dashboard', [App\Http\Controllers\Tracker\TrackerPlannerController::class, 'dashboard'])->name('project-tracker.dashboard');
+    Route::get('project-tracker/planner', [App\Http\Controllers\Tracker\TrackerPlannerController::class, 'planner'])->name('project-tracker.planner');
+    Route::get('project-tracker/people/{user}', [App\Http\Controllers\Tracker\TrackerPlannerController::class, 'person'])->name('project-tracker.person');
+    Route::get('project-tracker/my-work', [App\Http\Controllers\Tracker\TrackerWorkController::class, 'index'])->name('project-tracker.my-work');
+    Route::get('project-tracker/my-work/{task}', [App\Http\Controllers\Tracker\TrackerWorkController::class, 'edit'])->name('project-tracker.my-work.edit');
+    Route::post('project-tracker/my-work/{task}', [App\Http\Controllers\Tracker\TrackerWorkController::class, 'update'])->name('project-tracker.my-work.update');
+    Route::get('project-tracker/kpis', [App\Http\Controllers\Tracker\TrackerKpiController::class, 'index'])->name('project-tracker.kpis');
+    Route::get('project-tracker/kpis/{user}', [App\Http\Controllers\Tracker\TrackerKpiController::class, 'show'])->name('project-tracker.kpis.show');
+    Route::get('project-tracker/check', [App\Http\Controllers\Tracker\TrackerPlannerController::class, 'check'])->name('project-tracker.check');
 
     // Recruitment: positions, candidates (careers mailbox, website, HR), interviews, offers, joining.
     Route::get('recruitment', [App\Http\Controllers\Recruit\RecruitDashboardController::class, 'index'])->name('recruitment.dashboard');
@@ -343,6 +355,8 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account'], function () {
     Route::post('assign-menus/{roleId}/access', [App\Http\Controllers\AssignMenuController::class, 'updateRoleAccess'])->name('assign-menus.update-access');
     Route::post('assign-menus/{roleId}/assign-all', [App\Http\Controllers\AssignMenuController::class, 'assignAllMenus'])->name('assign-menus.assign-all');
     Route::post('assign-menus/{roleId}/revoke-all', [App\Http\Controllers\AssignMenuController::class, 'revokeAllMenus'])->name('assign-menus.revoke-all');
+    // a module still being built: its pages show Coming soon (App\Services\Access\ComingSoon)
+    Route::post('assign-menus/modules/{menuId}/coming-soon', [App\Http\Controllers\AssignMenuController::class, 'toggleComingSoon'])->name('assign-menus.coming-soon');
 
     // =========================================================
     // APP LAUNCHER SETTINGS — the tiles in the topbar launcher
@@ -973,6 +987,21 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account'], function () {
     Route::post('employee-import/preview', [App\Http\Controllers\EmployeeImportController::class, 'preview'])->name('employee-import.preview');
     Route::post('employee-import/apply', [App\Http\Controllers\EmployeeImportController::class, 'apply'])->name('employee-import.apply');
     Route::get('employee-import/discard', [App\Http\Controllers\EmployeeImportController::class, 'discard'])->name('employee-import.discard');
+    // A pay period's payslips from a spreadsheet (simple or detailed), generated on confirmation.
+    Route::get('payroll-import', [App\Http\Controllers\PayrollImportController::class, 'index'])->name('payroll-import.index');
+    Route::get('payroll-import/download', [App\Http\Controllers\PayrollImportController::class, 'download'])->name('payroll-import.download');
+    Route::get('payroll-import/sample-download', [App\Http\Controllers\PayrollImportController::class, 'sample'])->name('payroll-import.sample-download');
+    Route::post('payroll-import/preview', [App\Http\Controllers\PayrollImportController::class, 'preview'])->name('payroll-import.preview');
+    Route::post('payroll-import/apply', [App\Http\Controllers\PayrollImportController::class, 'apply'])->name('payroll-import.apply');
+    Route::post('payroll-import/discard', [App\Http\Controllers\PayrollImportController::class, 'discard'])->name('payroll-import.discard');
+    // A pay period's attendance from a spreadsheet, until payroll for it is generated.
+    Route::get('attendance-import', [App\Http\Controllers\AttendanceImportController::class, 'index'])->name('attendance-import.index');
+    Route::get('attendance-import/download', [App\Http\Controllers\AttendanceImportController::class, 'download'])->name('attendance-import.download');
+    Route::get('attendance-import/sample-download', [App\Http\Controllers\AttendanceImportController::class, 'sample'])->name('attendance-import.sample-download');
+    Route::post('attendance-import/preview', [App\Http\Controllers\AttendanceImportController::class, 'preview'])->name('attendance-import.preview');
+    Route::post('attendance-import/apply', [App\Http\Controllers\AttendanceImportController::class, 'apply'])->name('attendance-import.apply');
+    Route::post('attendance-import/discard', [App\Http\Controllers\AttendanceImportController::class, 'discard'])->name('attendance-import.discard');
+    Route::get('attendance-import/uploads/{id}', [App\Http\Controllers\AttendanceImportController::class, 'show'])->whereNumber('id')->name('attendance-import.show');
     // Income tax: worked out rather than typed in, and Form 16.
     Route::get('income-tax', [App\Http\Controllers\IncomeTaxController::class, 'index'])->name('income-tax.index');
     Route::get('income-tax/workings', [App\Http\Controllers\IncomeTaxController::class, 'workings'])->name('income-tax.workings');

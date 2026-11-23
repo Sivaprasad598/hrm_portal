@@ -103,7 +103,7 @@
     </div>
 </div>
 
-@include('employees.ajax.partials.onboarding-declaration-files', ['onboardingDocs' => $onboardingDocs ?? null, 'required' => $required])
+{{-- Signed declaration copies (onboarding-declaration-files) are no longer asked for on Add / Edit Employee. --}}
 
 <script>
     (function () {

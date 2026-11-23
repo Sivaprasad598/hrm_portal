@@ -38,8 +38,39 @@ class AccountBaseController extends Controller
             // Call this function after adminSpecific
             $this->common();
 
+            // a module still being built (Settings -> Assign Menus -> Modules): Coming soon
+            if ($module = \App\Services\Access\ComingSoon::blocks($request->route()?->getName())) {
+                return $this->comingSoon($request, $module);
+            }
+
             return $next($request);
         });
+    }
+
+    /**
+     * The answer for a page of a module marked Coming soon: the page itself (also inside the
+     * in-place page swap), a side panel, an empty table for a list's data, or a message for a save.
+     */
+    protected function comingSoon(\Illuminate\Http\Request $request, string $module)
+    {
+        $this->pageTitle = $module;
+        $this->comingSoonModule = $module;
+
+        if ($request->has('draw')) {
+            return response()->json(['draw' => (int) $request->input('draw'), 'recordsTotal' => 0, 'recordsFiltered' => 0, 'data' => []]);
+        }
+
+        if ($request->ajax() && !$request->headers->has('X-Page-Swap')) {
+            if (!$request->isMethod('GET')) {
+                // (Reply gives an array: a controller action turns it into JSON, a middleware does not)
+                return response()->json(\App\Helper\Reply::error($module . ' is coming soon. It cannot be used yet.'));
+            }
+
+            return response()->json(\App\Helper\Reply::dataOnly(['status' => 'success', 'title' => $module,
+                'html' => view('coming-soon.panel', $this->data)->render()]));
+        }
+
+        return response()->view('coming-soon.index', $this->data);
     }
 
     public function adminSpecific()

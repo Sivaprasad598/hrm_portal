@@ -42,7 +42,35 @@ class TrackerSettingController extends TrackerBaseController
         $this->types = ProjectType::where('company_id', company()->id)->with('stages', 'division', 'rates.designation')
             ->withCount('projects')->orderBy('sort')->orderBy('name')->get();
 
+        $this->categories = \Illuminate\Support\Facades\Schema::hasColumn('expenses_category', 'cost_type')
+            ? DB::table('expenses_category')->where('company_id', company()->id)->orderBy('category_name')->get(['id', 'category_name', 'cost_type']) : collect();
+
         return view('project-tracker.settings.index', $this->data);
+    }
+
+    /** Project money: how revenue is counted, how shared costs are split. */
+    public function money(Request $request)
+    {
+        $request->validate([
+            'revenue_method' => 'nullable|in:earned,billed,received',
+            'overhead_method' => 'nullable|in:hours,headcount,none',
+        ]);
+
+        $setting = ProjectTrackerSetting::forCompany();
+        $setting->fill(array_filter($request->only('revenue_method', 'overhead_method')));
+        $setting->save();
+
+        return Reply::success('Saved.');
+    }
+
+    /** An expense category: spent on one project (direct) or on the office (shared, split across projects). */
+    public function category(Request $request, $id)
+    {
+        $request->validate(['cost_type' => 'required|in:direct,shared']);
+        abort_if(!DB::table('expenses_category')->where('company_id', company()->id)->where('id', $id)->exists(), 404);
+        DB::table('expenses_category')->where('id', $id)->update(['cost_type' => $request->cost_type]);
+
+        return Reply::success($request->cost_type === 'shared' ? 'Shared: split across the projects.' : 'Direct: counted on the project it is booked to.');
     }
 
     /** The working hours a day (8 by default; 7 when the day is shorter). */
@@ -122,7 +150,10 @@ class TrackerSettingController extends TrackerBaseController
             'stage_name.*' => 'nullable|string|max:80',
             'rate_designation' => 'nullable|array',
             'rate_units' => 'nullable|array',
+            'kpi' => 'nullable|array',
+            'kpi.*' => 'nullable|numeric|min:0|max:100',
         ], [
+            'kpi.*' => 'A KPI weight is a number from 0 to 100.',
             'name.required' => 'Give the project type a name.',
             'unit_label.required_if' => 'Say what is counted (features, sheets, models ...).',
             'stage_name.min' => 'A project type needs at least two steps.',
@@ -167,7 +198,19 @@ class TrackerSettingController extends TrackerBaseController
             }
         }
 
-        DB::transaction(function () use ($request, $type, $rows, $keep, $rates) {
+        // KPI weights: kept only when they differ from the type's defaults
+        $kpi = null;
+        if (is_array($request->kpi)) {
+            $kpi = [];
+            foreach (array_keys(\App\Services\Tracker\EmployeeKpi::METRICS) as $key) {
+                $kpi[$key] = (int) round((float) ($request->kpi[$key] ?? 0));
+            }
+            if (!array_sum($kpi)) {
+                $this->fail('Give at least one KPI measure a weight.');
+            }
+        }
+
+        DB::transaction(function () use ($request, $type, $rows, $keep, $rates, $kpi) {
             $type->fill([
                 'name' => trim($request->name),
                 'team_id' => $request->team_id ?: null,
@@ -178,6 +221,9 @@ class TrackerSettingController extends TrackerBaseController
                 'description' => $request->description ?: null,
                 'active' => $request->boolean('active'),
             ]);
+            if ($kpi !== null) {
+                $type->kpi_weights = $kpi === \App\Services\Tracker\EmployeeKpi::defaultWeights($type) ? null : json_encode($kpi);
+            }
             $type->save();
 
             ProjectTypeStage::where('project_type_id', $type->id)->whereNotIn('id', $keep ?: [0])->delete();

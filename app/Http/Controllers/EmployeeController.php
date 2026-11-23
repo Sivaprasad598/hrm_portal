@@ -1305,6 +1305,16 @@ class EmployeeController extends AccountBaseController
             $this->view = 'employees.ajax.permissions';
             break;
 
+        case 'kpi':
+            // Project tracker KPIs: their own, or anyone's for the people who run the work (App\Services\Tracker\EmployeeKpi)
+            abort_403(!\App\Services\Tracker\EmployeeKpi::canSee((int) $this->employee->id));
+            $this->person = $this->employee;
+            $this->month = \App\Http\Controllers\Tracker\TrackerKpiController::month(request('month'));
+            $this->kpiProfile = app(\App\Services\Tracker\EmployeeKpi::class)->profile((int) $this->employee->id, $this->month);
+            $this->months = collect(range(0, 11))->map(fn ($i) => now()->startOfMonth()->subMonths($i));
+            $this->view = 'employees.ajax.kpi';
+            break;
+
         case 'activity':
             $userId = auth()->id();
 

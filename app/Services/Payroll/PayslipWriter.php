@@ -303,6 +303,65 @@ class PayslipWriter
 
     }
 
+    /**
+     * Payroll Import: the payslip row for figures worked out by the import (a
+     * SalaryCalculator result, or a sheet's own figures in the same shape), so
+     * an imported payslip is stored exactly as one from Payroll Run.
+     */
+    public function rowFor(object $employee, PayPeriod $cycle, array $pay, ?int $issuedBy): array
+    {
+        return $this->values($employee, $cycle, $pay, $issuedBy);
+    }
+
+    /**
+     * Payroll Import: write a prepared payslip - numbered as every other, with its
+     * own extra lines, the period's pay element lines on record when $attachPending
+     * (simple format, as Payroll Run), and any leave encashment waiting.
+     *
+     * @param  array<int, array{kind: string, label: string, amount: float, note?: ?string}> $lines
+     */
+    public function store(array $values, PayPeriod $cycle, int $userId, string $cardId, array $lines, bool $attachPending, ?int $issuedBy): int
+    {
+        return DB::transaction(function () use ($values, $cycle, $userId, $cardId, $lines, $attachPending, $issuedBy) {
+            for ($attempt = 1; ; $attempt++) {
+                try {
+                    $values['payslip_number'] = $this->nextNumber($cycle->label);
+                    $id = DB::table('payslips')->insertGetId($values);
+                    break;
+                } catch (\Illuminate\Database\UniqueConstraintViolationException $clash) {
+                    if ($attempt >= 5) {
+                        throw $clash;
+                    }
+                }
+            }
+
+            foreach ($lines as $line) {
+                DB::table('payslip_components')->insert([
+                    'company_id' => $values['company_id'] ?? null,
+                    'user_id' => $userId,
+                    'period_start' => $cycle->start->toDateString(),
+                    'payslip_id' => $id,
+                    'kind' => $line['kind'] === 'earning' ? 'earning' : 'deduction',
+                    'element_type_id' => $line['type_id'] ?? null,   // a pay element's own column
+                    'label' => mb_substr($line['label'], 0, 191),
+                    'amount' => round((float) $line['amount'], 2),
+                    'note' => $line['note'] ?? null,
+                    'created_by' => $issuedBy,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
+            if ($attachPending) {
+                $this->components->attachToPayslip($userId, $cycle->start, (int) $id);
+            }
+
+            $this->claimEncashment((int) $id, $cardId);
+
+            return (int) $id;
+        });
+    }
+
     /** AROW/2026-27/000123, one run of numbers per financial year. */
     protected function nextNumber(string $period): string
     {

@@ -193,7 +193,7 @@
             <a class="nav-item text-lightest f-15 sidebar-text-color accordionItemHeading {{ $isOpen ? 'active' : '' }}"
                title="{{ $menuLabel }}">
                 <i class="side-icon {{ $menuIcon }}" aria-hidden="true"></i>
-                <span class="pl-3">{{ $menuLabel }}</span>
+                <span class="pl-3">{{ $menuLabel }}@if ($menu->coming_soon ?? false)<span class="cs-soon" title="Coming soon: still being built" style="margin-left: 8px; font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 1px 7px; border-radius: 10px; color: var(--epic-blue, #cb6b4f); background: color-mix(in srgb, var(--epic-blue, #cb6b4f) 12%, #fff); vertical-align: 2px;">Soon</span>@endif</span>
             </a>
 
             <div class="accordionItemContent pb-2">
@@ -206,7 +206,7 @@
                @if ($menuUrl) href="{{ $menuUrl }}" @endif
                title="{{ $menuLabel }}">
                 <i class="side-icon {{ $menuIcon }}" aria-hidden="true"></i>
-                <span class="pl-3">{{ $menuLabel }}</span>
+                <span class="pl-3">{{ $menuLabel }}@if ($menu->coming_soon ?? false)<span class="cs-soon" title="Coming soon: still being built" style="margin-left: 8px; font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 1px 7px; border-radius: 10px; color: var(--epic-blue, #cb6b4f); background: color-mix(in srgb, var(--epic-blue, #cb6b4f) 12%, #fff); vertical-align: 2px;">Soon</span>@endif</span>
             </a>
         @endif
     </li>

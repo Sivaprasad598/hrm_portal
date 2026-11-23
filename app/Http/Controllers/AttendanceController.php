@@ -237,14 +237,22 @@ class AttendanceController extends AccountBaseController
         $this->canEditAttendance = user()->permission('add_attendance') === 'all';
         $tz = company()->timezone ?: 'Asia/Kolkata';
         $attendanceIds = [];
-
-        foreach (Attendance::whereIn('user_id', collect($rows)->pluck('employee.id')->all() ?: [0])
+        $daySources = [];
+        $sessions = Attendance::whereIn('user_id', collect($rows)->pluck('employee.id')->all() ?: [0])
             ->whereBetween('clock_in_time', [$cycle->start->copy()->subDay()->startOfDay(), $cycle->end->copy()->addDays(2)->startOfDay()])
-            ->orderBy('clock_in_time')->get(['id', 'user_id', 'clock_in_time']) as $a) {
-            $attendanceIds[$a->user_id][$a->clock_in_time->copy()->timezone($tz)->toDateString()] ??= $a->id;
+            ->orderBy('clock_in_time')->get(['id', 'user_id', 'clock_in_time', 'clock_in_type', 'added_by']);
+        // where each day's attendance came from: Excel upload, biometric, marked manually...
+        $sources = \App\Services\Attendance\AttendanceSource::forRows($sessions);
+
+        foreach ($sessions as $a) {
+            $key = $a->clock_in_time->copy()->timezone($tz)->toDateString();
+            $attendanceIds[$a->user_id][$key] ??= $a->id;
+            $daySources[$a->user_id][$key][$sources[$a->id] ?? 'manual'] = true;
         }
 
         $this->attendanceIds = $attendanceIds;
+        $this->daySources = $daySources;
+        $this->sourceMeta = \App\Services\Attendance\AttendanceSource::SOURCES;
 
         $view = preg_replace('/\s+/', ' ', view('attendances.ajax.cycle_data', $this->data)->render());
 
@@ -740,6 +748,24 @@ class AttendanceController extends AccountBaseController
         $this->month = $request->month;
         $this->year = $request->year;
 
+        // Where each day's attendance came from (Excel upload, biometric, marked manually...):
+        // a small letter under the day, for the people on this page.
+        $tz = company()->timezone ?: 'Asia/Kolkata';
+        $monthStart = Carbon::create((int) $request->year, (int) $request->month, 1, 0, 0, 0, $tz);
+        $sessions = DB::table('attendances')->whereIn('user_id', $employees->pluck('id')->all() ?: [0])
+            ->whereBetween('clock_in_time', [$monthStart->copy()->utc(), $monthStart->copy()->endOfMonth()->utc()])
+            ->get(['id', 'user_id', 'clock_in_time', 'clock_in_type', 'added_by']);
+        $sources = \App\Services\Attendance\AttendanceSource::forRows($sessions);
+        $daySources = [];
+
+        foreach ($sessions as $a) {
+            $day = (int) Carbon::parse($a->clock_in_time, 'UTC')->setTimezone($tz)->day;
+            $daySources[(int) $a->user_id][$day][$sources[(int) $a->id] ?? 'manual'] = true;
+        }
+
+        $this->daySources = $daySources;
+        $this->sourceMeta = \App\Services\Attendance\AttendanceSource::SOURCES;
+
         // The template's indentation was two thirds of the answer (650 KB for a
         // page of 50 people); the table reads the same with single spaces
         $view = preg_replace('/\s+/', ' ', view('attendances.ajax.summary_data', $this->data)->render());
@@ -781,6 +807,12 @@ class AttendanceController extends AccountBaseController
         $this->attendanceActivity = Attendance::userAttendanceByDate($attendance->clock_in_time, $attendance->clock_in_time, $attendance->user_id);
 
         $this->attendanceActivity->load('shift');
+
+        // where each session came from (Excel upload, biometric, marked manually...)
+        $sessionIds = $this->attendanceActivity->map(fn ($a) => $a->aId ?? $a->id)->filter()->all();
+        $this->sessionSources = \App\Services\Attendance\AttendanceSource::forRows(
+            DB::table('attendances')->whereIn('id', $sessionIds ?: [0])->get(['id', 'user_id', 'clock_in_type', 'added_by'])
+        );
 
         $attendanceActivity = clone $this->attendanceActivity;
         $attendanceActivity = $attendanceActivity->reverse()->values();

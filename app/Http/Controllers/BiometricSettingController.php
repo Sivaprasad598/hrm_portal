@@ -24,6 +24,9 @@ use Illuminate\Http\Request;
 class BiometricSettingController extends AccountBaseController
 {
 
+    /** Who may open Settings -> Biometric Settings (the page and its Settings menu entry). */
+    public const ROLES = ['admin', 'manager_admin', 'hr'];
+
     public function __construct()
     {
         parent::__construct();
@@ -41,8 +44,8 @@ class BiometricSettingController extends AccountBaseController
             // permission only the Super Admin holds, shut HR and the Admin out of
             // this page again; it was dropped on 2026-11-15.)
             abort_403(user()->permission('manage_attendance_setting') !== 'all');
-            // Admin only (Super Admin and Admin), not HR - decided 2026-11-15.
-            abort_403(!array_intersect(['admin', 'manager_admin'], user_roles()));
+            // Super Admin, Admin and HR (HR added 2026-11-23, reversing the Admin-only decision of 2026-11-15).
+            abort_403(!array_intersect(self::ROLES, user_roles()));
 
             return $next($request);
         });

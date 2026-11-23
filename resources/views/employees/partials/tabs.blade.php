@@ -55,6 +55,10 @@
         <li><x-tab :href="$tabUrl('ot-bank')" text="Overtime Balance" class="ot-bank" /></li>
     @endif
 
+    @if (\Illuminate\Support\Facades\Schema::hasTable('tracker_progress_logs') && \App\Services\Tracker\EmployeeKpi::canSee((int) $employee->id))
+        <li><x-tab :href="$tabUrl('kpi')" text="KPIs" ajax="false" class="kpi" /></li>
+    @endif
+
     @if (user()->permission('manage_assets') === 'all' || $employee->id == user()->id)
         <li><x-tab :href="$tabUrl('assets')" text="Assets" class="assets" /></li>
     @endif

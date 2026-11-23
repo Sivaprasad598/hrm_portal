@@ -920,6 +920,8 @@ class ProjectController extends AccountBaseController
             || ($this->viewPermission == 'both' && ($this->userId == $this->project->client_id || $this->userId == $this->project->added_by))
             || ($this->viewPermission == 'both' && (in_array($this->userId, $memberIds) || $this->userId == $this->project->added_by) && in_array('employee', user_roles()))
            || (($this->viewPermission == 'none') && (!is_null(($this->project->mentionProject))) && in_array($this->userId, $mentionIds))
+            // finance (Super Admin, Admin, CEO, CFO) may open any project's Profitability tab
+            || (request('tab') === 'profitability' && \App\Services\Tracker\ProjectFinance::canSee())
         ));
 
         $this->pageTitle = $this->project->project_name;
@@ -940,7 +942,15 @@ class ProjectController extends AccountBaseController
             // Project tracker: type, steps, Epic -> Work item -> Task, progress (App\Services\Tracker)
             $this->tracker = app(\App\Services\Tracker\ProjectTracker::class)->forProject($this->project);
             $this->canTrack = \App\Services\Tracker\TrackerAccess::manage($this->project);
+            $this->burnUp = $this->tracker['type'] ? \App\Services\Tracker\ProgressLog::burnUp($this->project, $this->tracker) : null;
             $this->view = 'projects.ajax.tracker';
+            break;
+        case 'profitability':
+            // Project tracker: revenue, staff cost, expenses and profit over time (Super Admin, Admin, CEO, CFO)
+            abort_403(!\App\Services\Tracker\ProjectFinance::canSee());
+            $this->finance = app(\App\Services\Tracker\ProjectFinance::class)->forProject($this->project, in_array(request('basis'), ['earned', 'billed', 'received'], true) ? request('basis') : null);
+            $this->financePeople = app(\App\Services\Tracker\ProjectFinance::class)->people($this->project);
+            $this->view = 'projects.ajax.profitability';
             break;
         case 'members':
             abort_403(!(

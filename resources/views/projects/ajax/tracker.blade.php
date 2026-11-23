@@ -80,6 +80,18 @@
             @endif
         </div>
 
+        {{-- Progress over time --}}
+        @if ($burnUp)
+            <div class="pd-card trk-burn" style="margin-bottom: 14px">
+                <div class="pd-head"><h5><i class="fa fa-chart-area mr-1"></i>Progress over time</h5>
+                    <span class="text-dark-grey f-12">{{ $num($burnUp['target']) }} {{ $burnUp['unit'] }} in all{{ $burnUp['plan'] ? ' · the plan line reaches it on the deadline' : ' · set a deadline to see the plan line' }}</span></div>
+                @include('project-tracker.partials.chart', ['id' => 'trk-burn-' . $project->id, 'type' => 'line', 'labels' => $burnUp['labels'],
+                    'datasets' => array_values(array_filter([['Done', $burnUp['done']], $burnUp['plan'] ? ['Plan', $burnUp['plan']] : null])),
+                    'colors' => [$type->color ?: '#cb6b4f', '#98a2b3'], 'height' => 220, 'fill' => false])
+            </div>
+            @include('project-tracker.partials.dash-styles')
+        @endif
+
         {{-- Views --}}
         <div class="trk-bar">
             <div class="trk-switch" role="tablist">
@@ -207,12 +219,25 @@
                 lane.classList.remove('is-drop');
                 if (!dragged || dragged.closest('.trk-lane') === lane) { return; }
                 var card = dragged;
-                lane.querySelector('.trk-lane-body').prepend(card);   // shown at once; the page follows after the save
-                $.easyAjax({
-                    url: '{{ route('project-tracker.items.stage', [$project->id, ':id']) }}'.replace(':id', card.dataset.id), type: 'POST',
-                    data: {_token: '{{ csrf_token() }}', stage_id: lane.dataset.stage},
-                    success: function (r) { PageSwap.reload(); }, error: function () { PageSwap.reload(); }
-                });
+                var lanes = Array.prototype.slice.call(root.querySelectorAll('.trk-lane[data-stage]'));
+                var back = lanes.indexOf(lane) < lanes.indexOf(card.closest('.trk-lane'));
+                var move = function (reason) {
+                    lane.querySelector('.trk-lane-body').prepend(card);   // shown at once; the page follows after the save
+                    $.easyAjax({
+                        url: '{{ route('project-tracker.items.stage', [$project->id, ':id']) }}'.replace(':id', card.dataset.id), type: 'POST',
+                        data: {_token: '{{ csrf_token() }}', stage_id: lane.dataset.stage, reason: reason || ''},
+                        success: function (r) { PageSwap.reload(); }, error: function () { PageSwap.reload(); }
+                    });
+                };
+                if (!back) { move(); return; }
+                // sent back for rework: say what needs fixing
+                Swal.fire({
+                    title: 'Send back to ' + $.trim($(lane).find('.trk-lane-head span').first().text()) + '?',
+                    input: 'textarea', inputLabel: 'What needs fixing', inputPlaceholder: 'e.g. 14 poles missing attributes in chainage 200–400',
+                    showCancelButton: true, confirmButtonText: 'Send back', cancelButtonText: 'Cancel', reverseButtons: true, focusConfirm: false,
+                    customClass: {confirmButton: 'btn btn-primary mr-3', cancelButton: 'btn btn-secondary'}, buttonsStyling: false,
+                    inputValidator: function (v) { if (!$.trim(v)) { return 'Say what needs fixing.'; } }
+                }).then(function (res) { if (res.isConfirmed) { move(res.value); } });
             });
         });
         @endif

@@ -146,7 +146,9 @@
     .iv-day.is-today .iv-day-name { color: var(--epic-blue, #cb6b4f); }
     .iv-day-date { font-size: 13px; color: #667085; }
     .iv-day-n { margin-left: auto; font-size: 12px; color: #98a2b3; }
-    .iv-row { display: grid; grid-template-columns: 90px minmax(170px, 1.3fr) minmax(170px, 1.3fr) minmax(130px, 1fr) minmax(130px, .9fr) minmax(120px, .9fr) auto;
+    /* every row shares the same columns (the buttons' column has a set width, so a wider button
+       such as Give scorecard does not push that row's columns out of line with the others) */
+    .iv-row { display: grid; grid-template-columns: 90px minmax(0, 1.3fr) minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, .8fr) 236px;
         gap: 14px; align-items: center; padding: 14px 20px; border-bottom: 1px solid #f2f4f7; font-size: 13.5px; }
     .iv-row:hover { background: #fcfcfd; }
     .iv-row.is-done { opacity: .72; }
@@ -169,7 +171,7 @@
     .iv-bar { height: 4px; border-radius: 999px; background: #f2f4f7; margin-top: 4px; overflow: hidden; max-width: 110px; }
     .iv-bar span { display: block; height: 100%; background: #12b76a; }
     .iv-warn { font-size: 12px; color: #b54708; margin-top: 3px; }
-    .iv-act { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+    .iv-act { display: flex; flex-wrap: nowrap; justify-content: flex-end; gap: 6px; min-width: 0; }
     .iv-act .btn-sm { height: 32px; display: inline-flex; align-items: center; padding: 0 12px !important; border-radius: 8px !important; white-space: nowrap; }
     @media (max-width: 1199.98px) {
         .iv-row { grid-template-columns: 80px 1fr 1fr; }

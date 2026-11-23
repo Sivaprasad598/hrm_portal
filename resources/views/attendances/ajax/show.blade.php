@@ -132,6 +132,9 @@ $deleteAttendancePermission = user()->permission('delete_attendance');
                                                 <span class="badge badge-secondary ml-2" >{{ __('modules.attendance.' . str($attendanceSettings->shift_name)->camel()) }}</span>
                                             @endif
                                         @endif
+                                        @if (isset($sessionSources[$item->aId ?? $item->id]))
+                                            {!! \App\Services\Attendance\AttendanceSource::badge($sessionSources[$item->aId ?? $item->id], 'ml-2') !!}
+                                        @endif
                                     </p>
                                     <p class="res-activity-time">
                                         <i class="fa fa-clock"></i>

@@ -12,7 +12,8 @@ class ProjectTrackerSetting extends BaseModel
 
     public static function forCompany(?int $companyId = null): self
     {
-        $companyId = $companyId ?? company()->id;
+        // (no one signed in - a console run - means the company on record)
+        $companyId = $companyId ?? (company() ? company()->id : \Illuminate\Support\Facades\DB::table('companies')->value('id'));
 
         return self::firstOrCreate(['company_id' => $companyId], ['workday_hours' => 8]);
     }

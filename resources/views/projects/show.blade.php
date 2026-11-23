@@ -43,6 +43,11 @@ $projectArchived = $project->trashed();
                     <li>
                         <x-tab :href="route('projects.show', $project->id).'?tab=tracker'" text="Tracker" class="tracker" ajax="false" />
                     </li>
+                    @if (\App\Services\Tracker\ProjectFinance::canSee())
+                        <li>
+                            <x-tab :href="route('projects.show', $project->id).'?tab=profitability'" text="Profitability" class="profitability" ajax="false" />
+                        </li>
+                    @endif
 
                     @if (
                         !$project->public && $viewProjectMemberPermission == 'all'

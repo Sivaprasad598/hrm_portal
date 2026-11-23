@@ -109,6 +109,10 @@ $overrideCredit = ['present' => 1, 'wfh' => 1, 'late' => 1, 'halfday' => 0.5, 'c
 
                                 {!! $day !!}
                             @endif
+                            {{-- where the day's attendance came from (AttendanceSource) --}}
+                            @foreach (array_keys($daySources[(int) $userId][(int) $key2] ?? []) as $src)
+                                <span class="att-src" style="color: {{ $sourceMeta[$src][2] ?? '#667085' }}" title="{{ $sourceMeta[$src][0] ?? $src }}">{{ $sourceMeta[$src][3] ?? '?' }}</span>
+                            @endforeach
                         </td>
                     @endif
                 @endforeach
@@ -152,3 +156,13 @@ $overrideCredit = ['present' => 1, 'wfh' => 1, 'late' => 1, 'halfday' => 0.5, 'c
     </x-table>
     @include('attendances.ajax.pager')
 </div>
+{{-- where each day's attendance came from (AttendanceSource): the letter under a day --}}
+<div class="f-11 text-dark-grey mt-2 px-2">
+    <span class="mr-2 text-lightest">Source:</span>
+    @foreach ($sourceMeta ?? [] as [$label, $icon, $colour, $letter])
+        <span class="mr-3 text-nowrap"><b style="color: {{ $colour }}">{{ $letter }}</b> {{ $label }}</span>
+    @endforeach
+</div>
+<style>
+    .att-day .att-src { display: block; font-size: 9px; font-weight: 700; line-height: 1; margin-top: 2px; text-align: center; }
+</style>

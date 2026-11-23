@@ -18,6 +18,9 @@
                             <button type="button" class="assign-menus-tab active" data-menu-tab="assign" role="tab" aria-selected="true">
                                 Assign Menu
                             </button>
+                            <button type="button" class="assign-menus-tab" data-menu-tab="modules" role="tab" aria-selected="false">
+                                Modules
+                            </button>
                             <a href="{{ route('menu-management.index') }}" class="assign-menus-tab-link">
                                 <i class="fa fa-plus mr-1"></i> Add Menu
                             </a>
@@ -117,6 +120,40 @@
 
             </div>
 
+            {{-- Modules: one still being built is marked Coming soon. Its menu stays (tagged "Soon");
+                 its pages show a Coming soon page to everyone but the Super Admin (ComingSoon). --}}
+            <div id="modulesTabContent" class="col-lg-12 col-md-12 w-100 p-4 d-none">
+                @if (!$comingSoonReady)
+                    <div class="alert alert-warning mb-0">Run the database migrations to use this (sidebar_menus.coming_soon is missing).</div>
+                @else
+                    <p class="text-muted f-13 mb-3">
+                        Mark a module that is still being built as <b>Coming soon</b>. People keep seeing it in the sidebar with a
+                        <span class="cs-soon-demo">Soon</span> tag, and its pages show a Coming soon page instead of the work in progress.
+                        The Super Admin still sees the real pages, to build and check them.
+                    </p>
+                    <div class="cs-modules">
+                        @foreach ($menuParents as $module)
+                            @php $pages = $module->children->where('is_active', true)->count(); @endphp
+                            <div class="cs-module {{ $module->coming_soon ? 'is-soon' : '' }}">
+                                <i class="cs-module-icon {{ $module->icon ? $module->display_icon : 'fa fa-folder' }}"></i>
+                                <div class="cs-module-name">
+                                    <b>{{ $module->name }}</b>
+                                    <small>{{ $pages ? $pages . ' ' . \Illuminate\Support\Str::plural('page', $pages) : 'one page' }}</small>
+                                </div>
+                                @if ($module->slug === 'settings')
+                                    <span class="cs-module-state text-muted" title="This page lives in Settings">Always open</span>
+                                @else
+                                    <span class="cs-module-state">{{ $module->coming_soon ? 'Coming soon' : 'Open' }}</span>
+                                    <label class="cs-switch" title="Coming soon">
+                                        <input type="checkbox" class="cs-toggle" data-url="{{ route('assign-menus.coming-soon', $module->id) }}" @checked($module->coming_soon)>
+                                        <span></span>
+                                    </label>
+                                @endif
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+            </div>
 
             <section id="assignMenusPanel" class="assign-menus-panel d-none" aria-live="polite">
                 <div class="assign-menus-panel-header">
@@ -243,6 +280,25 @@
             overflow-y: auto;
         }
 
+        .cs-soon-demo { font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 1px 7px; border-radius: 10px;
+            color: var(--epic-blue, #cb6b4f); background: color-mix(in srgb, var(--epic-blue, #cb6b4f) 12%, #fff); }
+        .cs-modules { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
+        .cs-module { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid #eaecf0; border-radius: 10px; background: #fff; }
+        .cs-module.is-soon { border-color: color-mix(in srgb, var(--epic-blue, #cb6b4f) 45%, #fff); background: color-mix(in srgb, var(--epic-blue, #cb6b4f) 5%, #fff); }
+        .cs-module-icon { width: 34px; height: 34px; flex: none; border-radius: 8px; display: grid; place-items: center; background: #f2f4f7; color: #475467; font-size: 15px; }
+        .cs-module-name { flex: 1 1 auto; min-width: 0; }
+        .cs-module-name b { display: block; font-size: 14px; color: #101828; font-weight: 600; }
+        .cs-module-name small { font-size: 12px; color: #98a2b3; }
+        .cs-module-state { font-size: 12px; color: #667085; white-space: nowrap; }
+        .cs-module.is-soon .cs-module-state { color: var(--epic-blue, #cb6b4f); font-weight: 600; }
+        .cs-switch { position: relative; width: 40px; height: 22px; margin: 0; flex: none; cursor: pointer; }
+        .cs-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+        .cs-switch span { position: absolute; inset: 0; border-radius: 22px; background: #d0d5dd; transition: background .15s; }
+        .cs-switch span::before { content: ''; position: absolute; left: 3px; top: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform .15s; box-shadow: 0 1px 2px rgba(16, 24, 40, .2); }
+        .cs-switch input:checked + span { background: var(--epic-blue, #cb6b4f); }
+        .cs-switch input:checked + span::before { transform: translateX(18px); }
+        .cs-switch input:disabled + span { opacity: .6; }
+
         @media (max-width: 767.98px) {
             .assign-menus-panel {
                 margin: 0 0 .75rem;
@@ -265,7 +321,28 @@
                 $('.assign-menus-tab').removeClass('active').attr('aria-selected', 'false');
                 $(this).addClass('active').attr('aria-selected', 'true');
                 $('#assignMenuTabContent').toggleClass('d-none', tab !== 'assign');
+                $('#modulesTabContent').toggleClass('d-none', tab !== 'modules');
                 $('#assignMenusPanel').addClass('d-none');
+            });
+
+            // Modules: Coming soon on / off, saved at once
+            $(document).off('change', '.cs-toggle').on('change', '.cs-toggle', function () {
+                var box = $(this), on = box.is(':checked'), row = box.closest('.cs-module');
+                box.prop('disabled', true);
+                $.easyAjax({
+                    url: box.data('url'),
+                    type: 'POST',
+                    data: { _token: '{{ csrf_token() }}', coming_soon: on ? 1 : 0 },
+                    success: function (r) {
+                        if (r.status === 'success') {
+                            row.toggleClass('is-soon', on).find('.cs-module-state').text(on ? 'Coming soon' : 'Open');
+                        } else {
+                            box.prop('checked', !on);
+                        }
+                    },
+                    error: function () { box.prop('checked', !on); },
+                    complete: function () { box.prop('disabled', false); }
+                });
             });
 
 

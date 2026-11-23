@@ -44,8 +44,8 @@
         @endif
 
         {{-- The device connection and the nightly run: technical (Roles & Permissions -> Attendance -> Biometric: Technical). --}}
-        {{-- Same check as the page itself (BiometricSettingController): Super Admin and Admin only --}}
-        @if (user()->permission('manage_attendance_setting') == 'all' && array_intersect(['admin', 'manager_admin'], user_roles())
+        {{-- Same check as the page itself (BiometricSettingController::ROLES): Super Admin, Admin and HR --}}
+        @if (user()->permission('manage_attendance_setting') == 'all' && array_intersect(\App\Http\Controllers\BiometricSettingController::ROLES, user_roles())
             && in_array('attendance', user_modules()))
             <x-setting-menu-item :active="$activeMenu" menu="biometric_settings"
                                  :href="\App\Support\ModulePresence::href('biometric-settings.index')" :text="__('app.menu.biometricSettings')"/>

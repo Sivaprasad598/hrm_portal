@@ -101,6 +101,24 @@
                         @unless ($editing)<p class="rc-help mb-0">Rates for one step can be added once the type is saved.</p>@endunless
                     </div>
 
+                    {{-- KPI weights: how much each measure counts in the score of people on this type's work --}}
+                    @php $kpiWeights = \App\Services\Tracker\EmployeeKpi::weightsFor($type->exists ? $type : null); @endphp
+                    <div class="pt-block">
+                        <div class="pt-block-head"><b>KPI weights</b><span>How much each measure counts in the KPI score of the people whose hours go mostly to this type. 0 leaves a measure out; they are shares, so they need not add up to 100.</span></div>
+                        <div class="pt-kpi">
+                            @foreach (\App\Services\Tracker\EmployeeKpi::METRICS as $key => [$label, $hint])
+                                <label class="pt-kpi-item" title="{{ $hint }}">
+                                    <span>{{ $label }}</span>
+                                    <div class="input-group">
+                                        <input type="number" min="0" max="100" step="5" class="form-control f-14 kpi-weight" name="kpi[{{ $key }}]" value="{{ (int) ($kpiWeights[$key] ?? 0) }}">
+                                        <div class="input-group-append"><span class="input-group-text f-13 kpi-share">%</span></div>
+                                    </div>
+                                </label>
+                            @endforeach
+                        </div>
+                        <p class="rc-help mb-0" id="kpi-total"></p>
+                    </div>
+
                     <div class="mt-3">
                         <x-forms.checkbox fieldId="active" fieldName="active" fieldValue="1" :checked="$type->active ?? true" fieldLabel="In use (new projects can be of this type)" />
                     </div>
@@ -139,12 +157,29 @@
     .rate-row select:nth-child(2) { flex: 1.3; }
     .pt-units { flex: 1.4; flex-wrap: nowrap; }
     #stage-add, #rate-add { display: inline-block; margin-top: 4px; }
+    .pt-kpi { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 10px; }
+    .pt-kpi-item { margin: 0; display: flex; flex-direction: column; gap: 4px; }
+    .pt-kpi-item span { font-size: 12.5px; color: #475467; font-weight: 500; }
+    .pt-kpi-item .form-control { height: 40px; }
 </style>
 
 @include('recruitment.partials.submit-js')
 
 <script>
     $(function () {
+        // KPI weights: show each as its share of the score
+        function kpiShares() {
+            var inputs = $('.kpi-weight'), total = 0;
+            inputs.each(function () { total += Math.max(0, parseFloat(this.value) || 0); });
+            inputs.each(function () {
+                var v = Math.max(0, parseFloat(this.value) || 0);
+                $(this).closest('.input-group').find('.kpi-share').text(total ? Math.round(v / total * 100) + '%' : '%');
+            });
+            $('#kpi-total').text(total ? '' : 'Give at least one measure a weight.').toggleClass('text-danger', !total);
+        }
+        $(document).off('input.kpi').on('input.kpi', '.kpi-weight', kpiShares);
+        kpiShares();
+
         // the unit's name only matters for a count
         function syncUnit() {
             var kind = $('#unit_kind').val();

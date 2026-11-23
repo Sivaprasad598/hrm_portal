@@ -40,9 +40,14 @@
                         <div class="col-md-4 it-work">
                             <x-forms.select fieldId="project_stage_id" fieldLabel="Step" fieldName="project_stage_id">
                                 @foreach ($type?->stages ?? [] as $stage)
-                                    <option value="{{ $stage->id }}" @selected((int) $item->project_stage_id === (int) $stage->id)>{{ $stage->name }}</option>
+                                    <option value="{{ $stage->id }}" data-sort="{{ $stage->sort }}" @selected((int) $item->project_stage_id === (int) $stage->id)>{{ $stage->name }}</option>
                                 @endforeach
                             </x-forms.select>
+                        </div>
+                        {{-- sent back to an earlier step: say why (shown on the item's history, counts in Quality) --}}
+                        <div class="col-12 it-rework" style="display: none">
+                            <x-forms.textarea fieldId="rework_reason" fieldLabel="What needs fixing" fieldName="rework_reason" :fieldRequired="true"
+                                fieldPlaceholder="e.g. 14 poles missing attributes in chainage 200–400" />
                         </div>
                         @if ($type && $type->countsUnits())
                             <div class="col-md-4 col-6 it-work">
@@ -82,6 +87,8 @@
                                 @endforeach
                             </x-forms.select>
                             @if ($members->isEmpty())<small class="text-warning">Add people to the project (Members tab) to assign work.</small>@endif
+                            {{-- the booking check: how free they are between the dates --}}
+                            <div id="it-check" class="it-check" style="display: none"></div>
                         </div>
                     </div>
                 </div>
@@ -99,6 +106,10 @@
     .it-levels label { margin: 0 !important; padding: 7px 14px; border-radius: 7px; font-size: 13.5px; font-weight: 500; color: #475467; cursor: pointer; display: inline-flex !important; align-items: center; }
     .it-levels input { display: none; }
     .it-levels label:has(input:checked) { background: #fff; color: var(--lc); box-shadow: 0 1px 3px rgba(16, 24, 40, .12); }
+    .it-check { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: #f9fafb; border: 1px solid #eaecf0; font-size: 13px; }
+    .it-check-row { display: flex; justify-content: space-between; gap: 10px; padding: 4px 0; }
+    .it-check-row b { font-weight: 600; }
+    .it-check-ok { color: #067647; } .it-check-tight { color: #b54708; } .it-check-no { color: #b42318; }
 </style>
 
 @include('recruitment.partials.submit-js')
@@ -127,6 +138,41 @@
         }
         $('input[name=work_type]').on('change', sync);
         sync();
+
+        // the booking check: each chosen person's free hours between the dates, against their share
+        var checkTimer;
+        function checkBooking() {
+            var users = $('#it_users').val() || [];
+            var box = $('#it-check');
+            if (!users.length || $('input[name=work_type]:checked').val() === 'epic') { box.hide(); return; }
+            clearTimeout(checkTimer);
+            checkTimer = setTimeout(function () {
+                $.get('{{ route('project-tracker.check') }}', {users: users, from: $('#it_start').val(), to: $('#it_due').val(),
+                    hours: $('#estimate_hours').val() || 0, task: '{{ $editing ? $item->id : '' }}'}, function (r) {
+                    if (!r.people || !r.people.length) { box.hide(); return; }
+                    var rows = r.people.map(function (p) {
+                        var tone = p.free <= 0 ? 'it-check-no' : (p.need > p.free ? 'it-check-no' : (p.need > p.free * 0.8 ? 'it-check-tight' : 'it-check-ok'));
+                        var note = p.need > p.free ? ' — short by ' + Math.round((p.need - p.free) * 10) / 10 + ' h' : '';
+                        return '<div class="it-check-row"><span>' + $('<span>').text(p.name).html() + '</span><span class="' + tone + '"><b>' + p.free + ' h free</b> of ' + p.capacity + ' h'
+                            + (p.need ? ' · needs ' + p.need + ' h' : '') + note + '</span></div>';
+                    }).join('');
+                    box.html('<div class="text-dark-grey mb-1"><i class="fa fa-user-clock mr-1"></i>Free between the dates (their other work counted)</div>' + rows).show();
+                });
+            }, 300);
+        }
+        $('#it_users, #estimate_hours').on('change input', checkBooking);
+        $('#it_start, #it_due').on('change blur', checkBooking);
+        checkBooking();
+
+        // going back a step needs a reason
+        var stageWas = {{ $editing && $item->project_stage_id ? (int) ($type?->stages->firstWhere('id', $item->project_stage_id)?->sort ?? -1) : -1 }};
+        function syncRework() {
+            var sort = parseInt($('#project_stage_id option:selected').data('sort'), 10);
+            $('.it-rework').toggle(stageWas >= 0 && !isNaN(sort) && sort < stageWas && $('input[name=work_type]:checked').val() !== 'epic');
+        }
+        $('#project_stage_id').on('change', syncRework);
+        $('input[name=work_type]').on('change', syncRework);
+        syncRework();
 
         $('#save-item').on('click', function () {
             recruitSubmit('item-form', '{{ $editing ? route('project-tracker.items.update', [$project->id, $item->id]) : route('project-tracker.items.store', $project->id) }}', 'save-item');

@@ -89,6 +89,25 @@ class ProjectTracker
         ];
     }
 
+    /** The step, and the board status that goes with it (the last step = completed; leaving it reopens). Not saved. */
+    public static function moveTo(\App\Models\Task $task, \App\Models\ProjectTypeStage $stage): void
+    {
+        $task->project_stage_id = $stage->id;
+        $completed = \App\Models\TaskboardColumn::completeColumn();
+
+        if ($stage->is_done && $completed) {
+            $task->board_column_id = $completed->id;
+            $task->completed_on = $task->completed_on ?: now();
+
+            if ($task->planned_units) {
+                $task->done_units = $task->planned_units;
+            }
+        } elseif ($completed && (int) $task->board_column_id === (int) $completed->id) {
+            $task->board_column_id = \App\Models\TaskboardColumn::where('slug', 'doing')->value('id') ?? $task->board_column_id;
+            $task->completed_on = null;
+        }
+    }
+
     /** % of the Work items' units done (when the type counts units), else % of the work done. */
     public static function percent(array $tracker): int
     {
