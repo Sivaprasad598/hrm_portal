@@ -15,6 +15,21 @@
 
 {{-- Every role's sidebar is Settings > Assign Menus, with the person's permissions on top.
      (My Space and My Team are menu entries too; employees had a fixed list that ignored it.) --}}
+{{-- the "Soon" tag on a module marked Coming soon (Settings -> Menu Access -> Modules) --}}
+<style>
+    .cs-soon { position: relative; overflow: hidden; display: inline-flex; align-items: center; gap: 4px; margin-left: 8px; vertical-align: middle;
+        padding: 2px 8px 2px 6px; border-radius: 999px; font-size: 9.5px; font-weight: 700; letter-spacing: .06em; line-height: 1.5;
+        text-transform: uppercase; color: #fff !important;
+        background: linear-gradient(135deg, var(--epic-blue, #cb6b4f), color-mix(in srgb, var(--epic-blue, #cb6b4f) 55%, #f79009));
+        box-shadow: 0 2px 6px color-mix(in srgb, var(--epic-blue, #cb6b4f) 35%, transparent); }
+    .cs-soon i { font-size: 8.5px; color: #fff !important; transform: rotate(-12deg); }
+    .cs-soon::after { content: ''; position: absolute; top: 0; left: -60%; width: 40%; height: 100%; transform: skewX(-20deg);
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .55), transparent); animation: cs-soon-shine 3.2s ease-in-out infinite; }
+    @keyframes cs-soon-shine { 0%, 60% { left: -60%; } 100% { left: 130%; } }
+    @media (prefers-reduced-motion: reduce) { .cs-soon::after { animation: none; display: none; } }
+    .sidebar-mini .cs-soon, .sidebar-collapsed .cs-soon { display: none; }
+</style>
+
 @if ($databaseMenus === null)
     @include('sections.menu-legacy')
 @else

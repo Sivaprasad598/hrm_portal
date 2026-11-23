@@ -11,7 +11,7 @@
     $comingSoonTab = false;
 @endphp
 
-@if (request()->routeIs(...$comingSoonRoutes) || $comingSoonTab)
+@if ((request()->routeIs(...$comingSoonRoutes) || $comingSoonTab) && !isset($comingSoonModule))   {{-- (not over the Coming soon page of a module marked in Menu Access) --}}
     <div class="coming-soon" role="dialog" aria-label="Coming soon">
         <div class="coming-soon__card">
             {{-- the illustration: a rocket rising over a gently pulsing ring --}}

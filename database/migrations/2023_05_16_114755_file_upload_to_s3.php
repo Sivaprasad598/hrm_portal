@@ -155,6 +155,12 @@ return new class extends Migration
             $model = $file['model'];
             $columns = $file['columns'];
 
+            // Models of modules taken out of the core (14 Nov 2026: ProposalSign, AcceptEstimate...)
+            // no longer exist: skip them, so a fresh install runs this through.
+            if (!class_exists($model)) {
+                continue;
+            }
+
             Files::fixLocalUploadFiles($model, $columns);
         }
     }
