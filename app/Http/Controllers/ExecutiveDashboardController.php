@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\Route;
 class ExecutiveDashboardController extends AccountBaseController
 {
 
-    public const ROLES = ['admin', 'manager_admin', 'ceo', 'cfo'];
+    public const ROLES = ['admin', 'manager_admin', 'ceo', 'vice_president', 'cfo'];   // Vice President added 2026-11-24 (as the CEO)
 
     public function __construct()
     {
@@ -35,7 +35,7 @@ class ExecutiveDashboardController extends AccountBaseController
     public function index(Request $request)
     {
         $roles = user_roles();
-        $default = in_array('cfo', $roles) && !in_array('ceo', $roles) ? 'cfo' : 'ceo';
+        $default = in_array('cfo', $roles) && !array_intersect(['ceo', 'vice_president'], $roles) ? 'cfo' : 'ceo';
         $this->mode = in_array($request->query('view'), ['ceo', 'cfo'], true) ? $request->query('view') : $default;
 
         $o = new ExecutiveOverview();

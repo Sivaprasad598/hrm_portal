@@ -32,7 +32,7 @@ class ProjectFinance
 
     public static function canSee(): bool
     {
-        return user() && (bool) array_intersect(user_roles(), ['admin', 'manager_admin', 'ceo', 'cfo']);
+        return user() && (bool) array_intersect(user_roles(), ['admin', 'manager_admin', 'ceo', 'vice_president', 'cfo']);
     }
 
     /** The last month with payslips: actuals up to it, estimates after. */

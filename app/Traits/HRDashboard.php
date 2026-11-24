@@ -41,12 +41,12 @@ trait HRDashboard
             return $value->status == '1';
         })->pluck('widget_name')->toArray();
 
-        $this->totalLeavesApproved = Leave::whereBetween(DB::raw('DATE(`leave_date`)'), [$startDate, $endDate])->where('status', 'approved')->count();
-        $this->totalEmployee = User::allEmployees(null, true)->count();
-        $this->totalNewEmployee = EmployeeDetails::whereBetween(DB::raw('DATE(`joining_date`)'), [$startDate, $endDate])->count();
-        $this->totalEmployeeExits = EmployeeDetails::whereBetween(DB::raw('DATE(`last_date`)'), [$startDate, $endDate])->count();
+        $this->totalLeavesApproved = Leave::whereNotIn('leaves.user_id', \App\Services\Access\SystemAccounts::notCounted())->whereBetween(DB::raw('DATE(`leave_date`)'), [$startDate, $endDate])->where('status', 'approved')->count();
+        $this->totalEmployee = User::allEmployees(null, true)->whereNotIn('id', \App\Services\Access\SystemAccounts::notCounted())->count();
+        $this->totalNewEmployee = EmployeeDetails::whereNotIn('employee_details.user_id', \App\Services\Access\SystemAccounts::notCounted())->whereBetween(DB::raw('DATE(`joining_date`)'), [$startDate, $endDate])->count();
+        $this->totalEmployeeExits = EmployeeDetails::whereNotIn('employee_details.user_id', \App\Services\Access\SystemAccounts::notCounted())->whereBetween(DB::raw('DATE(`last_date`)'), [$startDate, $endDate])->count();
 
-        $attandance = EmployeeDetails::join('users', 'users.id', 'employee_details.user_id')
+        $attandance = EmployeeDetails::whereNotIn('employee_details.user_id', \App\Services\Access\SystemAccounts::notCounted())->join('users', 'users.id', 'employee_details.user_id')
             ->join('attendances', 'attendances.user_id', 'users.id')
             ->whereBetween(DB::raw('DATE(attendances.`clock_in_time`)'), [$startDate, $endDate])
             ->select(DB::raw('count(users.id) as employeeCount'), DB::raw('DATE(attendances.clock_in_time) as date'))
@@ -72,7 +72,7 @@ trait HRDashboard
         $this->headCountChart = $this->headcountChart();
         $this->joiningVsAttritionChart = $this->joiningVsAttritionChart();
 
-        $this->leavesTaken = User::with('employeeDetail', 'employeeDetail.designation')
+        $this->leavesTaken = User::whereNotIn('users.id', \App\Services\Access\SystemAccounts::notCounted())->with('employeeDetail', 'employeeDetail.designation')
             ->join('leaves', 'leaves.user_id', 'users.id')
             ->whereBetween(DB::raw('DATE(leaves.`leave_date`)'), [$startDate, $endDate])
             ->where('leaves.status', 'approved')
@@ -84,7 +84,7 @@ trait HRDashboard
         $fromMonthDay = carbon::parse($startDate)->format('m-d');
         $tillMonthDay = carbon::parse($endDate)->format('m-d');
 
-        $this->birthdays = EmployeeDetails::with('user')
+        $this->birthdays = EmployeeDetails::whereNotIn('employee_details.user_id', \App\Services\Access\SystemAccounts::notCounted())->with('user')
             ->select('*', 'date_of_birth', DB::raw('MONTH(date_of_birth) months'))
             ->whereNotNull('date_of_birth')
             ->where(function ($query) use ($fromMonthDay, $tillMonthDay) {
@@ -93,7 +93,7 @@ trait HRDashboard
             ->orderBy('months')
             ->get();
 
-        $this->lateAttendanceMarks = User::with('employeeDetail', 'employeeDetail.designation')
+        $this->lateAttendanceMarks = User::whereNotIn('users.id', \App\Services\Access\SystemAccounts::notCounted())->with('employeeDetail', 'employeeDetail.designation')
             ->without(['role', 'clientDetails'])
             ->join('attendances', 'attendances.user_id', 'users.id')
             ->whereBetween(DB::raw('DATE(attendances.`clock_in_time`)'), [$startDate, $endDate])
@@ -104,8 +104,8 @@ trait HRDashboard
             ->get();
 
         $this->counts = User::select(
-            DB::raw('(select count(distinct(attendances.user_id)) from `attendances` inner join users as atd_user on atd_user.id=attendances.user_id inner join role_user on role_user.user_id=atd_user.id inner join roles on roles.id=role_user.role_id WHERE roles.name = "employee" and attendances.clock_in_time >= "' . today(company()->timezone)->setTimezone('UTC')->toDateTimeString() . '" and atd_user.status = "active" AND attendances.company_id = ' . company()->id . ') as totalTodayAttendance'),
-            DB::raw('(select count(users.id) from `users` inner join role_user on role_user.user_id=users.id inner join roles on roles.id=role_user.role_id WHERE roles.name = "employee" and users.status = "active" AND users.company_id = ' . company()->id . ') as totalEmployees')
+            DB::raw('(select count(distinct(attendances.user_id)) from `attendances` inner join users as atd_user on atd_user.id=attendances.user_id inner join role_user on role_user.user_id=atd_user.id inner join roles on roles.id=role_user.role_id WHERE roles.name = "employee" and atd_user.id NOT IN (' . implode(',', \App\Services\Access\SystemAccounts::notCounted()) . ') and attendances.clock_in_time >= "' . today(company()->timezone)->setTimezone('UTC')->toDateTimeString() . '" and atd_user.status = "active" AND attendances.company_id = ' . company()->id . ') as totalTodayAttendance'),
+            DB::raw('(select count(users.id) from `users` inner join role_user on role_user.user_id=users.id inner join roles on roles.id=role_user.role_id WHERE roles.name = "employee" and users.id NOT IN (' . implode(',', \App\Services\Access\SystemAccounts::notCounted()) . ') and users.status = "active" AND users.company_id = ' . company()->id . ') as totalEmployees')
         )
             ->first();
 
@@ -150,7 +150,7 @@ trait HRDashboard
     public function genderWiseChart()
     {
 
-        $genderWiseEmployee = EmployeeDetails::join('users', 'users.id', 'employee_details.user_id')
+        $genderWiseEmployee = EmployeeDetails::whereNotIn('employee_details.user_id', \App\Services\Access\SystemAccounts::notCounted())->join('users', 'users.id', 'employee_details.user_id')
             ->select(DB::raw('count(employee_details.id) as totalEmployee'), 'users.gender')
             ->whereNotNull('users.gender')
             ->where('users.status', '=', 'active')
@@ -214,16 +214,16 @@ trait HRDashboard
             ];
         }
 
-        $oldEmployee = EmployeeDetails::whereDate('joining_date', '<', $startDate)->count();
+        $oldEmployee = EmployeeDetails::whereNotIn('employee_details.user_id', \App\Services\Access\SystemAccounts::notCounted())->whereDate('joining_date', '<', $startDate)->count();
 
-        $inActiveOldEmployee = EmployeeDetails::whereHas('user', function ($q) use ($startDate) {
+        $inActiveOldEmployee = EmployeeDetails::whereNotIn('employee_details.user_id', \App\Services\Access\SystemAccounts::notCounted())->whereHas('user', function ($q) use ($startDate) {
             $q->where('status', '=', 'deactive')
                 ->where('last_date', '<', $startDate);
         })->count();
 
         $oldEmployee = $oldEmployee - $inActiveOldEmployee;
 
-        $joiningDates = EmployeeDetails::whereDate('joining_date', '>=', $startDate)->whereDate('joining_date', '<=', $endDate)
+        $joiningDates = EmployeeDetails::whereNotIn('employee_details.user_id', \App\Services\Access\SystemAccounts::notCounted())->whereDate('joining_date', '>=', $startDate)->whereDate('joining_date', '<=', $endDate)
             ->select(DB::raw('count(*) as data'),
                 DB::raw("DATE_FORMAT(joining_date, '%m-%Y') date"),
                 DB::raw('YEAR(joining_date) year, MONTH(joining_date) month'), )
@@ -231,7 +231,7 @@ trait HRDashboard
             ->groupby('year', 'month')
             ->get()->keyBy('date');
 
-        $lastDates = EmployeeDetails::whereDate('last_date', '>=', $startDate)->whereDate('last_date', '<=', $endDate)
+        $lastDates = EmployeeDetails::whereNotIn('employee_details.user_id', \App\Services\Access\SystemAccounts::notCounted())->whereDate('last_date', '>=', $startDate)->whereDate('last_date', '<=', $endDate)
             ->select('id', DB::raw('count(*) as data'),
                 DB::raw("DATE_FORMAT(last_date, '%m-%Y') date"),
                 DB::raw('YEAR(last_date) year, MONTH(last_date) month'))
@@ -240,7 +240,7 @@ trait HRDashboard
             ->get()
             ->keyBy('date');
 
-        $inActiveEmployee = EmployeeDetails::join('users', 'employee_details.user_id', '=', 'users.id')
+        $inActiveEmployee = EmployeeDetails::whereNotIn('employee_details.user_id', \App\Services\Access\SystemAccounts::notCounted())->join('users', 'employee_details.user_id', '=', 'users.id')
             ->whereDate('last_date', '>=', $startDate)
             ->whereDate('last_date', '<=', $endDate)
             ->select(DB::raw('count(*) as data'),
@@ -295,7 +295,7 @@ trait HRDashboard
             ];
         }
 
-        $joiningDates = EmployeeDetails::whereDate('joining_date', '>=', $startDate)->whereDate('joining_date', '<=', $endDate)
+        $joiningDates = EmployeeDetails::whereNotIn('employee_details.user_id', \App\Services\Access\SystemAccounts::notCounted())->whereDate('joining_date', '>=', $startDate)->whereDate('joining_date', '<=', $endDate)
             ->select(DB::raw('count(joining_date) as data'),
                 DB::raw("DATE_FORMAT(joining_date, '%m-%Y') date"),
                 DB::raw('YEAR(joining_date) year, MONTH(joining_date) month'))
@@ -303,7 +303,7 @@ trait HRDashboard
             ->groupby('year', 'month')
             ->get()->keyBy('date');
 
-        $attritionDates = EmployeeDetails::join('users', 'employee_details.user_id', '=', 'users.id')
+        $attritionDates = EmployeeDetails::whereNotIn('employee_details.user_id', \App\Services\Access\SystemAccounts::notCounted())->join('users', 'employee_details.user_id', '=', 'users.id')
             ->where('users.status', '=', 'deactive')
             ->whereDate('last_date', '>=', $startDate)->whereDate('last_date', '<=', $endDate)
             ->select(DB::raw('count(last_date) as data'),

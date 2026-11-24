@@ -9,10 +9,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Relieving cum experience letters, from the Exited Employees list: the
+ * Relieving and experience letters, from the Exited Employees list: the
  * employee is checked (left, assets returned, final settlement paid, record
- * complete), HR confirms the letter date, and the letter opens to print or
- * download. The PDF goes into the employee's documents.
+ * complete), HR confirms the letter date, and both letters are issued together;
+ * the relieving letter opens (the experience letter one click away) to print or
+ * download. Each PDF goes into the employee's documents.
  */
 class RelievingLetterController extends AccountBaseController
 {
@@ -68,15 +69,17 @@ class RelievingLetterController extends AccountBaseController
 
         $letter = RelievingLetter::issue((int) $userId, $date);
 
-        return Reply::successWithData('Relieving letter generated.', ['redirect_url' => route('relieving-letters.show', $letter->id)]);
+        return Reply::successWithData('Relieving and experience letters generated.', ['redirect_url' => route('relieving-letters.show', $letter->id)]);
     }
 
     public function show($id)
     {
         $this->letter = $this->letter($id);
+        $this->pair = RelievingLetter::pairOf($this->letter);
+        $this->label = RelievingLetter::label($this->letter);
         $this->employee = ($this->letter->user_id ? DB::table('users')->where('id', $this->letter->user_id)->first(['id', 'name']) : null)
             ?: (object) ['id' => null, 'name' => $this->letter->person_name];
-        $this->pageTitle = 'Relieving Letter - ' . $this->employee->name;
+        $this->pageTitle = $this->label . ' - ' . $this->employee->name;
 
         return view('relieving-letters.show', $this->data);
     }

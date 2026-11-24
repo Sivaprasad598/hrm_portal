@@ -64,7 +64,7 @@ class OfferLetterController extends AccountBaseController
             ->leftJoin('users as g', 'g.id', '=', 'r.generated_by')
             ->where('r.company_id', company()->id)
             ->orderByDesc('r.id')->limit(200)
-            ->get(['r.id', 'r.letter_date', 'r.source', DB::raw('COALESCE(u.name, r.person_name) as name'), 'ed.employee_id as code', 'g.name as generated_by'])
+            ->get(['r.*', DB::raw('COALESCE(u.name, r.person_name) as name'), 'ed.employee_id as code', 'g.name as generated_by'])
             : collect();
         $this->canRelieve = RelievingLetterController::canUse();
 

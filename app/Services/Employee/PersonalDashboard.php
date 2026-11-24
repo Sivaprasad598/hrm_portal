@@ -24,7 +24,7 @@ use Illuminate\Support\Facades\DB;
 class PersonalDashboard
 {
     /** Roles that keep the company-wide dashboard. */
-    const COMPANY_VIEW_ROLES = ['admin', 'manager_admin', 'hr'];
+    const COMPANY_VIEW_ROLES = ['admin', 'manager_admin', 'hr', 'cfo'];   // CFO added 2026-11-24
 
     public static function applies(): bool
     {

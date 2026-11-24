@@ -51,20 +51,27 @@
                         <input type="text" name="d[name]" class="form-control" value="{{ $v('name') }}" maxlength="150">
                     </div>
                 </div>
-                @if ($type === 'relieving')
+                @if ($type === 'offer')
                     <div class="form-group">
-                        <label>Gender (for his / her)</label>
-                        <select name="d[gender]" class="form-control">
-                            <option value="">From the title</option>
-                            <option value="male" @selected($v('gender') === 'male')>Male</option>
-                            <option value="female" @selected($v('gender') === 'female')>Female</option>
-                        </select>
+                        <label>Address * <span class="lg-hint">(one line each)</span></label>
+                        <textarea name="d[address]" class="form-control" rows="3">{{ $v('address') }}</textarea>
+                    </div>
+                @else
+                    <div class="row">
+                        <div class="col-6 form-group">
+                            <label>Employee ID</label>
+                            <input type="text" name="d[employee_id]" class="form-control" value="{{ $v('employee_id') }}" maxlength="50">
+                        </div>
+                        <div class="col-6 form-group">
+                            <label>Gender (for his / her)</label>
+                            <select name="d[gender]" class="form-control">
+                                <option value="">From the title</option>
+                                <option value="male" @selected($v('gender') === 'male')>Male</option>
+                                <option value="female" @selected($v('gender') === 'female')>Female</option>
+                            </select>
+                        </div>
                     </div>
                 @endif
-                <div class="form-group">
-                    <label>Address * <span class="lg-hint">(one line each)</span></label>
-                    <textarea name="d[address]" class="form-control" rows="3">{{ $v('address') }}</textarea>
-                </div>
             </div>
 
             @if ($type === 'offer')
@@ -168,13 +175,15 @@
                         <input type="date" name="letter_date" class="form-control" value="{{ now()->toDateString() }}">
                     </div>
                     <label class="mb-1 lg-check"><input type="checkbox" id="gen-own-wording" class="mr-1" @checked(!empty($d['paragraphs']))> Change the wording for this letter only</label>
-                    <textarea name="d[paragraphs]" id="gen-wording" class="form-control mt-1 {{ empty($d['paragraphs']) ? 'd-none' : '' }}" rows="12" @disabled(empty($d['paragraphs']))>{{ $d['paragraphs'] ?? $settings['relieving_paragraphs'] }}</textarea>
-                    <div class="lg-hint mt-1">For someone who left before the system; employees who left through it get theirs from Exited Employees (after clearances).</div>
+                    <textarea name="d[paragraphs]" id="gen-wording" class="form-control mt-1 {{ empty($d['paragraphs']) ? 'd-none' : '' }}" rows="12" @disabled(empty($d['paragraphs']))>{{ $d['paragraphs'] ?? $settings[$type . '_paragraphs'] }}</textarea>
+                    <label class="mt-3 mb-0 lg-check"><input type="checkbox" name="with_pair" value="1" class="mr-1" checked>
+                        Also generate the {{ $type === 'relieving' ? 'Experience' : 'Relieving' }} Letter (same details)</label>
+                    <div class="lg-hint mt-1">For someone who left before the system; employees who left through it get both letters from Exited Employees (after clearances).</div>
                 </div>
             @endif
 
             <x-forms.button-primary id="gen-save" icon="file-signature" class="w-100 mb-4">
-                Generate {{ $type === 'offer' ? 'Offer' : 'Relieving' }} Letter
+                Generate {{ ['offer' => 'Offer', 'relieving' => 'Relieving', 'experience' => 'Experience'][$type] }} Letter
             </x-forms.button-primary>
 
             <datalist id="gen-designations">@foreach ($designations as $x)<option value="{{ $x }}">@endforeach</datalist>

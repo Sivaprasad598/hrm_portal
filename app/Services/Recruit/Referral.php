@@ -29,7 +29,7 @@ class Referral
     {
         return User::join('employee_details', 'employee_details.user_id', '=', 'users.id')
             ->leftJoin('teams', 'teams.id', '=', 'employee_details.department_id')
-            ->whereNotIn('users.id', SystemAccounts::ids())
+            ->whereNotIn('users.id', SystemAccounts::hidden())
             ->where(fn ($q) => $q->where('users.status', 'active')->when($keep, fn ($k) => $k->orWhere('users.id', $keep)))
             ->orderBy('users.name')
             ->get(['users.id', 'users.name', 'users.status', 'employee_details.employee_id', 'teams.team_name as division']);

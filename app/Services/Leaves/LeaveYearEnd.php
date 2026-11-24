@@ -131,6 +131,7 @@ class LeaveYearEnd
             ->join('role_user', 'role_user.user_id', '=', 'users.id')
             ->join('roles', 'roles.id', '=', 'role_user.role_id')
             ->where('roles.name', 'employee')
+            ->whereNotIn('users.id', \App\Services\Access\SystemAccounts::hiddenTests())   // not the test sign-ins
             ->where('users.company_id', $this->companyId)
             ->where('users.status', 'active')
             // Someone who has left is settled through their exit, not carried

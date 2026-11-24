@@ -26,18 +26,19 @@ class EmployeeDefaults
     /** role name => words in the designation, most specific first */
     public const RULES = [
         'ceo' => ['chief executive', 'chairman', 'managing director'],
+        'vice_president' => ['vice president'],
         'cfo' => ['chief financial', 'accountant'],
         'hr' => ['hr '],
         'manager_admin' => ['admin', 'system admin', 'it head', 'system administrator'],
         'team_lead' => ['team lead', 'project lead', 'project manager', 'manager', 'head of', 'dgm', 'agm', 'general man',
-            'vice president', 'chief technology', 'strategist'],
+            'chief technology', 'strategist'],
         'developer' => ['developer'],
         'gis_engineer' => ['gis', 'lidar'],
     ];
 
     /** How a role made from the rules is shown. */
     public const ROLE_LABELS = [
-        'ceo' => 'CEO', 'cfo' => 'CFO', 'hr' => 'HR', 'manager_admin' => 'Admin', 'team_lead' => 'Team Lead',
+        'ceo' => 'CEO', 'vice_president' => 'Vice President', 'cfo' => 'CFO', 'hr' => 'HR', 'manager_admin' => 'Admin', 'team_lead' => 'Team Lead',
         'developer' => 'Developer', 'gis_engineer' => 'GIS Engineer',
     ];
 

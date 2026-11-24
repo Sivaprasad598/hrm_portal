@@ -22,7 +22,7 @@ class NotificationController extends AccountBaseController
     public function showNotifications()
     {
         $this->userType = in_array('client', user_roles()) ? 'client' : 'all';
-        $this->notificationList = $this->user->notifications()->latest()->take(self::PANEL_ROWS)->get();
+        $this->notificationList = \App\Services\Access\SystemAccounts::withoutTestNotifications($this->user->notifications())->latest()->take(self::PANEL_ROWS)->get();
 
         $view = view('notifications.user_notifications', $this->data)->render();
         $this->user->unreadNotifications()->update(['read_at' => now()]);
@@ -35,7 +35,7 @@ class NotificationController extends AccountBaseController
     {
         $this->pageTitle = 'Notifications';
         $this->userType = in_array('client', user_roles()) ? 'client' : 'all';
-        $this->notificationList = $this->user->notifications()->latest()->take(self::PAGE_ROWS)->get();
+        $this->notificationList = \App\Services\Access\SystemAccounts::withoutTestNotifications($this->user->notifications())->latest()->take(self::PAGE_ROWS)->get();
 
         // The rows keep their unread look for this visit; the bell is cleared.
         $this->user->unreadNotifications()->update(['read_at' => now()]);

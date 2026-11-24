@@ -707,6 +707,9 @@ class User extends BaseModel implements AuthenticatableContract, AuthorizableCon
             $users->withoutGlobalScope(ActiveScope::class);
         }
 
+        // test sign-ins: in no picker, except for another test sign-in (SystemAccounts::hidden)
+        $users->whereNotIn('users.id', \App\Services\Access\SystemAccounts::hiddenTests());
+
         $id = UserService::getUserId();
 
         if (!isRunningInConsoleOrSeeding() && user()) {
@@ -775,7 +778,7 @@ class User extends BaseModel implements AuthenticatableContract, AuthorizableCon
         $users = User::join('employee_details', 'employee_details.user_id', '=', 'users.id')
             ->select('users.id', 'users.company_id', 'users.name', 'users.email', 'users.created_at', 'users.image', 'users.salutation', 'users.status')
             ->where('employee_details.department_id', $teamId)
-            ->whereNotIn('users.id', \App\Services\Access\SystemAccounts::ids());   // not the Super Admin login
+            ->whereNotIn('users.id', \App\Services\Access\SystemAccounts::hidden());   // not the Super Admin login
 
         return $users->get();
     }

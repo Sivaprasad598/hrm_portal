@@ -142,7 +142,7 @@ class PipelineStatus
     {
         return DB::table('users as u')
             ->join('employee_details as ed', 'ed.user_id', '=', 'u.id')
-            ->whereNotIn('u.id', \App\Services\Access\SystemAccounts::ids())   // not the Super Admin login
+            ->whereNotIn('u.id', \App\Services\Access\SystemAccounts::hidden())   // not the Super Admin login
             ->where('u.status', 'active')
             ->whereNotExists(function ($q) {
                 $q->select(DB::raw(1))->from('iapp_employees as ie')

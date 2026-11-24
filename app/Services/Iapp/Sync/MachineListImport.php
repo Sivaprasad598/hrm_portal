@@ -46,12 +46,15 @@ class MachineListImport
         $erp = DB::table('employee_details as ed')->join('users as u', 'u.id', '=', 'ed.user_id')
             ->when($companyId, fn ($q) => $q->where('u.company_id', $companyId))
             ->get(['u.id', 'u.name', 'ed.employee_id', 'ed.employee_card_id', 'ed.iapp_emp_code']);
+        // A code is first somebody's Employee ID; only then a card number or a code linked
+        // earlier. (Before, a code wrongly linked to another person won over its owner's
+        // Employee ID, and the owner's code was set aside as a name conflict.)
         $byCode = [];
 
-        foreach ($erp as $e) {
-            foreach ([$e->employee_id, $e->employee_card_id, $e->iapp_emp_code] as $code) {
-                if (($k = KnownCodes::key($code)) !== '') {
-                    $byCode[$k] = $e;
+        foreach (['employee_id', 'employee_card_id', 'iapp_emp_code'] as $field) {
+            foreach ($erp as $e) {
+                if (($k = KnownCodes::key($e->{$field})) !== '') {
+                    $byCode[$k] ??= $e;
                 }
             }
         }
@@ -211,7 +214,10 @@ class MachineListImport
 
         foreach ($wa as $x) {
             foreach ($wb as $y) {
-                if ($x === $y || (strlen($x) >= 4 && strlen($y) >= 4 && (levenshtein($x, $y) <= 1 || str_starts_with($x, $y) || str_starts_with($y, $x)))) {
+                // a longer word may be two letters off ("balaji" / "balajee")
+                $near = levenshtein($x, $y) <= (strlen($x) >= 6 && strlen($y) >= 6 ? 2 : 1);
+
+                if ($x === $y || (strlen($x) >= 4 && strlen($y) >= 4 && ($near || str_starts_with($x, $y) || str_starts_with($y, $x)))) {
                     return true;
                 }
             }

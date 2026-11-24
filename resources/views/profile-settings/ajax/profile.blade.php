@@ -8,6 +8,16 @@
                           :fieldValue="($user->image ? $user->masked_image_url : $user->image_url)" fieldName="image"
                           fieldId="profile-image" :popover="__('modules.themeSettings.logoSize')">
             </x-forms.file>
+            {{-- After cropping: save the picture on its own, without the rest of the form --}}
+            <div id="photo-save-bar" class="photo-save-bar d-none">
+                <span class="f-13 text-dark-grey"><i class="fa fa-crop-alt mr-1"></i>New picture ready</span>
+                <button type="button" id="save-photo" class="btn btn-primary rounded f-14"><i class="fa fa-check mr-1"></i>Save photo</button>
+            </div>
+            <style>
+                .photo-save-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; padding: 10px 14px;
+                    border-radius: 10px; background: color-mix(in srgb, var(--epic-blue, #cb6b4f) 8%, #fff); border: 1px solid color-mix(in srgb, var(--epic-blue, #cb6b4f) 25%, #fff); }
+                .photo-save-bar.d-none { display: none !important; }
+            </style>
         </div>
 
         <div class="col-lg-4">
@@ -319,6 +329,44 @@
 
                     }
                 }
+            });
+        });
+
+        // Profile picture: once cropped, "Save photo" saves it alone and puts it everywhere on screen
+        // (left strip, top bar, profile card) - no reload, nothing else on the form is sent.
+        var photoUrls = [@json($user->image_url), @json($user->image ? $user->masked_image_url : $user->image_url)];
+        $('#profile-image').off('cropper:done').on('cropper:done', function () {
+            $('#photo-save-bar').removeClass('d-none');
+        });
+        $('#save-photo').off('click').on('click', function () {
+            var input = document.getElementById('profile-image');
+            if (!input.files || !input.files.length) { return; }
+            var data = new FormData();
+            data.append('image', input.files[0]);
+            data.append('_token', '{{ csrf_token() }}');
+            var btn = $(this).prop('disabled', true);
+            $.ajax({
+                url: "{{ route('profile.image') }}", type: 'POST', data: data, processData: false, contentType: false,
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+                success: function (r) {
+                    if (r.status !== 'success') { Swal.fire({ icon: 'error', text: r.message || 'Could not save the picture.' }); return; }
+                    var fresh = r.image_url + (r.image_url.indexOf('?') === -1 ? '?' : '&') + 'v=' + Date.now();
+                    Array.prototype.forEach.call(document.images, function (img) {
+                        var src = img.getAttribute('src') || '';
+                        if (photoUrls.some(function (u) { return u && (src === u || src.split('?')[0] === u.split('?')[0]); })) {
+                            img.setAttribute('src', fresh);
+                        }
+                    });
+                    photoUrls = [fresh];
+                    input.value = '';   // the main Save does not send it again
+                    $('#photo-save-bar').addClass('d-none');
+                    Swal.fire({ icon: 'success', text: r.message, toast: true, position: 'top-end', showConfirmButton: false, timer: 2500 });
+                },
+                error: function (x) {
+                    var msg = (x.responseJSON && (x.responseJSON.errors && x.responseJSON.errors.image ? x.responseJSON.errors.image[0] : x.responseJSON.message)) || 'Could not save the picture.';
+                    Swal.fire({ icon: 'error', text: msg });
+                },
+                complete: function () { btn.prop('disabled', false); }
             });
         });
 

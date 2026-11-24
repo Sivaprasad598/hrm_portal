@@ -28,7 +28,7 @@ class AttendanceImportController extends AccountBaseController
 
         $this->middleware(function ($request, $next) {
             // The HR team: attendance for everybody, which payroll pays from.
-            abort_403(!array_intersect(['admin', 'manager_admin', 'hr'], user_roles()));   // Admin added 2026-11-23
+            abort_403(!array_intersect(['admin', 'manager_admin', 'hr', 'cfo'], user_roles()));   // Admin added 2026-11-23, CFO 2026-11-24
 
             return $next($request);
         });

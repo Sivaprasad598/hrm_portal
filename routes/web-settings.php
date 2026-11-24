@@ -67,6 +67,8 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account/settings'], function 
 
     Route::post('profile/dark-theme', [ProfileController::class, 'darkTheme'])->name('profile.dark_theme');
     Route::post('profile/updateOneSignalId', [ProfileController::class, 'updateOneSignalId'])->name('profile.update_onesignal_id');
+    // the profile picture alone (Profile -> crop -> "Save photo")
+    Route::post('profile/image', [ProfileController::class, 'updateImage'])->name('profile.image');
     Route::resource('profile', ProfileController::class);
 
     Route::get('smtp-settings/show-send-test-mail-modal', [SmtpSettingController::class, 'showTestEmailModal'])->name('smtp_settings.show_send_test_mail_modal');

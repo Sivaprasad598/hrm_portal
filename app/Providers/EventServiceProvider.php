@@ -616,6 +616,19 @@ class EventServiceProvider extends ServiceProvider
     {
         parent::boot();
 
+        // Test sign-ins (users.is_test_account): what they do is never sent to a real person - no
+        // bell, mail or push about a test account's leave, correction or payslip. Among themselves it is.
+        \Illuminate\Support\Facades\Event::listen(\Illuminate\Notifications\Events\NotificationSending::class, function ($event) {
+            $to = $event->notifiable;
+
+            if ($to instanceof \App\Models\User && !\App\Services\Access\SystemAccounts::isTest((int) $to->id)
+                && \App\Services\Access\SystemAccounts::notificationIsAboutTest($event->notification)) {
+                return false;
+            }
+
+            return null;
+        });
+
         $pending = $this->lazyObservers;
 
         // A model that is already loaded gets its observers now.

@@ -883,7 +883,7 @@ class LeaveController extends AccountBaseController
         $viewPermission = user()->permission('view_leave');
         abort_403(!in_array($viewPermission, ['all', 'added', 'owned', 'both']));
 
-        $this->pendingLeaves = Leave::where('status', 'pending')->count();
+        $this->pendingLeaves = Leave::where('status', 'pending')->whereNotIn('user_id', \App\Services\Access\SystemAccounts::notCounted())->count();
         $this->employees = self::mine() ? User::where('id', user()->id)->get() : User::allEmployees();
 
         // A manager's calendar is their team's leave (Team Leaves), not their own.

@@ -160,6 +160,7 @@ class MyCalendarController extends AccountBaseController
                     // ones they added. It showed every employee's to everybody.
                     $leaves = Leave::join('leave_types', 'leave_types.id', 'leaves.leave_type_id')
                         ->where('leaves.status', 'approved')
+                        ->whereNotIn('leaves.user_id', \App\Services\Access\SystemAccounts::hiddenTests())   // not the test sign-ins
                         ->select('leaves.id', 'leaves.leave_date', 'leaves.status', 'leave_types.type_name', 'leave_types.color', 'leaves.leave_date', 'leaves.duration', 'leaves.status', 'leaves.user_id')
                         ->with('user')
                         ->whereBetween(DB::raw('DATE(leaves.`leave_date`)'), [$startDate->toDateString(), $endDate->toDateString()])

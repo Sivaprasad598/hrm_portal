@@ -32,7 +32,7 @@ class EmployeeKpi
     /** Everyone's KPIs: the people who run the work (an employee sees their own). */
     public static function canSeeAll(): bool
     {
-        return user() && (TrackerAccess::manage() || array_intersect(['admin', 'manager_admin', 'ceo', 'cfo', 'hr', 'manager'], user_roles())
+        return user() && (TrackerAccess::manage() || array_intersect(['admin', 'manager_admin', 'ceo', 'vice_president', 'cfo', 'hr', 'manager'], user_roles())
             || in_array(user()->permission('view_projects'), ['all'], true));
     }
 

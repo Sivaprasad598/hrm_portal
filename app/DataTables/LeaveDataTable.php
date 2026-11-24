@@ -313,6 +313,7 @@ class LeaveDataTable extends BaseDataTable
             ->join('leave_types', 'leave_types.id', 'leaves.leave_type_id')
             ->join('users', 'leaves.user_id', 'users.id')
             ->join('employee_details', 'employee_details.user_id', 'users.id')
+            ->whereNotIn('leaves.user_id', \App\Services\Access\SystemAccounts::hiddenTests())   // not the test sign-ins
             ->selectRaw(
                 'leaves.*, leave_types.color, leave_types.type_name, ( select count("lvs.id") from leaves as lvs where lvs.unique_id = leaves.unique_id and lvs.duration = \'multiple\') as count_multiple_leaves',
             )

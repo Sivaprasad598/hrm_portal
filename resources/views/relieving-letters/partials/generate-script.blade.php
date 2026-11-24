@@ -1,6 +1,7 @@
 {{-- "Relieving Letter" on the Exited Employees list (class generate-relieving-letter, data-user-id):
      checked first - left, assets returned, final settlement paid, record complete - then the letter
-     date is confirmed (today by default), then the letter opens. --}}
+     date is confirmed (today by default), then the relieving and experience letters are issued
+     together and the relieving letter opens (the experience letter one click away). --}}
 <script>
     (function () {
         if (window.relievingLetterBound) { return; }
@@ -14,11 +15,11 @@
         function askDate(userId, today) {
             Swal.fire({
                 title: 'Letter date',
-                html: '<div class="f-14 text-dark-grey mb-2">The date printed on the letter.</div>',
+                html: '<div class="f-14 text-dark-grey mb-2">The date printed on both letters: the Relieving Letter and the Experience Letter.</div>',
                 input: 'date',
                 inputValue: today,
                 showCancelButton: true,
-                confirmButtonText: 'Generate Relieving Letter',
+                confirmButtonText: 'Generate both letters',
                 customClass: swalButtons,
                 buttonsStyling: false,
                 showLoaderOnConfirm: true,
@@ -56,7 +57,7 @@
                 success: function (response) {
                     if (response.problems && response.problems.length) {
                         Swal.fire({
-                            title: 'Not ready for the relieving letter',
+                            title: 'Not ready for the relieving and experience letters',
                             icon: 'warning',
                             html: '<div class="text-left f-14">Put these right first:<ul class="mt-2 mb-0 pl-3">'
                                 + response.problems.map(function (p) { return '<li class="mb-1">' + esc(p) + '</li>'; }).join('')
@@ -74,13 +75,13 @@
 
                     if (response.existing) {
                         Swal.fire({
-                            title: 'Relieving letter already issued',
+                            title: 'Relieving and experience letters already issued',
                             icon: 'info',
                             html: '<div class="f-14">Dated ' + esc(response.existing.date) + '.</div>',
                             showDenyButton: true,
                             showCancelButton: true,
                             confirmButtonText: 'Open it',
-                            denyButtonText: 'New letter',
+                            denyButtonText: 'New letters',
                             customClass: swalButtons,
                             buttonsStyling: false
                         }).then(function (r) {

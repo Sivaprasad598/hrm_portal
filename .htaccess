@@ -1,5 +1,6 @@
-# Project root. Works unchanged in both places:
-#   live:  public_html/arowanaone.com  -> https://arowanaone.com/login (no sub folder)
+# Project root. Works unchanged in every place it is put (no RewriteBase anywhere):
+#   live:  public_html/arowanaone.com  -> https://arowanaone.com/login     (domain root)
+#   live:  public_html/arowanauk/hrm   -> https://arowana.uk/hrm/login     (sub folder)
 #   local: C:/wamp64/www/hrm_portal    -> http://localhost/hrm_portal/login
 #
 # The application lives in public/, but the address has no "/public" in it.
@@ -8,7 +9,8 @@
 # code, the HR Excel sheets and the legacy PHP pages (those run only through the
 # application, after sign-in). public/index.php tells the framework it sits at
 # this folder, so every link it builds leaves "/public" out too (APP_URL in .env
-# must match: https://arowanaone.com live, http://localhost/hrm_portal here).
+# must match: https://arowanaone.com, https://arowana.uk/hrm, http://localhost/hrm_portal;
+# see .env.arowanaone.example and .env.arowana-uk.example).
 
 Options -Indexes
 DirectoryIndex index.php index.html

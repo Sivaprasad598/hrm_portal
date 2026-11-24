@@ -42,6 +42,8 @@ class OfferLetterSettingController extends AccountBaseController
         $this->placeholders = OfferLetter::PLACEHOLDERS;
         $this->suggested = OfferLetter::suggestReference();
         $this->relievingPlaceholders = RelievingLetter::PLACEHOLDERS;
+        $this->dateFormats = ['d/m/Y' => '20/08/2026', 'd-m-Y' => '20-08-2026', 'd M Y' => '20 Aug 2026',
+            'j F Y' => '20 August 2026', 'jS F Y' => '20th August 2026'];
         $this->hikePlaceholders = \App\Services\Payroll\SalaryRevisionLetter::HIKE_PLACEHOLDERS;
         $this->stampUrl = OfferLetter::stamp(['show_stamp' => 1] + $this->settings, false);
 
@@ -93,7 +95,7 @@ class OfferLetterSettingController extends AccountBaseController
         $settings['stamp_image'] = OfferLetter::settings()['stamp_image'];
 
         return response(match ($request->preview) {
-            'relieving' => RelievingLetter::html(null, false, $settings),
+            'relieving', 'experience' => RelievingLetter::html(null, false, $settings, null, $request->preview),
             'hike' => \App\Services\Payroll\SalaryRevisionLetter::hikePreview($settings),
             default => OfferLetter::html(null, false, $settings),
         });

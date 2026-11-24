@@ -39,7 +39,7 @@
                     <input type="hidden" name="preview" id="preview-which" value="offer">
 
                     <div class="alert alert-info f-13">
-                        Every word of the offer and relieving letters is here. Placeholders in curly brackets are filled in for each
+                        Every word of the offer, relieving and experience letters is here. Placeholders in curly brackets are filled in for each
                         employee (click one to copy it); put text between <code>**</code> to make it <strong>bold</strong>.
                         Paragraphs are separated by a blank line. <strong>Preview</strong> shows the letter as it is on this form,
                         for a sample employee, before you save. Both letters share the footer and the stamp.
@@ -48,6 +48,7 @@
                     <ul class="nav nav-tabs ol-tabs mb-3" role="tablist">
                         <li class="nav-item"><a class="nav-link active" data-toggle="tab" href="#tab-offer" data-preview="offer" role="tab">Offer Letter</a></li>
                         <li class="nav-item"><a class="nav-link" data-toggle="tab" href="#tab-relieving" data-preview="relieving" role="tab">Relieving Letter</a></li>
+                        <li class="nav-item"><a class="nav-link" data-toggle="tab" href="#tab-experience" data-preview="experience" role="tab">Experience Letter</a></li>
                         <li class="nav-item"><a class="nav-link" data-toggle="tab" href="#tab-hike" data-preview="hike" role="tab">Hike Letter</a></li>
                         <li class="nav-item"><a class="nav-link" data-toggle="tab" href="#tab-footer" role="tab">Footer &amp; Stamp</a></li>
                     </ul>
@@ -182,6 +183,7 @@
                                             </tr>
                                         @endforeach
                                     </table>
+                                    <div class="ol-help">**text** prints bold. A blank line starts a new paragraph.</div>
                                 </div>
                             </div>
 
@@ -189,28 +191,44 @@
                                 <h4>Letter</h4>
                                 <div class="ol-body">
                                     <div class="row">
-                                        <div class="col-md-5">
+                                        <div class="col-md-6">
                                             <x-forms.text fieldId="relieving_title" fieldLabel="Title" fieldName="relieving_title" :fieldValue="$settings['relieving_title']"/>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <x-forms.text fieldId="relieving_greeting" fieldLabel="Greeting" fieldName="relieving_greeting" :fieldValue="$settings['relieving_greeting']"/>
                                         </div>
                                         <div class="col-md-3">
                                             <x-forms.select fieldId="relieving_date_format" fieldLabel="Dates in the letter" fieldName="relieving_date_format">
-                                                @foreach (['d-m-Y' => '20-08-2026', 'd/m/Y' => '20/08/2026', 'd M Y' => '20 Aug 2026', 'jS F Y' => '20th August 2026'] as $fmt => $example)
+                                                @foreach ($dateFormats as $fmt => $example)
                                                     <option value="{{ $fmt }}" @selected($settings['relieving_date_format'] === $fmt)>{{ $example }}</option>
                                                 @endforeach
                                             </x-forms.select>
                                             <div class="ol-help">For <code>{joining_date}</code> and <code>{relieving_date}</code>.</div>
                                         </div>
+                                        <div class="col-md-3">
+                                            <x-forms.select fieldId="relieving_letter_date_format" fieldLabel="Letter date" fieldName="relieving_letter_date_format">
+                                                @foreach ($dateFormats as $fmt => $example)
+                                                    <option value="{{ $fmt }}" @selected($settings['relieving_letter_date_format'] === $fmt)>{{ $example }}</option>
+                                                @endforeach
+                                            </x-forms.select>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="form-group">
+                                                <label for="relieving_to">To (one line each, after “To,”)</label>
+                                                <textarea class="form-control" id="relieving_to" name="relieving_to" rows="4">{{ $settings['relieving_to'] }}</textarea>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <x-forms.text fieldId="relieving_subject" fieldLabel="Subject (after “Subject:”, empty for none)" fieldName="relieving_subject" :fieldValue="$settings['relieving_subject']"/>
+                                            <x-forms.text fieldId="relieving_greeting" fieldLabel="Greeting" fieldName="relieving_greeting" :fieldValue="$settings['relieving_greeting']"/>
+                                        </div>
                                     </div>
                                     <div class="form-group">
-                                        <label for="relieving_paragraphs">Paragraphs (the details lines too: one paragraph each)</label>
-                                        <textarea class="form-control" id="relieving_paragraphs" name="relieving_paragraphs" rows="16">{{ $settings['relieving_paragraphs'] }}</textarea>
+                                        <label for="relieving_paragraphs">Paragraphs</label>
+                                        <textarea class="form-control" id="relieving_paragraphs" name="relieving_paragraphs" rows="12">{{ $settings['relieving_paragraphs'] }}</textarea>
                                     </div>
                                     <div class="row">
                                         <div class="col-md-4">
-                                            <x-forms.text fieldId="relieving_closing" fieldLabel="Closing" fieldName="relieving_closing" :fieldValue="$settings['relieving_closing']"/>
+                                            <x-forms.text fieldId="relieving_closing" fieldLabel="Closing (optional)" fieldName="relieving_closing" :fieldValue="$settings['relieving_closing']"/>
                                         </div>
                                         <div class="col-md-8">
                                             <div class="form-group">
@@ -219,7 +237,79 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="ol-help mt-1">Generated from Exiting Employees → Exited Employees, only once assets are returned and the final settlement is paid.</div>
+                                    <div class="ol-help mt-1">Issued with the Experience Letter from Exiting Employees → Exited Employees, once assets are returned and the final settlement is paid; or from the Letter Generator.</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- ============================== Experience letter ============================== --}}
+                        <div class="tab-pane fade" id="tab-experience" role="tabpanel">
+                            <div class="ol-section">
+                                <h4>Placeholders</h4>
+                                <div class="ol-body">
+                                    <table class="ol-ph mb-3">
+                                        @foreach (array_chunk($relievingPlaceholders, 2, true) as $pair)
+                                            <tr>
+                                                @foreach ($pair as $code => $meaning)
+                                                    <td><code>{{ $code }}</code></td><td class="text-dark-grey pr-4">{{ $meaning }}</td>
+                                                @endforeach
+                                            </tr>
+                                        @endforeach
+                                    </table>
+                                    <div class="ol-help">**text** prints bold. A blank line starts a new paragraph.</div>
+                                </div>
+                            </div>
+
+                            <div class="ol-section">
+                                <h4>Letter</h4>
+                                <div class="ol-body">
+                                    <div class="row">
+                                        <div class="col-md-3">
+                                            <x-forms.text fieldId="experience_title" fieldLabel="Title" fieldName="experience_title" :fieldValue="$settings['experience_title']"/>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <x-forms.text fieldId="experience_heading" fieldLabel="Heading under it" fieldName="experience_heading" :fieldValue="$settings['experience_heading']"/>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <x-forms.select fieldId="experience_date_format" fieldLabel="Dates in the letter" fieldName="experience_date_format">
+                                                @foreach ($dateFormats as $fmt => $example)
+                                                    <option value="{{ $fmt }}" @selected($settings['experience_date_format'] === $fmt)>{{ $example }}</option>
+                                                @endforeach
+                                            </x-forms.select>
+                                            <div class="ol-help">For <code>{joining_date}</code> and <code>{relieving_date}</code>.</div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <x-forms.select fieldId="experience_letter_date_format" fieldLabel="Letter date" fieldName="experience_letter_date_format">
+                                                @foreach ($dateFormats as $fmt => $example)
+                                                    <option value="{{ $fmt }}" @selected($settings['experience_letter_date_format'] === $fmt)>{{ $example }}</option>
+                                                @endforeach
+                                            </x-forms.select>
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="experience_intro">Opening (above the particulars)</label>
+                                        <textarea class="form-control" id="experience_intro" name="experience_intro" rows="5">{{ $settings['experience_intro'] }}</textarea>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="experience_particulars">Particulars table: one row a line, <code>Label | value</code> (the first line is the heading row; empty for no table)</label>
+                                        <textarea class="form-control" id="experience_particulars" name="experience_particulars" rows="8">{{ $settings['experience_particulars'] }}</textarea>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="experience_paragraphs">Paragraphs (below the particulars)</label>
+                                        <textarea class="form-control" id="experience_paragraphs" name="experience_paragraphs" rows="7">{{ $settings['experience_paragraphs'] }}</textarea>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <x-forms.text fieldId="experience_closing" fieldLabel="Closing (optional)" fieldName="experience_closing" :fieldValue="$settings['experience_closing']"/>
+                                        </div>
+                                        <div class="col-md-8">
+                                            <div class="form-group">
+                                                <label for="experience_signoff">Signed off by (one per line)</label>
+                                                <textarea class="form-control" id="experience_signoff" name="experience_signoff" rows="3">{{ $settings['experience_signoff'] }}</textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="ol-help mt-1">Issued with the Relieving Letter from Exiting Employees → Exited Employees, or from the Letter Generator.</div>
                                 </div>
                             </div>
                         </div>
@@ -410,8 +500,8 @@
     $('.ol-tabs a[data-toggle="tab"]').on('shown.bs.tab', function () {
         const which = $(this).data('preview') || 'offer';
         $('#preview-which').val(which);
-        $('#preview-offer-settings').contents().last()[0].textContent = which === 'relieving' ? ' Preview Relieving Letter'
-            : (which === 'hike' ? ' Preview Hike Letter' : ' Preview Offer Letter');
+        $('#preview-offer-settings').contents().last()[0].textContent = ' Preview '
+            + ({relieving: 'Relieving', experience: 'Experience', hike: 'Hike'}[which] || 'Offer') + ' Letter';
     });
 
     $('#preview-offer-settings').click(function () {

@@ -51,7 +51,7 @@ class DataCleaner
         'roles' => ['Custom roles', 'Roles other than Super Admin, Admin, Employee and Client.', []],
         'attendance' => ['Attendance', 'Attendance, daily reviews, regularisations with their approvals, day overrides, break logs, daily runs, timesheets.', [
             'attendances', 'attendance_reviews', 'attendance_regularisations', 'attendance_regularisation_approvals', 'attendance_break_logs',
-            'attendance_day_overrides', 'attendance_daily_runs', 'weekly_timesheets', 'weekly_timesheet_entries',
+            'attendance_day_overrides', 'attendance_daily_runs', 'weekly_timesheets', 'weekly_timesheet_entries', 'attendance_imports',
         ]],
         'leave' => ['Leave', 'Leave applications with their files and approval trail, leave balances and their history, encashments, year-end runs. Leave types and policy stay.', [
             'leaves', 'leave_files', 'leave_approvals', 'employee_leave_quotas', 'employee_leave_quota_events', 'employee_leave_quota_histories',
@@ -71,7 +71,7 @@ class DataCleaner
         'payroll' => ['Payroll', 'Payslips and their lines, advances and loans, recurring pay rules and groups, salary revisions, tax declarations, OT bank, daily and past OT. Payroll settings, pay element types and tax slabs stay.', [
             'payslips', 'payslip_components', 'payroll_arrangements', 'pay_element_rules', 'pay_element_rule_applications',
             'pay_element_groups', 'pay_element_group_members', 'salary_revisions', 'salary_revision_logs', 'salary_revision_batches',
-            'tax_declarations', 'payslip_mock_calculation', 'ot_ledger', 'ot_daily', 'ot_past',
+            'tax_declarations', 'payslip_mock_calculation', 'ot_ledger', 'ot_daily', 'ot_past', 'payroll_imports',
         ]],
         'recruitment' => ['Recruitment', 'Candidates with their files, applications, interviews and feedback, offers, job positions with their rounds, the recruitment log and inbound applications. Employees hired from a candidate stay. Recruitment settings stay.', [
             'recruit_interview_feedback', 'recruit_interviews', 'job_offers', 'job_applications', 'candidate_files', 'recruit_logs',
@@ -84,23 +84,35 @@ class DataCleaner
             'iapp_device_transactions', 'iapp_attendance_records', 'iapp_attendance_links', 'iapp_attendance_sync_runs', 'iapp_backfill_runs',
             'iapp_day_syncs', 'iapp_employees', 'iapp_sync_logs', 'biometric_exceptions',
         ]],
-        'modules' => ['Projects, tasks, CRM & other modules', 'Projects, tasks, time logs, leads, deals, clients, contracts, estimates, invoices, payments, expenses, products, orders, notices, events, tickets, knowledge base. Their settings, categories and templates stay.', [
-            'accept_estimates', 'bank_transactions', 'client_contacts', 'client_details', 'client_docs', 'client_notes', 'client_user_notes',
-            'contract_discussions', 'contract_files', 'contract_renews', 'contract_signs', 'contracts', 'credit_note_item_images',
-            'credit_note_items', 'credit_notes', 'deal_files', 'deal_histories', 'deal_notes', 'deals', 'discussion_files',
-            'discussion_replies', 'discussions', 'estimate_item_images', 'estimate_items', 'estimate_requests', 'estimates',
-            'event_attendees', 'event_files', 'events', 'expenses', 'expenses_recurring', 'gantt_links', 'invoice_files',
-            'invoice_item_images', 'invoice_items', 'invoice_payment_details', 'invoice_recurring', 'invoice_recurring_item_images',
-            'invoice_recurring_items', 'invoice_reminder_histories', 'invoices', 'issues', 'knowledge_base_files', 'knowledge_bases',
-            'lead_agents', 'lead_follow_up', 'lead_notes', 'lead_products', 'lead_user_notes', 'leads', 'mention_users',
-            'notice_board_users', 'notice_files', 'notice_views', 'notices', 'order_carts', 'order_item_images', 'order_items', 'orders',
-            'payments', 'pinned', 'product_files', 'products', 'project_activity', 'project_departments', 'project_files',
-            'project_labels', 'project_members', 'project_milestones', 'project_notes', 'project_ratings', 'project_time_log_breaks',
-            'project_time_logs', 'project_user_notes', 'projects', 'proposal_item_images', 'proposal_items', 'proposal_signs', 'proposals',
-            'purpose_consent_leads', 'purpose_consent_users', 'quotation_items', 'quotations', 'recurring_invoice_logs',
-            'removal_requests_lead', 'sub_task_files', 'sub_tasks', 'task_blockers', 'task_comment_emoji', 'task_comments', 'task_files',
-            'task_history', 'task_labels', 'task_notes', 'task_status_logs', 'task_users', 'tasks', 'ticket_activities', 'ticket_files',
-            'ticket_replies', 'ticket_reply_users', 'ticket_tags', 'tickets', 'subscriptions', 'subscription_items',
+        // Projects, tasks, contracts, clients and finance one by one (they were one "modules" group until
+        // 2026-11-24); their settings, categories, project types and templates always stay.
+        'projects' => ['Projects', 'Projects with their members, milestones, files, notes, discussions, issues and activity. Taking projects also takes their tasks and time logs (linked rows, listed in the preview). Project types, stages, categories and settings stay.', [
+            'projects', 'project_members', 'project_milestones', 'project_files', 'project_notes', 'project_user_notes', 'project_activity',
+            'project_departments', 'project_labels', 'project_ratings', 'gantt_links', 'discussions', 'discussion_files', 'discussion_replies', 'issues',
+        ]],
+        'tasks' => ['Tasks, time logs & estimates', 'Every employee\'s tasks and sub tasks with their comments, files, history, blockers and tracker progress, the time logged on them, and - on its own - the estimated hours. Task categories and the board columns stay.', [
+            'tasks', 'sub_tasks', 'sub_task_files', 'task_users', 'task_comments', 'task_comment_emoji', 'task_files', 'task_history', 'task_labels',
+            'task_notes', 'task_status_logs', 'task_blockers', 'tracker_progress_logs', 'project_time_logs', 'project_time_log_breaks',
+        ]],
+        'contracts' => ['Contracts', 'Contracts with their files, discussions, renewals and signatures. Contract types and templates stay.', [
+            'contracts', 'contract_files', 'contract_discussions', 'contract_renews', 'contract_signs',
+        ]],
+        'clients' => ['Clients', 'Client sign-ins with everything that belongs to them, or only the client records: details, contacts, documents and notes. Client categories stay.', [
+            'client_details', 'client_contacts', 'client_docs', 'client_notes', 'client_user_notes',
+        ]],
+        'finance' => ['Finance & invoices', 'GST invoices and their lines, files, payments and reminders, recurring invoices, credit notes, estimates, proposals, quotations, expenses, orders and bank entries. Invoice numbers start again from 001 in each financial year. Finance settings (GSTIN, numbering, bank details), taxes and expense categories stay.', [
+            'invoices', 'invoice_items', 'invoice_item_images', 'invoice_files', 'invoice_payment_details', 'invoice_reminder_histories',
+            'invoice_recurring', 'invoice_recurring_items', 'invoice_recurring_item_images', 'recurring_invoice_logs',
+            'credit_notes', 'credit_note_items', 'credit_note_item_images', 'payments', 'bank_transactions',
+            'estimates', 'estimate_items', 'estimate_item_images', 'estimate_requests', 'accept_estimates',
+            'proposals', 'proposal_items', 'proposal_item_images', 'proposal_signs', 'quotations', 'quotation_items',
+            'expenses', 'expenses_recurring', 'orders', 'order_items', 'order_item_images', 'order_carts', 'subscriptions', 'subscription_items',
+        ]],
+        'modules' => ['CRM & other modules', 'Leads, deals, products, notices, events, tickets and knowledge base. Their settings, categories and templates stay.', [
+            'leads', 'lead_agents', 'lead_follow_up', 'lead_notes', 'lead_products', 'lead_user_notes', 'purpose_consent_leads', 'removal_requests_lead',
+            'deals', 'deal_files', 'deal_histories', 'deal_notes', 'products', 'product_files', 'notices', 'notice_board_users', 'notice_files',
+            'notice_views', 'events', 'event_attendees', 'event_files', 'tickets', 'ticket_activities', 'ticket_files', 'ticket_replies',
+            'ticket_reply_users', 'ticket_tags', 'knowledge_bases', 'knowledge_base_files', 'mention_users', 'pinned', 'purpose_consent_users',
         ]],
         'assets' => ['Assets', 'The asset register, every hand-over and return, services, repairs and renewals, and the asset history, photos and bills. Asset types stay.', [
             'asset_reminders', 'asset_services', 'asset_renewals', 'asset_histories', 'asset_assignments', 'assets',
@@ -112,6 +124,8 @@ class DataCleaner
         '@users' => ['Employee accounts', 'Every user except the Super Admin. Every row that belongs to them in any table goes with them.'],
         '@roles' => ['Custom roles', 'Every role except Super Admin, Admin, Employee and Client, with its permissions and menu. People who had one keep the base Employee role.'],
         '@shifts' => ['Custom shifts', 'Every shift except General Shift and Day Off.'],
+        '@clients' => ['Client accounts', 'Every client sign-in (the Client role) and every row that belongs to them, in any table. Employees stay.'],
+        '@estimates' => ['Estimated hours only', 'The estimate on every task and the hours allocated to every project go back to nothing; the tasks and projects themselves stay.'],
     ];
 
     /** How an item reads on the page (the table name shows beside it). */
@@ -138,6 +152,20 @@ class DataCleaner
         'teams' => 'Divisions', 'designations' => 'Designations', 'branches' => 'Branches',
         'offer_letters' => 'Offer letters (reference numbers start again)', 'relieving_letters' => 'Relieving letters',
         'generated_payslips' => 'Payslips made in the Letter Generator',
+        'attendance_imports' => 'Attendance import history', 'payroll_imports' => 'Payroll import history',
+        'projects' => 'Projects', 'project_members' => 'Project members', 'project_milestones' => 'Milestones', 'project_files' => 'Project files',
+        'project_notes' => 'Project notes', 'project_activity' => 'Project activity', 'discussions' => 'Discussions', 'issues' => 'Issues',
+        'tasks' => "Tasks (every employee's)", 'sub_tasks' => 'Sub tasks', 'task_users' => 'Task assignees', 'task_comments' => 'Task comments',
+        'task_files' => 'Task files', 'task_history' => 'Task history', 'task_status_logs' => 'Task status changes', 'task_blockers' => 'Task blockers',
+        'tracker_progress_logs' => 'Tracker progress (work done per day)', 'project_time_logs' => 'Time logged (timesheet)',
+        'project_time_log_breaks' => 'Time log breaks',
+        'contracts' => 'Contracts', 'contract_files' => 'Contract files', 'contract_signs' => 'Contract signatures', 'contract_renews' => 'Contract renewals',
+        'client_details' => 'Client records', 'client_contacts' => 'Client contacts', 'client_docs' => 'Client documents', 'client_notes' => 'Client notes',
+        'invoices' => 'Invoices (GST)', 'invoice_items' => 'Invoice lines', 'invoice_files' => 'Invoice files', 'invoice_payment_details' => 'Invoice payment details',
+        'invoice_recurring' => 'Recurring invoices', 'credit_notes' => 'Credit notes', 'payments' => 'Payments received', 'bank_transactions' => 'Bank entries',
+        'estimates' => 'Estimates', 'proposals' => 'Proposals', 'quotations' => 'Quotations', 'expenses' => 'Expenses', 'expenses_recurring' => 'Recurring expenses',
+        'orders' => 'Orders', 'leads' => 'Leads', 'deals' => 'Deals', 'products' => 'Products', 'notices' => 'Notices', 'events' => 'Events',
+        'tickets' => 'Tickets', 'knowledge_bases' => 'Knowledge base',
     ];
 
     /** Upload folders emptied with a table (under public/user-uploads). */
@@ -152,6 +180,12 @@ class DataCleaner
         'product_files' => ['products'],
         'assets' => ['asset-images', 'asset-files'],
         'candidate_files' => ['candidate-files'],
+        'contract_files' => ['contract-files'],
+        'invoice_files' => ['invoice-files'],
+        'estimates' => ['estimate-files'],
+        'expenses' => ['expense-invoice'],
+        'client_docs' => ['client-docs'],
+        'discussion_files' => ['discussion-files'],
     ];
 
     /** Shifts that are never removed. */
@@ -176,7 +210,7 @@ class DataCleaner
     /** What can be picked in a group: its special item (if any) then its tables that exist. */
     public function items(string $group): array
     {
-        $special = ['employees' => ['@users'], 'roles' => ['@roles'], 'shifts' => ['@shifts']][$group] ?? [];
+        $special = ['employees' => ['@users'], 'roles' => ['@roles'], 'shifts' => ['@shifts'], 'clients' => ['@clients'], 'tasks' => ['@estimates']][$group] ?? [];
 
         return array_merge($special, array_values(array_filter(self::GROUPS[$group][2], fn ($t) => Schema::hasTable($t))));
     }
@@ -212,6 +246,8 @@ class DataCleaner
                     '@users' => DB::table('users')->whereNotIn('id', $keep)->count(),
                     '@roles' => DB::table('roles')->whereNotIn('name', ['admin', 'manager_admin', 'employee', 'client'])->count(),
                     '@shifts' => DB::table('employee_shifts')->whereNotIn('shift_name', self::KEPT_SHIFTS)->count(),
+                    '@clients' => count($this->clientIds($keep)),
+                    '@estimates' => $this->estimateCount(),
                     default => DB::table($item)->count(),
                 };
             }
@@ -264,6 +300,23 @@ class DataCleaner
         arsort($cleared);
 
         return ['items' => $counts, 'linked' => $linked, 'cleared' => $cleared, 'exact' => true];
+    }
+
+    /** Client sign-ins (the Client role), never a kept account. @return array<int, int> */
+    protected function clientIds(array $keep): array
+    {
+        return DB::table('role_user')->join('roles', 'roles.id', '=', 'role_user.role_id')->where('roles.name', 'client')
+            ->whereNotIn('role_user.user_id', $keep ?: [0])->pluck('role_user.user_id')->map(fn ($id) => (int) $id)->unique()->values()->all();
+    }
+
+    /** Tasks with an estimate, and projects with hours allocated. */
+    protected function estimateCount(): int
+    {
+        $tasks = Schema::hasTable('tasks') ? DB::table('tasks')->where(fn ($q) => $q->where('estimate_hours', '>', 0)->orWhere('estimate_minutes', '>', 0))->count() : 0;
+        $projects = Schema::hasTable('projects') && Schema::hasColumn('projects', 'hours_allocated')
+            ? DB::table('projects')->whereNotNull('hours_allocated')->where('hours_allocated', '<>', 0)->count() : 0;
+
+        return $tasks + $projects;
     }
 
     /** Tables with a user_id column. */
@@ -424,6 +477,39 @@ class DataCleaner
                 DB::table('employee_details')->update(['iapp_emp_code' => null, 'iapp_linked_at' => null]);
             }
 
+            // Client sign-ins only (employees stay): every row of theirs goes with them.
+            if ($has('@clients') && !$has('@users')) {
+                $clients = $this->clientIds($keep);
+
+                if ($clients) {
+                    foreach ($this->perPersonTables() as $table) {
+                        $n = DB::table($table)->whereIn('user_id', $clients)->delete();
+
+                        if ($n) {
+                            $removed[$table] = ($removed[$table] ?? 0) + $n;
+                        }
+                    }
+
+                    DB::table('role_user')->whereIn('user_id', $clients)->delete();
+                    $removed['users'] = DB::table('users')->whereIn('id', $clients)->delete();
+                    DB::table('sessions')->whereIn('user_id', $clients)->delete();
+                }
+            }
+
+            // The estimates only: tasks and projects stay, their planned hours go.
+            if ($has('@estimates')) {
+                if (Schema::hasTable('tasks') && !$has('tasks')) {
+                    $n = DB::table('tasks')->where(fn ($q) => $q->where('estimate_hours', '>', 0)->orWhere('estimate_minutes', '>', 0))
+                        ->update(['estimate_hours' => 0, 'estimate_minutes' => 0]);
+                    $n && $removed['tasks.estimate_hours (link cleared)'] = $n;
+                }
+
+                if (Schema::hasTable('projects') && !$has('projects') && Schema::hasColumn('projects', 'hours_allocated')) {
+                    $n = DB::table('projects')->whereNotNull('hours_allocated')->where('hours_allocated', '<>', 0)->update(['hours_allocated' => null]);
+                    $n && $removed['projects.hours_allocated (link cleared)'] = $n;
+                }
+            }
+
             if ($has('@users')) {
                 // Anything else that points at a person goes with them.
                 foreach ($this->perPersonTables() as $table) {
@@ -518,6 +604,16 @@ class DataCleaner
                 $n = DB::table($trail)->whereNotIn($column, fn ($q) => $q->from($parent)->select('id'))->delete();
                 $n && $removed[$trail] = ($removed[$trail] ?? 0) + $n;
             }
+        }
+
+        // Projects or tasks gone (the database takes a project's tasks with it): the tracker's progress
+        // lines for them have no database link, so they go here.
+        if (($has('projects') || $has('tasks')) && Schema::hasTable('tracker_progress_logs') && !$has('tracker_progress_logs')) {
+            $n = DB::table('tracker_progress_logs')->where(fn ($q) => $q
+                ->where(fn ($w) => $w->whereNotNull('task_id')->whereNotIn('task_id', fn ($s) => $s->from('tasks')->select('id')))
+                ->orWhere(fn ($w) => $w->whereNotNull('project_id')->whereNotIn('project_id', fn ($s) => $s->from('projects')->select('id'))))
+                ->delete();
+            $n && $removed['tracker_progress_logs'] = ($removed['tracker_progress_logs'] ?? 0) + $n;
         }
 
         // Job positions gone: their own interview rounds go with them (the

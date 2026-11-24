@@ -57,6 +57,7 @@ class PayoutQuery
             ->leftJoin('teams as t', 't.id', '=', 'ed.department_id')
             ->where('p.status', 'active')
             ->whereNull('p.deleted_at')
+            ->whereNotIn('p.user_id', \App\Services\Access\SystemAccounts::hiddenTests())   // not the test sign-ins
             // A draft has had nothing paid against it, so it is not part of the
             // record unless it is asked for.
             ->when(!$includeDrafts, fn ($q) => $q->whereIn('p.approval_status', ['approved', 'paid']))

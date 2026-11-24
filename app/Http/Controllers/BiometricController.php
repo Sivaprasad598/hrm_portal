@@ -98,6 +98,8 @@ class BiometricController extends AccountBaseController
         // "Get latest punches": HR's refresh, or the technical pull with any range.
         'sync' => ['manage_biometric_exceptions', 'manage_biometric_system'],
         'employees' => 'manage_biometric_mapping', 'syncEmployees' => 'manage_biometric_mapping', 'uploadMachineList' => 'manage_biometric_mapping',
+        'previewMachineList' => 'manage_biometric_mapping', 'machineListCheck' => 'manage_biometric_mapping',
+        'applyMachineList' => 'manage_biometric_mapping', 'exportMachineList' => 'manage_biometric_mapping',
         'mapEmployee' => 'manage_biometric_mapping', 'bulkMapEmployees' => 'manage_biometric_mapping',
         'comparison' => 'manage_biometric_mapping', 'createFromDevice' => 'manage_biometric_mapping',
     ];
@@ -1057,6 +1059,7 @@ class BiometricController extends AccountBaseController
             ->join('employee_details as ed', 'ed.user_id', '=', 'u.id')
             ->leftJoin('teams as t', 't.id', '=', 'ed.department_id')
             ->where('u.company_id', company()->id)
+            ->whereNotIn('u.id', \App\Services\Access\SystemAccounts::hiddenTests())   // not the test sign-ins
             ->when($onlyIds !== null, fn ($q) => $q->whereIn('u.id', $onlyIds ?: [0]))
             ->orderBy('u.name')
             ->get(['u.id', 'u.name', 'ed.employee_id', 'ed.employee_card_id', 'ed.department_id', 't.team_name as department'])
@@ -1233,6 +1236,13 @@ class BiometricController extends AccountBaseController
 
         $this->rollCallDone = count(array_filter($this->rollCall, fn ($r) => $r['status'] === 'mapped'));
 
+        // Why a person is not linked: their Employee ID is on the device under another
+        // person's name (set aside at the last device-list upload), or not on it at all.
+        $this->mismatches = IappEmployee::where('map_status', IappEmployee::STATUS_IGNORED)
+            ->get(['emp_code', 'employee_name'])
+            ->mapWithKeys(fn ($d) => [\App\Services\Iapp\Sync\KnownCodes::key($d->emp_code) => $d->employee_name])
+            ->all();
+
         return view('biometric.employees', $this->data);
     }
 
@@ -1300,6 +1310,162 @@ class BiometricController extends AccountBaseController
         );
 
         return Reply::successWithData($message, ['conflicts' => $result['name_conflicts']]);
+    }
+
+    // -----------------------------------------------------------------------
+    // Employee Mapping -> "Upload device list": cross-check first, link on Apply
+    // -----------------------------------------------------------------------
+
+    /** Where an uploaded machine list waits between the check and Apply (a day at most). */
+    protected function machineListPath(string $token): string
+    {
+        abort_unless(preg_match('/^[a-f0-9\-]{36}$/', $token), 404);
+
+        $path = storage_path('app/biometric-lists/' . $token . '.xlsx');
+        abort_unless(is_file($path), 404, 'This upload has expired: upload the device list again.');
+
+        return $path;
+    }
+
+    /** Locations to read: ?locations[] from the panel, else the ones in Biometric Settings. */
+    protected function machineListLocations(Request $request): array
+    {
+        if ($request->has('locations') || $request->boolean('all_locations')) {
+            return array_values(array_filter((array) $request->input('locations', []), 'is_string'));
+        }
+
+        return (array) (IappSetting::where('company_id', company()->id)->value('register_locations') ?? []);
+    }
+
+    /** Step 1: keep the file and answer with the address of its check (opened in the side panel). */
+    public function previewMachineList(Request $request)
+    {
+        abort_403(user()->permission('edit_employees') !== 'all');
+
+        $request->validate(['file' => 'required|file|mimes:xlsx,xls,csv|max:10240']);
+
+        $dir = storage_path('app/biometric-lists');
+        \Illuminate\Support\Facades\File::ensureDirectoryExists($dir);
+
+        foreach (glob($dir . '/*.xlsx') ?: [] as $old) {
+            if (filemtime($old) < time() - 86400) {
+                @unlink($old);
+            }
+        }
+
+        if ((new \App\Services\Iapp\Sync\MachineListImport())->read($request->file('file')->getRealPath()) === null) {
+            return Reply::error('This is not the biometric Employee report: no sheet has the Code, Name and Location columns.');
+        }
+
+        $token = (string) \Illuminate\Support\Str::uuid();
+        $request->file('file')->move($dir, $token . '.xlsx');
+
+        return Reply::successWithData('Checked.', ['url' => route('biometric.employees.machine-list.check', $token)]);
+    }
+
+    /** Step 2: the cross-check, nothing saved (side panel; a page of its own when opened directly). */
+    public function machineListCheck(Request $request, string $token)
+    {
+        $path = $this->machineListPath($token);
+        $rows = (new \App\Services\Iapp\Sync\MachineListImport())->read($path) ?? [];
+
+        $this->token = $token;
+        $this->locations = $this->machineListLocations($request);
+        $this->fileLocations = collect($rows)->countBy(fn ($r) => $r['location'] ?: '—')->sortDesc()->all();
+        $this->check = (new \App\Services\Iapp\Sync\MachineListCheck())->check($rows, $this->locations);
+        $this->settingsLocations = (array) (IappSetting::where('company_id', company()->id)->value('register_locations') ?? []);
+        $title = 'Cross-check: device list';
+
+        if ($request->ajax()) {
+            return Reply::dataOnly(['status' => 'success', 'title' => $title,
+                'html' => view('biometric.ajax.machine-list-check', $this->data)->render()]);
+        }
+
+        $this->pageTitle = $title;
+        $this->activeTab = 'employees';
+
+        return view('biometric.machine-list-page', $this->data);
+    }
+
+    /** Step 3: link the code + name matches and the ticked name suggestions. */
+    public function applyMachineList(Request $request, string $token)
+    {
+        abort_403(user()->permission('edit_employees') !== 'all');
+
+        $path = $this->machineListPath($token);
+        $locations = $this->machineListLocations($request);
+        $setting = IappSetting::where('company_id', company()->id)->first();
+        session()->save();
+
+        $import = new \App\Services\Iapp\Sync\MachineListImport();
+        $rows = $import->read($path) ?? [];
+        $check = new \App\Services\Iapp\Sync\MachineListCheck();
+
+        // the suggestions are worked out before the codes are linked (as they were shown)
+        $before = $check->check($rows, $locations);
+        $result = $import->load($path, $locations, (bool) ($setting->only_known_employees ?? true), user()->id);
+
+        if (!$result['ok']) {
+            return Reply::error($result['message']);
+        }
+
+        $picked = $check->linkSuggestions($rows, $locations, (array) $request->input('suggest', []), user()->id);
+        $sync = $result['sync'];
+
+        $message = sprintf('%d linked by code and name, %d by name (ticked), %d already linked. %d name conflict(s) set aside.',
+            $sync['linked'] + $sync['moved'], $picked['linked'], $sync['already'], count($result['name_conflicts']));
+
+        if ($picked['failed']) {
+            $message .= ' Not linked: ' . implode('; ', $picked['failed']) . '.';
+        }
+
+        $message .= sprintf(' %d active employee(s) are still not on the device.', $before['counts']['missing']);
+
+        return Reply::success($message);
+    }
+
+    /** The check as an Excel file: one sheet per group, for HR to work through. */
+    public function exportMachineList(Request $request, string $token)
+    {
+        $path = $this->machineListPath($token);
+        $rows = (new \App\Services\Iapp\Sync\MachineListImport())->read($path) ?? [];
+        $check = (new \App\Services\Iapp\Sync\MachineListCheck())->check($rows, $this->machineListLocations($request));
+
+        $sheets = [
+            'Will link' => [['Device code', 'Name on device', 'Employee', 'Employee ID', 'Division', 'Location', 'Already linked'], 'link',
+                fn ($r) => [$r['code'], $r['device_name'], $r['name'], $r['employee_id'], $r['division'], $r['location'], $r['already'] ? 'Yes' : 'No']],
+            'Name mismatch' => [['Device code', 'Name on device', 'Employee with this ID', 'Employee ID', 'Division', 'Location'], 'conflict',
+                fn ($r) => [$r['code'], $r['device_name'], $r['name'], $r['employee_id'], $r['division'], $r['location']]],
+            'Name match only' => [['Device code', 'Name on device', 'Employee', 'Employee ID', 'Division', 'Location'], 'suggest',
+                fn ($r) => [$r['code'], $r['device_name'], $r['name'], $r['employee_id'], $r['division'], $r['location']]],
+            'Not on device' => [['Employee', 'Employee ID', 'Division'], 'missing',
+                fn ($r) => [$r['name'], $r['employee_id'], $r['division']]],
+            'Device only' => [['Device code', 'Name on device', 'Location', 'Department on device'], 'device_only',
+                fn ($r) => [$r['code'], $r['device_name'], $r['location'], $r['department']]],
+            'Shared cards' => [['Device code', 'Name on device', 'Location'], 'shared',
+                fn ($r) => [$r['code'], $r['device_name'], $r['location']]],
+        ];
+
+        $book = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $book->removeSheetByIndex(0);
+
+        foreach ($sheets as $name => [$head, $group, $map]) {
+            $sheet = $book->createSheet()->setTitle($name);
+            $sheet->fromArray(array_merge([$head], array_map($map, $check[$group])), null, 'A1', true);
+            $sheet->getStyle('A1:' . $sheet->getHighestColumn() . '1')->getFont()->setBold(true);
+
+            foreach (range('A', $sheet->getHighestColumn()) as $col) {
+                $sheet->getColumnDimension($col)->setAutoSize(true);
+            }
+        }
+
+        $book->setActiveSheetIndex(0);
+
+        return response()->streamDownload(function () use ($book) {
+            (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($book))->save('php://output');
+        }, 'device-list-cross-check-' . now()->format('Y-m-d') . '.xlsx', [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
     }
 
     /**
@@ -1485,6 +1651,7 @@ class BiometricController extends AccountBaseController
         $this->search = trim((string) $request->search);
 
         $query = \App\Models\BiometricException::with(['user:id,name', 'resolver:id,name'])
+            ->where(fn ($q) => $q->whereNull('user_id')->orWhereNotIn('user_id', \App\Services\Access\SystemAccounts::hiddenTests()))
             ->when($this->category, fn ($q, $c) => $q->where('category', $c))
             ->when($this->status !== 'all', fn ($q) => $q->where('status', $this->status))
             ->when($this->type, fn ($q, $t) => $q->where('type', $t))

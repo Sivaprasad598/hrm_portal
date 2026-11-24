@@ -21,7 +21,8 @@ use Illuminate\Support\Facades\DB;
 class RoleAccess
 {
 
-    public const ROLES = ['hr', 'manager_admin', 'ceo'];
+    // CFO added 2026-11-24: the same pages as HR (migration 2026_11_24_100003_cfo_access_like_hr)
+    public const ROLES = ['hr', 'manager_admin', 'ceo', 'vice_president', 'cfo'];   // Vice President as the CEO (2026-11-24)
 
     /** Granted at "all". */
     public const PERMISSIONS = [
@@ -54,16 +55,28 @@ class RoleAccess
     public const MODULES = ['projects', 'contracts', 'tasks'];
 
     /** Left out for a role: the CEO looks at Biometric, HR and the Admin work it. */
-    public const NOT_FOR = ['ceo' => ['manage_biometric_exceptions', 'manage_biometric_mapping']];
+    public const NOT_FOR = [
+        'ceo' => ['manage_biometric_exceptions', 'manage_biometric_mapping'],
+        'vice_president' => ['manage_biometric_exceptions', 'manage_biometric_mapping'],
+    ];
 
     /** Given to one role only, at "all": HR runs Recruitment (positions to offers, and its settings). */
-    public const ONLY_FOR = ['hr' => ['view_recruitment', 'manage_recruitment', 'manage_recruitment_settings']];
+    public const ONLY_FOR = [
+        'hr' => ['view_recruitment', 'manage_recruitment', 'manage_recruitment_settings'],
+        'cfo' => ['view_recruitment', 'manage_recruitment', 'manage_recruitment_settings'],
+    ];
 
     /** Sidebar entries for one role only, by route. */
-    public const MENU_ONLY_FOR = ['hr' => [
-        'recruitment.dashboard', 'job-positions.index', 'job-applications.index', 'candidates.index',
-        'recruit-interviews.index', 'recruitment-settings.index',
-    ]];
+    public const MENU_ONLY_FOR = [
+        'hr' => [
+            'recruitment.dashboard', 'job-positions.index', 'job-applications.index', 'candidates.index',
+            'recruit-interviews.index', 'recruitment-settings.index',
+        ],
+        'cfo' => [
+            'recruitment.dashboard', 'job-positions.index', 'job-applications.index', 'candidates.index',
+            'recruit-interviews.index', 'recruitment-settings.index',
+        ],
+    ];
 
     /** Sidebar entries granted, by route (and the group headings they sit under). */
     public const MENU_ROUTES = [

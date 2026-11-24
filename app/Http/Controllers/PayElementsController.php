@@ -56,7 +56,7 @@ class PayElementsController extends AccountBaseController
         $this->types = $this->types(false);
         $this->employees = DB::table('users as u')
             ->join('employee_details as ed', 'ed.user_id', '=', 'u.id')
-            ->whereNotIn('u.id', \App\Services\Access\SystemAccounts::ids())   // not the Super Admin login
+            ->whereNotIn('u.id', \App\Services\Access\SystemAccounts::hidden())   // not the Super Admin login
             ->leftJoin('teams as t', 't.id', '=', 'ed.department_id')
             ->where('u.status', 'active')
             ->orderBy('u.name')
@@ -482,6 +482,7 @@ class PayElementsController extends AccountBaseController
     {
         return DB::table('payroll_arrangements as a')
             ->join('users as u', 'u.id', '=', 'a.user_id')
+            ->whereNotIn('a.user_id', \App\Services\Access\SystemAccounts::hiddenTests())   // not the test sign-ins
             ->orderByRaw("FIELD(a.status, 'active', 'completed', 'cancelled')")
             ->orderBy('u.name')
             ->get(['a.id', 'a.user_id', 'a.kind', 'a.label', 'a.total_amount', 'a.instalment',

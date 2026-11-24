@@ -12,6 +12,10 @@
         $suggestedCount = count(array_filter($rollCall, $isSuggested));
         $notLinkedCount = $total - $linkedCount;
         $confident = array_filter($rollCall, fn ($r) => $r['status'] === 'confident');
+        // the name the device has under this person's Employee ID, when it is somebody else
+        $mismatchOf = fn ($r) => $r['mapped'] === [] && ($k = \App\Services\Iapp\Sync\KnownCodes::key($r['employee_id'] ?? '')) !== ''
+            ? ($mismatches[$k] ?? null) : null;
+        $mismatchCount = count(array_filter($rollCall, fn ($r) => $mismatchOf($r) !== null));
     @endphp
 
     <div class="content-wrapper arw-dash">
@@ -25,6 +29,9 @@
                 <button type="button" class="em-chip em-chip--ok" data-filter="linked"><i></i><b>{{ $linkedCount }}</b> Linked</button>
                 <button type="button" class="em-chip em-chip--warn" data-filter="unlinked"><i></i><b>{{ $notLinkedCount }}</b> Not linked</button>
                 <button type="button" class="em-chip em-chip--sug" data-filter="suggested"><i></i><b>{{ $suggestedCount }}</b> Suggested</button>
+                @if ($mismatchCount > 0)
+                    <button type="button" class="em-chip em-chip--bad" data-filter="mismatch"><i></i><b>{{ $mismatchCount }}</b> Name mismatch</button>
+                @endif
             </div>
 
             <div class="em-search">
@@ -39,13 +46,26 @@
                 </button>
             @endif
 
+            {{-- the device's own employee list: cross-checked in a side panel before anything is linked --}}
+            <button type="button" class="btn-primary rounded f-14 em-btn" id="upload-device-list"
+                    title="The Employee report exported from the biometric software (Employee.xlsx)">
+                <i class="fa fa-upload mr-1"></i> Upload device list
+            </button>
+            <input type="file" id="device-list-file" accept=".xlsx,.xls,.csv" class="d-none">
+            <button type="button" class="btn-secondary rounded f-14 em-btn" id="sync-all-employees"
+                    title="Link every known device code to the employee whose Employee ID it is">
+                <i class="fa fa-sync-alt mr-1"></i> Sync all
+            </button>
+
         </div>
 
         @if ($unmappedCodes === [] && $linkedCount < $total)
             <div class="em-note">
                 <i class="fa fa-info-circle mr-1"></i>
-                No free device codes left to assign. People still not linked are not enrolled on the devices yet,
-                or their punches have not been pulled — they appear here after the next device sync.
+                No free device codes left: only codes that have punched are known here. To check everyone enrolled on the
+                device (punched or not), export the Employee report from the biometric software and click
+                <a href="javascript:;" class="font-weight-bold" onclick="$('#upload-device-list').trigger('click')">Upload device list</a>.
+                It is cross-checked by code and name before anything is linked.
             </div>
         @endif
 
@@ -63,7 +83,8 @@
                         @php
                             $linked = $row['mapped'] !== [];
                             $top = $row['candidates'][0] ?? null;
-                            $state = $linked ? 'linked' : ($top ? 'suggested' : 'unlinked');
+                            $mismatch = $mismatchOf($row);
+                            $state = $linked ? 'linked' : ($top ? 'suggested' : ($mismatch !== null ? 'mismatch' : 'unlinked'));
                             $haystack = \Illuminate\Support\Str::lower(trim(implode(' ', array_filter([
                                 $row['name'], $row['employee_id'] ?? null, $row['employee_card_id'] ?? null,
                                 implode(' ', array_map(fn ($m) => $m['emp_code'] . ' ' . $m['employee_name'], $row['mapped'])),
@@ -85,8 +106,11 @@
                                 @elseif ($top)
                                     <span class="em-code em-code--sug">{{ $top['emp_code'] }}</span>
                                     <span class="em-sub">{{ $top['employee_name'] }} · {{ $top['reasons'][0] ?? 'close match' }}</span>
+                                @elseif ($mismatch !== null)
+                                    <span class="em-code em-code--bad">{{ $row['employee_id'] }}</span>
+                                    <span class="em-sub">On the device this code is “{{ $mismatch }}”: correct the Employee ID or the device</span>
                                 @else
-                                    <span class="em-sub">No matching code found</span>
+                                    <span class="em-sub">Not on the device yet (or never punched)</span>
                                 @endif
                             </td>
 
@@ -157,6 +181,9 @@
         .em-code { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 600; margin-right: 6px; }
         .em-code--ok { background: #ecfdf3; color: #067647; }
         .em-code--sug { background: #fffaeb; color: #b54708; }
+        .em-code--bad { background: #fef3f2; color: #b42318; }
+        .em-chip--bad i { background: #b42318; }
+        .em-chip--bad.is-active { border-color: #b42318; }
         .em-act { white-space: nowrap; }
         .em-act > * { vertical-align: middle; }
         .em-pick { display: inline-block; width: 210px; margin-left: 8px; text-align: left; }
@@ -186,7 +213,7 @@
             var term = ($('#em-search').val() || '').toLowerCase().trim();
             var hits = $rows.filter(function () {
                 var st = this.getAttribute('data-state');
-                var okF = filter === 'all' || st === filter || (filter === 'unlinked' && st === 'suggested');
+                var okF = filter === 'all' || st === filter || (filter === 'unlinked' && (st === 'suggested' || st === 'mismatch'));
                 return okF && (!term || this.getAttribute('data-search').indexOf(term) !== -1);
             });
             var n = hits.length, per = size(), pages = Math.max(1, Math.ceil(n / per));
@@ -241,7 +268,7 @@
             url: mapRoute + '/' + deviceId + '/map', type: 'POST',
             data: { action: 'map', user_id: userId, _token: csrf },
             success: function (response) {
-                if (response.status === 'success') { window.location.reload(); return; }
+                if (response.status === 'success') { PageSwap.reload(); return; }
                 Swal.fire({ icon: 'error', title: response.message || 'Could not link ' + description });
             },
             error: function (xhr) {
@@ -267,7 +294,7 @@
         }).then(function (r) {
             if (!r.isConfirmed) { return; }
             $.ajax({ url: mapRoute + '/' + id + '/map', type: 'POST', data: { action: 'unmap', _token: csrf },
-                success: function () { window.location.reload(); } });
+                success: function () { PageSwap.reload(); } });
         });
     });
 
@@ -289,9 +316,56 @@
                 url: bulkRoute, type: 'POST', data: { action: 'map', ids: ids, pairs: pairs, _token: csrf },
                 success: function (response) {
                     Swal.fire({ icon: response.status === 'success' ? 'success' : 'error', title: response.message })
-                        .then(function () { window.location.reload(); });
+                        .then(function () { PageSwap.reload(); });
                 },
                 error: function () { Swal.fire({ icon: 'error', title: 'Could not link the suggested matches.' }); }
+            });
+        });
+    });
+
+    // ---- Upload device list: the file is checked, then the cross-check opens in the side panel ----
+    $('#upload-device-list').on('click', function () { $('#device-list-file').val('').trigger('click'); });
+
+    $('#device-list-file').on('change', function () {
+        if (!this.files || !this.files.length) { return; }
+        var data = new FormData();
+        data.append('file', this.files[0]);
+        data.append('_token', csrf);
+        var $btn = $('#upload-device-list').prop('disabled', true);
+
+        $.ajax({
+            url: "{{ route('biometric.employees.machine-list.preview') }}", type: 'POST', data: data, processData: false, contentType: false,
+            headers: { 'Accept': 'application/json' },
+            success: function (r) {
+                if (r.status !== 'success') { Swal.fire({ icon: 'error', text: r.message }); return; }
+                // opened as any side-panel link is, so Back / refresh behave the same
+                var a = $('<a class="openRightModal d-none"></a>').attr('href', r.url).appendTo('.content-wrapper');
+                a.trigger('click'); a.remove();
+            },
+            error: function (x) {
+                var j = x.responseJSON || {};
+                Swal.fire({ icon: 'error', text: (j.errors && j.errors.file ? j.errors.file[0] : j.message) || 'Could not read the file.' });
+            },
+            complete: function () { $btn.prop('disabled', false); }
+        });
+    });
+
+    // ---- Sync all: every known code to the employee whose Employee ID it is ----
+    $('#sync-all-employees').on('click', function () {
+        Swal.fire({
+            title: 'Sync all employees?',
+            text: 'Each device code is linked to the employee whose Employee ID it is. Codes where the names disagree become exceptions, not links.',
+            icon: 'question', showCancelButton: true, confirmButtonText: 'Sync', cancelButtonText: '@lang('app.cancel')'
+        }).then(function (r) {
+            if (!r.isConfirmed) { return; }
+            $.easyAjax({
+                url: "{{ route('biometric.employees.sync') }}", type: 'POST', data: { _token: csrf }, blockUI: true,
+                disableButton: true, buttonSelector: '#sync-all-employees',
+                success: function (res) {
+                    if (res.status === 'success') {
+                        Swal.fire({ icon: 'success', title: 'Synced', text: res.message }).then(function () { PageSwap.reload(); });
+                    }
+                }
             });
         });
     });

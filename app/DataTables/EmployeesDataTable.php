@@ -219,6 +219,10 @@ class EmployeesDataTable extends BaseDataTable
             $employmentTypeBadge = '';
             $employeeDetail = $row->employeeDetail;
 
+            if (\App\Services\Access\SystemAccounts::isTest((int) $row->id)) {
+                $employmentTypeBadge .= '<span class="badge badge-warning" title="Test sign-in: hidden from everyone else and from every count">TEST</span> ';
+            }
+
             if ($row->status == 'active') {
                 if ($employeeDetail?->probation_end_date > now()->toDateString()) {
                     $employmentTypeBadge .= '<span class="badge badge-info">' . __('app.onProbation') . '</span> ';
@@ -361,6 +365,11 @@ class EmployeesDataTable extends BaseDataTable
             ->groupBy('users.id')->whereHas('roles', function ($query) {
                 $query->where('name', 'employee');
             });
+
+        // Test sign-ins: listed for the Super Admin (tagged TEST) and for one another, for nobody else.
+        if (!\App\Services\Access\SystemAccounts::is((int) user()->id)) {
+            $users->whereNotIn('users.id', \App\Services\Access\SystemAccounts::hiddenTests());
+        }
 
         if ($request->status != 'all' && $request->status != '' && $request->EmployeeType == null) {
             if ($request->status == 'active') {

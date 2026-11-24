@@ -42,7 +42,7 @@ class GstInvoice
 
     public static function canUse(): bool
     {
-        return user() && ((bool) array_intersect(['admin', 'manager_admin', 'ceo', 'cfo', 'hr'], user_roles())
+        return user() && ((bool) array_intersect(['admin', 'manager_admin', 'ceo', 'vice_president', 'cfo', 'hr'], user_roles())
             || user()->permission('view_invoices') === 'all');
     }
 

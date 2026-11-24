@@ -14,7 +14,7 @@ namespace App\Services\Access;
 class AssignedModules
 {
     /** Roles that manage others and get the full sidebar; everyone else is self-service. */
-    const MANAGING_ROLES = ['admin', 'hr', 'manager_admin', 'ceo', 'cfo', 'client'];
+    const MANAGING_ROLES = ['admin', 'hr', 'manager_admin', 'ceo', 'vice_president', 'cfo', 'client'];
 
     /** Pages whose menu row names no module, and the module they stand for. */
     const PAGE_MODULES = [

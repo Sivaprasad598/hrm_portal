@@ -74,7 +74,7 @@ class AssignMenuController extends AccountBaseController
         abort_403(!self::canManage());
 
         // by seniority; any other role after the named ones, Employee and Client last
-        $order = ['admin', 'manager_admin', 'ceo', 'cfo', 'hr', 'manager', 'team_lead', 'developer', 'gis_engineer'];
+        $order = ['admin', 'manager_admin', 'ceo', 'vice_president', 'cfo', 'hr', 'manager', 'team_lead', 'developer', 'gis_engineer'];
         $last = ['employee', 'client'];
         $this->roles = Role::withCount('menus')->orderBy('id', 'asc')->get()
             ->sortBy(fn ($r) => in_array($r->name, $order, true) ? array_search($r->name, $order, true)

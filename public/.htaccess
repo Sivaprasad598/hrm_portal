@@ -5,7 +5,8 @@
 
     RewriteEngine On
     # No RewriteBase: the same file works wherever the app sits
-    # (https://arowanaone.com at the root live, /hrm_portal/public here).
+    # (https://arowanaone.com at a domain root, https://arowana.uk/hrm in a sub folder,
+    # /hrm_portal/public here).
     # Only if a host insists on one, set it to the URL path of this folder.
 
     # https, for a host that points the domain straight at this folder (the root
@@ -25,6 +26,9 @@
     # Hidden files (.env, .git, .htaccess ...) are never served; SSL checks
     # (.well-known) still are.
     RewriteRule (^|/)\.(?!well-known/) - [F,L]
+
+    # Left-over debug scripts (debug.php clears every cache, signed in or not) are never served.
+    RewriteRule ^debug\.php$ - [F,L,NC]
 
     # The installer and the purchase check stay closed on an installed site
     # (take this line out only while deliberately running a fresh install).

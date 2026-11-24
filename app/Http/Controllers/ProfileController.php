@@ -15,6 +15,32 @@ use Illuminate\Support\Facades\Hash;
 class ProfileController extends AccountBaseController
 {
 
+    /**
+     * Profile -> the picture alone (the "Save photo" button after cropping): stored as the full form
+     * stores it, and answered with its address so the page puts it in the sidebar, the top bar and the
+     * profile card without reloading.
+     */
+    public function updateImage(\Illuminate\Http\Request $request)
+    {
+        $request->validate(['image' => 'required|image|mimes:jpg,jpeg,png,bmp,webp|max:4096'], [
+            'image.max' => 'The picture is larger than 4 MB: crop it again (the crop makes it small).',
+        ]);
+
+        $user = user();
+        $old = $user->image;
+
+        $user->image = Files::uploadLocalOrS3($request->file('image'), 'avatar', 300);
+        $user->save();
+
+        if ($old) {
+            Files::deleteFile($old, 'avatar');
+        }
+
+        cache()->forget('sidebar_menus_' . $user->id);
+
+        return Reply::successWithData('Profile picture saved.', ['image_url' => $user->fresh()->image_url]);
+    }
+
     // phpcs:ignore
     public function update(UpdateProfile $request, $id)
     {

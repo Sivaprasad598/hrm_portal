@@ -364,7 +364,7 @@ trait EmployeeDashboard
 
         $this->upcomingBirthdays = EmployeeDetails::whereHas('user', function ($query) {
             return $query->where('status', 'active');
-        })
+        })->whereNotIn('employee_details.user_id', \App\Services\Access\SystemAccounts::hiddenTests())   // not the test sign-ins
             ->with('user', 'user.employeeDetail.designation:id,name')
             ->select('*', 'date_of_birth', DB::raw('MONTH(date_of_birth) months'), DB::raw('DAY(date_of_birth) as day'))
             ->whereNotNull('date_of_birth')
@@ -377,11 +377,13 @@ trait EmployeeDashboard
             ->get()->values()->all();
 
         $this->leave = Leave::with('user', 'user.employeeDetail.designation:id,name', 'type')->where('status', 'approved')
+            ->whereNotIn('user_id', \App\Services\Access\SystemAccounts::hiddenTests())
             ->where('leave_date', today(company()->timezone)->toDateString())
             ->get();
 
 
         $this->workFromHome = Attendance::with('user', 'user.employeeDetail.designation:id,name')
+            ->whereNotIn('attendances.user_id', \App\Services\Access\SystemAccounts::hiddenTests())
             ->select('id', 'user_id')
             ->where('work_from_type', 'home')
             // the same calendar day as DATE(clock_in_time) = today, as a range the index can use
@@ -516,7 +518,7 @@ trait EmployeeDashboard
 
         $this->upcomingAnniversaries = EmployeeDetails::whereHas('user', function ($query) {
             return $query->where('status', 'active');
-        })
+        })->whereNotIn('employee_details.user_id', \App\Services\Access\SystemAccounts::hiddenTests())
             ->with('user', 'user.employeeDetail.designation:id,name')
             ->select('employee_details.id', 'employee_details.user_id', 'employee_details.joining_date', DB::raw('MONTH(joining_date) months'), DB::raw('DAY(joining_date) as day'))
             ->whereNotNull('joining_date')
@@ -571,7 +573,7 @@ trait EmployeeDashboard
         $this->employees = EmployeeDetails::with('user', 'user.employeeDetail.designation:id,name')
             ->whereHas('user', function ($query) {
                 $query->where('status', 'active');
-            })->without('clientDetails');
+            })->whereNotIn('employee_details.user_id', \App\Services\Access\SystemAccounts::hiddenTests())->without('clientDetails');
 
         if (in_array('admin', user_roles())) {
 

@@ -1468,7 +1468,7 @@ class EmployeeController extends AccountBaseController
     {
         $viewPermission = user()->permission('view_employees');
         $users = User::with('employeeDetail')->withoutGlobalScope(ActiveScope::class)->join('employee_details', 'employee_details.user_id', '=', 'users.id')
-            ->whereNotIn('users.id', \App\Services\Access\SystemAccounts::ids());   // not the Super Admin login
+            ->whereNotIn('users.id', \App\Services\Access\SystemAccounts::hidden());   // not the Super Admin login
 
         if (request()->request_from == 'rotation' && request()->rotation) {
             $rotAssignedEmps = AutomateShift::where('employee_shift_rotation_id', request()->rotation)->pluck('user_id');

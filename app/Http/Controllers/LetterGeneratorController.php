@@ -40,10 +40,10 @@ class LetterGeneratorController extends AccountBaseController
 
     protected function type(Request $request): string
     {
-        $type = in_array($request->type, ['relieving', 'payslip'], true) ? $request->type : 'offer';
+        $type = in_array($request->type, ['relieving', 'experience', 'payslip'], true) ? $request->type : 'offer';
         abort_403(match ($type) {
             'offer' => !OfferLetterController::canUse(),
-            'relieving' => !RelievingLetterController::canUse(),
+            'relieving', 'experience' => !RelievingLetterController::canUse(),
             'payslip' => !self::canPayslip(),
         });
 
@@ -68,6 +68,7 @@ class LetterGeneratorController extends AccountBaseController
         $this->people = DB::table('users as u')->join('employee_details as ed', 'ed.user_id', '=', 'u.id')
             ->where('u.company_id', company()->id)
             ->when($this->type === 'offer', fn ($q) => $q->where('u.status', 'active'))
+            ->whereNotIn('u.id', \App\Services\Access\SystemAccounts::hiddenTests())   // not the test sign-ins
             ->orderBy('u.name')->get(['u.id', 'u.name', 'ed.employee_id as code', 'ed.last_date']);
         $this->designations = DB::table('designations')->where('company_id', company()->id)->orderBy('name')->pluck('name');
         $this->branches = DB::table('branches')->orderBy('branch_name')->pluck('branch_name');
@@ -137,7 +138,7 @@ class LetterGeneratorController extends AccountBaseController
 
         return Reply::dataOnly(['status' => 'success', 'details' => match ($type) {
             'offer' => OfferLetter::detailsFor((int) $userId),
-            'relieving' => RelievingLetter::detailsFor((int) $userId),
+            'relieving', 'experience' => RelievingLetter::detailsFor((int) $userId),
             'payslip' => \App\Services\Payroll\ManualPayslip::detailsFor((int) $userId),
         }]);
     }
@@ -154,8 +155,8 @@ class LetterGeneratorController extends AccountBaseController
                 'problems' => \App\Services\Payroll\ManualPayslip::problems($details)]);
         }
 
-        if ($type === 'relieving') {
-            return Reply::dataOnly(['status' => 'success', 'html' => RelievingLetter::html(null, false, null, $details),
+        if ($type === 'relieving' || $type === 'experience') {
+            return Reply::dataOnly(['status' => 'success', 'html' => RelievingLetter::html(null, false, null, $details, $type),
                 'tenure' => RelievingLetter::tenure($details['joining_date'] ?? null, $details['relieving_date'] ?? null)]);
         }
 
@@ -179,13 +180,16 @@ class LetterGeneratorController extends AccountBaseController
         $userId = $request->user_id && DB::table('users')->where('id', $request->user_id)->where('company_id', company()->id)->exists()
             ? (int) $request->user_id : null;
 
-        if ($type === 'relieving') {
+        if ($type === 'relieving' || $type === 'experience') {
             if ($problems = RelievingLetter::formProblems($details)) {
                 return Reply::error(implode(' ', $problems));
             }
-            $letter = RelievingLetter::issueManual($details, $request->letter_date, $userId);
+            // "Also the experience / relieving letter": the two made together, as from Exited Employees.
+            $both = $request->boolean('with_pair');
+            $letter = RelievingLetter::issueManual($details, $request->letter_date, $userId, $type, $both);
 
-            return Reply::successWithData('Relieving letter generated.', ['redirect_url' => route('relieving-letters.show', $letter->id)]);
+            return Reply::successWithData($both ? 'Relieving and experience letters generated.' : RelievingLetter::KINDS[$type] . ' generated.',
+                ['redirect_url' => route('relieving-letters.show', $letter->id)]);
         }
 
         if ($problems = OfferLetter::formProblems($details)) {

@@ -177,7 +177,7 @@
 
         if (array_intersect(['admin', 'manager_admin'], $dashboardRoles)) {
             // (the sub-menu as it is)
-        } elseif (array_intersect(['ceo', 'cfo'], $dashboardRoles) && \Illuminate\Support\Facades\Route::has('executive-dashboard.index')) {
+        } elseif (array_intersect(['ceo', 'vice_president', 'cfo'], $dashboardRoles) && \Illuminate\Support\Facades\Route::has('executive-dashboard.index')) {
             $menuUrl = route('executive-dashboard.index');
             $isActive = request()->routeIs('executive-dashboard.*', 'dashboard');
             $isOpen = $isActive;

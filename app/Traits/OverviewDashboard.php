@@ -41,7 +41,7 @@ trait OverviewDashboard
         $this->counts = DB::table('users')
             ->select(
                 DB::raw('(select count(users.id) from `users` inner join role_user on role_user.user_id=users.id inner join roles on roles.id=role_user.role_id WHERE roles.name = "client" AND users.company_id = ' . company()->id . ') as totalClients'),
-                DB::raw('(select count(users.id) from `users` inner join role_user on role_user.user_id=users.id inner join roles on roles.id=role_user.role_id WHERE roles.name = "employee" and users.status = "active" AND users.company_id = ' . company()->id . ') as totalEmployees'),
+                DB::raw('(select count(users.id) from `users` inner join role_user on role_user.user_id=users.id inner join roles on roles.id=role_user.role_id WHERE roles.name = "employee" and users.id NOT IN (' . implode(',', \App\Services\Access\SystemAccounts::notCounted()) . ') and users.status = "active" AND users.company_id = ' . company()->id . ') as totalEmployees'),
                 DB::raw('(select count(projects.id) from `projects` WHERE projects.company_id = ' . company()->id . ') as totalProjects'),
                 DB::raw('(select count(invoices.id) from `invoices` where (status = "unpaid" or status = "partial") AND invoices.company_id = ' . company()->id . ') as totalUnpaidInvoices'),
                 DB::raw('(select sum(project_time_logs.total_minutes) from `project_time_logs` where approved = "1" AND project_time_logs.company_id = ' . company()->id . ') as totalHoursLogged'),
@@ -83,7 +83,7 @@ trait OverviewDashboard
         $this->timlogChartData = $this->timelogChart($startDate, $endDate);
 
         $this->leaves = Leave::with('user', 'type')
-            ->where('status', 'pending')
+            ->where('status', 'pending')->whereNotIn('user_id', \App\Services\Access\SystemAccounts::notCounted())
             ->whereBetween('leave_date', [$startDate, $endDate])
             ->get();
 
@@ -126,7 +126,7 @@ trait OverviewDashboard
             ->groupBy('project_activity.id')
             ->get();
 
-        $this->userActivities = UserActivity::with('user')->limit(15)
+        $this->userActivities = UserActivity::with('user')->whereNotIn('user_id', \App\Services\Access\SystemAccounts::hiddenTests())->limit(15)
             ->whereBetween('created_at', [$startDate, $endDate])
             ->orderByDesc('id')->get();
 

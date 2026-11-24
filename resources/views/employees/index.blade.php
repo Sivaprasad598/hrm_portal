@@ -224,6 +224,7 @@
                 $reportCandidates = \App\Models\User::query()->where('users.status', 'active')
                     ->join('employee_details as ed', 'ed.user_id', '=', 'users.id')
                     ->leftJoin('designations as dg', 'dg.id', '=', 'ed.designation_id')
+                    ->whereNotIn('users.id', \App\Services\Access\SystemAccounts::hiddenTests())   // not the test sign-ins
                     ->orderBy('users.name')->get(['users.id', 'users.name', 'ed.employee_id', 'dg.name as designation', 'ed.department_id']);
                 // Each person's department: the top of their division tree (TEKLA -> Steel Detailing Department)
                 $teamParents = \Illuminate\Support\Facades\DB::table('teams')->pluck('parent_id', 'id');

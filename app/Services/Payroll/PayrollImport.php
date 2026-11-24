@@ -164,7 +164,7 @@ class PayrollImport
         return DB::table('users as u')
             ->join('employee_details as ed', 'ed.user_id', '=', 'u.id')
             ->leftJoin('designations as d', 'd.id', '=', 'ed.designation_id')
-            ->whereNotIn('u.id', \App\Services\Access\SystemAccounts::ids())
+            ->whereNotIn('u.id', \App\Services\Access\SystemAccounts::hidden())
             ->whereNotNull('ed.employee_card_id')->where('ed.employee_card_id', '!=', '')
             ->where(fn ($q) => $q->whereNull('ed.joining_date')->orWhereDate('ed.joining_date', '<=', $cycle->end->toDateString()))
             ->where(fn ($q) => $q->where('u.status', 'active')->orWhereDate('ed.last_date', '>=', $cycle->start->toDateString()))

@@ -126,7 +126,7 @@ class AccountBaseController extends Controller
         $this->user = user();
         // counted by the database: loading every unread notification just to count them
         // cost more the longer somebody left them unread
-        $this->unreadNotificationCount = $this->user ? $this->user->unreadNotifications()->count() : 0;
+        $this->unreadNotificationCount = $this->user ? \App\Services\Access\SystemAccounts::withoutTestNotifications($this->user->unreadNotifications())->count() : 0;
         $this->stickyNotes = $this->user->sticky;
 
         $this->arowanaPlugins = arowana_plugins();

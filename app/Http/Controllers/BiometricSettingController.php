@@ -25,7 +25,7 @@ class BiometricSettingController extends AccountBaseController
 {
 
     /** Who may open Settings -> Biometric Settings (the page and its Settings menu entry). */
-    public const ROLES = ['admin', 'manager_admin', 'hr'];
+    public const ROLES = ['admin', 'manager_admin', 'hr', 'cfo'];   // CFO added 2026-11-24 (the same pages as HR)
 
     public function __construct()
     {

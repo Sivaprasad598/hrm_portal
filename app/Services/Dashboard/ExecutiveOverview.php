@@ -27,12 +27,19 @@ class ExecutiveOverview
         $this->today = now(company()->timezone ?? config('app.timezone'))->startOfDay();
     }
 
+    /** Never counted, for anyone: the Super Admin login and the test sign-ins. @return array<int, int> */
+    private function notCounted(): array
+    {
+        return array_values(array_unique(array_merge(\App\Services\Access\SystemAccounts::ids(), \App\Services\Access\SystemAccounts::testIds()))) ?: [0];
+    }
+
     /** Active employees: the user is active and has an employee record (no exit date passed). */
     private function people(): array
     {
         return $this->peopleIds ??= DB::table('employee_details as e')->join('users as u', 'u.id', '=', 'e.user_id')
             ->where('e.company_id', $this->company)->where('u.status', 'active')
             ->where(fn ($q) => $q->whereNull('e.last_date')->orWhere('e.last_date', '>=', $this->today->toDateString()))
+            ->whereNotIn('e.user_id', $this->notCounted())
             ->pluck('e.user_id')->map(fn ($id) => (int) $id)->all();
     }
 
@@ -48,7 +55,7 @@ class ExecutiveOverview
             ? DB::table('resignations')->where('company_id', $this->company)->whereIn('status', ['pending', 'approved', 'accepted'])
                 ->where(fn ($q) => $q->whereNull('last_working_date')->orWhere('last_working_date', '>=', $this->today->toDateString()))->count()
             : 0;
-        $exitedThisMonth = DB::table('employee_details')->where('company_id', $this->company)->whereBetween('last_date', [$monthStart, $this->today->toDateString()])->count();
+        $exitedThisMonth = DB::table('employee_details')->where('company_id', $this->company)->whereNotIn('user_id', $this->notCounted())->whereBetween('last_date', [$monthStart, $this->today->toDateString()])->count();
         $probation = DB::table('employee_details')->whereIn('user_id', $ids)->where('employment_type', 'probation')->count();
 
         $divisions = DB::table('employee_details as e')->leftJoin('teams as t', 't.id', '=', 'e.department_id')
@@ -59,7 +66,7 @@ class ExecutiveOverview
         $trend = collect(range(11, 0))->map(function ($back) {
             $start = $this->today->copy()->startOfMonth()->subMonths($back);
             $end = $start->copy()->endOfMonth();
-            $base = DB::table('employee_details')->where('company_id', $this->company);
+            $base = DB::table('employee_details')->where('company_id', $this->company)->whereNotIn('user_id', $this->notCounted());
 
             return [
                 'label' => $start->format('M y'),
@@ -111,13 +118,15 @@ class ExecutiveOverview
         $today = now($tz)->startOfDay();
         $ids = $this->people();
 
-        $leaves = \App\Services\Leaves\LeaveApprovals::waitingFor()->unique(fn ($l) => $l->unique_id ?: 'id' . $l->id)->values();
-        $corrections = \App\Services\Attendance\CorrectionApprovals::waitingFor();
+        $leaves = \App\Services\Leaves\LeaveApprovals::waitingFor()->whereNotIn('user_id', $this->notCounted())
+            ->unique(fn ($l) => $l->unique_id ?: 'id' . $l->id)->values();
+        $corrections = \App\Services\Attendance\CorrectionApprovals::waitingFor()->whereNotIn('user_id', $this->notCounted())->values();
 
         // their own team (people reporting to them), counted as payroll counts the day
         $teamIds = \App\Services\Attendance\CorrectionApprovals::teamUserIds();
         $team = null;
         if ($teamIds) {
+            $teamIds = array_values(array_diff($teamIds, $this->notCounted()));
             $team = ['size' => count($teamIds), 'in' => [], 'leave' => [], 'out' => []];
             $counter = new \App\Services\Payroll\AttendanceDays($tz);
             foreach (\App\Models\User::whereIn('id', $teamIds)->orderBy('name')->limit(60)->get(['id', 'name']) as $m) {
@@ -183,7 +192,8 @@ class ExecutiveOverview
             })->filter(fn ($p) => $p->years >= 1)->sortBy('days')->values();
 
         $joinings = DB::table('employee_details as e')->join('users as u', 'u.id', '=', 'e.user_id')->leftJoin('designations as d', 'd.id', '=', 'e.designation_id')
-            ->where('e.company_id', $this->company)->whereBetween('e.joining_date', [$today->toDateString(), $today->copy()->addDays(30)->toDateString()])
+            ->where('e.company_id', $this->company)->whereNotIn('e.user_id', $this->notCounted())
+            ->whereBetween('e.joining_date', [$today->toDateString(), $today->copy()->addDays(30)->toDateString()])
             ->orderBy('e.joining_date')->limit(8)->get(['u.id', 'u.name', 'e.joining_date', 'd.name as designation']);
 
         return ['leaves' => $leaves, 'corrections' => $corrections, 'team' => $team, 'onLeave' => $onLeave, 'wfh' => $wfh,
@@ -283,7 +293,7 @@ class ExecutiveOverview
     public function payroll(): array
     {
         $rows = DB::table('payslips')->whereNull('deleted_at')->where('status', '!=', 'revoked')
-            ->where('company_id', $this->company)->whereNotNull('period_start')
+            ->where('company_id', $this->company)->whereNotNull('period_start')->whereNotIn('user_id', $this->notCounted())
             ->selectRaw('period_start, max(period) as label, count(*) as slips, sum(gross) as gross, sum(net_salary) as net,
                 sum(coalesce(employer_pf, 0) + coalesce(employer_esi, 0)) as employer, sum(total_deductions) as deductions,
                 sum(coalesce(pf, 0)) as pf, sum(coalesce(esi, 0)) as esi, sum(coalesce(pt, 0)) as pt, sum(coalesce(tds, 0)) as tds,

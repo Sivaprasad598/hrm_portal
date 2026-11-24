@@ -142,7 +142,9 @@ return [
     |
     */
 
-    'path' => '/',
+    // A copy in a sub-folder (https://arowana.uk/hrm) sets SESSION_PATH=/hrm, so its sign-in
+    // cookie is sent to it alone, not to other sites on the same domain.
+    'path' => env('SESSION_PATH', '/'),
 
     /*
     |--------------------------------------------------------------------------

@@ -149,7 +149,7 @@ abstract class RecruitBaseController extends AccountBaseController
     {
         return User::join('employee_details', 'employee_details.user_id', '=', 'users.id')
             ->where('users.status', 'active')
-            ->whereNotIn('users.id', SystemAccounts::ids())
+            ->whereNotIn('users.id', SystemAccounts::hidden())
             ->orderBy('users.name')
             ->get(['users.id', 'users.name', 'employee_details.employee_id']);
     }

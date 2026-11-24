@@ -272,7 +272,7 @@ class IncomeTaxController extends AccountBaseController
 
         $employees = DB::table('users as u')
             ->join('employee_details as ed', 'ed.user_id', '=', 'u.id')
-            ->whereNotIn('u.id', \App\Services\Access\SystemAccounts::ids())   // not the Super Admin login
+            ->whereNotIn('u.id', \App\Services\Access\SystemAccounts::hidden())   // not the Super Admin login
             ->leftJoin('teams as t', 't.id', '=', 'ed.department_id')
             ->where('u.status', 'active')
             ->where('u.employee_ctc', '>', 0)

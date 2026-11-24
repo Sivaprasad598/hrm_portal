@@ -89,18 +89,38 @@ Human Resource Department.",
         // Both letters: the signature & stamp image (uploaded here, else public/img/sign and stamp.png).
         'show_stamp' => 0,
         'stamp_image' => '',
-        // The relieving cum experience letter (RelievingLetter): exited employees only.
-        'relieving_title' => 'Relieving cum Experience Letter',
+        // The relieving letter (RelievingLetter, kind relieving): the company's own, word for word.
+        'relieving_title' => 'RELIEVING LETTER',
+        'relieving_to' => "{name},\n{employee_id},\n{designation},\n{department}.",
+        'relieving_subject' => 'Relieving Letter',
         'relieving_greeting' => 'Dear {name},',
-        'relieving_paragraphs' => "We confirm that **{salutation} {name}** was employed with Arowana Corporations Pvt. Ltd. from {joining_date} to {relieving_date} and {his} employment particulars are as below\n\n"
-            . "Full Name: **{salutation} {name}**\n\n"
-            . "Designation at the time of relieving: {designation}\n\n"
-            . "Department: {department}\n\n"
-            . "Employment Tenure: {tenure}.\n\n"
-            . "During {his} tenure with us, {his} performance was good and to the satisfaction of the management. We wish {him} all the success in {his} future endeavors.",
-        'relieving_closing' => 'Best Regards,',
-        'relieving_signoff' => "HR Department,\nArowana Corporations Pvt.Ltd.",
-        'relieving_date_format' => 'd-m-Y',
+        'relieving_paragraphs' => "This is to formally confirm that you have been relieved from your duties at Arowana Corporation Pvt. Ltd., effective from {relieving_date}.\n\n"
+            . "You joined the organization on {joining_date} and served in the position of {designation} in the {department} department.\n\n"
+            . "We acknowledge your contributions and efforts during your tenure with the organization. We also confirm that you have completed the required exit formalities and handed over your assigned responsibilities, subject to the applicable clearance process.\n\n"
+            . "We wish you success in all your future professional endeavors.\n\n"
+            . 'Thank you for your association with Arowana Corporation Pvt. Ltd',
+        'relieving_closing' => '',
+        'relieving_signoff' => "Authorized\nHR Department\nArowana Corporation Pvt. Ltd",
+        'relieving_date_format' => 'd/m/Y',
+        'relieving_letter_date_format' => 'd/m/Y',
+        // The experience letter (RelievingLetter, kind experience): issued with the relieving letter.
+        'experience_title' => 'Experience Letter',
+        'experience_heading' => 'To Whom It May Concern',
+        'experience_intro' => "This is to certify that **{salutation} {name}** was employed with **Arowana Corporations Pvt Ltd.** from **{joining_date} to {relieving_date}**.\n\n"
+            . '{His} employment particulars are as follows:',
+        'experience_particulars' => "Particulars | Details\n"
+            . "Employee Name | {salutation} {name}\n"
+            . "Designation at the Time of Relieving | {designation}\n"
+            . "Department | {department}\n"
+            . "Employment Tenure | {tenure}\n"
+            . "Date of Joining | {joining_date}\n"
+            . 'Date of Relieving | {relieving_date}',
+        'experience_paragraphs' => "During {his} tenure with the organization, {salutation} {name} performed {his} duties satisfactorily, and {his} overall performance was found to be good and to the satisfaction of the management.\n\n"
+            . 'We appreciate {his} contributions during {his} association with **Arowana Corporations Pvt Ltd.** and wish {him} every success and prosperity in {his} future professional endeavors.',
+        'experience_closing' => '',
+        'experience_signoff' => "**For Arowana Corporations Pvt Ltd.**\n**HR Department**\nArowana Corporations Pvt Ltd.",
+        'experience_date_format' => 'jS F Y',
+        'experience_letter_date_format' => 'j F Y',
         // The increment / hike letter (SalaryRevisionLetter), one per salary revision.
         'hike_title' => 'INCREMENT LETTER',
         'hike_subject' => 'Salary Revision Letter',

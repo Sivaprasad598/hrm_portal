@@ -805,6 +805,11 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account'], function () {
     Route::get('biometric/shifts', [App\Http\Controllers\BiometricController::class, 'shifts'])->name('biometric.shifts');
     Route::post('biometric/employees/sync', [App\Http\Controllers\BiometricController::class, 'syncEmployees'])->name('biometric.employees.sync');
     Route::post('biometric/employees/machine-list', [App\Http\Controllers\BiometricController::class, 'uploadMachineList'])->name('biometric.employees.machine-list');
+    // Upload device list -> cross-check (side panel, nothing saved) -> Apply / Excel
+    Route::post('biometric/employees/machine-list/check', [App\Http\Controllers\BiometricController::class, 'previewMachineList'])->name('biometric.employees.machine-list.preview');
+    Route::get('biometric/employees/machine-list/{token}', [App\Http\Controllers\BiometricController::class, 'machineListCheck'])->name('biometric.employees.machine-list.check');
+    Route::post('biometric/employees/machine-list/{token}/apply', [App\Http\Controllers\BiometricController::class, 'applyMachineList'])->name('biometric.employees.machine-list.apply');
+    Route::get('biometric/employees/machine-list/{token}/export', [App\Http\Controllers\BiometricController::class, 'exportMachineList'])->name('biometric.employees.machine-list.export');
     Route::post('biometric/employees/{id}/map', [App\Http\Controllers\BiometricController::class, 'mapEmployee'])->name('biometric.employees.map');
     Route::post('biometric/employees/bulk-map', [App\Http\Controllers\BiometricController::class, 'bulkMapEmployees'])->name('biometric.employees.bulk-map');
 

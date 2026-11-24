@@ -65,7 +65,7 @@ class DashboardController extends AccountBaseController
         // The CEO and CFO land on the Executive Dashboard; their own dashboard is a
         // button on it (?mine=1). (Not the Super Admin or Admin, who also hold it.)
         $roles = user_roles();
-        if (array_intersect(['ceo', 'cfo'], $roles) && !array_intersect(['admin', 'manager_admin'], $roles)
+        if (array_intersect(['ceo', 'vice_president', 'cfo'], $roles) && !array_intersect(['admin', 'manager_admin'], $roles)
             && !request()->boolean('mine') && \Illuminate\Support\Facades\Route::has('executive-dashboard.index')) {
             return redirect()->route('executive-dashboard.index');
         }
