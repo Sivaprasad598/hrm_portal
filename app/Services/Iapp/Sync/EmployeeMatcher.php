@@ -55,6 +55,8 @@ class EmployeeMatcher
         $this->employees = DB::table('employee_details as ed')
             ->join('users as u', 'u.id', '=', 'ed.user_id')
             ->when($companyId, fn ($q) => $q->where('ed.company_id', $companyId))
+            // never the Super Admin or the test accounts: no device code, not listed or counted on Employee Mapping
+            ->whereNotIn('u.id', \App\Services\Access\SystemAccounts::notCounted())
             ->get([
                 'u.id as user_id',
                 'u.name',

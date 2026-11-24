@@ -358,7 +358,7 @@ class LeaveApprovals
 
         return Leave::with('user:id,name,image', 'type:id,type_name,color')
             ->where('status', 'pending')->whereNotNull('approval_step')->where('approval_step', '!=', self::DONE)
-            ->where('user_id', '!=', $userId)->whereNotIn('user_id', \App\Services\Access\SystemAccounts::hiddenTests())->orderBy('leave_date')->get()
+            ->where('user_id', '!=', $userId)->whereNotIn('user_id', \App\Services\Access\SystemAccounts::forApprovals())->orderBy('leave_date')->get()
             ->filter(fn (Leave $leave) => in_array($userId, static::approvers($leave->approval_step, (int) $leave->user_id), true))
             ->values();
     }

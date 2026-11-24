@@ -46,12 +46,14 @@
                 </button>
             @endif
 
-            {{-- the device's own employee list: cross-checked in a side panel before anything is linked --}}
-            <button type="button" class="btn-primary rounded f-14 em-btn" id="upload-device-list"
-                    title="The Employee report exported from the biometric software (Employee.xlsx)">
-                <i class="fa fa-upload mr-1"></i> Upload device list
-            </button>
-            <input type="file" id="device-list-file" accept=".xlsx,.xls,.csv" class="d-none">
+            @if ($linkedCount < $total)
+                {{-- before any punch: each not-linked person to the device code equal to their Employee ID --}}
+                <button type="button" class="btn-primary rounded f-14 em-btn" id="prelink-employees"
+                        title="Link everyone not linked yet to the device code equal to their Employee ID - no punches needed">
+                    <i class="fa fa-id-badge mr-1"></i> Link by Employee ID
+                </button>
+            @endif
+
             <button type="button" class="btn-secondary rounded f-14 em-btn" id="sync-all-employees"
                     title="Link every known device code to the employee whose Employee ID it is">
                 <i class="fa fa-sync-alt mr-1"></i> Sync all
@@ -62,10 +64,9 @@
         @if ($unmappedCodes === [] && $linkedCount < $total)
             <div class="em-note">
                 <i class="fa fa-info-circle mr-1"></i>
-                No free device codes left: only codes that have punched are known here. To check everyone enrolled on the
-                device (punched or not), export the Employee report from the biometric software and click
-                <a href="javascript:;" class="font-weight-bold" onclick="$('#upload-device-list').trigger('click')">Upload device list</a>.
-                It is cross-checked by code and name before anything is linked.
+                No free device codes left: only codes that have punched are known here. To link people who have not
+                punched yet, use <strong>Link by Employee ID</strong> (everyone at once), or <strong>Type code</strong>
+                on a row for someone enrolled under a different code.
             </div>
         @endif
 
@@ -132,6 +133,12 @@
                                             <select class="form-control manual-pick" data-user="{{ $row['user_id'] }}"></select>
                                         </div>
                                     @endif
+                                    {{-- a code read off the device, punched or not --}}
+                                    <button type="button" class="btn-secondary rounded f-13 em-btn em-btn--sm ml-2 type-code-btn"
+                                            data-user="{{ $row['user_id'] }}" data-name="{{ $row['name'] }}" data-code="{{ $row['employee_id'] ?? '' }}"
+                                            title="Type this person's device code (as on the device)">
+                                        <i class="fa fa-keyboard mr-1"></i>Type code
+                                    </button>
                                 @endif
                             </td>
                         </tr>
@@ -323,31 +330,64 @@
         });
     });
 
-    // ---- Upload device list: the file is checked, then the cross-check opens in the side panel ----
-    $('#upload-device-list').on('click', function () { $('#device-list-file').val('').trigger('click'); });
-
-    $('#device-list-file').on('change', function () {
-        if (!this.files || !this.files.length) { return; }
-        var data = new FormData();
-        data.append('file', this.files[0]);
-        data.append('_token', csrf);
-        var $btn = $('#upload-device-list').prop('disabled', true);
-
-        $.ajax({
-            url: "{{ route('biometric.employees.machine-list.preview') }}", type: 'POST', data: data, processData: false, contentType: false,
-            headers: { 'Accept': 'application/json' },
-            success: function (r) {
-                if (r.status !== 'success') { Swal.fire({ icon: 'error', text: r.message }); return; }
-                // opened as any side-panel link is, so Back / refresh behave the same
-                var a = $('<a class="openRightModal d-none"></a>').attr('href', r.url).appendTo('.content-wrapper');
-                a.trigger('click'); a.remove();
-            },
-            error: function (x) {
-                var j = x.responseJSON || {};
-                Swal.fire({ icon: 'error', text: (j.errors && j.errors.file ? j.errors.file[0] : j.message) || 'Could not read the file.' });
-            },
-            complete: function () { $btn.prop('disabled', false); }
+    // ---- Link by Employee ID: first what would happen (who, and who not and why), then link ----
+    $('#prelink-employees').on('click', function () {
+        var esc = function (v) { return $('<div>').text(v == null ? '' : String(v)).html(); };
+        $.easyAjax({
+            url: "{{ route('biometric.employees.prelink') }}", type: 'GET', blockUI: true,
+            success: function (plan) {
+                if (plan.status !== 'success') { return; }
+                if (!plan.link) {
+                    Swal.fire({ icon: 'info', title: 'Nobody to link by Employee ID',
+                        html: plan.skip.length ? '<div class="text-left f-13"><ul class="pl-3 mb-0">' + plan.skip.slice(0, 15).map(function (s) { return '<li>' + esc(s) + '</li>'; }).join('') + '</ul></div>' : '' });
+                    return;
+                }
+                var html = '<div class="text-left f-14">Each of them is linked to the device code equal to their Employee ID, '
+                    + 'e.g. ' + plan.sample.map(esc).join(', ') + '. Their punches count from the first one pulled.'
+                    + (plan.skip.length ? '<div class="mt-3 f-13 text-dark-grey">Left as they are (' + plan.skip.length + '):</div>'
+                        + '<ul class="pl-3 mb-0 f-13" style="max-height:180px;overflow:auto">' + plan.skip.map(function (s) { return '<li>' + esc(s) + '</li>'; }).join('') + '</ul>' : '')
+                    + '<div class="mt-3 f-12 text-dark-grey">Someone enrolled under a different code: Unlink them afterwards and use Type code.</div></div>';
+                Swal.fire({
+                    title: 'Link ' + plan.link + ' employee(s) by Employee ID?', html: html, icon: 'question', width: 640,
+                    showCancelButton: true, confirmButtonText: 'Link ' + plan.link, cancelButtonText: '@lang('app.cancel')'
+                }).then(function (r) {
+                    if (!r.isConfirmed) { return; }
+                    $.easyAjax({
+                        url: "{{ route('biometric.employees.prelink') }}", type: 'POST', data: { _token: csrf }, blockUI: true,
+                        disableButton: true, buttonSelector: '#prelink-employees',
+                        success: function (res) {
+                            if (res.status === 'success') {
+                                Swal.fire({ icon: 'success', title: 'Linked', text: res.message }).then(function () { PageSwap.reload(); });
+                            }
+                        }
+                    });
+                });
+            }
         });
+    });
+
+    // ---- Type code: one person's device code, read off the device ----
+    $(document).on('click', '.type-code-btn', function () {
+        var b = $(this);
+        Swal.fire({
+            title: 'Device code for ' + b.data('name'),
+            html: '<div class="f-13 text-dark-grey">As it is on the biometric device. Their punches count from the first one pulled.</div>',
+            input: 'text', inputValue: String(b.data('code') || ''), inputAttributes: { maxlength: 50, autocomplete: 'off' },
+            showCancelButton: true, confirmButtonText: 'Link', cancelButtonText: '@lang('app.cancel')', showLoaderOnConfirm: true,
+            preConfirm: function (code) {
+                if (!code || !code.trim()) { Swal.showValidationMessage('Type the device code.'); return false; }
+                return $.ajax({ url: "{{ route('biometric.employees.link-code') }}", type: 'POST',
+                    data: { _token: csrf, user_id: b.data('user'), code: code.trim() } })
+                    .then(function (r) {
+                        if (r.status !== 'success') { Swal.showValidationMessage(r.message); return false; }
+                        return r;
+                    }, function (x) {
+                        Swal.showValidationMessage((x.responseJSON && x.responseJSON.message) || 'Could not link the code.');
+                        return false;
+                    });
+            },
+            allowOutsideClick: function () { return !Swal.isLoading(); }
+        }).then(function (r) { if (r.isConfirmed) { PageSwap.reload(); } });
     });
 
     // ---- Sync all: every known code to the employee whose Employee ID it is ----

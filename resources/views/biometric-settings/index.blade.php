@@ -294,9 +294,14 @@
     });
 
     $('#save-biometric-settings').on('click', function () {
+        // The settings card is itself a <form> (#editSettings), and a form inside a form is dropped
+        // by the browser: #biometric-settings-form never existed, so Save sent nothing, the server
+        // refused it and there was nowhere to show the error. The fields are read from the card's
+        // form instead, without its PUT (this route takes a POST).
+        var $form = $('#biometric-settings-form').length ? $('#biometric-settings-form') : $('#editSettings');
         $.easyAjax({
             url: "{{ route('biometric-settings.update') }}",
-            container: '#biometric-settings-form',
+            container: $form.length ? ('#' + $form.attr('id')) : 'body',
             type: 'POST',
             // `redirect: true` was here, but the controller answers with a
             // plain success and never asks for a redirect, so easyAjax showed
@@ -305,7 +310,12 @@
             // endpoint, auth mode, last sync — still described the old
             // settings. Reloading is what makes the save visible.
             file: false,
-            data: $('#biometric-settings-form').serialize(),
+            data: $form.find('input, select, textarea').not('[name="_method"]').serialize(),
+            error: function (xhr) {
+                var j = xhr.responseJSON || {};
+                var first = j.errors ? Object.values(j.errors)[0][0] : null;
+                Swal.fire({ icon: 'error', title: 'Not saved', text: first || j.message || 'Could not save the settings.' });
+            },
             success: function (response) {
                 if (response.status === 'success') {
                     window.location.reload();

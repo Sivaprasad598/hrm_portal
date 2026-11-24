@@ -805,6 +805,9 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account'], function () {
     Route::get('biometric/shifts', [App\Http\Controllers\BiometricController::class, 'shifts'])->name('biometric.shifts');
     Route::post('biometric/employees/sync', [App\Http\Controllers\BiometricController::class, 'syncEmployees'])->name('biometric.employees.sync');
     Route::post('biometric/employees/machine-list', [App\Http\Controllers\BiometricController::class, 'uploadMachineList'])->name('biometric.employees.machine-list');
+    // Linking before any punch: everyone by Employee ID (GET = what would happen), or one typed code
+    Route::match(['get', 'post'], 'biometric/employees/prelink', [App\Http\Controllers\BiometricController::class, 'prelinkEmployees'])->name('biometric.employees.prelink');
+    Route::post('biometric/employees/link-code', [App\Http\Controllers\BiometricController::class, 'linkTypedCode'])->name('biometric.employees.link-code');
     // Upload device list -> cross-check (side panel, nothing saved) -> Apply / Excel
     Route::post('biometric/employees/machine-list/check', [App\Http\Controllers\BiometricController::class, 'previewMachineList'])->name('biometric.employees.machine-list.preview');
     Route::get('biometric/employees/machine-list/{token}', [App\Http\Controllers\BiometricController::class, 'machineListCheck'])->name('biometric.employees.machine-list.check');

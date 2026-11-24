@@ -100,6 +100,7 @@ class BiometricController extends AccountBaseController
         'employees' => 'manage_biometric_mapping', 'syncEmployees' => 'manage_biometric_mapping', 'uploadMachineList' => 'manage_biometric_mapping',
         'previewMachineList' => 'manage_biometric_mapping', 'machineListCheck' => 'manage_biometric_mapping',
         'applyMachineList' => 'manage_biometric_mapping', 'exportMachineList' => 'manage_biometric_mapping',
+        'prelinkEmployees' => 'manage_biometric_mapping', 'linkTypedCode' => 'manage_biometric_mapping',
         'mapEmployee' => 'manage_biometric_mapping', 'bulkMapEmployees' => 'manage_biometric_mapping',
         'comparison' => 'manage_biometric_mapping', 'createFromDevice' => 'manage_biometric_mapping',
     ];
@@ -1059,7 +1060,7 @@ class BiometricController extends AccountBaseController
             ->join('employee_details as ed', 'ed.user_id', '=', 'u.id')
             ->leftJoin('teams as t', 't.id', '=', 'ed.department_id')
             ->where('u.company_id', company()->id)
-            ->whereNotIn('u.id', \App\Services\Access\SystemAccounts::hiddenTests())   // not the test sign-ins
+            ->whereNotIn('u.id', \App\Services\Access\SystemAccounts::hidden())   // not the Super Admin or the test sign-ins
             ->when($onlyIds !== null, fn ($q) => $q->whereIn('u.id', $onlyIds ?: [0]))
             ->orderBy('u.name')
             ->get(['u.id', 'u.name', 'ed.employee_id', 'ed.employee_card_id', 'ed.department_id', 't.team_name as department'])
@@ -1310,6 +1311,44 @@ class BiometricController extends AccountBaseController
         );
 
         return Reply::successWithData($message, ['conflicts' => $result['name_conflicts']]);
+    }
+
+    // -----------------------------------------------------------------------
+    // Employee Mapping: linking before any punch (Link by Employee ID, a typed code)
+    // -----------------------------------------------------------------------
+
+    /** Link by Employee ID: GET = who would be linked and who not (to confirm), POST = link them. */
+    public function prelinkEmployees(Request $request)
+    {
+        abort_403(user()->permission('edit_employees') !== 'all');
+        $prelink = new \App\Services\Iapp\Sync\Prelink();
+
+        if ($request->isMethod('get')) {
+            $plan = $prelink->plan();
+
+            return Reply::dataOnly(['status' => 'success', 'link' => count($plan['link']),
+                'sample' => array_slice(array_map(fn ($p) => $p['name'] . ' → ' . $p['code'], $plan['link']), 0, 5),
+                'skip' => array_map(fn ($s) => $s['name'] . ': ' . $s['reason'], $plan['skip'])]);
+        }
+
+        session()->save();
+        $result = $prelink->byEmployeeId(user()->id);
+        $message = sprintf('%d employee(s) linked to the device code equal to their Employee ID.', $result['linked'])
+            . ($result['skipped'] ? sprintf(' %d left as they were (see the reasons shown before).', $result['skipped']) : '')
+            . ($result['failed'] ? ' Not linked: ' . implode('; ', array_slice($result['failed'], 0, 5)) . '.' : '');
+
+        return Reply::success($message);
+    }
+
+    /** One person: the device code typed by HR (read off the device). */
+    public function linkTypedCode(Request $request)
+    {
+        abort_403(user()->permission('edit_employees') !== 'all');
+        $request->validate(['user_id' => 'required|integer|exists:users,id', 'code' => 'required|string|max:50']);
+
+        $result = (new \App\Services\Iapp\Sync\Prelink())->typed((int) $request->user_id, (string) $request->code, user()->id);
+
+        return $result['ok'] ? Reply::success('Linked to device code ' . trim($request->code) . '.') : Reply::error($result['message']);
     }
 
     // -----------------------------------------------------------------------

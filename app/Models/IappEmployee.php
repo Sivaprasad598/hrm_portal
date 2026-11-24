@@ -45,6 +45,9 @@ class IappEmployee extends BaseModel
     public const SOURCE_API = 'api';
     /** Loaded from the machine's own employee list (Employee Mapping -> Upload device employee list). */
     public const SOURCE_LIST = 'machine_list';
+    /** Put on the register before any punch: the employee's own Employee ID, or a code typed by HR. */
+    public const SOURCE_EMPLOYEE_ID = 'employee_id';
+    public const SOURCE_TYPED = 'typed';
 
     public function user(): BelongsTo
     {

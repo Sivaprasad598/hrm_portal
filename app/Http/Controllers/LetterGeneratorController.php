@@ -68,7 +68,7 @@ class LetterGeneratorController extends AccountBaseController
         $this->people = DB::table('users as u')->join('employee_details as ed', 'ed.user_id', '=', 'u.id')
             ->where('u.company_id', company()->id)
             ->when($this->type === 'offer', fn ($q) => $q->where('u.status', 'active'))
-            ->whereNotIn('u.id', \App\Services\Access\SystemAccounts::hiddenTests())   // not the test sign-ins
+            ->whereNotIn('u.id', \App\Services\Access\SystemAccounts::hidden())   // not the Super Admin or the test sign-ins
             ->orderBy('u.name')->get(['u.id', 'u.name', 'ed.employee_id as code', 'ed.last_date']);
         $this->designations = DB::table('designations')->where('company_id', company()->id)->orderBy('name')->pluck('name');
         $this->branches = DB::table('branches')->orderBy('branch_name')->pluck('branch_name');
@@ -79,7 +79,9 @@ class LetterGeneratorController extends AccountBaseController
         if ($this->type === 'payslip') {
             // Anyone, those who have left included: these are mostly for former staff.
             $this->people = DB::table('users as u')->join('employee_details as ed', 'ed.user_id', '=', 'u.id')
-                ->where('u.company_id', company()->id)->orderBy('u.name')
+                ->where('u.company_id', company()->id)
+                ->whereNotIn('u.id', \App\Services\Access\SystemAccounts::hidden())   // not the Super Admin or the test sign-ins
+                ->orderBy('u.name')
                 ->get(['u.id', 'u.name', 'ed.employee_id as code', 'ed.last_date']);
             $this->branchList = DB::table('branches')->orderBy('branch_name')->get(['id', 'branch_name']);
             $this->payElements = DB::table('pay_element_types')->where('company_id', company()->id)->where('is_active', 1)

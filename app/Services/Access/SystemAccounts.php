@@ -33,9 +33,10 @@ class SystemAccounts
 
     /*
     | Test sign-ins (users.is_test_account, 2026-11-24): kept out of everybody's view of the company -
-    | lists, pickers, registers, counts, dashboards, birthdays and the nightly jobs. Test accounts see
-    | one another, so a flow can be tried end to end (Test HR approves Test Employee's leave); the
-    | Super Admin sees them only in HR -> Employees (EmployeesDataTable), tagged TEST.
+    | lists, pickers, registers, counts, dashboards, birthdays and the nightly jobs - for everyone, a test
+    | sign-in too (each still sees their own records). Only the approval queues and notifications let
+    | test accounts see one another, so a flow can be tried end to end (Test HR approves Test Employee's
+    | leave: forApprovals()). The Super Admin sees them only in HR -> Employees (EmployeesDataTable), tagged TEST.
     */
 
     protected static ?array $testIds = null;
@@ -68,13 +69,17 @@ class SystemAccounts
      */
     public static function hidden(): array
     {
-        $ids = array_values(array_filter(static::ids()));
-
-        if (!static::viewerIsTest()) {
-            $ids = array_merge($ids, static::testIds());
-        }
+        $ids = array_merge(array_values(array_filter(static::ids())), static::otherTests());
 
         return array_values(array_unique($ids)) ?: [0];
+    }
+
+    /** The test sign-ins except the one looking (who always sees their own records). */
+    protected static function otherTests(): array
+    {
+        $me = user()?->id ? (int) user()->id : null;
+
+        return array_values(array_filter(static::testIds(), fn ($id) => $id !== $me));
     }
 
     /** Never counted, for anyone (the Super Admin and test sign-ins too): the Super Admin login and the test sign-ins. @return array<int, int> */
@@ -85,6 +90,12 @@ class SystemAccounts
 
     /** The test sign-ins to leave out for whoever is looking (none for a test sign-in). @return array<int, int> */
     public static function hiddenTests(): array
+    {
+        return static::otherTests() ?: [0];
+    }
+
+    /** Approval queues: the test sign-ins for a real person; none for a test sign-in (flows stay testable). */
+    public static function forApprovals(): array
     {
         return static::viewerIsTest() ? [0] : (static::testIds() ?: [0]);
     }

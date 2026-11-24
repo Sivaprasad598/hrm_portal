@@ -171,7 +171,7 @@ class CorrectionApprovals
         }
 
         return AttendanceRegularisation::with('user:id,name,image')
-            ->where('status', 'pending')->where('user_id', '!=', $userId)->whereNotIn('user_id', \App\Services\Access\SystemAccounts::hiddenTests())
+            ->where('status', 'pending')->where('user_id', '!=', $userId)->whereNotIn('user_id', \App\Services\Access\SystemAccounts::forApprovals())
             ->where(function ($q) use ($team, $isHr) {
                 if ($team) {
                     $q->orWhere(fn ($w) => $w->where('approval_step', 'manager')->whereIn('user_id', $team));
