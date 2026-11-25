@@ -62,6 +62,13 @@ class EmployeeMasterImportController extends AccountBaseController
             return Reply::error($preview['message']);
         }
 
+        // a copy of the file, for "Download these rows" (the filtered rows, to fix and upload again)
+        $dir = storage_path('app/employee-imports');
+        \Illuminate\Support\Facades\File::ensureDirectoryExists($dir);
+        $copy = $dir . '/' . user()->id . '.xlsx';
+        @copy($request->file('import_file')->getRealPath(), $copy);
+        $preview['source'] = is_file($copy) ? $copy : null;
+
         Cache::store('file')->put($this->key(), $preview, now()->addHours(2));
 
         $this->preview = $preview;
@@ -120,6 +127,19 @@ class EmployeeMasterImportController extends AccountBaseController
         abort_if(!$preview, 404, 'Upload the sheet again to get its report.');
 
         return $this->download($import->report($preview), 'employee-import-problems-' . now()->format('Y-m-d') . '.xlsx');
+    }
+
+    /** The rows of one review filter, from the uploaded file in its own layout, to fix and upload again. */
+    public function rows(Request $request, MasterSheetImport $import)
+    {
+        $preview = Cache::store('file')->get($this->key()) ?? Cache::store('file')->get($this->key() . ':done');
+        abort_if(!$preview || empty($preview['source']) || !is_file($preview['source']), 404, 'Upload the sheet again to download its rows.');
+
+        $filter = array_key_exists((string) $request->filter, MasterSheetImport::FILTERS) ? (string) $request->filter : 'all';
+        $base = pathinfo((string) $preview['file'], PATHINFO_FILENAME) ?: 'employees';
+        $name = $base . ' - ' . MasterSheetImport::FILTERS[$filter] . '.xlsx';
+
+        return $this->download($import->rowsExport($preview['source'], $preview, $filter), $name);
     }
 
     protected function download($book, string $name)

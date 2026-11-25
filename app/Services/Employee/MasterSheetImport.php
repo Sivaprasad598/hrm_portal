@@ -88,11 +88,13 @@ class MasterSheetImport
         $this->crossRowChecks($records);
         $master = $this->masterPlan($records);
         $this->matchExisting($records);
+        $this->compareExisting($records, $master);
 
         return [
             'ok' => true,
             'file' => $fileName,
             'sheet' => $sheet->getTitle(),
+            'header_row' => $headerRow,
             'read_at' => now()->toIso8601String(),
             'records' => $records,
             'master' => $master,
@@ -358,6 +360,7 @@ class MasterSheetImport
             'notes' => $notes,
             'skip' => $code === '' || $name === '',
             'match' => null,
+            'changes' => [],
         ];
     }
 
@@ -618,6 +621,109 @@ class MasterSheetImport
     }
 
     /**
+     * For an employee already in the system: what the sheet changes, field by field (now -> sheet),
+     * exactly as the import writes it - a blank cell never erases, so it is no change. Kept on the
+     * record as 'changes' ([label, now, sheet]); none means the row changes nothing.
+     */
+    protected function compareExisting(array &$records, array $master): void
+    {
+        $ids = array_values(array_filter(array_map(fn ($r) => $r['match']['user_id'] ?? null, $records)));
+
+        if (!$ids) {
+            return;
+        }
+
+        $now = DB::table('users as u')->join('employee_details as ed', 'ed.user_id', '=', 'u.id')
+            ->leftJoin('teams as t', 't.id', '=', 'ed.department_id')
+            ->leftJoin('designations as d', 'd.id', '=', 'ed.designation_id')
+            ->leftJoin('branches as b', 'b.id', '=', 'ed.branch_id')
+            ->whereIn('u.id', $ids)
+            ->get(['u.id', 'u.name', 'u.email', 'u.mobile', 'u.gender', 'u.pan_number', 'u.employee_ctc', 'ed.employee_id',
+                'ed.joining_date', 'ed.date_of_birth', 'ed.father_or_husband_name', 'ed.address', 'ed.permanent_address',
+                'ed.aadhar_card_number', 'ed.blood_group', 'ed.marital_status', 'ed.total_experience', 'ed.personal_account_number',
+                'ed.ifsc_code', 'ed.bank_branch', 't.team_name as division', 'd.name as designation', 'b.branch_name as branch'])
+            ->keyBy('id');
+
+        $squash = fn ($v) => strtolower(preg_replace('/\s+/', ' ', trim((string) $v)));
+        $digits = fn ($v) => preg_replace('/\D+/', '', (string) $v);
+        $day = fn ($v) => $v ? Carbon::parse($v)->toDateString() : '';
+        $show = fn ($v) => $v ? Carbon::parse($v)->format('d-m-Y') : '';
+        $mask = fn ($v) => ($v = trim((string) $v)) === '' ? '' : str_repeat('•', max(0, strlen($v) - 4)) . substr($v, -4);
+        $num = fn ($v) => $v === null || $v === '' ? '' : rtrim(rtrim(number_format((float) $v, 2, '.', ''), '0'), '.');
+
+        foreach ($records as $i => $rec) {
+            $e = $rec['skip'] || !$rec['match'] ? null : ($now[$rec['match']['user_id']] ?? null);
+
+            if (!$e) {
+                continue;
+            }
+
+            $division = isset($rec['division_node']) ? ($master['divisions'][$rec['division_node']]['name'] ?? '')
+                : (isset($rec['department_node']) ? ($master['departments'][$rec['department_node']]['name'] ?? '') : '');
+            $designation = isset($rec['designation_key']) ? ($master['designations'][$rec['designation_key']]['name'] ?? '') : '';
+            $branch = isset($rec['branch_key']) ? ($master['branches'][$rec['branch_key']]['name'] ?? '') : '';
+
+            // [label, now, sheet, compare as]
+            $fields = [
+                ['Employee ID', $e->employee_id, $rec['code'], $squash],
+                ['Name', $e->name, $rec['name'], $squash],
+                ['Division', $e->division, $division, $squash],
+                ['Designation', $e->designation, $designation, $squash],
+                ['Branch', $e->branch, $branch, $squash],
+                ['Date of joining', $e->joining_date, $rec['joining_date'], $day],
+                ['CTC / year', $e->employee_ctc, $rec['ctc'], $num],
+                ['Mobile', $e->mobile, $rec['mobile'], $digits],
+                ['Gender', $e->gender, $rec['gender'], $squash],
+                ['Date of birth', $e->date_of_birth, $rec['date_of_birth'], $day],
+                ['Father / husband', $e->father_or_husband_name, $rec['father'], $squash],
+                ['Address', $e->address, $rec['address'], $squash],
+                ['Permanent address', $e->permanent_address, $rec['permanent_address'], $squash],
+                ['PAN', $e->pan_number, $rec['pan'], $squash],
+                ['Aadhaar', $e->aadhar_card_number, $rec['aadhaar'], $digits],
+                ['Blood group', $e->blood_group, $rec['blood_group'], $squash],
+                ['Marital status', $e->marital_status, $rec['marital_status'], $squash],
+                ['Experience (years)', $e->total_experience, $rec['experience'], $num],
+                ['Bank account', $e->personal_account_number, $rec['account'], $digits],
+                ['IFSC', $e->ifsc_code, $rec['ifsc'], $squash],
+                ['Bank branch', $e->bank_branch, $rec['bank_branch'], $squash],
+            ];
+
+            $changes = [];
+
+            foreach ($fields as [$label, $old, $new, $as]) {
+                if ($new === null || $new === '' || $as($new) === '' || $as($old) === $as($new)) {
+                    continue;   // a blank cell never erases; the same value is no change
+                }
+
+                // The ID moves only if nobody else holds it (as the import writes it).
+                if ($label === 'Employee ID' && DB::table('employee_details')->where('user_id', '!=', $e->id)
+                    ->where(fn ($q) => $q->where('employee_id', $new)->orWhere('employee_card_id', $new))->exists()) {
+                    continue;
+                }
+
+                [$from, $to] = match ($label) {
+                    'Date of joining', 'Date of birth' => [$show($old), $show($new)],
+                    'Aadhaar', 'Bank account' => [$mask($old), $mask($new)],
+                    'CTC / year' => [$old !== null && $old !== '' ? '₹' . number_format((float) $old) : '', '₹' . number_format((float) $new)],
+                    default => [trim((string) $old), trim((string) $new)],
+                };
+                $changes[] = [$label, $from, $to];
+            }
+
+            // A sign-in email is only added where there is none; one already there is kept.
+            if ($rec['email'] && trim((string) $e->email) === '') {
+                $changes[] = ['Email (sign-in)', '', $rec['email']];
+            }
+
+            $records[$i]['changes'] = $changes;
+
+            if (in_array('Employee ID', array_column($changes, 0), true)) {
+                $records[$i]['id_change'] = EmployeeIdChange::impact((int) $e->id, (string) $e->employee_id, (string) $rec['code']);
+            }
+        }
+    }
+
+    /**
      * Device enrolments not linked to anyone yet, matched to sheet rows by name.
      * Strong: every name word agrees. Possible: two or more words agree. Never by ID.
      */
@@ -672,7 +778,8 @@ class MasterSheetImport
         return [
             'rows' => count($records),
             'new' => count(array_filter($usable, fn ($r) => !$r['match'])),
-            'update' => count(array_filter($usable, fn ($r) => (bool) $r['match'])),
+            'update' => count(array_filter($usable, fn ($r) => $r['match'] && ($r['changes'] ?? []) !== [])),
+            'unchanged' => count(array_filter($usable, fn ($r) => $r['match'] && ($r['changes'] ?? []) === [])),
             'skipped' => count($records) - count($usable),
             'with_issues' => count(array_filter($usable, fn ($r) => $r['issues'] !== [])),
             'clean' => count(array_filter($usable, fn ($r) => $r['issues'] === [])),
@@ -862,8 +969,15 @@ class MasterSheetImport
                 $user['email'] = $rec['email'];
             }
 
+            $oldId = (string) DB::table('employee_details')->where('user_id', $userId)->value('employee_id');
+
             DB::table('users')->where('id', $userId)->update($user + ['updated_at' => $now]);
             EmployeeDetails::where('user_id', $userId)->first()?->forceFill($details)->saveQuietly();
+
+            // A new Employee ID: the records that carry it follow it (EmployeeIdChange).
+            if (isset($details['employee_id'])) {
+                EmployeeIdChange::follow($userId, $oldId, (string) $details['employee_id']);
+            }
         } else {
             $model = new User();
             $model->forceFill($user + [
@@ -879,16 +993,16 @@ class MasterSheetImport
             $model->saveQuietly();
             $userId = $model->id;
 
-            $joining = $rec['joining_date'] ? Carbon::parse($rec['joining_date']) : null;
-            $probationEnd = $joining && $probationMonths ? $joining->copy()->addMonths($probationMonths) : null;
-
+            // No probation from the import: the master sheet is existing staff, and the company has no
+            // probation for them. (It used to add Settings -> Probation Period months to the joining date
+            // and mark everyone who joined in that time "On Probation".) Set on the profile when needed.
             $detail = new EmployeeDetails();
             $detail->forceFill($details + [
                 'user_id' => $userId,
                 'company_id' => $companyId,
                 'employment_type' => 'full_time',
-                'employment_status' => $probationEnd && $probationEnd->isFuture() ? 'probation' : 'confirmed',
-                'probation_end_date' => $probationEnd?->toDateString(),
+                'employment_status' => 'confirmed',
+                'probation_end_date' => null,
                 'marital_status' => $details['marital_status'] ?? 'single',
                 'added_by' => $actorId,
             ]);
@@ -1008,6 +1122,81 @@ class MasterSheetImport
     }
 
     /** Every problem and correction, one line each, for HR to work through. */
+    /** The review's filters (as on the screen): which records each one shows. */
+    public const FILTERS = ['all' => 'All', 'new' => 'New', 'update' => 'Will change', 'unchanged' => 'No change',
+        'issues' => 'Something to fix', 'clean' => 'Clean'];
+
+    public static function inFilter(array $rec, string $filter): bool
+    {
+        $state = $rec['skip'] ? 'skip' : ($rec['match'] ? (($rec['changes'] ?? []) ? 'update' : 'unchanged') : 'new');
+
+        return match ($filter) {
+            'new', 'update', 'unchanged' => $state === $filter,
+            'issues' => $rec['issues'] !== [],
+            'clean' => $rec['issues'] === [] && $state !== 'skip',
+            default => true,
+        };
+    }
+
+    /**
+     * The rows of one review filter, cut from the uploaded file itself: its sheet, its headings and
+     * its columns as they were, only those rows kept, and at the end what the review found (Problems,
+     * Changes). Fixed and uploaded again, it imports like the original (the added columns are not read).
+     */
+    public function rowsExport(string $path, array $preview, string $filter): Spreadsheet
+    {
+        $book = IOFactory::load($path);
+        $sheet = $book->getSheetByName($preview['sheet']) ?? $book->getActiveSheet();
+
+        foreach ($book->getSheetNames() as $name) {
+            if ($name !== $sheet->getTitle()) {
+                $book->removeSheetByIndex($book->getIndex($book->getSheetByName($name)));
+            }
+        }
+
+        $header = (int) ($preview['header_row'] ?? 1);
+        $wanted = [];
+
+        foreach ($preview['records'] as $rec) {
+            if (self::inFilter($rec, $filter)) {
+                $wanted[(int) $rec['line']] = $rec;
+            }
+        }
+
+        // what the review found, in two columns after the sheet's own
+        $last = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($sheet->getHighestDataColumn());
+        $sheet->setCellValue([$last + 1, $header], 'Problems (import review)');
+        $sheet->setCellValue([$last + 2, $header], 'Changes (now -> sheet)');
+
+        foreach ($wanted as $line => $rec) {
+            $problems = array_merge(
+                array_map(fn ($i) => $i['field'] . ': ' . $i['message'], $rec['issues']),
+                $rec['skip'] ? ['Not imported: EMP ID and Employee Name are required'] : []
+            );
+            $changes = array_map(fn ($c) => $c[0] . ': ' . ($c[1] !== '' ? $c[1] : 'empty') . ' -> ' . $c[2], $rec['changes'] ?? []);
+            $sheet->setCellValue([$last + 1, $line], implode("\n", $problems));
+            $sheet->setCellValue([$last + 2, $line], $rec['match'] ? (implode("\n", $changes) ?: 'no change') : 'new employee');
+        }
+
+        // every data row not in the filter goes; bottom-up, so the row numbers above stay put
+        for ($r = $sheet->getHighestRow(); $r > $header; $r--) {
+            if (!isset($wanted[$r])) {
+                $sheet->removeRow($r);
+            }
+        }
+
+        foreach ([$last + 1 => 60, $last + 2 => 50] as $col => $width) {
+            $letter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col);
+            $sheet->getColumnDimension($letter)->setWidth($width);
+            $sheet->getStyle($letter . '1:' . $letter . $sheet->getHighestRow())->getAlignment()->setWrapText(true)->setVertical('top');
+            $sheet->getStyle($letter . $header)->getFont()->setBold(true)->getColor()->setRGB('B42318');
+        }
+
+        $book->setActiveSheetIndex(0);
+
+        return $book;
+    }
+
     public function report(array $preview): Spreadsheet
     {
         $book = new Spreadsheet();

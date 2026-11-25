@@ -154,6 +154,7 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account'], function () {
     Route::post('employees/import/review', [App\Http\Controllers\EmployeeMasterImportController::class, 'review'])->name('employees.import.review');
     Route::post('employees/import/apply', [App\Http\Controllers\EmployeeMasterImportController::class, 'apply'])->name('employees.import.apply');
     Route::get('employees/import/report', [App\Http\Controllers\EmployeeMasterImportController::class, 'report'])->name('employees.import.report');
+    Route::get('employees/import/rows/export', [App\Http\Controllers\EmployeeMasterImportController::class, 'rows'])->name('employees.import.rows');
     Route::get('import/process/{name}/{id}', [ImportController::class, 'getImportProgress'])->name('import.process.progress');
 
     Route::get('employees/import/exception/{name}', [ImportController::class, 'getQueueException'])->name('import.process.exception');

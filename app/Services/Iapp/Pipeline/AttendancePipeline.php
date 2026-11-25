@@ -118,14 +118,32 @@ class AttendancePipeline
         }
     }
 
-    /** The configured look-back up to now: what the schedule pulls. */
+    /** Hour (company time) until which a live pull also takes yesterday: night shifts, late punches. */
+    public const YESTERDAY_UNTIL_HOUR = 6;
+
+    /**
+     * What a live pull reads and rewrites: today only - and, before 06:00, yesterday too (a night
+     * shift, a punch just before midnight). Past days are not re-read every few minutes any more:
+     * that rewrote every employee's last three days on each pull. Older days are pulled on purpose
+     * (Fetch Attendance).
+     *
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    public static function liveWindow(): array
+    {
+        $status = new PipelineStatus();
+        $today = $status->today();
+        $from = Carbon::now($today->timezone)->hour < self::YESTERDAY_UNTIL_HOUR ? $today->copy()->subDay() : $today->copy();
+
+        return [$from, $today->copy()->endOfDay()];
+    }
+
+    /** What the schedule pulls: the live window (today). */
     public function runRecent(string $trigger = 'schedule', ?int $actorId = null): array
     {
-        $days = (int) ($this->config->setting()?->resync_days ?? 3);
+        [$from, $to] = self::liveWindow();
 
-        // Re-pulled deliberately: a controller that was offline uploads its
-        // buffer once it reconnects, so earlier days can still be arriving.
-        return $this->run(now()->subDays(max(1, $days))->startOfDay(), now()->endOfDay(), $trigger, $actorId);
+        return $this->run($from, $to, $trigger, $actorId);
     }
 
     /** What the last run did, for the Overview screen. */

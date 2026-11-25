@@ -44,12 +44,22 @@ class EmployeeAttendanceProfile
         // company_id leads the (company_id, emp_code, punch_time) index, and
         // IappDeviceTransaction carries no company scope of its own, so without
         // it this is a full table scan.
-        return IappDeviceTransaction::query()
+        $range = [$this->from->copy()->startOfDay(), $this->to->copy()->endOfDay()];
+        $read = fn ($query) => $query
             ->when($this->companyId(), fn ($q, $id) => $q->where('company_id', $id))
             ->where('emp_code', $this->employee->emp_code)
-            ->whereBetween('punch_time', [$this->from->copy()->startOfDay(), $this->to->copy()->endOfDay()])
-            ->orderBy('punch_time')
+            ->whereBetween('punch_time', $range)
             ->get(['punch_time', 'punch_direction', 'controller_code']);
+
+        $punches = $read(IappDeviceTransaction::query());
+
+        // Punches over a year old are in the archive (attendance:archive): the same person, the same
+        // way, so their history looks exactly as before it was archived.
+        if (IappDeviceTransaction::hasArchive()) {
+            $punches = $punches->concat($read(IappDeviceTransaction::archived()));
+        }
+
+        return $punches->sortBy('punch_time')->values();
     }
 
     /**

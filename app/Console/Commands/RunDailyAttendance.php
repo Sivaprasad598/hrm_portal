@@ -151,16 +151,10 @@ class RunDailyAttendance extends Command
             ['status' => AttendanceDailyRun::STATUS_PENDING]
         );
 
-        // 1. pull
-        $wantsPull = $deviceInUse && !$this->option('no-pull') && ($explicit || !$run->device_complete);
-
-        if ($wantsPull && $ready('pull_time')) {
-            $pulled = $this->pull($run, $date, $now);
-
-            // A late day coming in changes what was built and written from it.
-            if ($pulled && !$explicit && $run->status === AttendanceDailyRun::STATUS_REVIEWED) {
-                $run->forceFill(['status' => AttendanceDailyRun::STATUS_PULLED, 'built_at' => null])->save();
-            }
+        // 1. nothing is pulled at night any more: the pulls through the day read the devices, build the
+        //    days and write attendance. The date is complete once a daytime pull ran after it ended.
+        if ($deviceInUse && !$run->device_complete) {
+            $this->markCompleteFromDayPulls($run, $date);
         }
 
         // The device could not be reached: wait, unless it is time to tell people,
@@ -171,12 +165,10 @@ class RunDailyAttendance extends Command
             return false;
         }
 
-        // 2. build Device Attendance
-        if ($ready('build_time') && ($explicit || !$run->built_at)) {
-            $built = (new PunchAggregator(new IappConfig()))->build($date->copy()->startOfDay(), $date->copy()->endOfDay());
+        // 2. built through the day already (each pull builds the days it read)
+        if ($ready('build_time') && !$run->built_at) {
             $run->forceFill(['built_at' => now(), 'status' => $run->status === AttendanceDailyRun::STATUS_PENDING
                 ? AttendanceDailyRun::STATUS_PULLED : $run->status])->save();
-            $this->info("{$key}: built {$built['days']} device day(s) for {$built['employees']} code(s)");
         }
 
         // 3. write ERP, review, cross-check
@@ -186,7 +178,7 @@ class RunDailyAttendance extends Command
             $deviceComplete = (bool) $run->device_complete || !$deviceInUse;
             $through = $run->pulled_at ? Carbon::parse($run->pulled_at)->setTimezone($this->tz) : $now->copy();
 
-            $written = $this->write($date);
+            $written = 'attendance written through the day';
             $summary = (new DailyAttendanceReview())->review($date, $deviceComplete, $through);
             $checked = (new BiometricReconciler($this->setting?->company_id))->run($date, $deviceComplete, $through, $run->last_error);
 
@@ -226,6 +218,24 @@ class RunDailyAttendance extends Command
         }
 
         return $reconciled;
+    }
+
+    /** The date is complete once a successful daytime pull covering it ran after the date ended. */
+    protected function markCompleteFromDayPulls(AttendanceDailyRun $run, Carbon $date): void
+    {
+        $end = $date->copy()->endOfDay()->setTimezone(config('app.timezone'));
+        $pull = IappSyncLog::withoutGlobalScopes()
+            ->whereIn('status', [IappSyncLog::STATUS_SUCCESS, IappSyncLog::STATUS_PARTIAL])
+            ->where('sync_type', IappSyncLog::TYPE_DEVICE_TRANS)
+            ->whereNull('emp_code')
+            ->where('from_date', '<=', $date->toDateString())->where('to_date', '>=', $date->toDateString())
+            ->where('started_at', '>', $end)
+            ->orderBy('started_at')->first();
+
+        if ($pull) {
+            $run->forceFill(['device_complete' => true, 'pulled_at' => $pull->started_at, 'last_error' => null,
+                'status' => $run->status === AttendanceDailyRun::STATUS_PENDING ? AttendanceDailyRun::STATUS_PULLED : $run->status])->save();
+        }
     }
 
     /** Pull the date (through the next morning, for night shifts) from the selected devices. */
@@ -291,8 +301,6 @@ class RunDailyAttendance extends Command
             return;
         }
 
-        (new PunchAggregator(new IappConfig()))->build($date->copy()->startOfDay(), $date->copy()->endOfDay());
-        $this->write($date);
         (new DailyAttendanceReview())->review($date, (bool) $run->device_complete, $now);
         (new BiometricReconciler($this->setting?->company_id))->run($date, (bool) $run->device_complete, $now, $run->last_error);
         $run->forceFill(['reconciled_at' => now()])->save();

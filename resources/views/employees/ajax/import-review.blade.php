@@ -17,6 +17,16 @@
     .imp-tile .n { font-size: 20px; font-weight: 600; }
     .imp-tree li { list-style: none; }
     .imp-table td, .imp-table th { font-size: 12px; vertical-align: top; padding: 6px 8px; }
+    .imp-st { display: inline-block; margin-left: 6px; padding: 0 7px; border-radius: 999px; font-size: 10.5px; line-height: 17px; background: #f2f4f7; color: #475467; }
+    .imp-st--new { background: #eff8ff; color: #175cd3; }
+    .imp-st--skip { background: #fef3f2; color: #b42318; }
+    .imp-st--info { background: #f4f3ff; color: #5925dc; }
+    .imp-chg { min-width: 220px; max-width: 320px; }
+    .imp-c { line-height: 1.45; margin-bottom: 3px; overflow-wrap: anywhere; }
+    .imp-c .l { color: #667085; }
+    .imp-c s { color: #b42318; text-decoration-color: rgba(180, 35, 24, .45); }
+    .imp-c b { color: #067647; font-weight: 600; }
+    .imp-idc { margin-top: 3px; font-size: 11.5px; color: #93370d; background: #fffaeb; border: 1px solid #fedf89; border-radius: 6px; padding: 2px 8px; display: inline-block; cursor: help; }
     .imp-issue { color: #d92d20; }
     .imp-note { color: #667085; }
     .imp-scroll { max-height: 520px; overflow: auto; }
@@ -35,7 +45,8 @@
                     @foreach ([
                         ['Rows read', $s['rows'], ''],
                         ['New employees', $s['new'], 'text-primary'],
-                        ['Existing, updated', $s['update'], 'text-dark-grey'],
+                        ['Existing, will change', $s['update'], 'text-dark-grey'],
+                        ['Existing, no change', $s['unchanged'] ?? 0, 'text-lightest'],
                         ['Clean rows', $s['clean'], 'text-success'],
                         ['Rows with something to fix', $s['with_issues'], 'text-warning'],
                         ['No email (cannot sign in yet)', $s['no_email'], 'text-red'],
@@ -67,23 +78,29 @@
                         {{-- Employees --}}
                         <div class="tab-pane fade show active" id="imp-employees">
                             <div class="d-flex flex-wrap align-items-center mb-2">
-                                @foreach (['all' => 'All', 'new' => 'New', 'update' => 'Updates', 'issues' => 'Something to fix', 'clean' => 'Clean'] as $key => $label)
+                                @foreach (['all' => 'All', 'new' => 'New', 'update' => 'Will change', 'unchanged' => 'No change', 'issues' => 'Something to fix', 'clean' => 'Clean'] as $key => $label)
                                     <button type="button" class="btn btn-sm {{ $key === 'all' ? 'btn-primary' : 'btn-outline-secondary' }} mr-2 mb-1 imp-filter" data-filter="{{ $key }}">{{ $label }}</button>
                                 @endforeach
                                 <input type="text" class="form-control form-control-sm ml-auto mb-1" id="imp-search" placeholder="Search name or EMP ID…" style="max-width:240px">
+                                {{-- the rows of the filter chosen, from the uploaded file in its own layout: fix them and upload again --}}
+                                <a href="{{ route('employees.import.rows', ['filter' => 'all']) }}" id="imp-rows-dl" class="btn btn-sm btn-outline-secondary ml-2 mb-1 no-swap" download
+                                   title="These rows from your file, in the same layout, with a Problems column - fix them and upload the file again">
+                                    <i class="fa fa-file-excel mr-1"></i>Download <span id="imp-rows-label">all rows</span>
+                                </a>
                             </div>
                             <div class="imp-scroll border rounded">
                                 <table class="table table-hover imp-table mb-0">
                                     <thead>
                                         <tr>
-                                            <th>Line</th><th>EMP ID</th><th>Employee</th><th>Division</th><th>Designation</th><th>Branch</th>
+                                            <th>Line</th><th>EMP ID</th><th>Employee</th><th>Changes (now → sheet)</th><th>Division</th><th>Designation</th><th>Branch</th>
                                             <th>DOJ</th><th class="text-right">CTC / year</th><th>Email (sign-in)</th><th>Checks</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         @foreach ($records as $r)
                                             @php
-                                                $state = $r['skip'] ? 'skip' : ($r['match'] ? 'update' : 'new');
+                                                $changes = $r['changes'] ?? [];
+                                                $state = $r['skip'] ? 'skip' : ($r['match'] ? ($changes ? 'update' : 'unchanged') : 'new');
                                                 $branchName = isset($r['branch_key']) ? ($m['branches'][$r['branch_key']]['name'] ?? $r['branch']) : $r['branch'];
                                             @endphp
                                             <tr class="imp-row" data-state="{{ $state }}" data-issues="{{ $r['issues'] ? 1 : 0 }}"
@@ -92,13 +109,44 @@
                                                 <td class="text-nowrap">{{ $r['code'] }}</td>
                                                 <td>
                                                     <span class="f-w-500">{{ $r['name'] }}</span>
-                                                    @if ($r['match'])
-                                                        <div class="badge badge-light border f-10">updates {{ $r['match']['name'] }} (by {{ $r['match']['by'] }})</div>
-                                                    @elseif ($r['skip'])
-                                                        <div class="badge badge-danger f-10">not imported</div>
+                                                    @if ($r['skip'])
+                                                        <span class="imp-st imp-st--skip">not imported</span>
+                                                    @elseif ($r['match'])
+                                                        <span class="imp-st" title="Already in the system: {{ $r['match']['name'] }} (matched by {{ $r['match']['by'] }})">existing</span>
+                                                    @else
+                                                        <span class="imp-st imp-st--new">new</span>
                                                     @endif
                                                     @if ($r['rejoined'])
-                                                        <div class="badge badge-info f-10">rejoined{{ $r['previous_joining_date'] ? ' · first joined ' . $date($r['previous_joining_date']) : '' }}</div>
+                                                        <span class="imp-st imp-st--info" title="{{ $r['previous_joining_date'] ? 'First joined ' . $date($r['previous_joining_date']) : '' }}">rejoined</span>
+                                                    @endif
+                                                </td>
+                                                {{-- what this sheet changes for an existing employee: now -> from the sheet --}}
+                                                <td class="imp-chg">
+                                                    @if ($r['skip'])
+                                                        <span class="text-lightest">—</span>
+                                                    @elseif (!$r['match'])
+                                                        <span class="text-lightest">added</span>
+                                                    @elseif (!$changes)
+                                                        <span class="text-lightest">no change</span>
+                                                    @else
+                                                        @foreach ($changes as [$label, $from, $to])
+                                                            <div class="imp-c"><span class="l">{{ $label }}</span> <s>{{ $from !== '' ? $from : 'empty' }}</s> → <b>{{ $to }}</b></div>
+                                                        @endforeach
+                                                        @if ($ic = $r['id_change'] ?? null)
+                                                            @php
+                                                                $why = 'Updated to ' . $ic['to'] . ': employee record'
+                                                                    . ($ic['periods'] ? ', employment history (' . $ic['periods'] . ')' : '')
+                                                                    . ($ic['payslips'] ? ', payslips (' . $ic['payslips'] . ')' : '') . '. '
+                                                                    . ($ic['device_code']
+                                                                        ? 'Biometric stays linked to device code ' . $ic['device_code'] . ' (the device sends it with every punch); re-enrol them as ' . $ic['to'] . ' when convenient.'
+                                                                        : 'Not linked to a device code yet.')
+                                                                    . ($ic['new_id_is_device_of'] ? ' ' . $ic['to'] . ' is the device code of ' . $ic['new_id_is_device_of'] . '.' : '');
+                                                            @endphp
+                                                            <div class="imp-idc" title="{{ $why }}"><i class="fa fa-id-badge mr-1"></i>
+                                                                ID change also updates history{{ $ic['payslips'] ? ' & payslips' : '' }}@if ($ic['device_code']) · biometric stays on <b>{{ $ic['device_code'] }}</b>@endif
+                                                                @if ($ic['new_id_is_device_of']) · <b>{{ $ic['to'] }}</b> is {{ $ic['new_id_is_device_of'] }}'s device code @endif
+                                                            </div>
+                                                        @endif
                                                     @endif
                                                 </td>
                                                 <td>{{ $r['division'] ?: '—' }}<div class="text-lightest">{{ $r['department'] }}</div></td>
@@ -107,7 +155,7 @@
                                                 <td class="text-nowrap">{{ $date($r['joining_date']) }}</td>
                                                 <td class="text-right">{{ $money($r['ctc']) }}</td>
                                                 <td>{!! $r['email'] ? e($r['email']) : '<span class="text-red">none</span>' !!}</td>
-                                                <td style="min-width:260px">
+                                                <td style="min-width:200px">
                                                     @foreach ($r['issues'] as $i)
                                                         <div class="imp-issue"><i class="fa fa-exclamation-circle"></i> <strong>{{ $i['field'] }}</strong>: {{ $i['message'] }}</div>
                                                     @endforeach
@@ -226,10 +274,12 @@
                 var show = filter === 'all'
                     || (filter === 'new' && state === 'new')
                     || (filter === 'update' && state === 'update')
+                    || (filter === 'unchanged' && state === 'unchanged')
                     || (filter === 'issues' && issues)
                     || (filter === 'clean' && !issues && state !== 'skip');
 
-                row.toggle(show && (!term || String(row.data('search')).indexOf(term) !== -1));
+                var visible = show && (!term || String(row.data('search')).indexOf(term) !== -1);
+                row.toggle(visible);
             });
         }
 
@@ -237,6 +287,9 @@
             filter = $(this).data('filter');
             $('.imp-filter').removeClass('btn-primary').addClass('btn-outline-secondary');
             $(this).removeClass('btn-outline-secondary').addClass('btn-primary');
+            // the download follows the filter: these rows from the file, to fix and upload again
+            $('#imp-rows-dl').attr('href', "{{ route('employees.import.rows') }}?filter=" + encodeURIComponent(filter));
+            $('#imp-rows-label').text(filter === 'all' ? 'all rows' : '"' + $.trim($(this).text()) + '" rows');
             apply();
         });
         $('#imp-search').on('input', apply);

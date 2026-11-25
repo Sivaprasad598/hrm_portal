@@ -708,13 +708,16 @@ class AttendanceController extends MobileController
             ->where('user_id', $userId)
             ->whereBetween('punch_time', [$local->copy()->subMinutes(3)->format('Y-m-d H:i:s'), $local->copy()->addMinutes(3)->format('Y-m-d H:i:s')])
             ->orderByRaw('ABS(TIMESTAMPDIFF(SECOND, punch_time, ?))', [$local->format('Y-m-d H:i:s')])
-            ->first(['controller_code', 'raw_payload']);
+            ->first(['controller_code']);
 
         if (!$punch) {
             return null;
         }
 
-        $name = json_decode((string) $punch->raw_payload, true)['controllerName'] ?? null;
+        // The device's name from the device list (punches keep no raw copy of the device's row).
+        $name = $punch->controller_code
+            ? DB::table('iapp_devices')->where('controller_code', $punch->controller_code)->value('controller_name')
+            : null;
 
         return $name ?: ($punch->controller_code ?: null);
     }

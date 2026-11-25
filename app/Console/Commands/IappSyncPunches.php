@@ -110,14 +110,13 @@ class IappSyncPunches extends Command
             return [Carbon::parse($this->option('from'))->startOfDay(), $to];
         }
 
-        // Past days are re-pulled deliberately: a controller that was offline
-        // uploads its buffer once it reconnects, so yesterday's data can still
-        // be arriving today.
-        $days = $this->option('days')
-            ?? $config->setting()?->resync_days
-            ?? 3;
+        // A number of days asked for: those.
+        if ($this->option('days') !== null) {
+            return [now()->subDays(max(0, (int) $this->option('days')))->startOfDay(), $to];
+        }
 
-        return [now()->subDays(max(0, (int) $days))->startOfDay(), $to];
+        // Otherwise the live window: today (and yesterday before 06:00) - not the past days again.
+        return AttendancePipeline::liveWindow();
     }
 
 }

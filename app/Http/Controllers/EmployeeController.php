@@ -879,6 +879,7 @@ class EmployeeController extends AccountBaseController
             $employee->user_id = $user->id;
         }
 
+        $previousEmployeeId = $employee->employee_id;
         $this->employeeData($request, $employee);
 
         // Exit Date is only on the form for Inactive. When it is not sent (Active,
@@ -891,6 +892,9 @@ class EmployeeController extends AccountBaseController
         }
 
         $employee->save();
+
+        // A new Employee ID: employment history and payslips follow it; the biometric link stays on its device code.
+        \App\Services\Employee\EmployeeIdChange::follow((int) $user->id, $previousEmployeeId, $employee->employee_id);
 
         // Sync work experience entries (dynamic multi-entry cards, same as employees.store)
         EmployeeExperience::where('user_id', $user->id)->delete();

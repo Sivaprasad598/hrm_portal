@@ -279,7 +279,8 @@ class PunchSync
                     'punch_time' => $row['punch_time']->format('Y-m-d H:i:s'),
                     'punch_direction' => $row['punch_direction'],
                     'direction_source' => $row['direction_source'],
-                    'raw_payload' => json_encode($row['raw_payload']),
+                    // No copy of the device's raw row: every field used is in its own column.
+                    'raw_payload' => null,
                     'synced_at' => $now,
                     'created_at' => $now,
                     'updated_at' => $now,
@@ -295,7 +296,7 @@ class PunchSync
             IappDeviceTransaction::upsert(
                 $payload,
                 ['punch_hash'],
-                ['emp_code', 'punch_direction', 'direction_source', 'raw_payload', 'synced_at', 'updated_at']
+                ['emp_code', 'punch_direction', 'direction_source', 'synced_at', 'updated_at']
             );
 
             $written += count($payload);

@@ -173,11 +173,9 @@ class Kernel extends ConsoleKernel
         $schedule->command('app:recalculate-leaves-quotas')->monthly();
 
         // Biometric (iApp) integration. Read-only against the devices.
-        // The nightly routine (attendance:daily), times on Biometric Settings:
-        // 01:00 pull the previous day from the selected devices, 02:00 build
-        // Device Attendance, 03:00 write ERP attendance and cross-check device
-        // against ERP, 09:00 notify. Asked every 15 minutes, so a failed pull is
-        // retried and a server that was off overnight catches up on waking.
+        // The nightly routine (attendance:daily) no longer pulls or rewrites anything: the pulls
+        // through the day (below) read today's punches and write attendance. At night it only
+        // reviews the day, cross-checks device against ERP (Exceptions) and notifies at 09:00.
         // "Nightly automatic run" in Settings switches it off.
         $schedule->command('attendance:daily --scheduled')->everyFifteenMinutes();
         // Every 15 minutes through the day as well: punches from the selected
@@ -191,6 +189,10 @@ class Kernel extends ConsoleKernel
         // Checked every 5 minutes; "Pull new punches every" (5 / 10 / 15 / 30 / 60,
         // default 5) decides whether a pull is due, so the setting alone sets the pace.
         $schedule->command('iapp:sync-punches --scheduled')->everyFiveMinutes()->withoutOverlapping(15)->runInBackground();
+
+        // Database size: punches and attendance sessions older than 12 months to their archive tables
+        // (still searchable; the daily summary is never archived), old sync logs cleared. Monthly, at night.
+        $schedule->command('attendance:archive')->monthlyOn(1, '03:30')->timezone('Asia/Kolkata')->withoutOverlapping(120);
 
         // The route cache (0.2 s off every request): rebuilt when missing - after an
         // update the stale one is discarded on the first request (RouteCacheGuard).

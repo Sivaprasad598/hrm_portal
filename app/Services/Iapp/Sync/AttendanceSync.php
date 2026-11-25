@@ -406,7 +406,7 @@ class AttendanceSync
 
         $users = User::whereIn('id', array_column($preview['rows'], 'user_id'))->get()->keyBy('id');
 
-        $counts = ['employees' => 0, 'days' => 0, 'punches' => 0, 'created' => 0, 'replaced' => 0, 'skipped' => 0, 'locked' => 0];
+        $counts = ['employees' => 0, 'days' => 0, 'punches' => 0, 'created' => 0, 'replaced' => 0, 'skipped' => 0, 'locked' => 0, 'unchanged' => 0];
         $seenUsers = [];
         $skipped = [];
         $locked = [];
@@ -445,6 +445,12 @@ class AttendanceSync
 
             $result = $this->syncDay($run, $job, $user, $row, $tz, $mode, $collapse);
 
+            if (!empty($result['unchanged'])) {
+                $counts['unchanged']++;
+
+                continue;
+            }
+
             $counts['days']++;
             $counts['punches'] += $result['punches'];
             $counts['created'] += $result['created'];
@@ -465,12 +471,13 @@ class AttendanceSync
             // thousands of entries into one JSON column.
             'summary' => ['skipped' => array_slice($skipped, 0, 200), 'locked' => array_slice($locked, 0, 200)],
             'message' => sprintf(
-                '%d attendance row(s) created for %d employee(s) across %d day(s). %d replaced, %d day(s) skipped%s.',
+                '%d attendance row(s) created for %d employee(s) across %d day(s). %d replaced, %d day(s) skipped, %d unchanged%s.',
                 $counts['created'],
                 $counts['employees'],
                 $counts['days'],
                 $counts['replaced'],
                 $counts['skipped'],
+                $counts['unchanged'],
                 $counts['locked'] ? ', ' . $counts['locked'] . ' day(s) left as paid (in an approved payslip)' : ''
             ),
             'finished_at' => now(),
@@ -554,6 +561,16 @@ class AttendanceSync
             return ['punches' => 0, 'created' => 0, 'replaced' => 0];
         }
 
+        // Nothing new since this day was last written (same punches, same shift hours, still running
+        // or ended as before): left exactly as it is. A pull every few minutes then rewrites only the
+        // people who punched, not everybody's day, and the attendance rows keep their ids.
+        $fingerprint = md5(json_encode([$events, $window[0]->toDateTimeString(), $window[1]->toDateTimeString(),
+            Carbon::now('UTC')->lte($window[1]), $collapse]));
+
+        if ($mode !== IappAttendanceSyncRun::MODE_OVERRIDE && self::unchanged($user->id, $date, $fingerprint)) {
+            return ['punches' => count($events), 'created' => 0, 'replaced' => 0, 'unchanged' => true];
+        }
+
         DB::transaction(function () use ($run, $user, $date, $tz, $mode, &$replaced, &$userExit) {
             $existing = $this->existingIndex([$user->id], Carbon::parse($date), Carbon::parse($date));
             $ids = $existing[$user->id][$date] ?? [];
@@ -589,21 +606,10 @@ class AttendanceSync
                 ->sortByDesc('clock_out_time')->first();
             $userExit = $own ? array_intersect_key($own->getAttributes(), array_flip(self::EXIT_FIELDS)) : null;
 
+            // No backup copy of what is removed: the device is the record, and the day is rebuilt from
+            // its punches. (A copy of every session on every pull grew this table by hundreds of MB a day.)
             foreach ($rows as $attendance) {
-                $wasOurs = in_array((int) $attendance->id, $ourIds, true);
-
-                // Everything displaced is kept, so an override can be undone.
-                IappAttendanceLink::create([
-                    'company_id' => $run->company_id,
-                    'run_id' => $run->id,
-                    'attendance_id' => null,
-                    'user_id' => $user->id,
-                    'attendance_date' => $date,
-                    'link_type' => IappAttendanceLink::TYPE_REPLACED,
-                    'payload' => $attendance->getAttributes(),
-                ]);
-
-                if (!$wasOurs) {
+                if (!in_array((int) $attendance->id, $ourIds, true)) {
                     $replaced++;
                 }
             }
@@ -653,7 +659,31 @@ class AttendanceSync
             ]);
         }
 
+        self::remember($user->id, $date, $fingerprint);
+
         return ['punches' => count($events), 'created' => count($created), 'replaced' => $replaced];
+    }
+
+    /** Was this employee-day last written from exactly these punches (and its rows are still there)? */
+    protected static function unchanged(int $userId, string $date, string $fingerprint): bool
+    {
+        if (!\App\Support\SchemaCache::hasTable('iapp_day_writes')) {
+            return false;
+        }
+
+        $same = DB::table('iapp_day_writes')->where('user_id', $userId)->where('attendance_date', $date)->value('fingerprint') === $fingerprint;
+
+        // and what was written is still there (nobody deleted the day since)
+        return $same && IappAttendanceLink::where('user_id', $userId)->whereDate('attendance_date', $date)
+            ->where('link_type', IappAttendanceLink::TYPE_CREATED)->whereNotNull('attendance_id')->exists();
+    }
+
+    protected static function remember(int $userId, string $date, string $fingerprint): void
+    {
+        if (\App\Support\SchemaCache::hasTable('iapp_day_writes')) {
+            DB::table('iapp_day_writes')->updateOrInsert(['user_id' => $userId, 'attendance_date' => $date],
+                ['fingerprint' => $fingerprint, 'written_at' => now()]);
+        }
     }
 
     /**

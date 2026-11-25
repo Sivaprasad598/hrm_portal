@@ -190,13 +190,11 @@ class BiometricController extends AccountBaseController
         $to = Carbon::parse($endDate)->endOfDay();
         $empCode = trim((string) $request->emp_code) ?: null;
 
-        // HR's "Get latest punches" is yesterday and today, for everybody; a
-        // chosen range or person is the technical pull.
-        if (user()->permission('manage_biometric_system') !== 'all') {
-            $today = (new PipelineStatus())->today();
-            $from = $today->copy()->subDay()->startOfDay();
-            $to = $today->copy()->endOfDay();
-            $empCode = null;
+        // HR's "Get latest punches" is the live window (today; yesterday too before 06:00), for
+        // everybody; a chosen range or person is the technical pull.
+        if (user()->permission('manage_biometric_system') !== 'all' || !$request->filled('start_date')) {
+            [$from, $to] = AttendancePipeline::liveWindow();
+            $empCode = user()->permission('manage_biometric_system') === 'all' ? $empCode : null;
         }
 
         // A pull walks the feed 100 rows at a time and can run for minutes.
@@ -1097,7 +1095,9 @@ class BiometricController extends AccountBaseController
         $this->userId = $request->user_id;
         $this->controllerCode = $request->controller_code;
 
-        $this->punches = IappDeviceTransaction::with('user:id,name,image')
+        // A range archived over a year ago is read from the archive (attendance:archive)
+        $this->punches = IappDeviceTransaction::forRange(Carbon::parse($startDate)->startOfDay(), Carbon::parse($endDate)->endOfDay())
+            ->with('user:id,name,image')
             ->whereBetween('punch_time', [
                 Carbon::parse($startDate)->startOfDay(),
                 Carbon::parse($endDate)->endOfDay(),

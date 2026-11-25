@@ -87,6 +87,15 @@ class MappingSync
                 continue;
             }
 
+            // The code was kept for its person when their Employee ID changed (employee import): the
+            // machine still sends this code for them, so it is not handed to whoever has that ID now.
+            if ($device->user_id && $device->matched_on === 'id_changed') {
+                $holder = DB::table('users')->where('id', $device->user_id)->value('name');
+                $this->conflict($device, $seen, $result, sprintf('Device code %s stays with %s (their Employee ID changed from it); %s now has %s as Employee ID. Re-enrol them on the device, then link the codes.',
+                    $code, $holder, $owner->name, $code));
+                continue;
+            }
+
             // Final rule: the code goes to the employee whose ID it is. Whatever
             // either side was linked to before is released first.
             $moved = false;
