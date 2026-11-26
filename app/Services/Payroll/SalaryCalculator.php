@@ -59,14 +59,16 @@ class SalaryCalculator
      *
      * @param  float  $ctc         annual cost to company
      * @param  ?float $basicPct    the employee's own basic %, where they have one
+     * @param  ?bool  $prorate     the employee's own "Reduce PF / ESI for unpaid days" (null: the setting)
+     * @param  ?array $statutory   ['pf' => bool, 'esi' => bool, 'pt' => bool] (Statutory::flags): off = not deducted, either side
      * @return array<string, float>
      */
-    public function forEmployee(float $ctc, ?float $basicPct, int $workingDays, float $daysPresent, float $tds = 0.0): array
+    public function forEmployee(float $ctc, ?float $basicPct, int $workingDays, float $daysPresent, float $tds = 0.0, ?bool $prorate = null, ?array $statutory = null): array
     {
         $s = $this->settings;
         $gross = $ctc / 12;
         $round = $this->flag('round_net', true);
-        $prorate = $this->flag('prorate_statutory', true);
+        $prorate ??= $this->flag('prorate_statutory', true);
         $money = fn (float $v) => $round ? round($v) : round($v, 2);
 
         // The employee's own basic % wins; otherwise the company default.
@@ -136,7 +138,15 @@ class SalaryCalculator
             [$esiEmployee, $esiEmployer] = $this->split($esi, $esiEmployeePct, $esiEmployerPct);
         }
 
-        $pt = $this->professionalTax($gross);
+        // Not applicable to this employee (paid by hand, housekeeping): nothing, either side.
+        if (($statutory['pf'] ?? true) === false) {
+            $pf = $pfEmployee = $pfEmployer = $pfFull = 0.0;
+        }
+        if (($statutory['esi'] ?? true) === false) {
+            $esi = $esiEmployee = $esiEmployer = $esiFull = 0.0;
+        }
+
+        $pt = ($statutory['pt'] ?? true) === false ? 0.0 : $this->professionalTax($gross);
         // Income tax is a figure per employee, set by the accountant.
         $tds = max(0.0, $tds);
 
@@ -165,6 +175,8 @@ class SalaryCalculator
             'working_days' => $days, 'days_present' => $present, 'lop_days' => $unpaidDays,
             'per_day' => $perDay, 'after_lop' => $afterLop, 'lop_amount' => $lopAmount, 'final_net' => $finalNet,
             'paid_share' => $paidShare, 'prorated' => $prorate, 'pf_employer_pct' => $pfEmployerPct,
+            'pf_applies' => ($statutory['pf'] ?? true) !== false, 'esi_applies' => ($statutory['esi'] ?? true) !== false,
+            'pt_applies' => ($statutory['pt'] ?? true) !== false,
         ];
     }
 

@@ -204,8 +204,27 @@
                         <option value="change-status">@lang('modules.tasks.changeStatus')</option>
                         @if (user()->permission('edit_employees') == 'all')
                             <option value="assign-reporting">Assign Reporting To…</option>
+                            @if (\App\Support\SchemaCache::hasColumn('employee_details', 'pf_applicable'))
+                                <option value="set-statutory">Set PF / ESI / PT, paid by…</option>
+                            @endif
                         @endif
                         <option value="delete">@lang('app.delete')</option>
+                    </select>
+                </div>
+                {{-- PF / ESI / PT and how the salary is paid, for the ticked employees ("no change" leaves it) --}}
+                <div class="mr-3 d-none quick-action-field align-items-center" id="set-statutory-action" style="gap: 8px">
+                    @foreach (['pf' => 'PF', 'esi' => 'ESI', 'pt' => 'PT'] as $k => $label)
+                        <select name="statutory_{{ $k }}" class="form-control form-control-sm f-13" style="width: auto">
+                            <option value="">{{ $label }}: no change</option>
+                            <option value="1">{{ $label }}: applies</option>
+                            <option value="0">{{ $label }}: not applicable</option>
+                        </select>
+                    @endforeach
+                    <select name="statutory_paid_by" class="form-control form-control-sm f-13" style="width: auto">
+                        <option value="">Paid by: no change</option>
+                        @foreach (\App\Services\Payroll\Statutory::PAID_BY as $value => $text)
+                            <option value="{{ $value }}">Paid by: {{ $text }}</option>
+                        @endforeach
                     </select>
                 </div>
                 <div class="select-status mr-3 d-none quick-action-field" id="change-status-action">
@@ -518,6 +537,9 @@
                 if (actionValue == 'change-status') {
                     $('.quick-action-field').addClass('d-none');
                     $('#change-status-action').removeClass('d-none');
+                } else if (actionValue == 'set-statutory') {
+                    $('.quick-action-field').addClass('d-none').removeClass('d-flex');
+                    $('#set-statutory-action').removeClass('d-none').addClass('d-flex');
                 } else {
                     $('.quick-action-field').addClass('d-none');
                 }

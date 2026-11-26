@@ -61,13 +61,20 @@ class PayrollRunController extends AccountBaseController
             && ($this->deviceThrough === null || $this->deviceThrough->lt($cycle->end->copy()->startOfDay()));
         $this->selectedEmployees = array_filter((array) $request->employees);
         $this->departmentId = $request->department;
+        $this->branchId = $request->branch;
 
         $this->employees = $this->employeeOptions();
         $this->departments = DB::table('teams')->orderBy('team_name')->pluck('team_name', 'id');
+        $this->branches = DB::table('branches')->where('status', 1)->orderBy('branch_name')->pluck('branch_name', 'id');
 
         $this->includeUnpaid = $request->boolean('include_unpaid');
-        $this->rows = $this->rows($month, $year, $this->selectedEmployees, $this->departmentId, $this->includeUnpaid);
+        $this->rows = $this->rows($month, $year, $this->selectedEmployees, $this->departmentId, $this->includeUnpaid, $this->branchId);
         $this->totals = $this->totals($this->rows);
+        // The calculation switches (company-wide, changed from the top of this screen) and the counts
+        // under the tiles (OT / earnings / deductions / LOP / TDS / own settings), each a list on click.
+        $this->switches = $this->companySwitches();
+        $this->canSwitch = $this->canChangeSettings();
+        $this->counts = $this->counts($this->rows);
         // Said out loud rather than left to be discovered: how many people the
         // screen is not showing because payroll has nothing to value them by.
         $this->leftOut = $this->leftOut();
@@ -91,7 +98,7 @@ class PayrollRunController extends AccountBaseController
     {
         [$month, $year] = $this->period($request);
 
-        $rows = $this->rows($month, $year, array_filter((array) $request->employees), $request->department, $request->boolean('include_unpaid'));
+        $rows = $this->rows($month, $year, array_filter((array) $request->employees), $request->department, $request->boolean('include_unpaid'), $request->branch);
         $name = 'payroll-' . Carbon::create($year, $month, 1)->format('Y-m') . '.xlsx';
 
         return Excel::download(new PayrollRunExport($rows, PayPeriod::forMonth($month, $year)->describe()), $name);
@@ -204,7 +211,7 @@ class PayrollRunController extends AccountBaseController
         $tally = ['added' => 0, 'updated' => 0, 'removed' => 0, 'issued' => 0];
         $hours = 0.0;
 
-        foreach ($this->rows((int) $request->month, (int) $request->year, array_filter((array) $request->employees), $request->department) as $row) {
+        foreach ($this->rows((int) $request->month, (int) $request->year, array_filter((array) $request->employees), $request->department, false, $request->branch) as $row) {
             if ($row['status'] === 'generated' || $row['status'] === 'blocked') {
                 continue;
             }
@@ -303,7 +310,7 @@ class PayrollRunController extends AccountBaseController
      *
      * @return array<int, array<string, mixed>>
      */
-    protected function rows(int $month, int $year, array $employeeIds = [], $departmentId = null, bool $includeUnpaid = false): array
+    protected function rows(int $month, int $year, array $employeeIds = [], $departmentId = null, bool $includeUnpaid = false, $branchId = null): array
     {
         $days = new AttendanceDays();
         $calculator = new SalaryCalculator();
@@ -318,6 +325,7 @@ class PayrollRunController extends AccountBaseController
             ->join('employee_details as ed', 'ed.user_id', '=', 'u.id')
             ->leftJoin('designations as d', 'd.id', '=', 'ed.designation_id')
             ->leftJoin('teams as t', 't.id', '=', 'ed.department_id')
+            ->leftJoin('branches as br', 'br.id', '=', 'ed.branch_id')
             ->where('u.status', 'active')
             ->whereNotIn('u.id', \App\Services\Access\SystemAccounts::hidden())   // not the Super Admin login
             // People created from the biometric devices have no salary on record
@@ -326,9 +334,10 @@ class PayrollRunController extends AccountBaseController
             ->when(!$includeUnpaid && $employeeIds === [], fn ($q) => $q->where('u.employee_ctc', '>', 0))
             ->when($employeeIds !== [], fn ($q) => $q->whereIn('u.id', $employeeIds))
             ->when($departmentId, fn ($q) => $q->where('ed.department_id', $departmentId))
+            ->when($branchId, fn ($q) => $q->where('ed.branch_id', $branchId))
             ->orderBy('u.name')
             ->get(['u.id', 'u.name', 'u.company_id', 'u.employee_ctc', 'u.basic_for_payroll', 'u.monthly_tds', 'ed.employee_card_id',
-                'ed.employee_id', 'd.name as designation', 't.team_name as department']);
+                'ed.employee_id', 'd.name as designation', 't.team_name as department', 'br.branch_name as branch']);
         $overtime = new \App\Services\Payroll\OvertimeCalculator();
         $bank = new \App\Services\Payroll\OtBank();
 
@@ -346,7 +355,7 @@ class PayrollRunController extends AccountBaseController
         // Which of them already hold a payslip for this month.
         $existing = DB::table('payslips')
             ->where('period', $periodLabel)->where('status', 'active')->whereNull('deleted_at')
-            ->pluck('id', 'emp_id');
+            ->get(['id', 'emp_id', 'approval_status'])->keyBy('emp_id');
 
         $rows = [];
         $serial = 0;
@@ -356,7 +365,10 @@ class PayrollRunController extends AccountBaseController
             [$ctc, $basicPct] = \App\Services\Payroll\SalaryRevisions::payFor((int) $employee->id, $cycle, (float) $employee->employee_ctc,
                 $employee->basic_for_payroll !== null ? (float) $employee->basic_for_payroll : null);
             $count = $days->forRange((int) $employee->id, $cycle->start, $cycle->end);
-            $pay = $calculator->forEmployee($ctc, $basicPct, $count['working_days'], $count['days_present'], (float) ($employee->monthly_tds ?? 0));
+            // The employee's own settings for this period (Payroll Run), over the company's.
+            $own = \App\Services\Payroll\PayrollSwitches::own((int) $employee->id, $cycle->start->toDateString());
+            $prorate = $own['prorate_statutory'] ?? null;
+            $pay = $calculator->forEmployee($ctc, $basicPct, $count['working_days'], $count['days_present'], (float) ($employee->monthly_tds ?? 0), $prorate, \App\Services\Payroll\Statutory::flags((int) $employee->id));
 
             // Overtime as the settings work it out; with the OT bank, the LOP
             // days it covers this period are paid days (as on the payslip).
@@ -368,7 +380,7 @@ class PayrollRunController extends AccountBaseController
 
                 if ($otBank['comp_days'] > 0) {
                     $count['days_present'] += min($otBank['comp_days'], $otBank['lop_days']);
-                    $pay = $calculator->forEmployee($ctc, $basicPct, $count['working_days'], $count['days_present'], (float) ($employee->monthly_tds ?? 0));
+                    $pay = $calculator->forEmployee($ctc, $basicPct, $count['working_days'], $count['days_present'], (float) ($employee->monthly_tds ?? 0), $prorate, \App\Services\Payroll\Statutory::flags((int) $employee->id));
                 }
             }
 
@@ -382,7 +394,8 @@ class PayrollRunController extends AccountBaseController
                 $blockers[] = 'no employee code';
             }
 
-            $slipId = $existing[$employee->employee_card_id] ?? null;
+            $slipId = $existing[$employee->employee_card_id]->id ?? null;
+            $slipStatus = $existing[$employee->employee_card_id]->approval_status ?? null;
 
             // Overtime, bonus, arrears, an advance being recovered.
             $extra = $components->forPeriod((int) $employee->id, $cycle->start);
@@ -406,8 +419,13 @@ class PayrollRunController extends AccountBaseController
                 'card_id' => $employee->employee_card_id,
                 'designation' => $employee->designation,
                 'department' => $employee->department,
+                'branch' => $employee->branch,
+                'own' => $own,
+                'statutory' => \App\Services\Payroll\Statutory::label((int) $employee->id),
+                'paid_by' => \App\Services\Payroll\Statutory::paidBy((int) $employee->id),
                 'breakdown' => $count['breakdown'],
                 'payslip_id' => $slipId,
+                'payslip_status' => $slipStatus,
                 'blockers' => $blockers,
                 'status' => $slipId ? 'generated' : ($blockers === [] ? 'pending' : 'blocked'),
             ] + $pay;
@@ -513,6 +531,237 @@ class PayrollRunController extends AccountBaseController
     }
 
     /** Month and year from the request, defaulting to this month. */
+    /** LOP days HR decides for the period: the sheet to fill in (every active employee, with what is set). */
+    public function lopSheetExport(Request $request)
+    {
+        [$month, $year] = $this->period($request);
+        $cycle = PayPeriod::forMonth($month, $year);
+        $book = (new \App\Services\Payroll\LopDays())->sheet($cycle);
+
+        return response()->streamDownload(fn () => (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($book))->save('php://output'),
+            'LOP days - ' . $cycle->label . '.xlsx', ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']);
+    }
+
+    /** Upload the filled LOP sheet: the period is then paid as its days less these (AttendanceDays). */
+    public function lopUpload(Request $request)
+    {
+        $request->validate(['file' => 'required|file|mimes:xlsx,xls,csv|max:10240']);
+        [$month, $year] = $this->period($request);
+        $cycle = PayPeriod::forMonth($month, $year);
+
+        try {
+            $r = (new \App\Services\Payroll\LopDays())->upload($request->file('file')->getRealPath(), $cycle, user()->id);
+        } catch (\Throwable $e) {
+            return Reply::error($e->getMessage());
+        }
+
+        $message = sprintf('%s: LOP days set for %d employee(s)%s.', $cycle->describe(), $r['saved'],
+            $r['cleared'] ? ", {$r['cleared']} back to attendance" : '');
+        $message .= $r['unknown'] ? ' Not found: ' . implode(', ', array_slice($r['unknown'], 0, 10)) . (count($r['unknown']) > 10 ? '...' : '') . '.' : '';
+        $message .= $r['invalid'] ? ' Not a number of days: ' . implode(', ', array_slice($r['invalid'], 0, 10)) . '.' : '';
+
+        return Reply::success($message);
+    }
+
+    /**
+     * Top of the screen: a calculation switch for the whole company (Payroll Settings ->
+     * Deduct late comings / Reduce PF / ESI for unpaid days). The screen reloads with it.
+     */
+    public function saveSwitch(Request $request)
+    {
+        abort_403(!$this->canChangeSettings());
+        $request->validate(['switch' => 'required|in:' . implode(',', \App\Services\Payroll\PayrollSwitches::KEYS)]);
+        $on = $request->boolean('on');
+
+        if ($request->switch === 'deduct_late_comings') {
+            \App\Services\Payroll\AttendanceGate::setOption(company()?->id, 'deduct_late_comings', $on);
+        } else {
+            $id = DB::table('payroll_calculations')->orderByDesc('id')->value('id');
+            $id && DB::table('payroll_calculations')->where('id', $id)->update(['prorate_statutory' => $on]);
+        }
+
+        return Reply::success(sprintf('%s %s for everyone (employees with their own setting keep it).',
+            self::SWITCH_LABELS[$request->switch], $on ? 'on' : 'off'));
+    }
+
+    /**
+     * One row: the employee's own setting for this period (on / off / back to the company's),
+     * then the row worked out again and sent back to replace the one on screen.
+     */
+    public function rowSwitch(Request $request)
+    {
+        $request->validate([
+            'user_id' => 'required|integer',
+            'switch' => 'required|in:' . implode(',', \App\Services\Payroll\PayrollSwitches::KEYS),
+            'value' => 'required|in:on,off,company',
+            'month' => 'required|integer|min:1|max:12',
+            'year' => 'required|integer|min:2000|max:2100',
+        ]);
+        $cycle = PayPeriod::forMonth((int) $request->month, (int) $request->year);
+        $userId = (int) $request->user_id;
+
+        $card = DB::table('employee_details')->where('user_id', $userId)->value('employee_card_id');
+        $slip = $card ? DB::table('payslips')->where('emp_id', (string) $card)->where('period', $cycle->label)
+            ->where('status', 'active')->whereNull('deleted_at')->first(['id', 'approval_status']) : null;
+
+        // Approved or paid: it stands; a draft is made again below with the new setting.
+        if ($slip && $slip->approval_status !== 'draft') {
+            return Reply::error("This employee's payslip for " . $cycle->describe() . ' is ' . $slip->approval_status
+                . '. Revoke it (Issued Payslips) to change how it is worked out.');
+        }
+        if ($slip && !\App\Services\Access\PayrollAccess::can('revoke')) {
+            return Reply::error('Changing this re-makes the draft payslip, which needs the permission to revoke payslips.');
+        }
+
+        $value = ['on' => true, 'off' => false, 'company' => null][$request->value];
+
+        try {
+            DB::transaction(function () use ($userId, $cycle, $request, $value, $slip) {
+                \App\Services\Payroll\PayrollSwitches::setOwn($userId, $cycle, $request->switch, $value, user()->id, company()?->id);
+
+                if ($slip) {
+                    $this->remakeDraft((int) $slip->id, $userId, $cycle, self::SWITCH_LABELS[$request->switch] . ' changed on Payroll Run');
+                }
+            });
+        } catch (\RuntimeException $e) {
+            \App\Services\Payroll\PayrollSwitches::forget();
+
+            return Reply::error($e->getMessage());
+        }
+
+        $row = collect($this->rows($cycle->month, $cycle->year, [$userId]))->first();
+
+        if (!$row) {
+            return Reply::error('Employee not found.');
+        }
+
+        $row['serial'] = (int) $request->serial ?: $row['serial'];
+
+        return Reply::dataOnly([
+            'status' => 'success',
+            'html' => $this->rowHtml($row, $cycle->month, $cycle->year),
+            'figures' => self::figures($row),
+        ]);
+    }
+
+    /**
+     * A draft payslip made again: revoked as Issued Payslips -> Revoke does it (its pay lines, leave encashment and OT
+     * bank released), then issued afresh with the settings now in force. Throws (and the caller rolls back) when the
+     * new one cannot be issued, so the employee is never left without the draft they had.
+     */
+    protected function remakeDraft(int $payslipId, int $userId, PayPeriod $cycle, string $reason): void
+    {
+        DB::table('payslips')->where('id', $payslipId)->update([
+            'status' => 'revoked', 'revoke_reason' => $reason, 'revoked_at' => now(), 'revoked_by' => user()->id,
+        ]);
+        if (\Illuminate\Support\Facades\Schema::hasTable('leave_encashments')) {
+            DB::table('leave_encashments')->where('payslip_id', $payslipId)->where('status', 'paid')
+                ->update(['status' => 'pending', 'payslip_id' => null, 'paid_at' => null, 'updated_at' => now()]);
+        }
+        (new PayComponents())->releaseFromPayslip($payslipId);
+        (new \App\Services\Payroll\OtBank())->onRevoke($payslipId);
+
+        $result = app(PayslipWriter::class)->issue($userId, $cycle->month, $cycle->year, user()->id, true);
+
+        if (!$result['ok']) {
+            throw new \RuntimeException('The draft could not be made again: ' . $result['message']);
+        }
+    }
+
+    public const SWITCH_LABELS = [
+        'deduct_late_comings' => 'Deduct late comings',
+        'prorate_statutory' => 'Reduce PF / ESI for unpaid days',
+    ];
+
+    /** @return array<string, bool> */
+    protected function companySwitches(): array
+    {
+        return collect(\App\Services\Payroll\PayrollSwitches::KEYS)
+            ->mapWithKeys(fn ($k) => [$k => \App\Services\Payroll\PayrollSwitches::company($k, company()?->id)])->all();
+    }
+
+    protected function canChangeSettings(): bool
+    {
+        return user()->permission('manage_company_setting') === 'all' || \App\Services\Access\PayrollAccess::can('settings');
+    }
+
+    /** The figures the footer and the tiles add up, for a row swapped in place. */
+    public static function figures(array $row): array
+    {
+        return collect(['gross', 'pf_full', 'pf', 'esi', 'esi_full', 'pt', 'tds', 'net', 'lop_days', 'after_lop',
+            'extra_earnings', 'extra_deductions', 'final_net'])->mapWithKeys(fn ($k) => [$k => round((float) ($row[$k] ?? 0), 2)])->all();
+    }
+
+    protected function rowHtml(array $row, int $month, int $year): string
+    {
+        $cycle = PayPeriod::forMonth($month, $year);
+
+        return preg_replace('/\s+/', ' ', view('payroll-run.row', [
+            'row' => $row, 'month' => $month, 'year' => $year, 'cycle' => $cycle,
+            'isCurrentMonth' => $cycle->end->gte(now()->startOfDay()), 'switches' => $this->companySwitches(),
+        ])->render());
+    }
+
+    /**
+     * Who has what this period, for the counts above the table: each a list of employees on click.
+     *
+     * @return array<string, array{label: string, hint: string, people: array<int, array>}>
+     */
+    protected function counts(array $rows): array
+    {
+        $money = fn ($v) => '₹' . number_format((float) $v, 2);
+        $days = fn ($v) => rtrim(rtrim(number_format((float) $v, 2), '0'), '.') . ' day(s)';
+        $isOt = fn ($e) => $e->kind === 'earning' && preg_match('/\bOT\b|overtime/i', (string) $e->label);
+        $labels = fn (array $r, string $kind) => implode(', ', array_map(fn ($e) => $e->label, array_filter($r['extras'], fn ($e) => $e->kind === $kind)));
+        $person = fn ($r, $value) => ['user_id' => $r['user_id'], 'name' => $r['name'], 'code' => $r['card_id'] ?: $r['employee_id'],
+            'branch' => $r['branch'], 'value' => $value];
+
+        $out = [
+            'ot' => ['label' => 'OT adjusted', 'hint' => 'Overtime paid as a line, or OT bank hours covering LOP / encashed', 'people' => []],
+            'earnings' => ['label' => 'Earnings', 'hint' => 'Extra earnings on the run (pay elements: OT, add-ons, bonus, arrears)', 'people' => []],
+            'deductions' => ['label' => 'Deductions', 'hint' => 'Extra deductions on the run (advances, recoveries)', 'people' => []],
+            'lop' => ['label' => 'LOP adjusted', 'hint' => 'LOP days set by HR (Upload LOP days) instead of attendance, more than 0', 'people' => []],
+            'tds' => ['label' => 'TDS deducted', 'hint' => 'Income tax deducted this month', 'people' => []],
+            'exempt' => ['label' => 'PF/ESI/PT exempt', 'hint' => 'Employees with PF, ESI or PT not applicable (employee record), and who are paid in cash', 'people' => []],
+            'own' => ['label' => 'Own settings', 'hint' => 'Employees with their own late / PF-ESI setting this period', 'people' => []],
+        ];
+
+        foreach ($rows as $r) {
+            $otAmount = array_sum(array_map(fn ($e) => (float) $e->amount, array_filter($r['extras'], $isOt)));
+            $bank = $r['ot_bank'] ?? null;
+            $banked = $bank && ($bank['comp_days'] > 0 || $bank['enc_hours'] > 0);
+
+            if ($otAmount > 0 || $banked) {
+                $out['ot']['people'][] = $person($r, implode(' · ', array_filter([
+                    $otAmount > 0 ? $money($otAmount) : null,
+                    $bank && $bank['comp_days'] > 0 ? 'covers ' . $days($bank['comp_days']) . ' LOP' : null,
+                    $bank && $bank['enc_hours'] > 0 ? 'encash ' . $bank['enc_hours'] . 'h' : null,
+                ])));
+            }
+            if (($r['extra_earnings'] ?? 0) > 0) {
+                $out['earnings']['people'][] = $person($r, '+' . $money($r['extra_earnings']) . ' · ' . $labels($r, 'earning'));
+            }
+            if (($r['extra_deductions'] ?? 0) > 0) {
+                $out['deductions']['people'][] = $person($r, '−' . $money($r['extra_deductions']) . ' · ' . $labels($r, 'deduction'));
+            }
+            if (($r['breakdown']['hr_lop_days'] ?? 0) > 0) {
+                $out['lop']['people'][] = $person($r, $days($r['breakdown']['hr_lop_days']) . ' LOP · ' . $money($r['after_lop']));
+            }
+            if (($r['tds'] ?? 0) > 0) {
+                $out['tds']['people'][] = $person($r, $money($r['tds']));
+            }
+            if (($r['statutory'] ?? '') !== '' || ($r['paid_by'] ?? 'bank') === 'cash') {
+                $out['exempt']['people'][] = $person($r, trim(($r['statutory'] ?? '') . (($r['paid_by'] ?? '') === 'cash' ? ' · paid in cash' : ''), ' ·'));
+            }
+            if ($r['own'] !== []) {
+                $out['own']['people'][] = $person($r, implode(' · ', array_map(
+                    fn ($k, $v) => self::SWITCH_LABELS[$k] . ': ' . ($v ? 'on' : 'off'), array_keys($r['own']), $r['own'])));
+            }
+        }
+
+        return $out;
+    }
+
     protected function period(Request $request): array
     {
         $month = (int) ($request->month ?: now()->month);

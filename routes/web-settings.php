@@ -258,6 +258,7 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account/settings'], function 
     Route::get('payslip-template/preview/{template}', [PayslipTemplateController::class, 'preview'])->name('payslip-template.preview');
     Route::post('payslip-template', [PayslipTemplateController::class, 'update'])->name('payslip-template.update');
     Route::post('payslip-settings/attendance-source', [\App\Http\Controllers\PayslipSettingController::class, 'saveAttendanceSource'])->name('payslip-settings.attendance-source');
+    Route::post('payslip-settings/calculation-switch', [\App\Http\Controllers\PayslipSettingController::class, 'saveCalculationSwitch'])->name('payslip-settings.calculation-switch');
 
     // Notice Period Settings (embeds the legacy Notice_period_settings.php page)
     Route::get('notice-period-settings', [LegacyController::class, 'noticePeriodSettings'])->name('notice-period-settings.index');

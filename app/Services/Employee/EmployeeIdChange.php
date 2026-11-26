@@ -54,6 +54,23 @@ class EmployeeIdChange
 
         $device = trim((string) DB::table('employee_details')->where('user_id', $userId)->value('iapp_emp_code'));
 
+        // The device already knows the new ID (re-enrolled under it) and nobody holds that code: the link
+        // moves to it, so their punches under the new ID count.
+        $newCode = \App\Models\IappEmployee::withoutGlobalScopes()->where('emp_code', $new)->first();
+
+        if ($newCode && !$newCode->user_id && $newCode->map_status !== \App\Models\IappEmployee::STATUS_IGNORED) {
+            $sync = new \App\Services\Iapp\Sync\EmployeeSync(new \App\Services\Iapp\IappConfig());
+
+            if ($device !== '' && ($oldLink = \App\Models\IappEmployee::withoutGlobalScopes()->where('emp_code', $device)->where('user_id', $userId)->first())) {
+                $sync->unlinkFromEmployee($oldLink, auth()->id());
+            }
+
+            DB::table('employee_details')->where('user_id', $userId)->update(['iapp_emp_code' => null]);
+            $sync->linkToEmployee($newCode, $userId, \App\Models\IappEmployee::METHOD_AUTO, 'employee_id', auth()->id());
+
+            return;
+        }
+
         if ($device !== '') {
             DB::table('iapp_employees')->where('emp_code', $device)->where('user_id', $userId)
                 ->update(['matched_on' => 'id_changed', 'updated_at' => now()]);

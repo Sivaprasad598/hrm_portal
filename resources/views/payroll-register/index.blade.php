@@ -218,6 +218,9 @@
                                 <td>{{ $row['serial'] }}</td>
                                 <td>
                                     {{ $row['emp_name'] }}
+                                    @if (($row['salary_paid_by'] ?? 'bank') === 'cash')
+                                        <span class="badge badge-light border f-10 ml-1" title="Salary paid in cash (by hand), not by bank transfer">Cash</span>
+                                    @endif
                                     <span class="f-11 text-lightest d-block">
                                         {{ $row['emp_id'] }}{{ $row['department'] ? ' · ' . $row['department'] : '' }}
                                     </span>

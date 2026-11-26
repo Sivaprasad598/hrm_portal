@@ -233,7 +233,8 @@ class PayrollImport
                 : ['working_days' => $cycle->days(), 'days_present' => (float) $cycle->days(), 'basis' => 'full month'];
 
             $out[(int) $id] = [
-                'pay' => $this->calculator->forEmployee((float) $ctc, $basicPct, (int) $count['working_days'], (float) $count['days_present'], (float) $tds),
+                'pay' => $this->calculator->forEmployee((float) $ctc, $basicPct, (int) $count['working_days'], (float) $count['days_present'], (float) $tds,
+                    PayrollSwitches::ownValue('prorate_statutory', (int) $id, $cycle->start->toDateString()), Statutory::flags((int) $id)),
                 'count' => $count,
                 'ctc' => (float) $ctc,
             ];

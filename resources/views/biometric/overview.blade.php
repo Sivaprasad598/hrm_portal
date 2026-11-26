@@ -278,6 +278,19 @@
                             </div>
                         @endif
 
+                        @if (($unwrittenDays ?? 0) > 0)
+                            @php $attention++; @endphp
+                            <div class="d-flex mb-3">
+                                <i class="fa fa-calendar-times text-danger mt-1 mr-2"></i>
+                                <div class="f-13">{{ number_format($unwrittenDays) }} employee-day(s) since {{ \Carbon\Carbon::parse($unwrittenFrom)->format('d M') }} have punches
+                                    but were never written into attendance, so payroll does not see them.
+                                    @if ($access['fetch'] ?? false)
+                                        <a href="{{ route('biometric.calendar') }}" class="f-12 d-block">Write them: Fetch Attendance over those dates →</a>
+                                    @endif
+                                </div>
+                            </div>
+                        @endif
+
                         @if ($unmapped->isNotEmpty() && ($access['mapping'] || $access['system']))
                             @php $attention++; @endphp
                             <div class="d-flex mb-3">

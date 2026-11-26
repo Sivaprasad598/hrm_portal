@@ -81,14 +81,79 @@ class ExecutiveOverview
             'probation' => $probation, 'divisions' => $divisions, 'trend' => $trend];
     }
 
+    /** Office hours on the dashboard: the hour slots counted, [from, to] in company time. */
+    public const OFFICE_SLOTS = [['09:00', '10:00'], ['10:00', '11:00'], ['11:00', '12:00'], ['12:00', '13:00'], ['13:00', '14:00']];
+
+    /**
+     * Who was in office in each hour slot today, by branch: clocked in before the slot ended and not
+     * clocked out before it began (still clocked in counts). A slot not started yet has no count (null).
+     *
+     * @return array{slots: array<int, array{label: string, started: bool, total: ?int}>, branches: array<int, array{name: string, counts: array<int, ?int>}>}
+     */
+    public function officeHours(): array
+    {
+        $ids = $this->people();
+        $tz = $this->today->timezone;
+        $now = now($tz);
+        $day = $this->today->toDateString();
+
+        $rows = DB::table('attendances as a')->join('employee_details as e', 'e.user_id', '=', 'a.user_id')
+            ->leftJoin('branches as b', 'b.id', '=', 'e.branch_id')
+            ->whereIn('a.user_id', $ids)
+            ->whereBetween('a.clock_in_time', [$this->today->copy()->utc(), $this->today->copy()->endOfDay()->utc()])
+            ->where(fn ($q) => $q->whereNull('a.leave_code')->orWhere('a.leave_code', ''))
+            ->get(['a.user_id', 'a.clock_in_time', 'a.clock_out_time', DB::raw("COALESCE(b.branch_name, 'No branch') as branch")]);
+
+        $slots = [];
+        $byBranch = [];
+
+        foreach (self::OFFICE_SLOTS as $i => [$from, $to]) {
+            $start = Carbon::parse("$day $from", $tz);
+            $end = Carbon::parse("$day $to", $tz);
+            $started = $now->gte($start);
+            $in = [];
+
+            if ($started) {
+                foreach ($rows as $r) {
+                    $clockIn = Carbon::parse($r->clock_in_time, 'UTC');
+                    $clockOut = $r->clock_out_time ? Carbon::parse($r->clock_out_time, 'UTC') : null;
+
+                    if ($clockIn->lt($end) && ($clockOut === null || $clockOut->gt($start))) {
+                        $in[$r->branch][(int) $r->user_id] = true;
+                    }
+                }
+            }
+
+            $slots[$i] = ['label' => $start->format('g') . '–' . $end->format('g A'), 'started' => $started,
+                'total' => $started ? array_sum(array_map('count', $in)) : null];
+            foreach ($in as $branch => $users) {
+                $byBranch[$branch][$i] = count($users);
+            }
+        }
+
+        // every branch with people, even with nobody in yet (people with no branch only count in All)
+        $names = DB::table('employee_details as e')->leftJoin('branches as b', 'b.id', '=', 'e.branch_id')->whereIn('e.user_id', $ids)
+            ->selectRaw("COALESCE(b.branch_name, 'No branch') as name, count(*) as c")->groupBy('name')->orderByDesc('c')->pluck('c', 'name');
+        $branches = [];
+        foreach ($names as $name => $size) {
+            if ($name === 'No branch') {   // only in the All row
+                continue;
+            }
+            $branches[] = ['name' => $name, 'size' => (int) $size,
+                'counts' => array_map(fn ($i) => $slots[$i]['started'] ? ($byBranch[$name][$i] ?? 0) : null, array_keys($slots))];
+        }
+
+        return ['slots' => $slots, 'branches' => $branches];
+    }
+
     public function attendance(): array
     {
         $ids = $this->people();
         $day = $this->today->toDateString();
 
-        $present = DB::table('attendances')->whereIn('user_id', $ids)->whereDate('clock_in_time', $day)
+        $present = DB::table('attendances')->whereIn('user_id', $ids)->whereBetween('clock_in_time', [$day . ' 00:00:00', $day . ' 23:59:59'])
             ->where(fn ($q) => $q->whereNull('leave_code')->orWhere('leave_code', ''))->distinct()->count('user_id');
-        $late = DB::table('attendances')->whereIn('user_id', $ids)->whereDate('clock_in_time', $day)->where('late', 'yes')->distinct()->count('user_id');
+        $late = DB::table('attendances')->whereIn('user_id', $ids)->whereBetween('clock_in_time', [$day . ' 00:00:00', $day . ' 23:59:59'])->where('late', 'yes')->distinct()->count('user_id');
         $onLeave = DB::table('leaves')->whereIn('user_id', $ids)->where('leave_date', $day)->where('status', 'approved')->distinct()->count('user_id');
         $pendingLeaves = DB::table('leaves')->whereIn('user_id', $ids)->where('status', 'pending')->count();
         $holiday = DB::table('holidays')->where('company_id', $this->company)->whereDate('date', $day)->value('occassion');

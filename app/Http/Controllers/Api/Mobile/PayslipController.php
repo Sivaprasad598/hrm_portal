@@ -84,6 +84,14 @@ class PayslipController extends MobileController
             ['label' => 'Employer ESI', 'amount' => $money($p->employer_esi ?? $p->esi)],
         ];
 
+        // PF / ESI / PT that do not apply to this employee are left off, as on the printed payslip.
+        $applies = \App\Services\Payroll\Statutory::flags((int) $p->user_id);
+        $notApplicable = array_merge($applies['pf'] ? [] : ['Employee PF', 'Employer PF'],
+            $applies['esi'] ? [] : ['Employee ESI', 'Employer ESI'], $applies['pt'] ? [] : ['Professional Tax']);
+        $keep = fn (array $lines) => array_values(array_filter($lines, fn ($l) => !in_array($l['label'], $notApplicable, true)));
+        $deductions = $keep($deductions);
+        $employer = $keep($employer);
+
         $netPay = NetPay::takeHome($p, (float) $earningLines->sum('amount'), (float) $deductionLines->sum('amount'));
         $ot = json_decode((string) $p->ot_summary, true);
 

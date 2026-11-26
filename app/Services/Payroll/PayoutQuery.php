@@ -73,6 +73,8 @@ class PayoutQuery
                 'p.approval_status', 'p.paid_at', 'p.payment_reference', 'p.ot_summary',
                 'ed.pf_account_number', 'ed.esi_number', 'ed.personal_account_number', 'ed.ifsc_code',
                 't.team_name as department',
+                // bank transfer or cash (Employee -> Salary paid by)
+                \App\Support\SchemaCache::hasColumn('employee_details', 'salary_paid_by') ? 'ed.salary_paid_by' : DB::raw("'bank' as salary_paid_by"),
             ]);
 
         // Extra pay elements are their own lines on the slip, so they stay their

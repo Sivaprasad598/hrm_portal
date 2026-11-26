@@ -314,7 +314,8 @@ class AttendanceDays
 
         // Every Nth late in the period costs half a day (Attendance Settings ->
         // Half Day): lates one and two do not touch the day, the third does.
-        if ($rules && $basis === 'rules' && $breakdown['late_marks'] > 0) {
+        // (Payroll Settings -> "Deduct late comings", or the employee's own on Payroll Run: off, the lates are counted and shown but cost nothing)
+        if ($rules && $basis === 'rules' && $breakdown['late_marks'] > 0 && PayrollSwitches::applies('deduct_late_comings', $userId, $from->toDateString(), $employee?->company_id)) {
             // once per company per request (it was asked again for each late employee)
             $setting = $this->lateSettings[(int) $employee?->company_id] ??= DB::table('attendance_settings')
                 ->when($employee?->company_id, fn ($q) => $q->where('company_id', $employee->company_id))
@@ -326,6 +327,17 @@ class AttendanceDays
 
         foreach (['ot_weekday_hours', 'ot_weekend_hours', 'ot_holiday_hours'] as $k) {
             $breakdown[$k] = round($breakdown[$k], 2);
+        }
+
+        // LOP days HR set for this employee and period (Payroll Run -> Upload LOP days): the period is paid as its
+        // days less these, whatever attendance says. Exactly the period asked for - a payslip, Payroll Run, an import.
+        $hrLop = PayrollSwitches::hrLop($userId, $from->toDateString(), $to->toDateString());
+
+        if ($hrLop !== null) {
+            $breakdown['hr_lop_days'] = (float) $hrLop;
+            $daysPresent = max(0.0, $workingDays - (float) $hrLop);
+            $basis = 'hr_lop';
+            $ruleDays = true;
         }
 
         return ['working_days' => $workingDays, 'days_present' => $daysPresent, 'breakdown' => $breakdown, 'days' => $days,

@@ -92,7 +92,7 @@
     @endphp
     <div class="pd-head mt-1"><h5><i class="fa fa-user-friends mr-1"></i>Team today</h5><span class="text-dark-grey f-12">{{ $td['today']->format('l, d M') }}</span></div>
     <div class="row">
-        <div class="col-xl-5 mb-3">
+        <div class="col-xl-4 mb-3">
             <div class="pd-card h-100">
                 <div class="pd-head"><h5><i class="fa fa-inbox mr-1"></i>Waiting for you</h5>
                     <span class="f-12 {{ $waitingCount ? 'text-warning' : 'text-dark-grey' }}">{{ $waitingCount ? $waitingCount . ' to decide' : 'nothing waiting' }}</span></div>
@@ -141,7 +141,24 @@
                 <a href="{{ $td['team'] && Route::has('my-team.attendance') ? route('my-team.attendance') : route('attendances.index') }}" class="ex-more">{{ $td['team'] ? 'Team attendance' : 'Attendance register' }} →</a>
             </div>
         </div>
-        <div class="col-xl-4 col-md-6 mb-3">
+        {{-- Office hours: who was in each hour slot today, by branch --}}
+        <div class="col-xl-5 col-md-12 mb-3">
+            <div class="pd-card h-100">
+                <div class="pd-head"><h5><i class="fa fa-clock mr-1"></i>Office hours</h5><span class="text-dark-grey f-12">in office, by hour</span></div>
+                <div class="table-responsive">
+                    <table class="ex-hours">
+                        <thead><tr><th></th>@foreach ($officeHours['slots'] as $slot)<th>{{ $slot['label'] }}</th>@endforeach</tr></thead>
+                        <tbody>
+                            <tr class="is-total"><td>All</td>@foreach ($officeHours['slots'] as $slot)<td>{{ $slot['started'] ? $slot['total'] : '–' }}</td>@endforeach</tr>
+                            @foreach ($officeHours['branches'] as $b)
+                                <tr><td title="{{ $b['size'] }} people">{{ $b['name'] }}</td>@foreach ($b['counts'] as $c)<td class="{{ $c === 0 ? 'is-zero' : '' }}">{{ $c === null ? '–' : $c }}</td>@endforeach</tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-3">
             <div class="pd-card h-100">
                 <div class="pd-head"><h5><i class="fa fa-plane-departure mr-1"></i>On leave today</h5><span class="text-dark-grey f-12">{{ $td['onLeave']->count() }} {{ \Illuminate\Support\Str::plural('person', $td['onLeave']->count()) }}</span></div>
                 @forelse ($td['onLeave']->take(6) as $l)
@@ -158,7 +175,7 @@
                 @endif
             </div>
         </div>
-        <div class="col-xl-4 col-md-6 mb-3">
+        <div class="col-xl-3 col-md-6 mb-3">
             <div class="pd-card h-100">
                 <div class="pd-head"><h5><i class="fa fa-birthday-cake mr-1"></i>Birthdays</h5><span class="text-dark-grey f-12">next 7 days</span></div>
                 @forelse ($td['birthdays']->take(5) as $b)
@@ -172,7 +189,7 @@
                 @endforelse
             </div>
         </div>
-        <div class="col-xl-4 col-md-6 mb-3">
+        <div class="col-xl-3 col-md-6 mb-3">
             <div class="pd-card h-100">
                 <div class="pd-head"><h5><i class="fa fa-award mr-1"></i>Work anniversaries</h5><span class="text-dark-grey f-12">next 7 days</span></div>
                 @forelse ($td['anniversaries']->take(5) as $w)
@@ -186,7 +203,7 @@
                 @endforelse
             </div>
         </div>
-        <div class="col-xl-4 col-md-12 mb-3">
+        <div class="col-xl-3 col-md-6 mb-3">
             <div class="pd-card h-100">
                 <div class="pd-head"><h5><i class="fa fa-user-plus mr-1"></i>Joining soon</h5><span class="text-dark-grey f-12">next 30 days</span></div>
                 @forelse ($td['joinings'] as $j)
@@ -431,6 +448,12 @@
     .ex-when small { font-weight: 400; color: #98a2b3; font-size: 11px; }
     .ex-when.is-today { color: var(--epic-blue, #cb6b4f); }
     .ex-links { display: flex; flex-wrap: wrap; gap: 4px 16px; padding-top: 10px; border-top: 1px solid #f2f4f7; font-size: 12.5px; }
+    .ex-hours { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    .ex-hours th { font-weight: 500; color: #667085; font-size: 11.5px; text-align: center; padding: 4px 6px 8px; white-space: nowrap; }
+    .ex-hours td { text-align: center; padding: 7px 6px; border-top: 1px solid #f2f4f7; color: #101828; font-weight: 600; }
+    .ex-hours td:first-child, .ex-hours th:first-child { text-align: left; font-weight: 500; color: #344054; white-space: nowrap; }
+    .ex-hours tr.is-total td { background: #f9fafb; font-weight: 700; }
+    .ex-hours td.is-zero { color: #d0d5dd; font-weight: 400; }
     .ex-today { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; }
     .ex-today div { border-radius: 10px; padding: 10px 4px; text-align: center; font-size: 11.5px; color: #475467; border: 1px solid #eaecf0; }
     .ex-today b { display: block; font-size: 22px; color: #101828; line-height: 1.2; }

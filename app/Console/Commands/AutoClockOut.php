@@ -41,10 +41,8 @@ class AutoClockOut extends Command
             ->whereNull('attendances.clock_out_time')
             // grouped: an ungrouped orWhere let today's rows through whether or not
             // they were clocked out, and from any company
-            ->where(function ($q) {
-                $q->where(DB::raw('DATE(clock_in_time)'), now()->subDay()->format('Y-m-d'))
-                    ->orWhere(DB::raw('DATE(clock_in_time)'), now()->format('Y-m-d'));
-            })
+            // yesterday and today, as a range the clock-in index can use (DATE(...) read every row)
+            ->whereBetween('clock_in_time', [now()->subDay()->format('Y-m-d') . ' 00:00:00', now()->format('Y-m-d') . ' 23:59:59'])
             // one row per company, not one per open attendance (each repeated the whole run)
             ->distinct()
             ->get();

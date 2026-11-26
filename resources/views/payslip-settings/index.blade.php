@@ -111,6 +111,25 @@
                     <div class="tab-pane fade show active" id="branchesTabPane" role="tabpanel"
                          aria-labelledby="branches-tab">
 
+                        {{-- How the calculation treats lates and unpaid days --}}
+                        @foreach ([
+                            ['deduct_late_comings', 'Deduct late comings', $deductLateComings,
+                                'On: every set of late marks (Attendance Settings -> Half Day) costs half a day. Off: lates are counted and shown, but cost nothing.'],
+                            ['prorate_statutory', 'Reduce PF / ESI for unpaid days', $prorateStatutory,
+                                'On: with loss of pay, PF and ESI are taken for the days paid only, and the per-day rate comes from that net (as the calculation sheet). Off: PF and ESI in full.'],
+                        ] as [$key, $label, $on, $help])
+                            <div class="d-flex justify-content-between align-items-start border rounded p-3 mb-3 bg-white">
+                                <div class="pr-3">
+                                    <p class="f-14 font-weight-bold mb-1">{{ $label }}</p>
+                                    <p class="f-13 text-dark-grey mb-0">{{ $help }}</p>
+                                </div>
+                                <div class="custom-control custom-switch mt-1">
+                                    <input type="checkbox" class="custom-control-input calc-switch" id="{{ $key }}" data-switch="{{ $key }}" @checked($on)>
+                                    <label class="custom-control-label f-14" for="{{ $key }}">{{ $on ? 'On' : 'Off' }}</label>
+                                </div>
+                            </div>
+                        @endforeach
+
                         <div class="d-flex justify-content-end mb-3">
                             <x-forms.button-primary icon="plus" id="addNewBranch" class="mr-2">
                                 @lang('modules.payslipSettings.addNewBranch')
@@ -640,6 +659,15 @@
                 return '<div>' + $('<div>').text(p).html() + '</div>';
             }).join(''));
         }
+
+        $('.calc-switch').on('change', function () {
+            var on = this.checked;
+            $(this).next('label').text(on ? 'On' : 'Off');
+            $.easyAjax({
+                url: "{{ route('payslip-settings.calculation-switch') }}", type: 'POST', blockUI: true,
+                data: { _token: '{{ csrf_token() }}', switch: $(this).data('switch'), on: on ? 1 : 0 }
+            });
+        });
 
         $('#use_biometric_attendance').on('change', function () {
             var on = this.checked;

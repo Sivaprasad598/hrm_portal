@@ -15,6 +15,18 @@
         .payroll-table tfoot td { position: sticky; bottom: 0; z-index: 3; font-weight: 600; background: #f8f9fa; box-shadow: inset 0 1px 0 #dee2e6; }
         .payroll-table tfoot .col-sno, .payroll-table tfoot .col-name { z-index: 4; background: #f8f9fa; }
         .bootstrap-select .dropdown-menu { z-index: 1060; }
+        /* Each row's own switches: late deduction, PF / ESI for the days paid */
+        .pr-row-switches { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 4px; }
+        .pr-row-switch { display: inline-flex !important; align-items: center; gap: 5px; font-size: 11px !important; line-height: 1.3; color: #667085; margin: 0 !important; cursor: pointer; white-space: nowrap; font-weight: 400; }
+        .pr-row-switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+        .pr-row-knob { position: relative; width: 24px; height: 14px; border-radius: 7px; background: #d0d5dd; transition: background .15s; flex: none; }
+        .pr-row-knob::after { content: ''; position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; border-radius: 50%; background: #fff; transition: left .15s; }
+        .pr-row-switch input:checked + .pr-row-knob { background: #12b76a; }
+        .pr-row-switch input:checked + .pr-row-knob::after { left: 12px; }
+        .pr-row-switch.is-own { color: #b54708; font-weight: 600; }
+        .pr-row-switch.is-own .pr-row-knob { box-shadow: 0 0 0 2px #fdb022; }
+        .pr-row-switch.is-locked { cursor: not-allowed; opacity: .6; }
+        .pr-row-switch input:focus-visible + .pr-row-knob { outline: 2px solid #1d82f5; outline-offset: 1px; }
     </style>
 @endpush
 
@@ -31,7 +43,7 @@
     <div class="content-wrapper arw-dash">
 
         {{-- What is being costed (hidden until "Filters" at the top right) --}}
-        @include('sections.card-filter-toggle', ['card' => '#pr-filter-card', 'active' => !empty($selectedEmployees) || !empty($departmentId) || $includeUnpaid])
+        @include('sections.card-filter-toggle', ['card' => '#pr-filter-card', 'active' => !empty($selectedEmployees) || !empty($departmentId) || !empty($branchId) || $includeUnpaid])
         <div class="card bg-white border-0 b-shadow-4 mb-3" id="pr-filter-card">
             <div class="card-body p-3">
                 <form method="GET" action="{{ route('payroll-run.index') }}" id="payroll-filters">
@@ -46,7 +58,7 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div class="col-md-2 mb-2">
+                        <div class="col-md-1 mb-2">
                             <label class="f-12 text-dark-grey">@lang('app.year')</label>
                             <select name="year" class="form-control f-14">
                                 @foreach (range(now()->year - 3, now()->year) as $y)
@@ -54,8 +66,17 @@
                                 @endforeach
                             </select>
                         </div>
+                        <div class="col-md-2 mb-2">
+                            <label class="f-12 text-dark-grey">Branch</label>
+                            <select name="branch" id="branch-filter" class="form-control f-14">
+                                <option value="">All</option>
+                                @foreach ($branches as $id => $name)
+                                    <option value="{{ $id }}" @selected((string) $id === (string) $branchId)>{{ $name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
                         {{-- Division first: picking one narrows the Employee list to that division. --}}
-                        <div class="col-md-3 mb-2">
+                        <div class="col-md-2 mb-2">
                             <label class="f-12 text-dark-grey">Division</label>
                             <select name="department" id="division-filter" class="form-control f-14" data-live-search="true">
                                 <option value="">All</option>
@@ -158,6 +179,28 @@
             </div>
         @endif
 
+        {{-- How this run is worked out (the company's Payroll Settings switches; an employee can have their
+             own on their row) and who has what this period: each count opens the list of employees. --}}
+        <div class="card bg-white border-0 b-shadow-4 mb-3">
+            <div class="card-body p-3 d-flex flex-wrap align-items-center">
+                @foreach (\App\Http\Controllers\PayrollRunController::SWITCH_LABELS as $key => $label)
+                    <div class="custom-control custom-switch mr-4 mb-1" title="{{ $canSwitch ? 'For everyone, this and every month; employees with their own setting keep it' : 'Only those who can change Payroll Settings' }}">
+                        <input type="checkbox" class="custom-control-input pr-switch" id="pr-switch-{{ $key }}" data-switch="{{ $key }}"
+                               @checked($switches[$key]) @disabled(!$canSwitch)>
+                        <label class="custom-control-label f-13 text-dark-grey" for="pr-switch-{{ $key }}">{{ $label }}</label>
+                    </div>
+                @endforeach
+                <div class="ml-md-auto d-flex flex-wrap">
+                    @foreach ($counts as $key => $c)
+                        <a href="#" class="pr-count btn btn-sm btn-outline-secondary f-12 mr-2 mb-1 py-1 {{ $c['people'] === [] ? 'disabled' : '' }}"
+                           data-count="{{ $key }}" title="{{ $c['hint'] }}">
+                            {{ $c['label'] }} <span class="badge badge-{{ $c['people'] === [] ? 'light' : 'primary' }} ml-1">{{ count($c['people']) }}</span>
+                        </a>
+                    @endforeach
+                </div>
+            </div>
+        </div>
+
         {{-- What the month costs --}}
         <div class="row mb-3">
             @php
@@ -176,7 +219,7 @@
                     <div class="card bg-white border-0 b-shadow-4 h-100">
                         <div class="card-body p-3">
                             <p class="mb-1 f-12 text-lightest text-uppercase">{{ $label }}</p>
-                            <h4 class="mb-0 f-21 {{ $colour }}">{{ $value }}</h4>
+                            <h4 class="mb-0 f-21 {{ $colour }}" data-tile="{{ $label }}">{{ $value }}</h4>
                             <p class="mb-0 f-11 text-lightest">{{ $sub }}</p>
                         </div>
                     </div>
@@ -227,6 +270,17 @@
                 @endif
 
 
+                {{-- LOP days HR decides (the calculation sheet's LOP): download the sheet, fill LOP Days, upload --}}
+                <a href="{{ route('payroll-run.lop-sheet', ['month' => $month, 'year' => $year]) }}" class="btn btn-sm btn-outline-secondary mr-2 no-swap" download
+                   title="Every employee for this period, with the LOP days already set">
+                    <i class="fa fa-file-excel mr-1"></i> LOP sheet
+                </a>
+                <button type="button" class="btn btn-sm btn-outline-primary mr-2" id="upload-lop"
+                        title="Upload the filled LOP sheet: the period is paid as its days less these LOP days">
+                    <i class="fa fa-upload mr-1"></i> Upload LOP days
+                </button>
+                <input type="file" id="lop-file" accept=".xlsx,.xls,.csv" class="d-none">
+
                 <button type="button" class="btn btn-sm btn-primary" id="generate-all"
                         @if ($isCurrentMonth) title="Available from {{ $cycle->end->copy()->addDay()->format('d M') }}" @endif
                         @disabled($isCurrentMonth || $totals['payable'] - $totals['generated'] < 1)>
@@ -269,127 +323,7 @@
                         {{-- The rows' indentation was most of the page (2.4 MB for 345 people): sent with single spaces --}}
                         @php ob_start(); @endphp
                         @forelse ($rows as $row)
-                            <tr @class(['text-lightest' => $row['status'] === 'blocked'])>
-                                <td class="col-sno">{{ $row['serial'] }}</td>
-                                <td class="col-name">
-                                    <span class="font-weight-bold">{{ $row['name'] }}</span>
-                                    <br>
-                                    <span class="f-11 text-lightest">
-                                        {{ $row['card_id'] ?: 'no code' }}{{ $row['department'] ? ' · ' . $row['department'] : '' }}
-                                    </span>
-                                    {{-- Day by day, as this row counts it: worked, week offs, holidays, leave, LOP. --}}
-                                    <br>
-                                    <a href="{{ route('payroll.attendance', ['userId' => $row['user_id'], 'month' => $month, 'year' => $year]) }}"
-                                       class="openRightModal f-11" title="Attendance for this salary period, day by day">
-                                        <i class="fa fa-calendar-alt mr-1"></i>Attendance
-                                    </a>
-                                    @if (($row['basis'] ?? '') === 'exempt')
-                                        <br><span class="badge badge-light f-10" title="Salary not based on attendance: full salary, leave still counts">Attendance-exempt</span>
-                                    @elseif (($row['basis'] ?? '') === 'hours_off')
-                                        <br><span class="badge badge-light f-10" title="The division does not consider hours: any punch is a full day">Hours not considered</span>
-                                    @endif
-                                    @if (($row['breakdown']['late_marks'] ?? 0) || ($row['breakdown']['late_half_days'] ?? 0))
-                                        <br><span class="f-10 text-warning" title="Lates before the half-day mark (every Nth costs a deduction) / arrivals after the half-day mark (half day each)">
-                                            Late {{ $row['breakdown']['late_marks'] }}{{ $row['breakdown']['late_deduction'] > 0 ? ' → −' . $num($row['breakdown']['late_deduction']) . ' day' : '' }}{{ $row['breakdown']['late_half_days'] ? ' · after half-day mark ' . $row['breakdown']['late_half_days'] : '' }}
-                                        </span>
-                                    @endif
-                                    @if ($b = $row['ot_bank'] ?? null)
-                                        {{-- OT bank: brought forward, earned this period, LOP covered / encashed, carried forward. --}}
-                                        <br><span class="f-10 text-dark-grey" title="Brought forward + earned this period - used = carried forward">
-                                            OT balance {{ $num($b['bf']) }}h{{ $b['earned'] > 0 ? ' +' . $num($b['earned']) . 'h' : '' }}{{ $b['comp_days'] > 0 ? ' · covers ' . $num($b['comp_days']) . ' LOP' : '' }}{{ $b['enc_hours'] > 0 ? ' · encash ' . $num($b['enc_hours']) . 'h' : '' }} → {{ $num($b['cf']) }}h
-                                        </span>
-                                        @unless ($row['status'] === 'generated' || $b['issued'])
-                                            <a href="#" class="ot-bank f-10 ml-1" data-user="{{ $row['user_id'] }}"
-                                               data-name="{{ $row['name'] }}" data-bank="{{ json_encode($b) }}">Manage</a>
-                                        @endunless
-                                    @elseif (($row['ot']['hours'] ?? 0) > 0)
-                                        <br><span class="f-10 {{ $row['ot_on_run'] === null ? 'text-primary' : 'text-success' }}" title="{{ $row['ot']['note'] }}">
-                                            OT {{ $num($row['ot']['hours']) }}h = {{ number_format($row['ot']['amount'], 2) }}{{ $row['ot_on_run'] === null ? ' (not on the run yet)' : '' }}
-                                        </span>
-                                    @endif
-                                </td>
-                                <td class="text-right">{{ number_format($row['gross'], 2) }}</td>
-                                <td class="text-right">{{ number_format($row['basic'], 2) }}</td>
-                                <td class="text-right">{{ number_format($row['hra'], 2) }}</td>
-                                <td class="text-right">{{ number_format($row['ca'], 2) }}</td>
-                                <td class="text-right">{{ number_format($row['lta'] ?? 0, 2) }}</td>
-                                <td class="text-right">{{ number_format($row['cea'] ?? 0, 2) }}</td>
-                                <td class="text-right">{{ number_format($row['other'], 2) }}</td>
-                                <td class="text-right">{{ number_format($row['pf_full'], 2) }}</td>
-                                <td class="text-right">{{ number_format($row['pf'], 2) }}</td>
-                                <td class="text-right">{{ number_format($row['esi'], 2) }}</td>
-                                <td class="text-right">{{ number_format($row['esi_full'], 2) }}</td>
-                                <td class="text-right">{{ number_format($row['pt'], 2) }}</td>
-                                <td class="text-right">
-                                    {{-- A figure per employee, set by the accountant. --}}
-                                    @if ($row['status'] === 'generated')
-                                        {{ $row['tds'] > 0 ? number_format($row['tds'], 2) : '—' }}
-                                    @else
-                                        <a href="#" class="set-tds" data-user="{{ $row['user_id'] }}"
-                                           data-name="{{ $row['name'] }}" data-amount="{{ $row['tds'] }}"
-                                           title="Set this employee's monthly income tax">
-                                            {{ $row['tds'] > 0 ? number_format($row['tds'], 2) : 'set' }}
-                                        </a>
-                                    @endif
-                                </td>
-                                <td class="text-right">{{ number_format($row['net'], 2) }}</td>
-                                <td class="text-center">{{ $num($row['lop_days']) }}</td>
-                                {{-- While the period is running only the days so far are counted. --}}
-                                <td class="text-center">
-                                    {{ $row['working_days'] }}
-                                    @if ($row['working_days'] < $cycle->days())
-                                        <div class="f-10 text-lightest text-nowrap" title="The period has {{ $cycle->days() }} days; the rest are counted as they happen">of {{ $cycle->days() }} so far</div>
-                                    @endif
-                                </td>
-                                <td class="text-center">{{ $num($row['days_present']) }}</td>
-                                <td class="text-right">{{ number_format($row['per_day'], 2) }}</td>
-                                <td class="text-right {{ $row['after_lop'] > 0 ? 'text-red' : '' }}">
-                                    {{ number_format($row['after_lop'], 2) }}
-                                </td>
-                                <td class="text-right">
-                                    {{-- Overtime, a bonus, arrears, an advance being recovered. --}}
-                                    @forelse ($row['extras'] as $extra)
-                                        <div class="f-11 {{ $extra->kind === 'earning' ? 'text-success' : 'text-red' }}"
-                                             title="{{ $extra->note }}">
-                                            {{ $extra->kind === 'earning' ? '+' : '−' }}{{ number_format($extra->amount, 2) }}
-                                            <span class="text-lightest">{{ \Illuminate\Support\Str::limit($extra->label, 18) }}</span>
-                                            @unless ($extra->payslip_id)
-                                                <a href="#" class="remove-extra text-lightest ml-1"
-                                                   data-id="{{ $extra->id }}" title="Remove">&times;</a>
-                                            @endunless
-                                        </div>
-                                    @empty
-                                        <span class="text-lightest">—</span>
-                                    @endforelse
-
-                                    {{-- Always offered. If the month's payslip is
-                                         already out the endpoint says so, rather
-                                         than the option quietly disappearing. --}}
-                                    <a href="#" class="add-extra f-11" data-user="{{ $row['user_id'] }}"
-                                       data-name="{{ $row['name'] }}"
-                                       data-issued="{{ $row['status'] === 'generated' ? 1 : 0 }}">+ add</a>
-                                </td>
-                                <td class="text-right font-weight-bold">{{ number_format($row['final_net'], 2) }}</td>
-                                <td>
-                                    @if ($row['status'] === 'generated')
-                                        <span class="badge badge-success" title="Payslip already issued for this month">Issued</span>
-                                        @if ($row['payslip_id'])
-                                            <a href="{{ route('payslips.generated.pdf', $row['payslip_id']) }}" target="_blank" class="f-11 ml-1" title="Open the payslip"><i class="fa fa-file-pdf mr-1"></i>PDF</a>
-                                        @endif
-                                    @elseif ($row['status'] === 'blocked')
-                                        <span class="badge badge-danger" title="{{ implode(', ', $row['blockers']) }}">
-                                            {{ implode(', ', $row['blockers']) }}
-                                        </span>
-                                    @else
-                                        <span class="badge badge-light border">To issue</span>
-                                        <button type="button" class="btn btn-xs btn-outline-primary f-11 py-0 px-2 ml-1 generate-one"
-                                                data-user="{{ $row['user_id'] }}" data-name="{{ $row['name'] }}"
-                                                @if ($isCurrentMonth) disabled title="Available from {{ $cycle->end->copy()->addDay()->format('d M') }}" @else title="Issue this employee's payslip only" @endif>
-                                            <i class="fa fa-bolt mr-1"></i>Generate
-                                        </button>
-                                    @endif
-                                </td>
-                            </tr>
+                            @include('payroll-run.row')
                         @empty
                             <tr>
                                 <td colspan="24" class="text-center text-lightest p-4">
@@ -404,24 +338,24 @@
                             <tr>
                                 <td class="col-sno"></td>
                                 <td class="col-name">Total — {{ $monthName }}</td>
-                                <td class="text-right">{{ number_format($totals['gross'], 2) }}</td>
+                                <td class="text-right" data-total="gross">{{ number_format($totals['gross'], 2) }}</td>
                                 <td colspan="6"></td>
-                                <td class="text-right">{{ number_format($totals['pf_full'], 2) }}</td>
-                                <td class="text-right">{{ number_format($totals['pf'], 2) }}</td>
-                                <td class="text-right">{{ number_format($totals['esi'], 2) }}</td>
-                                <td class="text-right">{{ number_format($totals['esi_full'], 2) }}</td>
-                                <td class="text-right">{{ number_format($totals['pt'], 2) }}</td>
-                                <td class="text-right">{{ number_format($totals['tds'], 2) }}</td>
-                                <td class="text-right">{{ number_format($totals['net'], 2) }}</td>
-                                <td class="text-center">{{ $num($totals['lop_days']) }}</td>
+                                <td class="text-right" data-total="pf_full">{{ number_format($totals['pf_full'], 2) }}</td>
+                                <td class="text-right" data-total="pf">{{ number_format($totals['pf'], 2) }}</td>
+                                <td class="text-right" data-total="esi">{{ number_format($totals['esi'], 2) }}</td>
+                                <td class="text-right" data-total="esi_full">{{ number_format($totals['esi_full'], 2) }}</td>
+                                <td class="text-right" data-total="pt">{{ number_format($totals['pt'], 2) }}</td>
+                                <td class="text-right" data-total="tds">{{ number_format($totals['tds'], 2) }}</td>
+                                <td class="text-right" data-total="net">{{ number_format($totals['net'], 2) }}</td>
+                                <td class="text-center" data-total="lop_days">{{ $num($totals['lop_days']) }}</td>
                                 <td colspan="3"></td>
-                                <td class="text-right">{{ number_format($totals['after_lop'], 2) }}</td>
+                                <td class="text-right" data-total="after_lop">{{ number_format($totals['after_lop'], 2) }}</td>
                                 <td class="text-right f-11">
                                     @if ($totals['extra_earnings'] > 0)<span class="text-success">+{{ number_format($totals['extra_earnings'], 2) }}</span>@endif
                                     @if ($totals['extra_deductions'] > 0)<span class="text-red d-block">−{{ number_format($totals['extra_deductions'], 2) }}</span>@endif
                                     @if ($totals['extra_earnings'] <= 0 && $totals['extra_deductions'] <= 0)—@endif
                                 </td>
-                                <td class="text-right">{{ number_format($totals['final_net'], 2) }}</td>
+                                <td class="text-right" data-total="final_net">{{ number_format($totals['final_net'], 2) }}</td>
                                 <td></td>
                             </tr>
                         </tfoot>
@@ -459,6 +393,24 @@
 </script>
 
 {{-- OT bank for one employee and this period (inside the content section: outside it, it was printed above <!doctype>) --}}
+<div class="modal fade" id="pr-count-modal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title f-16"><span id="pr-count-title"></span> <span class="badge badge-primary ml-1" id="pr-count-n"></span></h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            </div>
+            <div class="modal-body f-13 p-0">
+                <p class="f-12 text-lightest px-3 pt-3 mb-2" id="pr-count-hint"></p>
+                <table class="table table-sm table-hover mb-0">
+                    <thead><tr><th class="pl-3">#</th><th>Employee</th><th>Code</th><th>Branch</th><th>Detail</th></tr></thead>
+                    <tbody id="pr-count-list"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="modal fade" id="ot-bank-modal" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered" role="document">
         <div class="modal-content">
@@ -551,6 +503,107 @@
             var csrf = '{{ csrf_token() }}';
             var generateRoute = "{{ route('payroll-run.generate') }}";
             var month = {{ $month }}, year = {{ $year }};
+
+            // ---- calculation switches: the company's (top) and an employee's own (row) ----
+            $('.pr-switch').on('change', function () {
+                var box = $(this), on = box.is(':checked');
+                $.post("{{ route('payroll-run.switch') }}", { _token: csrf, 'switch': box.data('switch'), on: on ? 1 : 0 })
+                    .done(function (r) {
+                        Swal.fire({ icon: 'success', text: r.message, timer: 1800, showConfirmButton: false });
+                        PageSwap.reload();
+                    })
+                    .fail(function (x) {
+                        box.prop('checked', !on);
+                        Swal.fire({ icon: 'error', text: (x.responseJSON && x.responseJSON.message) || 'Could not save the setting.' });
+                    });
+            });
+
+            var totals = {!! json_encode(collect($totals)->only(['gross', 'pf_full', 'pf', 'esi', 'esi_full', 'pt', 'tds', 'net', 'lop_days', 'after_lop', 'extra_earnings', 'extra_deductions', 'final_net'])) !!};
+            var fmt = function (v) { return Number(v).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+            var shortFmt = function (v) { return v >= 100000 ? '₹' + (v / 100000).toFixed(2) + 'L' : '₹' + Math.round(v).toLocaleString('en-IN'); };
+
+            // A row's switch: the employee's own setting for this period (back to "as the company" when it matches
+            // the company's); the row comes back worked out again.
+            $(document).on('change', '.pr-row-toggle', function () {
+                var box = $(this), on = box.is(':checked'), userId = box.data('user');
+                var value = (on ? 1 : 0) === Number(box.data('company')) ? 'company' : (on ? 'on' : 'off');
+                box.prop('disabled', true);
+                $.post("{{ route('payroll-run.row-switch') }}", { _token: csrf, user_id: userId, 'switch': box.data('switch'), value: value,
+                    month: month, year: year, serial: box.closest('tr').data('serial') })
+                    .done(function (r) {
+                        if (r.status === 'success') { swapRow(userId, r); return; }
+                        box.prop('checked', !on).prop('disabled', false);
+                        Swal.fire({ icon: 'error', text: r.message });
+                    })
+                    .fail(function (x) {
+                        box.prop('checked', !on).prop('disabled', false);
+                        Swal.fire({ icon: 'error', text: (x.responseJSON && x.responseJSON.message) || 'Could not apply the setting.' });
+                    });
+            });
+
+            // The row worked out again replaces the old one; the totals and tiles move by the difference.
+            function swapRow(userId, r) {
+                if (r.status !== 'success') { Swal.fire({ icon: 'error', text: r.message }); return; }
+                var old = $('tr[data-row="' + userId + '"]'), before = old.data('fig') || {};
+                var fresh = $(r.html);
+                old.replaceWith(fresh);
+                Object.keys(totals).forEach(function (k) {
+                    totals[k] = (totals[k] || 0) + ((r.figures[k] || 0) - (before[k] || 0));
+                    var cell = $('[data-total="' + k + '"]');
+                    cell.text(k === 'lop_days' ? (Math.round(totals[k] * 100) / 100).toString() : fmt(totals[k]));
+                });
+                $('[data-tile="Gross"]').text(shortFmt(totals.gross));
+                $('[data-tile="Deductions"]').text(shortFmt(totals.pf + totals.esi + totals.pt + totals.tds));
+                $('[data-tile="Total payable"]').text(shortFmt(totals.final_net));
+                fresh.addClass('table-warning');
+                setTimeout(function () { fresh.removeClass('table-warning'); }, 1500);
+            }
+
+            // ---- counts: the employees behind each ----
+            var counts = @json($counts);
+            $('.pr-count').on('click', function (event) {
+                event.preventDefault();
+                var c = counts[$(this).data('count')];
+                if (!c || !c.people.length) { return; }
+                $('#pr-count-title').text(c.label);
+                $('#pr-count-n').text(c.people.length);
+                $('#pr-count-hint').text(c.hint);
+                $('#pr-count-list').html(c.people.map(function (p, i) {
+                    var esc = function (t) { return $('<div>').text(t == null ? '' : t).html(); };
+                    return '<tr><td class="pl-3">' + (i + 1) + '</td><td><a href="#" class="pr-count-go" data-user="' + p.user_id + '">' + esc(p.name) + '</a></td>' +
+                        '<td>' + esc(p.code) + '</td><td>' + esc(p.branch || '—') + '</td><td>' + esc(p.value) + '</td></tr>';
+                }).join(''));
+                $('#pr-count-modal').modal('show');
+            });
+            // A name in the list: to that employee's row
+            $(document).on('click', '.pr-count-go', function (event) {
+                event.preventDefault();
+                var row = $('tr[data-row="' + $(this).data('user') + '"]');
+                $('#pr-count-modal').modal('hide');
+                if (row.length) {
+                    row[0].scrollIntoView({ block: 'center' });
+                    row.addClass('table-warning');
+                    setTimeout(function () { row.removeClass('table-warning'); }, 2000);
+                }
+            });
+
+            // Upload LOP days: the filled LOP sheet for this period
+            $('#upload-lop').on('click', function () { $('#lop-file').val('').trigger('click'); });
+            $('#lop-file').on('change', function () {
+                if (!this.files || !this.files.length) { return; }
+                var data = new FormData();
+                data.append('file', this.files[0]);
+                data.append('_token', csrf);
+                data.append('month', month);
+                data.append('year', year);
+                $.ajax({ url: "{{ route('payroll-run.lop-upload') }}", type: 'POST', data: data, processData: false, contentType: false,
+                    headers: { 'Accept': 'application/json' } })
+                    .done(function (r) {
+                        Swal.fire({ icon: r.status === 'success' ? 'success' : 'error', text: r.message })
+                            .then(function () { if (r.status === 'success') { PageSwap.reload(); } });
+                    })
+                    .fail(function (x) { Swal.fire({ icon: 'error', text: (x.responseJSON && x.responseJSON.message) || 'Could not read the file.' }); });
+            });
 
             // Only those who can actually be paid and are not paid already.
             var pending = @json(collect($rows)->where('status', 'pending')->pluck('user_id')->values());
@@ -751,7 +804,7 @@
                     buttonSelector: '#calculate-ot',
                     data: {
                         _token: '{{ csrf_token() }}', month: {{ $month }}, year: {{ $year }},
-                        department: @json($departmentId), employees: @json(array_values($selectedEmployees))
+                        department: @json($departmentId), branch: @json($branchId), employees: @json(array_values($selectedEmployees))
                     },
                     success: function (response) {
                         if (response.status === 'success') { window.location.reload(); }

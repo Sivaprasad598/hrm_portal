@@ -480,8 +480,6 @@ if ($dbConn) {
                 ['Lop', (float) $row['lop']],
             ];
 
-            $deductions = array_merge($deductions, $extraDeductions);
-
             $employer = [
                 // The employer's share is its own figure: its ESI is larger than
                 // the employee's. Slips issued before that was recorded fall back
@@ -489,6 +487,19 @@ if ($dbConn) {
                 ['Employer PF', (float) ($row['employer_pf'] ?? $row['pf'])],
                 ['Employer ESI', (float) ($row['employer_esi'] ?? $row['esi'])],
             ];
+
+            // PF / ESI / PT that do not apply to this employee (Employee -> Payroll: paid by hand,
+            // housekeeping) are not printed at all, rather than as a 0.00 line.
+            if (!empty($row['user_id']) && class_exists(\App\Services\Payroll\Statutory::class)) {
+                $applies = \App\Services\Payroll\Statutory::flags((int) $row['user_id']);
+                $notApplicable = array_merge($applies['pf'] ? [] : ['Employee PF', 'Employer PF'],
+                    $applies['esi'] ? [] : ['Employee ESI', 'Employer ESI'], $applies['pt'] ? [] : ['Professional Tax']);
+                $keep = fn (array $lines) => array_values(array_filter($lines, fn ($l) => !in_array($l[0], $notApplicable, true) || (float) $l[1] != 0.0));
+                $deductions = $keep($deductions);
+                $employer = $keep($employer);
+            }
+
+            $deductions = array_merge($deductions, $extraDeductions);
 
             $attendance = [
                 'Working Days' => (string) $row['working_days'],

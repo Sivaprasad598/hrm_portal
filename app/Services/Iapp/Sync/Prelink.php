@@ -35,12 +35,13 @@ class Prelink
      *
      * @return array{link: array<int, array>, skip: array<int, array>}
      */
-    public function plan(): array
+    public function plan(?array $onlyUserIds = null): array
     {
         $companyId = $this->config->companyId();
 
         $employees = DB::table('users as u')->join('employee_details as ed', 'ed.user_id', '=', 'u.id')
             ->when($companyId, fn ($q) => $q->where('u.company_id', $companyId))
+            ->when($onlyUserIds !== null, fn ($q) => $q->whereIn('u.id', $onlyUserIds ?: [0]))
             ->where('u.status', 'active')
             ->whereNotIn('u.id', SystemAccounts::notCounted())
             ->get(['u.id', 'u.name', 'ed.employee_id', 'ed.iapp_emp_code']);
@@ -85,9 +86,9 @@ class Prelink
     }
 
     /** Link everyone the plan can link. @return array{linked:int, failed:array<int,string>, skipped:int} */
-    public function byEmployeeId(?int $actorId): array
+    public function byEmployeeId(?int $actorId, ?array $onlyUserIds = null): array
     {
-        $plan = $this->plan();
+        $plan = $this->plan($onlyUserIds);
         $result = ['linked' => 0, 'failed' => [], 'skipped' => count($plan['skip'])];
 
         foreach ($plan['link'] as $p) {

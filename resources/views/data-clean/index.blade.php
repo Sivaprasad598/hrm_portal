@@ -45,7 +45,9 @@
                     and the Super Admin, Employee and Client roles.
                 </div>
 
-                <form id="data-clean-form">
+                {{-- A div, not a form: the settings page already sits in a form, and a form inside a form is
+                     dropped by the browser (then ticking a group ticked nothing and the page said "Tick at least one table"). --}}
+                <div id="data-clean-form">
                     @csrf
                     @foreach ($groups as $key => [$label, $description])
                         @php $groupItems = $items[$key]; @endphp
@@ -99,7 +101,7 @@
                             </x-forms.button-primary>
                         </x-setting-form-actions>
                     </div>
-                </form>
+                </div>
             </div>
         </x-setting-card>
     </div>

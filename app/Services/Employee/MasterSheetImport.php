@@ -41,7 +41,8 @@ class MasterSheetImport
     public const HEADINGS = ['SI No', 'EMP ID', 'Employee Name', 'Department', 'Parent Department', 'Designation', 'DOJ',
         'Branch', 'Fathers name', 'Monthly', 'Yearly', 'Contact Number', 'Alternative Contact Number', 'MAIL-ID', 'Gender',
         'Blood Group', 'Date of Birth (As per Aadhar)', 'Present Address', 'Permanent Address (As per Aadhar)', 'Aadhar Number',
-        'PAN Card Number', 'Marital Status', 'Spouse Name', 'Total Experience (in Years)', 'Account No', 'IFSC Code', 'Branch'];
+        'PAN Card Number', 'Marital Status', 'Spouse Name', 'Total Experience (in Years)', 'Account No', 'IFSC Code', 'Branch',
+        'PF', 'ESI', 'PT', 'Salary Paid By'];
 
     /** Branch names in the sheet that are an existing branch under another name. */
     public const BRANCH_ALIASES = ['muralinagar' => 'visakhapatnam'];
@@ -176,6 +177,11 @@ class MasterSheetImport
                 str_starts_with($k, 'totalexperience') => 'experience',
                 $k === 'accountno' || $k === 'accountnumber' => 'account',
                 $k === 'ifsccode' || $k === 'ifsc' => 'ifsc',
+                // optional: PF / ESI / PT (Yes / No) and Salary Paid By (Bank / Cash)
+                in_array($k, ['pf', 'pfapplicable'], true) => 'pf_flag',
+                in_array($k, ['esi', 'esiapplicable'], true) => 'esi_flag',
+                in_array($k, ['pt', 'ptapplicable', 'professionaltax'], true) => 'pt_flag',
+                in_array($k, ['salarypaidby', 'paidby', 'paymentmode', 'salarymode'], true) => 'paid_by',
                 default => null,
             };
 
@@ -196,6 +202,19 @@ class MasterSheetImport
     protected function cell(Worksheet $sheet, array $columns, string $field, int $row): ?Cell
     {
         return isset($columns[$field]) ? $sheet->getCell([$columns[$field], $row]) : null;
+    }
+
+    /** Yes / No columns (PF, ESI, PT): 1, 0, or null when blank or not understood. */
+    protected function yesNo(string $value): ?int
+    {
+        $v = strtolower(trim($value));
+
+        return match (true) {
+            $v === '' => null,
+            in_array($v, ['yes', 'y', '1', 'applicable', 'applies', 'true'], true) => 1,
+            in_array($v, ['no', 'n', '0', 'na', 'n/a', 'not applicable', 'false', 'nil', '-'], true) => 0,
+            default => null,
+        };
     }
 
     protected function text(Worksheet $sheet, array $columns, string $field, int $row): string
@@ -355,6 +374,15 @@ class MasterSheetImport
             'experience' => $this->experience($this->text($sheet, $columns, 'experience', $r)),
             'account' => $account,
             'ifsc' => $ifsc ?: null,
+            'pf_applicable' => $this->yesNo($this->text($sheet, $columns, 'pf_flag', $r)),
+            'esi_applicable' => $this->yesNo($this->text($sheet, $columns, 'esi_flag', $r)),
+            'pt_applicable' => $this->yesNo($this->text($sheet, $columns, 'pt_flag', $r)),
+            'salary_paid_by' => match (true) {
+                str_contains(strtolower($this->text($sheet, $columns, 'paid_by', $r)), 'cash'),
+                str_contains(strtolower($this->text($sheet, $columns, 'paid_by', $r)), 'hand') => 'cash',
+                str_contains(strtolower($this->text($sheet, $columns, 'paid_by', $r)), 'bank') => 'bank',
+                default => null,
+            },
             'bank_branch' => $this->text($sheet, $columns, 'bank_branch', $r) ?: null,
             'issues' => $issues,
             'notes' => $notes,
@@ -641,7 +669,9 @@ class MasterSheetImport
             ->get(['u.id', 'u.name', 'u.email', 'u.mobile', 'u.gender', 'u.pan_number', 'u.employee_ctc', 'ed.employee_id',
                 'ed.joining_date', 'ed.date_of_birth', 'ed.father_or_husband_name', 'ed.address', 'ed.permanent_address',
                 'ed.aadhar_card_number', 'ed.blood_group', 'ed.marital_status', 'ed.total_experience', 'ed.personal_account_number',
-                'ed.ifsc_code', 'ed.bank_branch', 't.team_name as division', 'd.name as designation', 'b.branch_name as branch'])
+                'ed.ifsc_code', 'ed.bank_branch', 't.team_name as division', 'd.name as designation', 'b.branch_name as branch',
+                ...(\App\Support\SchemaCache::hasColumn('employee_details', 'pf_applicable')
+                    ? ['ed.pf_applicable', 'ed.esi_applicable', 'ed.pt_applicable', 'ed.salary_paid_by'] : [])])
             ->keyBy('id');
 
         $squash = fn ($v) => strtolower(preg_replace('/\s+/', ' ', trim((string) $v)));
@@ -686,6 +716,10 @@ class MasterSheetImport
                 ['Bank account', $e->personal_account_number, $rec['account'], $digits],
                 ['IFSC', $e->ifsc_code, $rec['ifsc'], $squash],
                 ['Bank branch', $e->bank_branch, $rec['bank_branch'], $squash],
+                ['PF applies', $e->pf_applicable ?? null, $rec['pf_applicable'], $squash],
+                ['ESI applies', $e->esi_applicable ?? null, $rec['esi_applicable'], $squash],
+                ['PT applies', $e->pt_applicable ?? null, $rec['pt_applicable'], $squash],
+                ['Salary paid by', $e->salary_paid_by ?? null, $rec['salary_paid_by'], $squash],
             ];
 
             $changes = [];
@@ -907,6 +941,15 @@ class MasterSheetImport
             }
         });
 
+        // The employees just written, linked to the biometric code equal to their Employee ID (when that
+        // code is free): a new employee, or one whose ID changed, is fetched from the devices at once.
+        try {
+            $linked = (new \App\Services\Iapp\Sync\Prelink())->byEmployeeId($actorId, array_values(array_unique($result['user_ids'] ?? [])));
+            $result['linked'] = ($result['linked'] ?? 0) + $linked['linked'];
+        } catch (\Throwable $e) {
+            report($e);   // the employees are saved either way; Biometric -> Employee Mapping can link them
+        }
+
         // Outside the transaction: one pass over leave quotas for the company,
         // instead of one per employee as the record's own hook would.
         \Illuminate\Support\Facades\Artisan::call('app:recalculate-leaves-quotas', ['company' => $companyId]);
@@ -954,7 +997,15 @@ class MasterSheetImport
             'personal_account_number' => $rec['account'],
             'ifsc_code' => $rec['ifsc'],
             'bank_branch' => $rec['bank_branch'],
+            // blank in the sheet: left as it is
+            'pf_applicable' => $rec['pf_applicable'] ?? null,
+            'esi_applicable' => $rec['esi_applicable'] ?? null,
+            'pt_applicable' => $rec['pt_applicable'] ?? null,
+            'salary_paid_by' => $rec['salary_paid_by'] ?? null,
         ], fn ($v) => $v !== null && $v !== '');
+        if (!\App\Support\SchemaCache::hasColumn('employee_details', 'pf_applicable')) {
+            unset($details['pf_applicable'], $details['esi_applicable'], $details['pt_applicable'], $details['salary_paid_by']);
+        }
 
         if ($rec['match']) {
             $userId = (int) $rec['match']['user_id'];

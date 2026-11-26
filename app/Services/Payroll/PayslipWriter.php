@@ -225,8 +225,10 @@ class PayslipWriter
         [$ctcForMonth, $basicPct] = SalaryRevisions::payFor($userId, $cycle, (float) $employee->employee_ctc,
             $employee->basic_for_payroll !== null ? (float) $employee->basic_for_payroll : null);
         $employee->employee_ctc = $ctcForMonth;
+        // The employee's own "Reduce PF / ESI for unpaid days" for this period (Payroll Run), if set.
+        $prorate = PayrollSwitches::ownValue('prorate_statutory', $userId, $cycle->start->toDateString());
         $pay = $this->calculator->forEmployee((float) $employee->employee_ctc, $basicPct,
-            $count['working_days'], $count['days_present'], (float) ($employee->monthly_tds ?? 0));
+            $count['working_days'], $count['days_present'], (float) ($employee->monthly_tds ?? 0), $prorate, Statutory::flags($userId));
 
         // OT bank: the LOP days it covers this period are paid days - decided in
         // the payroll run, or automatically if so set. The overtime itself is
@@ -244,7 +246,7 @@ class PayslipWriter
             if ($otBank['comp_days'] > 0) {
                 $count['days_present'] += min($otBank['comp_days'], $otBank['lop_days']);
                 $pay = $this->calculator->forEmployee((float) $employee->employee_ctc, $basicPct,
-                    $count['working_days'], $count['days_present'], (float) ($employee->monthly_tds ?? 0));
+                    $count['working_days'], $count['days_present'], (float) ($employee->monthly_tds ?? 0), $prorate, Statutory::flags($userId));
             }
         }
 

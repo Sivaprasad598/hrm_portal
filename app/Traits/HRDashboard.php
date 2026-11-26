@@ -48,7 +48,7 @@ trait HRDashboard
 
         $attandance = EmployeeDetails::whereNotIn('employee_details.user_id', \App\Services\Access\SystemAccounts::notCounted())->join('users', 'users.id', 'employee_details.user_id')
             ->join('attendances', 'attendances.user_id', 'users.id')
-            ->whereBetween(DB::raw('DATE(attendances.`clock_in_time`)'), [$startDate, $endDate])
+            ->whereBetween('attendances.clock_in_time', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])   // a range the index can use
             ->select(DB::raw('count(users.id) as employeeCount'), DB::raw('DATE(attendances.clock_in_time) as date'))
             ->groupBy('date')
             ->get();
@@ -96,7 +96,7 @@ trait HRDashboard
         $this->lateAttendanceMarks = User::whereNotIn('users.id', \App\Services\Access\SystemAccounts::notCounted())->with('employeeDetail', 'employeeDetail.designation')
             ->without(['role', 'clientDetails'])
             ->join('attendances', 'attendances.user_id', 'users.id')
-            ->whereBetween(DB::raw('DATE(attendances.`clock_in_time`)'), [$startDate, $endDate])
+            ->whereBetween('attendances.clock_in_time', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])   // a range the index can use
             ->where('late', 'yes')
             ->select(DB::raw('count(DISTINCT DATE(attendances.clock_in_time) ) as employeeLateCount'), 'users.*')
             ->groupBy('users.id')

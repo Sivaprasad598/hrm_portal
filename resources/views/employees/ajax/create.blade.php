@@ -499,6 +499,7 @@ $addDepartmentPermission = user()->permission('add_department');
                                 </div>
                             </div>
                         </div>
+                        @include('employees.ajax.partials.statutory', ['detail' => null])
                         <div class="col-lg-3 col-md-6 d-none internship-date">
                             <x-forms.datepicker fieldId="internship_end_date"
                                 :fieldLabel="__('modules.employees.internshipEndDate')"

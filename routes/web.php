@@ -934,10 +934,14 @@ Route::group(['middleware' => 'auth', 'prefix' => 'account'], function () {
     // What a month's payroll will cost, and issuing it in one run.
     Route::get('payroll-run', [App\Http\Controllers\PayrollRunController::class, 'index'])->name('payroll-run.index');
     Route::get('payroll-run/export', [App\Http\Controllers\PayrollRunController::class, 'export'])->name('payroll-run.export');
+    Route::get('payroll-run/lop-days/export', [App\Http\Controllers\PayrollRunController::class, 'lopSheetExport'])->name('payroll-run.lop-sheet');
+    Route::post('payroll-run/lop-days', [App\Http\Controllers\PayrollRunController::class, 'lopUpload'])->name('payroll-run.lop-upload');
     Route::post('payroll-run/generate', [App\Http\Controllers\PayrollRunController::class, 'generate'])->name('payroll-run.generate');
     Route::post('payroll-run/component', [App\Http\Controllers\PayrollRunController::class, 'addComponent'])->name('payroll-run.component.add');
     Route::post('payroll-run/component/remove', [App\Http\Controllers\PayrollRunController::class, 'removeComponent'])->name('payroll-run.component.remove');
     Route::post('payroll-run/tds', [App\Http\Controllers\PayrollRunController::class, 'setTds'])->name('payroll-run.tds');
+    Route::post('payroll-run/switch', [App\Http\Controllers\PayrollRunController::class, 'saveSwitch'])->name('payroll-run.switch');
+    Route::post('payroll-run/row-switch', [App\Http\Controllers\PayrollRunController::class, 'rowSwitch'])->name('payroll-run.row-switch');
     Route::post('payroll-run/overtime', [App\Http\Controllers\PayrollRunController::class, 'calculateOvertime'])->name('payroll-run.overtime');
     Route::post('payroll-run/ot-bank', [App\Http\Controllers\PayrollRunController::class, 'otBankDecide'])->name('payroll-run.ot-bank');
     Route::post('payroll-run/ot-bank/adjust', [App\Http\Controllers\PayrollRunController::class, 'otBankAdjust'])->name('payroll-run.ot-bank.adjust');

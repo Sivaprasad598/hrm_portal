@@ -361,6 +361,16 @@ class BiometricController extends AccountBaseController
             $status->today()
         );
         $this->unmapped = $status->unmappedEmployees();
+        // Days with punches that never reached attendance (the last 60 days, up to yesterday): 21 Aug - 19 Sep
+        // went unnoticed once. Fetch Attendance over those dates writes them.
+        $yesterday = $status->today()->copy()->subDay();
+        $this->unwrittenDays = $status->pendingPushDays($yesterday->copy()->subDays(60), $yesterday);
+        $this->unwrittenFrom = $this->unwrittenDays ? DB::table('iapp_attendance_records as r')
+            ->whereBetween('r.attendance_date', [$yesterday->copy()->subDays(60)->toDateString(), $yesterday->toDateString()])
+            ->whereNotNull('r.user_id')
+            ->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from('iapp_attendance_links as l')->whereColumn('l.user_id', 'r.user_id')
+                ->whereRaw('DATE(l.attendance_date) = DATE(r.attendance_date)')->where('l.link_type', 'created'))
+            ->min('r.attendance_date') : null;
         // The same count the Exceptions screen shows for the current cycle.
         $this->exceptionDays = (new AttendanceExceptions(
             $this->currentCycle->start->copy(),

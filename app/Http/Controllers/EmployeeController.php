@@ -468,9 +468,36 @@ class EmployeeController extends AccountBaseController
             return Reply::success(__('messages.updateSuccess'));
         case 'assign-reporting':
             return $this->assignReporting($request);
+        case 'set-statutory':
+            return $this->setStatutory($request);
         default:
             return Reply::error(__('messages.selectAction'));
         }
+    }
+
+    /** Employees list -> Set PF / ESI / PT, paid by: for the ticked employees; a blank choice leaves it as it is. */
+    private function setStatutory(Request $request)
+    {
+        abort_403(user()->permission('edit_employees') != 'all');
+        $ids = array_filter(array_map('intval', explode(',', (string) $request->row_ids)));
+        $values = [];
+
+        foreach (['pf', 'esi', 'pt'] as $k) {
+            if (in_array((string) $request->input('statutory_' . $k), ['0', '1'], true)) {
+                $values[$k . '_applicable'] = (int) $request->input('statutory_' . $k);
+            }
+        }
+        if (array_key_exists((string) $request->statutory_paid_by, \App\Services\Payroll\Statutory::PAID_BY)) {
+            $values['salary_paid_by'] = $request->statutory_paid_by;
+        }
+
+        if (!$ids || !$values) {
+            return Reply::error(!$ids ? 'Tick the employees first.' : 'Choose what to change.');
+        }
+
+        $n = \Illuminate\Support\Facades\DB::table('employee_details')->whereIn('user_id', $ids)->update($values + ['updated_at' => now()]);
+
+        return Reply::success("Updated for {$n} employee(s).");
     }
 
     private function deleteEmployee(User $user)
@@ -1742,6 +1769,17 @@ class EmployeeController extends AccountBaseController
         // Working Hours & OT: management paid in full, whatever the punches.
         if ($request->has('attendance_exempt') && \Illuminate\Support\Facades\Schema::hasColumn('employee_details', 'attendance_exempt')) {
             $employee->attendance_exempt = $request->boolean('attendance_exempt');
+        }
+        // PF / ESI / PT for this employee, and how the salary is paid (App\Services\Payroll\Statutory).
+        if (\App\Support\SchemaCache::hasColumn('employee_details', 'pf_applicable')) {
+            foreach (['pf_applicable', 'esi_applicable', 'pt_applicable'] as $column) {
+                if ($request->has($column)) {
+                    $employee->{$column} = $request->boolean($column);
+                }
+            }
+            if (array_key_exists((string) $request->salary_paid_by, \App\Services\Payroll\Statutory::PAID_BY)) {
+                $employee->salary_paid_by = $request->salary_paid_by;
+            }
         }
         $employee->internship_end_date = $request->internship_end_date ? companyToYmd($request->internship_end_date) : null;
         $employee->contract_end_date = $request->contract_end_date ? companyToYmd($request->contract_end_date) : null;

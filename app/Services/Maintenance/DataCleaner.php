@@ -68,10 +68,17 @@ class DataCleaner
             'resignations', 'resignation_replies', 'employee_exits', 'employee_exit_checklists', 'employee_exit_histories',
             'employee_exit_interviews', 'terminations', 'settlements',
         ]],
-        'payroll' => ['Payroll', 'Payslips and their lines, advances and loans, recurring pay rules and groups, salary revisions, tax declarations, OT bank, daily and past OT. Payroll settings, pay element types and tax slabs stay.', [
-            'payslips', 'payslip_components', 'payroll_arrangements', 'pay_element_rules', 'pay_element_rule_applications',
-            'pay_element_groups', 'pay_element_group_members', 'salary_revisions', 'salary_revision_logs', 'salary_revision_batches',
-            'tax_declarations', 'payslip_mock_calculation', 'ot_ledger', 'ot_daily', 'ot_past', 'payroll_imports',
+        // Payroll, OT hours and pay elements each on their own (one "payroll" group until 2026-11-26).
+        'payroll' => ['Payroll', 'Payslips, salary revisions, tax declarations, payroll imports, LOP days set by HR and employees\' own payroll settings per period. Payroll settings and tax slabs stay. OT hours and pay elements are below, on their own.', [
+            'payslips', 'salary_revisions', 'salary_revision_logs', 'salary_revision_batches',
+            'tax_declarations', 'payslip_mock_calculation', 'payroll_imports', 'payroll_lop_days', 'payroll_employee_switches',
+        ]],
+        'overtime' => ['OT hours', 'Daily overtime hours, past OT (imported) and the OT bank movements (LOP covered, encashed). OT settings stay.', [
+            'ot_daily', 'ot_past', 'ot_ledger',
+        ]],
+        'pay_elements' => ['Pay elements', 'Pay element lines on payslips (OT, add-ons, bonus, arrears, recoveries), advances and loans, recurring pay rules and groups - and, ticked on its own, the element types themselves (Overtime, Bonus, Salary Advance...).', [
+            'payslip_components', 'payroll_arrangements', 'pay_element_rules', 'pay_element_rule_applications',
+            'pay_element_groups', 'pay_element_group_members', 'pay_element_types',
         ]],
         'recruitment' => ['Recruitment', 'Candidates with their files, applications, interviews and feedback, offers, job positions with their rounds, the recruitment log and inbound applications. Employees hired from a candidate stay. Recruitment settings stay.', [
             'recruit_interview_feedback', 'recruit_interviews', 'job_offers', 'job_applications', 'candidate_files', 'recruit_logs',
@@ -138,11 +145,13 @@ class DataCleaner
         'employee_leave_quotas' => 'Leave balances', 'employee_leave_quota_events' => 'Leave balance events', 'employee_leave_quota_histories' => 'Leave balance history',
         'employee_fixed_leave_balance' => 'Fixed leave balances', 'employee_monthly_balance' => 'Monthly leave balances', 'leave_encashments' => 'Leave encashments',
         'leave_year_end_items' => 'Leave year-end lines', 'leave_year_end_runs' => 'Leave year-end runs', 'holidays' => 'Holidays',
-        'payslips' => 'Payslips', 'payslip_components' => 'Payslip extra lines (OT, bonus, recoveries)', 'payroll_arrangements' => 'Advances & loans',
+        'payslips' => 'Payslips', 'payslip_components' => 'Pay element lines (OT, add-ons, bonus, recoveries)', 'payroll_arrangements' => 'Advances & loans',
         'pay_element_rules' => 'Recurring pay rules', 'pay_element_rule_applications' => 'Recurring rule history', 'pay_element_groups' => 'Pay element groups',
         'pay_element_group_members' => 'Pay element group members', 'salary_revisions' => 'Salary revisions', 'salary_revision_logs' => 'Salary revision trail',
         'salary_revision_batches' => 'Salary revision batches', 'tax_declarations' => 'Tax declarations', 'payslip_mock_calculation' => 'Calculator scratch rows',
-        'ot_ledger' => 'OT bank used (LOP cover, encashed)', 'ot_daily' => 'Daily overtime', 'ot_past' => 'Past OT (imported)',
+        'ot_ledger' => 'OT bank used (LOP cover, encashed)', 'ot_daily' => 'Daily overtime hours', 'ot_past' => 'Past OT (imported)',
+        'payroll_lop_days' => 'LOP days set by HR (uploaded)', 'payroll_employee_switches' => 'Employees\' own payroll settings per period',
+        'pay_element_types' => 'Pay element types (recurring rules and advances on them go too)',
         'recruit_interview_feedback' => 'Interview feedback', 'recruit_interviews' => 'Interviews', 'job_offers' => 'Offers', 'job_applications' => 'Applications',
         'candidate_files' => 'Candidate files', 'recruit_logs' => 'Recruitment log', 'recruit_inbound' => 'Inbound applications (mail, careers page)',
         'candidates' => 'Candidates', 'job_positions' => 'Job positions (and their interview rounds)',
@@ -587,6 +596,21 @@ class DataCleaner
             if (Schema::hasTable('pay_element_rule_applications') && !$has('pay_element_rule_applications')) {
                 $n = DB::table('pay_element_rule_applications')->delete();
                 $n && $removed['pay_element_rule_applications'] = ($removed['pay_element_rule_applications'] ?? 0) + $n;
+            }
+        }
+        // Pay element types gone: recurring rules and advances on them go too (they could pay nothing), the
+        // lines not yet on a payslip with them; lines kept on payslips keep their label, the type link is cleared.
+        if ($has('pay_element_types')) {
+            foreach (['pay_element_rules', 'pay_element_rule_applications', 'payroll_arrangements'] as $table) {
+                if (Schema::hasTable($table) && !$has($table)) {
+                    $n = DB::table($table)->delete();
+                    $n && $removed[$table] = ($removed[$table] ?? 0) + $n;
+                }
+            }
+            if (Schema::hasTable('payslip_components') && !$has('payslip_components')) {
+                $n = DB::table('payslip_components')->whereNull('payslip_id')->where(fn ($q) => $q->whereNotNull('rule_id')->orWhereNotNull('arrangement_id'))->delete();
+                $n && $removed['payslip_components'] = ($removed['payslip_components'] ?? 0) + $n;
+                $note('payslip_components', DB::table('payslip_components')->whereNotNull('element_type_id')->update(['element_type_id' => null]), 'element_type_id');
             }
         }
         if ($has('pay_element_groups') && Schema::hasTable('pay_element_group_members') && !$has('pay_element_group_members')) {

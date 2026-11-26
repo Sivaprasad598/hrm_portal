@@ -41,6 +41,7 @@ class ExecutiveDashboardController extends AccountBaseController
         $o = new ExecutiveOverview();
         $this->people = $o->headcount();
         $this->attendance = $o->attendance();
+        $this->officeHours = $o->officeHours();
         $this->hiring = $o->recruitment();
         $this->work = $o->projects();
         $this->assets = $o->assets();

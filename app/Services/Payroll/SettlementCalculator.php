@@ -68,7 +68,9 @@ class SettlementCalculator
             $employee->basic_for_payroll !== null ? (float) $employee->basic_for_payroll : null,
             $periodDays,
             $days['days_present'],
-            (float) ($employee->monthly_tds ?? 0)
+            (float) ($employee->monthly_tds ?? 0),
+            null,
+            Statutory::flags($userId)
         );
 
         // The month's pay before PF, ESI and tax: gross less the attendance

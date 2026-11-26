@@ -73,7 +73,7 @@ class PayrollRegisterSheet implements FromArray, WithHeadings, WithTitle, WithEv
             'PF (employee)', 'ESI (employee)', 'PT', 'TDS', 'Total Deductions',
             'Extra Paid', 'Extra Deducted', 'Leave Encashment',
             'Net Paid', 'PF (employer)', 'ESI (employer)', 'Cost to Company',
-            'Status', 'Paid On', 'Reference'];
+            'Status', 'Paid On', 'Reference', 'Paid By', 'Bank Account', 'IFSC'];
     }
 
     public function array(): array
@@ -114,6 +114,9 @@ class PayrollRegisterSheet implements FromArray, WithHeadings, WithTitle, WithEv
                 ucfirst((string) $row['approval_status']),
                 $row['paid_at'] ? substr((string) $row['paid_at'], 0, 10) : '',
                 $row['payment_reference'] ?: '',
+                ($row['salary_paid_by'] ?? 'bank') === 'cash' ? 'Cash' : 'Bank',
+                ($row['salary_paid_by'] ?? 'bank') === 'cash' ? '' : (string) ($row['personal_account_number'] ?? ''),
+                ($row['salary_paid_by'] ?? 'bank') === 'cash' ? '' : (string) ($row['ifsc_code'] ?? ''),
             ];
         }
 

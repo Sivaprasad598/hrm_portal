@@ -36,8 +36,29 @@ class PayslipSettingController extends AccountBaseController
         $this->payslipTemplate = $templates->selected();
 
         $this->useBiometricAttendance = \App\Services\Payroll\AttendanceGate::useBiometric(company()?->id);
+        $this->deductLateComings = \App\Services\Payroll\AttendanceGate::deductLateComings(company()?->id);
+        $this->prorateStatutory = (bool) (DB::table('payroll_calculations')->orderByDesc('id')->value('prorate_statutory') ?? true);
 
         return view('payslip-settings.index', $this->data);
+    }
+
+    /**
+     * Payroll Calculation switches: "Deduct late comings" (payroll_options) and "Reduce PF / ESI for unpaid days"
+     * (the payroll calculation in use, which the salary calculator reads).
+     */
+    public function saveCalculationSwitch(\Illuminate\Http\Request $request)
+    {
+        $request->validate(['switch' => 'required|in:deduct_late_comings,prorate_statutory']);
+        $on = $request->boolean('on');
+
+        if ($request->switch === 'deduct_late_comings') {
+            \App\Services\Payroll\AttendanceGate::setOption(company()?->id, 'deduct_late_comings', $on);
+        } else {
+            $id = DB::table('payroll_calculations')->orderByDesc('id')->value('id');
+            $id && DB::table('payroll_calculations')->where('id', $id)->update(['prorate_statutory' => $on]);
+        }
+
+        return Reply::success(__('messages.updateSuccess'));
     }
 
     /** Payroll Calculation -> "Use biometric attendance for payroll" (AttendanceGate). */

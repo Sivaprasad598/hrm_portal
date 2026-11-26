@@ -512,6 +512,7 @@ $probationMonths = (int) (\Illuminate\Support\Facades\DB::table('probation_perio
                                 </div>
                             </div>
                         </div>
+                        @include('employees.ajax.partials.statutory', ['detail' => $employee->employeeDetail])
 
                         <div class="col-lg-3 col-md-6 d-none internship-date">
                             <x-forms.datepicker fieldId="internship_end_date" :fieldLabel="__('modules.employees.internshipEndDate')"

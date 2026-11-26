@@ -39,6 +39,28 @@ class AttendanceGate
         return $value === null ? true : (bool) $value;
     }
 
+    /** Payroll Settings -> "Deduct late comings" (on unless switched off). */
+    public static function deductLateComings(?int $companyId = null): bool
+    {
+        static $memo = [];
+
+        if (!\App\Support\SchemaCache::hasColumn('payroll_options', 'deduct_late_comings')) {
+            return true;
+        }
+
+        return $memo[(int) $companyId] ??= (bool) (DB::table('payroll_options')
+            ->when($companyId, fn ($q) => $q->where('company_id', $companyId))
+            ->orderBy('id')->value('deduct_late_comings') ?? true);
+    }
+
+    public static function setOption(?int $companyId, string $column, bool $on): void
+    {
+        $existing = DB::table('payroll_options')->where('company_id', $companyId)->first(['id']);
+        $existing
+            ? DB::table('payroll_options')->where('id', $existing->id)->update([$column => $on, 'updated_at' => now()])
+            : DB::table('payroll_options')->insert(['company_id' => $companyId, $column => $on, 'created_at' => now(), 'updated_at' => now()]);
+    }
+
     public static function setUseBiometric(?int $companyId, bool $on): void
     {
         $existing = DB::table('payroll_options')->where('company_id', $companyId)->first(['id']);
